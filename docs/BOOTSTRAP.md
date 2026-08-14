@@ -386,6 +386,8 @@ Closing Desktop may stop the Phase 1 `yorvad` process. This does **not** imply t
 
 The Desktop owns the child for the whole session. Startup has a bounded handshake deadline; a write failure, malformed handshake, early exit, or timeout moves the lifecycle to a safe failed state and cleans up any child that was already spawned. A synchronous bootstrap failure must not abort the Tauri application because React must remain able to render the safe failure state.
 
+The native lifecycle is authoritative for that deadline. While `daemon_session` returns `DAEMON_NOT_READY`, React remains in the starting state and continues observing it; React must not impose a shorter independent retry budget. Observation stops only when the native lifecycle returns a ready session or a stable terminal failure such as `DAEMON_STARTUP_FAILED`.
+
 For normal Desktop shutdown, Tauri writes one `{"type":"shutdown"}` control record to the existing child stdin and waits for a bounded graceful exit before using forced termination as a fallback. `yorvad` also treats stdin EOF as parent death, cancels its root work, and shuts down its HTTP server. The bootstrap/control pipe never carries the token after the initial bootstrap record and is not a general command channel.
 
 ### 8.2 Listen address
