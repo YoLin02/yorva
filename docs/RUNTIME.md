@@ -241,7 +241,7 @@ Hermes discovery command descriptors are closed and argument-safe: either an enu
 
 The adapter owns a support policy.
 
-For Phase 2 amendment 002A1, stable Hermes `0.19.x` and `0.20.x` are supported (`>=0.19.0 <0.21.0`). This includes the current official stable package version `0.20.1` reviewed on 2026-08-14. Prereleases and `0.21.0` or later remain unsupported until explicitly reviewed.
+For accepted Phase 2 amendment 002A1, stable Hermes `0.19.x` and `0.20.x` are supported (`>=0.19.0 <0.21.0`). This includes the current official stable package version `0.20.1` reviewed on 2026-08-14. Prereleases and `0.21.0` or later remain unsupported until explicitly reviewed.
 
 Detection returns:
 

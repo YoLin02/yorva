@@ -597,17 +597,27 @@ The earlier merge of the Phase 1 implementation tree into `main` remains impleme
 
 `docs/phases/PHASE-002-hermes-discovery.md` is the Phase 2 execution contract.
 
-Phase 2 acceptance record:
+Phase 2 original acceptance record:
 
 - initial independent audit: `docs/phases/audits/AUDIT-002-hermes-discovery.md` — `FAIL`, preserved;
 - final independent re-audit: `docs/phases/audits/AUDIT-002R1-hermes-discovery.md` — `PASS`;
 - audit-accepted implementation commit: `b875b2c496269d3bf91097395cae5fb53dc63350`;
 - exact-commit CI: GitHub Actions run `31795039599` — `PASS`, including Go race and Windows native/Tauri;
 - main merge commit: `0b31ff72f34f743b285eac4bc0bd4c8ced5096c1`;
-- formal status: `COMPLETE / FROZEN`;
-- formal baseline: annotated tag `phase-002-hermes-discovery-baseline` on the final freeze commit in `main`.
+- historical formal baseline: annotated tag `phase-002-hermes-discovery-baseline` on `a67de04e900bc3ddce99cd76501eec13586082ed`. This tag is immutable and must not be moved or deleted.
 
-The merge commit records implementation history. Formal Phase 2 acceptance occurs at the subsequent freeze commit after the independent R1 `PASS` and exact-commit CI `PASS`. No history was rewritten. Phase 3 implementation remains prohibited until the formal baseline tag is created and pushed.
+Phase 2 amendment 002A1 acceptance record:
+
+- amendment: `docs/phases/amendments/AMENDMENT-002A1-hermes-windows-command-resolution.md` — `ACCEPTED`;
+- independent amendment audit: `docs/phases/audits/AUDIT-002A1-hermes-discovery.md` — `PASS`;
+- amendment implementation commit: `dbcb54da4bc4bffcff51888426848246a1900ea6`;
+- exact-commit CI: GitHub Actions run `31817886874` — `PASS`, including Go race and Windows native/Tauri;
+- amendment merge commit: `f786b9d73768de38875f0a57fa7d57c75168ed85`;
+- current compatibility range: `>=0.19.0 <0.21.0`;
+- formal status: `COMPLETE / FROZEN`;
+- current formal baseline: annotated tag `phase-002-hermes-discovery-baseline-r1` on the amendment freeze commit in `main`.
+
+The original tag remains valid historical evidence and is superseded, not rewritten. Phase 3 implementation remains prohibited until `phase-002-hermes-discovery-baseline-r1` exists and is pushed.
 
 ---
 

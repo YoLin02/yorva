@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phase 1 and Phase 2 frozen; Phase 2 `AUDIT-002R1` PASS
+> Status: Phase 1 and Phase 2 frozen; Phase 2 amendment 002A1 ACCEPTED (`AUDIT-002A1` PASS); current baseline `phase-002-hermes-discovery-baseline-r1`
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**

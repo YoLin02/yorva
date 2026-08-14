@@ -70,10 +70,13 @@ Exit criteria:
 ## Phase 2 — Hermes Discovery & Compatibility
 
 Status: **COMPLETE / FROZEN**
-Gate: **PASS** (`AUDIT-002R1-hermes-discovery.md`)
+Gate: **PASS** (`AUDIT-002R1-hermes-discovery.md`); amendment 002A1 **ACCEPTED** (`AUDIT-002A1-hermes-discovery.md` — `PASS`)
 Spec: `docs/phases/PHASE-002-hermes-discovery.md`
-Baseline: `phase-002-hermes-discovery-baseline`
-Audit-accepted implementation commit: `b875b2c496269d3bf91097395cae5fb53dc63350`
+Amendment: `docs/phases/amendments/AMENDMENT-002A1-hermes-windows-command-resolution.md`
+Historical baseline: `phase-002-hermes-discovery-baseline` → `a67de04e900bc3ddce99cd76501eec13586082ed` (immutable)
+Current baseline: `phase-002-hermes-discovery-baseline-r1`
+Amendment implementation commit: `dbcb54da4bc4bffcff51888426848246a1900ea6`
+Compatibility: `>=0.19.0 <0.21.0`
 
 Goal: detect Hermes and report executable/version compatibility without mutating the machine.
 

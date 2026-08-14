@@ -1,12 +1,13 @@
 # YORVA Phase 2 Amendment 002A1 — Closed Loop and Baseline Re-Freeze Control
 
 > Role: Phase 2 revision closed-loop / baseline re-freeze control record  
-> Date: 2026-08-14  
+> Date: 2026-08-15  
 > Controller: Phase 2 002A1 control agent  
 > Owner: Repository owner  
-> Current loop state: `LOCAL_VERIFICATION_PASS`  
+> Current loop state: `COMPLETE / FROZEN`  
 > Owner desktop manual test: PASS  
-> Freeze requested: no
+> Amendment gate: PASS  
+> Freeze requested: yes — replacement tag `phase-002-hermes-discovery-baseline-r1`
 
 ## 1. Authority
 
@@ -42,29 +43,27 @@ merge:  0b31ff72f34f743b285eac4bc0bd4c8ced5096c1
 ## 3. Current snapshot
 
 ```text
-branch:  fix/phase2-hermes-command-resolution
-HEAD:    a67de04e900bc3ddce99cd76501eec13586082ed
-tree:    uncommitted amendment implementation + docs
-scope:   Windows official-root Python fallback + 0.20.x compatibility
+branch:  main
+implementation: dbcb54da4bc4bffcff51888426848246a1900ea6
+audit report:   99564fb147d8fa06939d3bc8331d778ceb7e6d1f
+merge:          f786b9d73768de38875f0a57fa7d57c75168ed85
+ci:             GitHub Actions run 31817886874 PASS
+scope:          Windows official-root Python fallback + 0.20.x compatibility
 ```
-
-The working tree is the audit target. No amendment commit exists yet. That is
-intentional: the exact audited tree is committed only after the independent
-gate, matching the Phase 2 freeze sequence.
 
 ## 4. Closed loop
 
 ```text
 Amendment classification          DONE
-Narrow implementation             DONE (working tree)
+Narrow implementation             DONE
 Owner desktop manual test         PASS
 Independent local verification    PASS except Go race (environment blocked)
-Independent AUDIT-002A1           BLOCKED until exact-commit CI PASS
-Gate Decision                     BLOCKED
-Exact-commit GitHub Actions       BLOCKED until implementation commit exists
-Merge to main                     BLOCKED
-Replacement baseline freeze       BLOCKED
-Phase 3 implementation            PROHIBITED
+Exact-commit GitHub Actions       PASS — run 31817886874 on dbcb54d
+Independent AUDIT-002A1           PASS
+Gate Decision                     PASS
+Merge to main                     DONE — f786b9d73768de38875f0a57fa7d57c75168ed85
+Replacement baseline freeze       IN PROGRESS
+Phase 3 implementation            PROHIBITED until r1 tag is pushed
 ```
 
 ## 5. Hard stops
@@ -184,3 +183,7 @@ Phase 3 entry: replacement tag exists and is pushed
 | 2026-08-14 | Premature working-tree audit cancelled | Independent audit waits for exact-commit CI |
 | 2026-08-14 | Owner confirmed new EXE manual test PASS | Local verification matrix authorized |
 | 2026-08-14 | Local verification PASS except Go race | Implementation commit authorized; race remains a CI gate |
+| 2026-08-14 | Implementation commit `dbcb54d` pushed | Exact-commit CI run `31817886874` required |
+| 2026-08-14 | Exact-commit CI PASS | Independent `AUDIT-002A1` authorized |
+| 2026-08-15 | Independent `AUDIT-002A1` PASS | Merge and replacement freeze authorized |
+| 2026-08-15 | Merged to `main` as `f786b9d` | Historical tag unchanged; r1 freeze in progress |

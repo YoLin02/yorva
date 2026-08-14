@@ -1,13 +1,17 @@
 # YORVA Phase 2 Baseline Amendment 002A1 — Windows Hermes Command Resolution and 0.20 Compatibility
 
-> Status: LOCAL VERIFICATION PASS — awaiting exact-commit CI and independent audit  
-> Date: 2026-08-14  
+> Status: ACCEPTED / COMPLETE / FROZEN  
+> Date: 2026-08-15  
 > Owner: Repository owner  
-> Frozen baseline: `phase-002-hermes-discovery-baseline`  
-> Frozen baseline commit: `a67de04e900bc3ddce99cd76501eec13586082ed`  
-> Related audit: `AUDIT-002R1-hermes-discovery.md` — PASS (preserved)  
-> Control: `CONTROL-002A1-baseline-re-freeze.md`  
-> Independent audit: `docs/phases/audits/AUDIT-002A1-hermes-discovery.md` — not started; requires exact implementation commit CI PASS
+> Historical frozen baseline: `phase-002-hermes-discovery-baseline` → `a67de04e900bc3ddce99cd76501eec13586082ed` (immutable)  
+> Current baseline: `phase-002-hermes-discovery-baseline-r1`  
+> Related historical audit: `AUDIT-002R1-hermes-discovery.md` — PASS (preserved)  
+> Amendment gate: `AUDIT-002A1-hermes-discovery.md` — PASS  
+> Implementation commit: `dbcb54da4bc4bffcff51888426848246a1900ea6`  
+> Exact-commit CI: GitHub Actions run `31817886874` — PASS  
+> Merge commit: `f786b9d73768de38875f0a57fa7d57c75168ed85`  
+> Compatibility: `>=0.19.0 <0.21.0`  
+> Control: `CONTROL-002A1-baseline-re-freeze.md`
 
 ## Defect classification
 
@@ -90,4 +94,4 @@ Local `go test -race ./...` is environment-blocked because cgo cannot find `gcc`
 
 ## Acceptance rule
 
-Until the independent amendment audit returns `PASS`, this document remains an implementation record only. Do not merge it to `main`, move or replace `phase-002-hermes-discovery-baseline`, or begin Phase 3 implementation. The closed-loop and replacement-baseline sequence is owned by `CONTROL-002A1-baseline-re-freeze.md`.
+Amendment 002A1 is accepted. The independent audit returned `PASS`, exact-commit CI run `31817886874` passed on `dbcb54da4bc4bffcff51888426848246a1900ea6`, and the amendment is merged to `main`. The historical tag `phase-002-hermes-discovery-baseline` remains at `a67de04e900bc3ddce99cd76501eec13586082ed`. The current Phase 2 baseline is `phase-002-hermes-discovery-baseline-r1`. Phase 3 implementation remains prohibited until that replacement tag exists and is pushed.
