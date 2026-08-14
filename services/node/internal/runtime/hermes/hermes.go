@@ -1,7 +1,4 @@
-// Package hermes owns the Phase 1 static Hermes Runtime registration.
-//
-// It intentionally performs no discovery and contains no Hermes CLI, PATH,
-// Python, configuration, or filesystem integration.
+// Package hermes owns the Hermes Runtime integration boundary.
 package hermes
 
 import yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
@@ -15,5 +12,6 @@ func Register(registry *yorvaruntime.Registry) error {
 			Name:        "Hermes Agent",
 			Description: "Hermes Agent Runtime",
 		},
+		Discoverer: NewDetector(),
 	})
 }

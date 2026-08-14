@@ -1,4 +1,4 @@
-import type { DaemonSession, ErrorResponse, Health, Node } from "./types";
+import type { DaemonSession, ErrorResponse, Health, Node, RuntimeDiscovery } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -21,6 +21,8 @@ export type StreamEvent = {
 };
 
 export type DaemonClient = ReturnType<typeof createDaemonClient>;
+
+const desktopDiscoveryTimeoutMs = 12_000;
 
 export function createDaemonClient(session: DaemonSession) {
   async function request<T>(path: string, init: RequestInit = {}, authenticated = true): Promise<T> {
@@ -78,6 +80,13 @@ export function createDaemonClient(session: DaemonSession) {
   return {
     getHealth: (signal?: AbortSignal) => request<Health>("/api/v1/health", { signal }, false),
     getNode: (signal?: AbortSignal) => request<Node>("/api/v1/node", { signal }),
+    detectHermes: (signal?: AbortSignal) =>
+      request<RuntimeDiscovery>("/api/v1/runtimes/hermes/detect", {
+        method: "POST",
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(desktopDiscoveryTimeoutMs)])
+          : AbortSignal.timeout(desktopDiscoveryTimeoutMs),
+      }),
     connectEvents,
   };
 }

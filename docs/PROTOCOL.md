@@ -119,16 +119,18 @@ Errors:
 
 `message` is safe for users. Internal stack traces/command output are not returned by default.
 
-Phase 1 routing and authentication errors use the same envelope:
+Local routing and authentication errors use the same envelope:
 
 | HTTP status | Stable code | Meaning |
 | --- | --- | --- |
-| `401` | `UNAUTHORIZED` | Missing or invalid bearer credential on `/node` or `/events`. |
+| `401` | `UNAUTHORIZED` | Missing or invalid bearer credential on an authenticated resource. |
 | `403` | `ORIGIN_NOT_ALLOWED` | A request supplied an Origin outside the Desktop allowlist. |
 | `404` | `NOT_FOUND` | The local API route is unknown. |
-| `405` | `METHOD_NOT_ALLOWED` | A known resource received a method other than `GET` or `OPTIONS`. |
+| `405` | `METHOD_NOT_ALLOWED` | A known resource received a method outside its advertised `Allow` set. |
+| `404` | `RUNTIME_KIND_NOT_FOUND` | The requested Runtime kind is not registered for discovery. |
+| `500` | `RUNTIME_DISCOVERY_FAILED` | Discovery failed unexpectedly; internal process output is not exposed. |
 
-`OPTIONS` is an unauthenticated CORS preflight only for the three known Phase 1 paths. An approved Desktop Origin receives `204` and `Allow: GET, OPTIONS`; an unknown path receives the structured `404`, and a rejected Origin receives the structured `403` before routing. This does not grant access to the authenticated resource response.
+`OPTIONS` is an unauthenticated CORS preflight only for known paths. An approved Desktop Origin receives `204`; read resources advertise `Allow: GET, OPTIONS` and Runtime discovery advertises `Allow: POST, OPTIONS`. An unknown path receives the structured `404`, and a rejected Origin receives the structured `403` before routing. This does not grant access to the authenticated resource response.
 
 ## 7. Core local resources
 
@@ -139,17 +141,13 @@ GET /api/v1/node
 GET /api/v1/health
 ```
 
-### Runtime installations
+### Runtime discovery
 
 ```text
-GET  /api/v1/runtimes
 POST /api/v1/runtimes/{runtimeKind}/detect
-POST /api/v1/runtimes/{runtimeKind}/install
-POST /api/v1/runtimes/{runtimeId}/upgrade
-GET  /api/v1/runtimes/{runtimeId}
 ```
 
-Install/upgrade return an Operation.
+Phase 2 implements only authenticated, read-only discovery for the registered `hermes` kind. It accepts no executable path or arguments. Completed negative outcomes are HTTP `200` typed results with state, stable error code, candidates, warnings, detection time and supported range. Installation, upgrade and persisted Runtime installation resources are later-phase contracts.
 
 ### Instances
 

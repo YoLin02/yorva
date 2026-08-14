@@ -69,7 +69,7 @@ Exit criteria:
 
 ## Phase 2 — Hermes Discovery & Compatibility
 
-Status: **READY** (Specification complete; implementation not started)
+Status: **PASSED** (`AUDIT-002R1` PASS; exact-commit CI, merge and baseline freeze pending)
 Spec: `docs/phases/PHASE-002-hermes-discovery.md`
 Baseline: `phase-001-bootstrap-baseline`
 
@@ -84,6 +84,7 @@ Deliverables:
 - deterministic multiple-candidate selection;
 - authenticated discovery API/OpenAPI contract;
 - Desktop discovery status view.
+- Dashboard / Runtimes / Settings Desktop shell with persistent English and Simplified Chinese locales.
 
 Exit criteria:
 

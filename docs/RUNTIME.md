@@ -38,43 +38,42 @@ The descriptor is static product metadata, not detection state.
 
 ## 5. Detection
 
-Every adapter implements detection.
-
-Conceptual contract:
+Phase 2 adds one focused, read-only discovery capability to a registered Runtime bundle:
 
 ```go
-type Adapter interface {
-    Descriptor() Descriptor
-    Detect(ctx context.Context) (Detection, error)
-    Capabilities(ctx context.Context, installation Installation) (Capabilities, error)
+type Discoverer interface {
+    Detect(ctx context.Context) (Discovery, error)
+}
+
+type Discovery struct {
+    RuntimeKind    RuntimeKind
+    State          DiscoveryState
+    ErrorCode      ErrorCode
+    Selected       *Candidate
+    Candidates     []Candidate
+    Warnings       []Warning
+    DetectedAt     time.Time
+    SupportedRange string
 }
 ```
 
-Detection returns normalized data such as:
-
-```go
-type Detection struct {
-    Installed   bool
-    Path        string
-    Version     string
-    Supported   bool
-    Warnings    []Warning
-}
-```
-
-Detection must not mutate the machine.
-
-### Phase 1 bootstrap scaffold
-
-Phase 1 registers only the static Hermes Descriptor/Skeleton. It does not perform Runtime discovery.
-
-If the compile-time contract requires the Phase 1 scaffold to expose `Detect`, that method must return the typed result/error code:
+Normalized discovery states are:
 
 ```text
-RUNTIME_DISCOVERY_NOT_AVAILABLE
+NOT_INSTALLED
+SUPPORTED
+UNSUPPORTED
+BROKEN_EXECUTABLE
+MALFORMED_VERSION
+TIMED_OUT
+AMBIGUOUS
 ```
 
-The Phase 1 method must not inspect `PATH`, read Runtime files, discover Python, invoke Hermes CLI or perform any other machine probe. `RUNTIME_DISCOVERY_NOT_AVAILABLE` means discovery was not attempted; it must not be represented as `Detection{Installed: false}` or otherwise be confused with a completed detection whose result is "not installed".
+The application use case resolves the Runtime kind through the registry and owns the ten-second overall deadline. The Hermes adapter owns candidate enumeration, direct `--version` execution, version parsing, compatibility and aggregation. Discovery must not mutate the machine. It is a live query: Phase 2 does not persist or cache its result.
+
+On Windows, the Hermes adapter distinguishes a safely invocable CLI candidate from trusted installation evidence. It checks only the documented `%LOCALAPPDATA%\hermes\hermes-agent` root and fixed official-layout markers. A regular `hermes.exe` candidate may be executed with `--version`; the repository wrapper, package marker and `hermes-agent.exe` are evidence only and are never executed. Trusted evidence with a missing safe launcher is `BROKEN_EXECUTABLE`. `NOT_INSTALLED` is reserved for the absence of both a candidate and trusted installation evidence.
+
+If exactly one candidate is runnable, it is selected even when other candidates are unusable. If two or more distinct candidates are runnable, discovery returns `AMBIGUOUS` with no selection. Cancellation returns `context.Canceled`; completed negative states return typed discovery data.
 
 ## 6. Feature contracts
 
@@ -165,7 +164,8 @@ Conceptual shape:
 
 ```go
 type RuntimeBundle struct {
-    Adapter      Adapter
+    Descriptor   Descriptor
+    Discoverer   Discoverer
     Installer    Installer
     Instances    InstanceManager
     Lifecycle    LifecycleManager

@@ -9,6 +9,7 @@ const sessionMocks = vi.hoisted(() => ({
 
 const clientMocks = vi.hoisted(() => ({
   getNode: vi.fn(),
+  detectHermes: vi.fn(),
 }));
 
 vi.mock("./api/session", () => ({
@@ -22,6 +23,7 @@ vi.mock("./api/session", () => ({
 vi.mock("./api/client", () => ({
   createDaemonClient: () => ({
     getNode: clientMocks.getNode,
+    detectHermes: clientMocks.detectHermes,
   }),
 }));
 
@@ -65,6 +67,17 @@ describe("App daemon startup", () => {
     sessionMocks.getDaemonSession.mockReset();
     clientMocks.getNode.mockReset();
     clientMocks.getNode.mockResolvedValue(node);
+    clientMocks.detectHermes.mockReset();
+    clientMocks.detectHermes.mockResolvedValue({
+      runtimeKind: "hermes",
+      state: "NOT_INSTALLED",
+      errorCode: "RUNTIME_NOT_INSTALLED",
+      selected: null,
+      candidates: [],
+      warnings: [],
+      detectedAt: "2026-08-14T00:00:00Z",
+      supportedRange: ">=0.19.0 <0.20.0",
+    });
   });
 
   afterEach(() => {

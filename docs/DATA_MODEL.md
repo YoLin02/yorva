@@ -46,6 +46,8 @@ Do not store Cloud auth secrets in this table.
 
 Represents a detected/managed Runtime installation.
 
+Phase 2 does not create this table or persist discovery responses. Hermes discovery is live and Runtime-authoritative; this conceptual model remains reserved for a later phase that explicitly accepts/manages an installation and adds a migration.
+
 ```text
 id                TEXT PRIMARY KEY
 node_id           TEXT NOT NULL REFERENCES nodes(id)
@@ -267,6 +269,7 @@ Do not duplicate by default:
 - API key plaintext;
 - OAuth/channel token plaintext;
 - QR codes after authentication;
+- Phase 2 Hermes discovery responses or executable candidates;
 - arbitrary Runtime logs forever.
 
 ## 15. Reconciliation behavior

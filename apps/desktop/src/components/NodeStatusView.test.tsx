@@ -1,6 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { messages } from "../i18n";
 import { NodeStatusView } from "./NodeStatusView";
+
+const copy = messages["en-US"];
 
 const node = {
   id: "node_test",
@@ -15,26 +18,26 @@ const node = {
 
 describe("NodeStatusView", () => {
   it("renders the starting state", () => {
-    render(<NodeStatusView state={{ kind: "starting" }} />);
+    render(<NodeStatusView state={{ kind: "starting" }} copy={copy} />);
     expect(screen.getByRole("status")).toHaveTextContent("Starting local node");
   });
 
   it("renders the connected Node state", () => {
-    render(<NodeStatusView state={{ kind: "connected", node, eventStatus: "connected" }} />);
+    render(<NodeStatusView state={{ kind: "connected", node, eventStatus: "connected" }} copy={copy} />);
     expect(screen.getByText("DESKTOP-TEST")).toBeInTheDocument();
     expect(screen.getByText("node_test")).toBeInTheDocument();
-    expect(screen.getByText("connected")).toBeInTheDocument();
+    expect(screen.getByText("Connected")).toBeInTheDocument();
   });
 
   it("renders the failure state", () => {
-    render(<NodeStatusView state={{ kind: "failure", message: "The local Node could not be reached." }} />);
+    render(<NodeStatusView state={{ kind: "failure", message: "The local Node could not be reached." }} copy={copy} />);
     expect(screen.getByRole("alert")).toHaveTextContent("The local Node could not be reached.");
   });
 
   it("renders Node metadata as text", () => {
     const unsafeNode = { ...node, name: "<script>unsafe()</script>" };
     const { container } = render(
-      <NodeStatusView state={{ kind: "connected", node: unsafeNode, eventStatus: "connected" }} />,
+      <NodeStatusView state={{ kind: "connected", node: unsafeNode, eventStatus: "connected" }} copy={copy} />,
     );
     expect(screen.getByText("<script>unsafe()</script>")).toBeInTheDocument();
     expect(container.querySelector("script")).toBeNull();

@@ -152,6 +152,8 @@ When an adapter invokes CLI commands:
 
 Generic arbitrary shell endpoints are forbidden.
 
+Phase 2 Hermes discovery applies this boundary concretely: `yorvad` enumerates only bounded documented candidates, resolves an absolute regular executable, and invokes it directly with the constant argv `--version`. On Windows it may stat only fixed official-layout markers below `%LOCALAPPDATA%\hermes\hermes-agent` to distinguish an incomplete installation from no installation; those markers, the Python wrapper and `hermes-agent.exe` are never executed. It evaluates at most eight candidates, limits stdout and stderr separately to 64 KiB, uses a three-second per-candidate timeout and a ten-second overall application deadline, and owns the full child process tree with a Windows Job Object or Unix process group. Windows children are created suspended, assigned to the kill-on-close Job Object, and only then resumed so descendants cannot escape before ownership is established. Cancellation, timeout, output overflow and normal return terminate any remaining descendants and wait/reap the direct child. The child receives an allowlisted environment containing only OS execution essentials and Hermes location variables; provider credentials and arbitrary inherited values are excluded. Raw command output is not returned through HTTP or Desktop. One structured application-level outcome record contains only Runtime kind, stable state/error code, counts, duration and timeout/cancellation flags; it excludes executable paths, command output, raw errors and environment values.
+
 ## 10. Privilege model
 
 `yorvad` runs as the normal user by default.
