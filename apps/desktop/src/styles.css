@@ -1,0 +1,121 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #f5f7f4;
+  background: #0b100e;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 3rem;
+  background:
+    radial-gradient(circle at 78% 18%, rgb(82 172 126 / 18%), transparent 28rem),
+    linear-gradient(145deg, #121a16 0%, #080b0a 72%);
+}
+
+.intro {
+  width: min(42rem, 100%);
+  padding: clamp(2rem, 6vw, 4rem);
+  border: 1px solid rgb(185 235 204 / 16%);
+  border-radius: 1.5rem;
+  background: rgb(15 22 19 / 76%);
+  box-shadow: 0 2rem 6rem rgb(0 0 0 / 28%);
+}
+
+.eyebrow {
+  margin: 0 0 1rem;
+  color: #85d6a8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(4rem, 15vw, 8rem);
+  font-weight: 800;
+  letter-spacing: -0.075em;
+  line-height: 0.88;
+}
+
+.status-card {
+  margin-top: 2.25rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgb(185 235 204 / 12%);
+}
+
+.status-card p {
+  max-width: 34rem;
+  margin: 1rem 0 0;
+  color: #b9c5be;
+  line-height: 1.6;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: #dce8df;
+  font-size: 0.9rem;
+}
+
+.status-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  background: #d4a452;
+  box-shadow: 0 0 1rem rgb(212 164 82 / 55%);
+}
+
+.status-ready .status-dot {
+  background: #72d99b;
+  box-shadow: 0 0 1rem rgb(114 217 155 / 55%);
+}
+
+.status-error .status-dot {
+  background: #ef7f72;
+  box-shadow: 0 0 1rem rgb(239 127 114 / 48%);
+}
+
+.node-details {
+  display: grid;
+  gap: 0;
+  margin: 1.5rem 0 0;
+}
+
+.node-details div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.45fr) 1fr;
+  gap: 1rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid rgb(185 235 204 / 8%);
+}
+
+.node-details dt {
+  color: #7f9187;
+}
+
+.node-details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #e1e9e4;
+}

@@ -1,0 +1,23 @@
+{
+  "name": "yorva",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": "22.23.1",
+    "pnpm": "11.15.1"
+  },
+  "scripts": {
+    "api:generate": "openapi-typescript api/openapi.yaml -o apps/desktop/src/api/generated/schema.ts",
+    "api:lint": "redocly lint api/openapi.yaml",
+    "build:sidecar": "node scripts/build-sidecar.mjs",
+    "build": "pnpm --recursive --if-present build",
+    "lint": "pnpm --recursive --if-present lint",
+    "test": "pnpm --recursive --if-present test",
+    "typecheck": "pnpm --recursive --if-present typecheck"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.46.1",
+    "openapi-typescript": "7.13.0"
+  }
+}

@@ -119,6 +119,17 @@ Errors:
 
 `message` is safe for users. Internal stack traces/command output are not returned by default.
 
+Phase 1 routing and authentication errors use the same envelope:
+
+| HTTP status | Stable code | Meaning |
+| --- | --- | --- |
+| `401` | `UNAUTHORIZED` | Missing or invalid bearer credential on `/node` or `/events`. |
+| `403` | `ORIGIN_NOT_ALLOWED` | A request supplied an Origin outside the Desktop allowlist. |
+| `404` | `NOT_FOUND` | The local API route is unknown. |
+| `405` | `METHOD_NOT_ALLOWED` | A known resource received a method other than `GET` or `OPTIONS`. |
+
+`OPTIONS` is an unauthenticated CORS preflight only for the three known Phase 1 paths. An approved Desktop Origin receives `204` and `Allow: GET, OPTIONS`; an unknown path receives the structured `404`, and a rejected Origin receives the structured `403` before routing. This does not grant access to the authenticated resource response.
+
 ## 7. Core local resources
 
 ### Node
