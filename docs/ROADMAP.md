@@ -1,0 +1,263 @@
+# YORVA Roadmap
+
+## Product direction
+
+YORVA starts as a local Hermes deployment/control experience and evolves into a general AI Runtime deployment and control platform.
+
+Roadmap rules:
+
+> Do not build the next phase to compensate for an unfinished current phase.
+
+> Every implementation phase must pass the audit/gate process in `PHASE_GOVERNANCE.md` and `AUDIT_STANDARD.md` before the next phase begins.
+
+`ROADMAP.md` defines direction and candidate deliverables. Detailed implementation is authorized by the current Phase Spec, not by roadmap text alone.
+
+## Phase 0 — Architecture freeze
+
+Goal: make the repository safe for agent-assisted initialization.
+
+Deliverables:
+
+- `DEVELOPMENT.md`;
+- `ARCHITECTURE.md`;
+- `AGENTS.md`;
+- `PROTOCOL.md`;
+- `RUNTIME.md`;
+- `DATA_MODEL.md`;
+- `SECURITY.md`;
+- ADR-0001 through ADR-0004;
+- repository bootstrap plan.
+
+Exit criteria:
+
+- no unresolved primary technology choice;
+- clear module boundaries;
+- clear local protocol;
+- Hermes integration boundary documented;
+- secret/storage model documented;
+- Phase 0 document readiness review completed.
+
+## Phase 1 — Repository foundation
+
+Goal: create a minimal runnable YORVA shell with no fake business features.
+
+Deliverables:
+
+```text
+Tauri 2 + React Desktop
+Go yorvad
+SQLite migrations
+OpenAPI v1 skeleton
+minimal unauthenticated health + authenticated Node/bootstrap
+SSE event channel
+Hermes adapter registry skeleton
+CI: build/typecheck/test
+```
+
+Exit criteria:
+
+- Desktop starts daemon or discovers it safely;
+- Desktop can read authenticated Node information;
+- schema migrates from empty DB;
+- no Hermes command is called from React/Tauri UI code;
+- Phase 1 audit passes and the logical target baseline `phase-001-bootstrap-baseline` is frozen; the final commit/tag is selected after the audit.
+
+## Phase 2 — Hermes discovery and installation
+
+Goal: make Hermes visible and installable without terminal use.
+
+Deliverables:
+
+- detect Hermes;
+- version/support reporting;
+- installation Operation;
+- post-install verification;
+- Runtime capability view;
+- structured install logs with redaction.
+
+Exit criteria:
+
+```text
+Fresh supported Windows machine
+→ open YORVA
+→ detect missing Hermes
+→ install Hermes
+→ verify supported installation
+```
+
+Normal path requires no manual CLI.
+
+## Phase 3 — Instance/Profile management
+
+Goal: manage multiple Hermes-backed YORVA instances.
+
+Deliverables:
+
+- list profiles as Instances;
+- create Instance;
+- delete Instance with explicit confirmation;
+- reconcile external profile changes;
+- instance capability/status view;
+- lifecycle actions where Hermes supports the requested scope.
+
+Exit criteria:
+
+- multiple independent Hermes profiles are discoverable and manageable;
+- YORVA recovers if profiles are changed outside YORVA.
+
+## Phase 4 — Models and credentials
+
+Goal: make model configuration safe and simple.
+
+Deliverables:
+
+- provider/model configuration UI;
+- write-only credential mutation;
+- secure-store integration;
+- credential status metadata;
+- configuration validation;
+- secret-redaction tests.
+
+Exit criteria:
+
+- user can configure a working Hermes model without editing `.env` or YAML;
+- no API key plaintext appears in SQLite or ordinary logs.
+
+## Phase 5 — Messaging channels
+
+Goal: deliver the key YORVA promise: one-click channel connection.
+
+Priority:
+
+1. Weixin;
+2. WeCom;
+3. additional Hermes channels based on actual user demand.
+
+Deliverables:
+
+- channel capability list;
+- connect/disconnect workflow;
+- QR/login Operation;
+- live QR state events;
+- success/failure/timeout states;
+- no durable QR credential storage.
+
+Exit criteria:
+
+```text
+Instance
+→ Connect Weixin/WeCom
+→ QR/auth flow
+→ connected
+→ status visible in YORVA
+```
+
+## Phase 6 — Runtime management completeness
+
+Goal: make YORVA practical for daily local management.
+
+Candidate deliverables:
+
+- Skills;
+- MCP;
+- backups/restores;
+- Hermes upgrades;
+- richer health/log views;
+- startup/service management;
+- crash/recovery UX.
+
+Only implement features with stable Hermes integration paths.
+
+## Phase 7 — Local product hardening
+
+Goal: prepare a public local release.
+
+Deliverables:
+
+- Windows installer/update path;
+- macOS/Linux validation where feasible;
+- migration/upgrade tests;
+- crash recovery;
+- telemetry decision (opt-in or none; separate ADR if introduced);
+- security review;
+- signed release pipeline;
+- user-facing diagnostics/export bundle without secrets.
+
+## Phase 8 — Optional Control Plane prototype
+
+Start only after local product is stable.
+
+Goal: manage multiple Nodes remotely without exposing inbound management ports.
+
+Technology:
+
+```text
+Go modular monolith
+PostgreSQL
+HTTPS
+outbound Node WSS
+```
+
+Deliverables:
+
+- user/org minimum model;
+- device pairing;
+- Node inventory;
+- heartbeat;
+- typed remote command;
+- remote Operation progress;
+- audit trail.
+
+Explicitly not required for first prototype:
+
+- microservices;
+- billing;
+- complex RBAC;
+- Kubernetes;
+- Redis/Kafka unless proven necessary.
+
+## Phase 9 — Enterprise management
+
+Driven by real customer requirements.
+
+Possible scope:
+
+- organization/teams;
+- RBAC/policies;
+- SSO;
+- fleet groups;
+- bulk upgrade policy;
+- audit retention;
+- private deployment;
+- enterprise secret provider integration;
+- templates/distributions.
+
+Do not commit to all features before discovery.
+
+## Phase 10 — Second Runtime
+
+This is the trigger to validate the Runtime abstraction.
+
+Process:
+
+1. choose a real second Runtime based on product demand;
+2. implement with current contract where possible;
+3. record friction/gaps;
+4. generalize only demonstrated common concepts;
+5. decide whether a separate Runtime SDK/plugin process is justified.
+
+A dynamic Runtime marketplace is not built before this phase proves the need.
+
+## Release naming suggestion
+
+```text
+0.1  foundation + Hermes detection/install
+0.2  multi-instance + model config
+0.3  Weixin/WeCom channels
+0.4  Skills/MCP/backup/upgrade
+0.5  local hardening/public beta
+0.8  optional remote Control Plane beta
+1.0  stable local + remote management contract
+```
+
+Version numbers are planning labels, not promises.
