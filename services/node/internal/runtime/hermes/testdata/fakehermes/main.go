@@ -3,11 +3,17 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--child" {
+		for {
+			time.Sleep(time.Second)
+		}
+	}
 	if len(os.Args) != 2 || os.Args[1] != "--version" {
 		os.Exit(9)
 	}
@@ -22,6 +28,17 @@ func main() {
 	case "wait":
 		if path := os.Getenv("YORVA_FAKE_HERMES_PID_FILE"); path != "" {
 			_ = os.WriteFile(path, []byte(fmt.Sprintf("%d", os.Getpid())), 0o600)
+		}
+		for {
+			time.Sleep(time.Second)
+		}
+	case "child-wait":
+		child := exec.Command(os.Args[0], "--child")
+		if err := child.Start(); err != nil {
+			os.Exit(7)
+		}
+		if path := os.Getenv("YORVA_FAKE_HERMES_PID_FILE"); path != "" {
+			_ = os.WriteFile(path, []byte(fmt.Sprintf("%d", child.Process.Pid)), 0o600)
 		}
 		for {
 			time.Sleep(time.Second)

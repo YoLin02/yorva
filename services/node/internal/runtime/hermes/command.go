@@ -49,6 +49,7 @@ func (r commandRunner) run(ctx context.Context, executable string) commandResult
 	command := exec.CommandContext(commandCtx, executable, "--version")
 	command.Env = r.environment()
 	command.WaitDelay = r.waitDelay
+	configureProcessTree(command)
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		return commandResult{exitCode: -1, err: err}
@@ -60,6 +61,13 @@ func (r commandRunner) run(ctx context.Context, executable string) commandResult
 	if err := command.Start(); err != nil {
 		return commandResult{exitCode: -1, err: err}
 	}
+	cleanupProcessTree, err := ownProcessTree(command)
+	if err != nil {
+		_ = command.Process.Kill()
+		_ = command.Wait()
+		return commandResult{exitCode: -1, err: err}
+	}
+	defer cleanupProcessTree()
 
 	type streamResult struct {
 		name string
@@ -92,11 +100,13 @@ func (r commandRunner) run(ctx context.Context, executable string) commandResult
 			}
 			if errors.Is(stream.err, errOutputLimit) {
 				limited = true
+				cleanupProcessTree()
 				_ = command.Process.Kill()
 			}
 		case waitErr = <-waited:
 			waitComplete = true
 		case <-contextDone:
+			cleanupProcessTree()
 			_ = command.Process.Kill()
 			contextDone = nil
 		}

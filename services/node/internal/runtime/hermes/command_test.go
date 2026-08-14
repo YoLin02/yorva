@@ -65,7 +65,7 @@ func TestCommandRunnerBoundsOutputAndReapsOnTimeout(t *testing.T) {
 func TestCommandRunnerCancellationReapsProcess(t *testing.T) {
 	executable := buildFakeHermes(t)
 	pidFile := filepath.Join(t.TempDir(), "pid")
-	runner := testCommandRunner("wait", pidFile, 5*time.Second)
+	runner := testCommandRunner("child-wait", pidFile, 5*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	result := make(chan commandResult, 1)
 	go func() { result <- runner.run(ctx, executable) }()
@@ -81,7 +81,20 @@ func TestCommandRunnerCancellationReapsProcess(t *testing.T) {
 	}
 	pid := readPID(t, pidFile)
 	if processExists(pid) {
-		t.Fatalf("cancelled Hermes process %d still exists after run returned", pid)
+		t.Fatalf("cancelled Hermes descendant process %d still exists after run returned", pid)
+	}
+}
+
+func TestCommandRunnerTimeoutReapsDescendantProcess(t *testing.T) {
+	executable := buildFakeHermes(t)
+	pidFile := filepath.Join(t.TempDir(), "child-pid")
+	result := testCommandRunner("child-wait", pidFile, 150*time.Millisecond).run(context.Background(), executable)
+	if !result.timedOut || !errors.Is(result.err, context.DeadlineExceeded) {
+		t.Fatalf("timed-out process tree run() = %#v", result)
+	}
+	pid := readPID(t, pidFile)
+	if processExists(pid) {
+		t.Fatalf("Hermes descendant process %d still exists after run returned", pid)
 	}
 }
 
