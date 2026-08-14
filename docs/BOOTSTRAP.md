@@ -1,9 +1,11 @@
 # YORVA Repository Bootstrap Specification
 
 > Phase: Phase 1 — Repository foundation / Bootstrap  
-> Status: READY — Phase 0 Readiness Gate passed  
+> Status: IN_PROGRESS — Phase 1 implementation authorized
 > Owner: Repository owner  
 > Target baseline: `phase-001-bootstrap-baseline` (logical name; final commit/tag is selected after the Phase 1 Audit)  
+> Repository: `https://github.com/YoLin02/yorva`
+> Go module: `github.com/YoLin02/yorva/services/node`
 > Relevant roadmap entry: `docs/ROADMAP.md` — Phase 1  
 > Applies to: first repository bootstrap only  
 > Product: YORVA  
@@ -382,6 +384,10 @@ A permanent background service is deferred until there is a demonstrated product
 
 Closing Desktop may stop the Phase 1 `yorvad` process. This does **not** imply that Hermes itself must be terminated.
 
+The Desktop owns the child for the whole session. Startup has a bounded handshake deadline; a write failure, malformed handshake, early exit, or timeout moves the lifecycle to a safe failed state and cleans up any child that was already spawned. A synchronous bootstrap failure must not abort the Tauri application because React must remain able to render the safe failure state.
+
+For normal Desktop shutdown, Tauri writes one `{"type":"shutdown"}` control record to the existing child stdin and waits for a bounded graceful exit before using forced termination as a fallback. `yorvad` also treats stdin EOF as parent death, cancels its root work, and shuts down its HTTP server. The bootstrap/control pipe never carries the token after the initial bootstrap record and is not a general command channel.
+
 ### 8.2 Listen address
 
 `yorvad` must bind to:
@@ -734,6 +740,8 @@ start HTTP server
 ```
 
 If migration fails, daemon startup fails safely and reports a diagnostic error. Do not continue with a partially migrated schema.
+
+Connection-local SQLite settings (`foreign_keys` and `busy_timeout`) are encoded in the driver DSN so the driver applies them to every physical connection, including a replacement connection created after the pool reconnects.
 
 ---
 

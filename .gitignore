@@ -1,0 +1,40 @@
+# JavaScript
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Go
+*.test
+*.out
+services/node/yorvad
+services/node/yorvad.exe
+
+# Rust / Tauri
+target/
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/binaries/*
+!apps/desktop/src-tauri/binaries/.gitkeep
+
+# Local runtime state
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs and temporary files
+*.log
+tmp/
+temp/

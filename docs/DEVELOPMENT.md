@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phase 0 architecture baseline  
+> Status: Phase 1 repository bootstrap in progress
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**
@@ -425,3 +425,66 @@ Before a feature is complete:
 - schema changes include migrations;
 - Runtime contract changes update `RUNTIME.md`;
 - architectural changes require an ADR.
+
+## 14. Phase 1 local workflow
+
+The repository and Go module are fixed as:
+
+```text
+Repository: https://github.com/YoLin02/yorva
+Go module:  github.com/YoLin02/yorva/services/node
+```
+
+Install JavaScript dependencies from the repository root:
+
+```text
+pnpm install --frozen-lockfile
+```
+
+Validate the OpenAPI contract and generated Desktop types:
+
+```text
+pnpm api:lint
+pnpm api:generate
+git diff --exit-code -- apps/desktop/src/api/generated/schema.ts
+```
+
+Run Desktop checks:
+
+```text
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+```
+
+Run Node checks from `services/node`:
+
+```text
+go test ./...
+go vet ./...
+go build ./cmd/yorvad
+go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+```
+
+Run native shell checks from `apps/desktop/src-tauri`:
+
+```text
+cargo fmt --check
+cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
+cargo check --locked
+cargo audit
+```
+
+The sidecar build is target-aware and writes only ignored build output:
+
+```text
+pnpm build:sidecar
+pwsh -NoProfile -File scripts/windows-lifecycle-smoke.ps1
+pnpm --filter @yorva/desktop tauri build --no-bundle
+```
+
+From the repository root, `pnpm audit --audit-level low` is also a CI gate. CI Actions are pinned to exact commit SHAs with the corresponding major/stable label in a comment. Dependency maintenance updates those pins deliberately: resolve the trusted upstream major tag/branch to a reviewed commit, inspect upstream release notes, replace the SHA, and rerun the full workflow. Do not restore floating action references.
+
+Phase 1 does not require Hermes to be installed. Its Hermes package contains static registration metadata only and performs no discovery.

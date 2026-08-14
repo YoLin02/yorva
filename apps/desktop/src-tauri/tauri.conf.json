@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "YORVA",
+  "version": "0.0.0",
+  "identifier": "com.yorva.desktop.dev",
+  "build": {
+    "beforeDevCommand": "pnpm --dir ../.. build:sidecar && pnpm dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "pnpm --dir ../.. build:sidecar && pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "YORVA",
+        "width": 1080,
+        "height": 720,
+        "minWidth": 720,
+        "minHeight": 520,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:*; img-src 'self' asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "externalBin": ["binaries/yorvad"]
+  }
+}
