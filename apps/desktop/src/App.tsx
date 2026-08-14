@@ -9,7 +9,7 @@ export function App() {
   const sessionQuery = useQuery({
     queryKey: ["daemon-session"],
     queryFn: getDaemonSession,
-    retry: (failures, error) => failures < 20 && isDaemonNotReady(error),
+    retry: (_failures, error) => isDaemonNotReady(error),
     retryDelay: 200,
   });
   const client = useMemo(
