@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phase 1 frozen; Phase 2 Specification READY (implementation not started)
+> Status: Phase 1 frozen; Phase 2 implementation IN_PROGRESS
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**

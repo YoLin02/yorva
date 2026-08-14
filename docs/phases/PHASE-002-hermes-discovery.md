@@ -1,12 +1,12 @@
 # YORVA Phase 2 — Hermes Discovery & Compatibility
 
-> Status: READY
+> Status: IN_PROGRESS
 > Owner: Repository owner
 > Previous baseline: `phase-001-bootstrap-baseline`
 > Previous baseline commit: `49de99bd3b9c908f5f2065b7c56fd69e97206284`
 > Previous gate: `AUDIT-001R2-repository-foundation.md` — PASS
 > Planning transition: DRAFT → READY on 2026-08-14
-> Implementation status: NOT STARTED
+> Implementation status: ACTIVE — authorized on 2026-08-14
 
 ## 1. Objective
 

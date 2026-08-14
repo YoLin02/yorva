@@ -29,7 +29,7 @@ Phase readiness and gate records:
 - `docs/phases/audits/AUDIT-001-repository-foundation.md`
 - `docs/phases/audits/AUDIT-001R1-repository-foundation.md`
 - `docs/phases/audits/AUDIT-001R2-repository-foundation.md` — final Phase 1 `PASS`
-- `docs/phases/PHASE-002-hermes-discovery.md` — Phase 2 `READY`, implementation not started
+- `docs/phases/PHASE-002-hermes-discovery.md` — Phase 2 `IN_PROGRESS`, audit pending
 
 The architecture, security, protocol, Runtime and ADR documents define the engineering baseline. `PHASE_GOVERNANCE.md` defines how work advances between phases. `AUDIT_STANDARD.md` defines the mandatory audit and gate rules.
 
