@@ -69,9 +69,11 @@ Exit criteria:
 
 ## Phase 2 — Hermes Discovery & Compatibility
 
-Status: **PASSED** (`AUDIT-002R1` PASS; exact-commit CI, merge and baseline freeze pending)
+Status: **COMPLETE / FROZEN**
+Gate: **PASS** (`AUDIT-002R1-hermes-discovery.md`)
 Spec: `docs/phases/PHASE-002-hermes-discovery.md`
-Baseline: `phase-001-bootstrap-baseline`
+Baseline: `phase-002-hermes-discovery-baseline`
+Audit-accepted implementation commit: `b875b2c496269d3bf91097395cae5fb53dc63350`
 
 Goal: detect Hermes and report executable/version compatibility without mutating the machine.
 

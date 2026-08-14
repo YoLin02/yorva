@@ -31,10 +31,10 @@ Phase readiness and gate records:
 - `docs/phases/audits/AUDIT-001R2-repository-foundation.md` — final Phase 1 `PASS`
 - `docs/phases/audits/AUDIT-002-hermes-discovery.md` — initial Phase 2 `FAIL`, preserved
 - `docs/phases/audits/AUDIT-002R1-hermes-discovery.md` — final Phase 2 re-audit `PASS`
-- `docs/phases/PHASE-002-hermes-discovery.md` — Phase 2 `PASSED`; exact-commit CI, merge and freeze pending
+- `docs/phases/PHASE-002-hermes-discovery.md` — Phase 2 `COMPLETE / FROZEN`; `AUDIT-002R1` PASS
 
 The architecture, security, protocol, Runtime and ADR documents define the engineering baseline. `PHASE_GOVERNANCE.md` defines how work advances between phases. `AUDIT_STANDARD.md` defines the mandatory audit and gate rules.
 
 `BOOTSTRAP.md` is the execution contract for **Phase 1 — Repository foundation**.
 
-Phase 1 is frozen at `phase-001-bootstrap-baseline`. Phase 2 is limited to Hermes Discovery & Compatibility; Hermes Installation is reserved for Phase 3.
+Phase 1 is frozen at `phase-001-bootstrap-baseline`. Phase 2 is frozen at `phase-002-hermes-discovery-baseline`. Hermes Installation is reserved for Phase 3.

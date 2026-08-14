@@ -1,13 +1,17 @@
 # YORVA Phase 2 — Hermes Discovery & Compatibility
 
-> Status: PASSED
+> Status: COMPLETE / FROZEN
 > Owner: Repository owner
+> Gate: PASS — `AUDIT-002R1-hermes-discovery.md`
+> Baseline: `phase-002-hermes-discovery-baseline`
+> Audit-accepted implementation commit: `b875b2c496269d3bf91097395cae5fb53dc63350`
+> Main merge commit: `0b31ff72f34f743b285eac4bc0bd4c8ced5096c1`
 > Previous baseline: `phase-001-bootstrap-baseline`
 > Previous baseline commit: `49de99bd3b9c908f5f2065b7c56fd69e97206284`
 > Previous gate: `AUDIT-001R2-repository-foundation.md` — PASS
 > Planning transition: DRAFT → READY on 2026-08-14
-> Implementation status: COMPLETE — feature work frozen after independent R1 re-audit
-> Verification: PASS locally — local Go race is environment-blocked by the absence of a C compiler; exact-commit CI remains mandatory before merge/freeze
+> Implementation status: COMPLETE / FROZEN
+> Verification: PASS — exact implementation commit passed GitHub Actions run `31795039599`, including Go race and Windows native/Tauri
 > Audit: `AUDIT-002` — FAIL (preserved); `AUDIT-002R1` — PASS
 
 ## 1. Objective
@@ -356,7 +360,7 @@ Also run sidecar build, Windows lifecycle smoke and Tauri no-bundle build. Tests
 - [x] Desktop presents every state in the sidebar shell with complete English/Chinese copy and no direct Hermes access or message parsing;
 - [x] OpenAPI and generated types are synchronized;
 - [x] no migration, persistent discovery cache, installation or later-phase code exists;
-- [ ] relevant local checks and exact-commit CI pass for the amended scope; local checks PASS, exact-commit CI pending;
+- [x] relevant local checks and exact-commit CI pass for the amended scope;
 - [x] implementation is frozen for independent Phase 2 audit;
 - [x] independent gate permits a Phase 2 baseline after exact-commit CI and before Phase 3 begins.
 

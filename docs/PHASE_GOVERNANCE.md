@@ -593,7 +593,25 @@ The earlier merge of the Phase 1 implementation tree into `main` remains impleme
 
 ---
 
-## 21. Minimum artifacts per implementation phase
+## 21. Phase 2 treatment
+
+`docs/phases/PHASE-002-hermes-discovery.md` is the Phase 2 execution contract.
+
+Phase 2 acceptance record:
+
+- initial independent audit: `docs/phases/audits/AUDIT-002-hermes-discovery.md` — `FAIL`, preserved;
+- final independent re-audit: `docs/phases/audits/AUDIT-002R1-hermes-discovery.md` — `PASS`;
+- audit-accepted implementation commit: `b875b2c496269d3bf91097395cae5fb53dc63350`;
+- exact-commit CI: GitHub Actions run `31795039599` — `PASS`, including Go race and Windows native/Tauri;
+- main merge commit: `0b31ff72f34f743b285eac4bc0bd4c8ced5096c1`;
+- formal status: `COMPLETE / FROZEN`;
+- formal baseline: annotated tag `phase-002-hermes-discovery-baseline` on the final freeze commit in `main`.
+
+The merge commit records implementation history. Formal Phase 2 acceptance occurs at the subsequent freeze commit after the independent R1 `PASS` and exact-commit CI `PASS`. No history was rewritten. Phase 3 implementation remains prohibited until the formal baseline tag is created and pushed.
+
+---
+
+## 22. Minimum artifacts per implementation phase
 
 Each implementation phase should leave:
 
@@ -610,7 +628,7 @@ If one of these is intentionally unnecessary, state why in the audit.
 
 ---
 
-## 22. Completion definition
+## 23. Completion definition
 
 A phase is not complete when "the feature works on the author's machine."
 
