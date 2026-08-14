@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,7 +58,7 @@ func TestCommandRunnerBoundsOutputAndReapsOnTimeout(t *testing.T) {
 		t.Fatalf("timed-out run() = %#v", timedOut)
 	}
 	pid := readPID(t, pidFile)
-	if processExists(pid) {
+	if !waitForProcessExit(pid, 2*time.Second) {
 		t.Fatalf("timed-out Hermes process %d still exists after run returned", pid)
 	}
 }
@@ -80,7 +81,7 @@ func TestCommandRunnerCancellationReapsProcess(t *testing.T) {
 		t.Fatal("run() did not return after cancellation")
 	}
 	pid := readPID(t, pidFile)
-	if processExists(pid) {
+	if !waitForProcessExit(pid, 2*time.Second) {
 		t.Fatalf("cancelled Hermes descendant process %d still exists after run returned", pid)
 	}
 }
@@ -93,7 +94,7 @@ func TestCommandRunnerTimeoutReapsDescendantProcess(t *testing.T) {
 		t.Fatalf("timed-out process tree run() = %#v", result)
 	}
 	pid := readPID(t, pidFile)
-	if processExists(pid) {
+	if !waitForProcessExit(pid, 2*time.Second) {
 		t.Fatalf("Hermes descendant process %d still exists after run returned", pid)
 	}
 }
@@ -179,5 +180,22 @@ func processExists(pid int) bool {
 	if runtime.GOOS == "windows" {
 		return true
 	}
+	if status, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid)); err == nil {
+		fields := strings.Fields(string(status))
+		if len(fields) > 2 && fields[2] == "Z" {
+			return false
+		}
+	}
 	return process.Signal(syscall.Signal(0)) == nil
+}
+
+func waitForProcessExit(pid int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if !processExists(pid) {
+			return true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return !processExists(pid)
 }
