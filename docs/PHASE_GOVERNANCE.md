@@ -581,6 +581,15 @@ Phase 2 Spec
 
 Do not begin Hermes discovery/installation code before the Phase 1 gate passes.
 
+Phase 1 acceptance record:
+
+- final independent re-audit: `docs/phases/audits/AUDIT-001R2-repository-foundation.md` — `PASS`;
+- audit-accepted implementation commit: `1b759f443dbbebba4ae61a82c91e92180d7527b0`;
+- formal status: `COMPLETE / FROZEN`;
+- formal baseline: annotated tag `phase-001-bootstrap-baseline` on the final freeze commit in `main`.
+
+The earlier merge of the Phase 1 implementation tree into `main` remains implementation history only. It did not constitute phase acceptance; acceptance occurred only after the independent `AUDIT-001R2` `PASS` and the subsequent baseline freeze. No history was rewritten.
+
 ---
 
 ## 21. Minimum artifacts per implementation phase

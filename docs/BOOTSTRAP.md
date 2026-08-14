@@ -1,9 +1,11 @@
 # YORVA Repository Bootstrap Specification
 
 > Phase: Phase 1 — Repository foundation / Bootstrap  
-> Status: IN_PROGRESS — Phase 1 implementation authorized
+> Status: COMPLETE / FROZEN
+> Gate: PASS — `AUDIT-001R2-repository-foundation.md`
 > Owner: Repository owner  
-> Target baseline: `phase-001-bootstrap-baseline` (logical name; final commit/tag is selected after the Phase 1 Audit)  
+> Baseline: `phase-001-bootstrap-baseline`
+> Audit-accepted implementation commit: `1b759f443dbbebba4ae61a82c91e92180d7527b0`
 > Repository: `https://github.com/YoLin02/yorva`
 > Go module: `github.com/YoLin02/yorva/services/node`
 > Relevant roadmap entry: `docs/ROADMAP.md` — Phase 1  
@@ -1421,3 +1423,7 @@ No real Hermes management feature exists yet.
 Only after the Phase 1 Gate Decision is `PASS` or an explicitly accepted `PASS WITH CONDITIONS`, and the baseline is frozen, may detailed Roadmap Phase 2 implementation proceed.
 
 The first Phase 2 implementation must start from the Runtime adapter boundary rather than adding Hermes logic directly to Desktop, Tauri or generic Core packages.
+
+### 36.1 Phase 1 freeze record
+
+`AUDIT-001R2-repository-foundation.md` returned `PASS` for the final Phase 1 implementation. The earlier merge of the implementation tree into `main` is retained as implementation history only; it did not grant acceptance or freeze the phase. The formal Phase 1 acceptance point is the freeze commit on `main` referenced by the annotated tag `phase-001-bootstrap-baseline`.

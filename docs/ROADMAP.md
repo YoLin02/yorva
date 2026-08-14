@@ -39,6 +39,11 @@ Exit criteria:
 
 ## Phase 1 — Repository foundation
 
+Status: **COMPLETE / FROZEN**
+Gate: **PASS** (`AUDIT-001R2-repository-foundation.md`)
+Baseline: `phase-001-bootstrap-baseline`
+Audit-accepted implementation commit: `1b759f443dbbebba4ae61a82c91e92180d7527b0`
+
 Goal: create a minimal runnable YORVA shell with no fake business features.
 
 Deliverables:
@@ -60,7 +65,7 @@ Exit criteria:
 - Desktop can read authenticated Node information;
 - schema migrates from empty DB;
 - no Hermes command is called from React/Tauri UI code;
-- Phase 1 audit passes and the logical target baseline `phase-001-bootstrap-baseline` is frozen; the final commit/tag is selected after the audit.
+- Phase 1 re-audit passes and the final baseline commit on `main` is frozen by `phase-001-bootstrap-baseline`.
 
 ## Phase 2 — Hermes discovery and installation
 
