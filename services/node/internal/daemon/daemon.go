@@ -90,7 +90,7 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	requestCtx, cancelRequests := context.WithCancel(context.Background())
 	defer cancelRequests()
 	server := &http.Server{
-		Handler:           httpapi.NewHandler(message.Token, localNode, events.NewBroker(), app.NewRuntimeDiscovery(registry)),
+		Handler:           httpapi.NewHandler(message.Token, localNode, events.NewBroker(), app.NewRuntimeDiscovery(registry, logger)),
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       30 * time.Second,

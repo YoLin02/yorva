@@ -57,6 +57,62 @@ func TestCandidateFinderEnforcesLimit(t *testing.T) {
 	}
 }
 
+func TestCandidateFinderSeparatesInstallationEvidenceFromExecutableCandidates(t *testing.T) {
+	root := t.TempDir()
+	venvScripts := filepath.Join(root, "venv", "Scripts")
+	if err := os.MkdirAll(venvScripts, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacyAgent := filepath.Join(venvScripts, "hermes-agent.exe")
+	if err := os.WriteFile(legacyAgent, []byte("must not execute"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	finder := candidateFinder{
+		executableName:    "hermes.exe",
+		installationRoots: []string{root},
+		limit:             maxCandidates,
+	}
+	got := finder.find()
+	if !got.installationEvidence {
+		t.Fatal("find() did not report trusted installation evidence")
+	}
+	if len(got.paths) != 0 {
+		t.Fatalf("find() paths = %#v, want no executable candidate", got.paths)
+	}
+}
+
+func TestCandidateFinderRecognizesOfficialWrapperEvidenceWithoutLauncher(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "venv"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "hermes"), []byte("official wrapper marker"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got := (candidateFinder{
+		executableName:    "hermes.exe",
+		installationRoots: []string{root},
+		limit:             maxCandidates,
+	}).find()
+	if !got.installationEvidence || len(got.paths) != 0 {
+		t.Fatalf("find() = %#v, want installation evidence without an executable candidate", got)
+	}
+}
+
+func TestCandidateFinderRejectsIncompleteEvidence(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "hermes"), []byte("wrapper"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got := (candidateFinder{installationRoots: []string{root}, limit: maxCandidates}).find()
+	if got.installationEvidence {
+		t.Fatal("find() trusted a root without the official venv structure")
+	}
+}
+
 func testCandidateFinder(pathDirectories, officialPaths []string) candidateFinder {
 	return candidateFinder{
 		pathValue:       strings.Join(pathDirectories, string(os.PathListSeparator)),

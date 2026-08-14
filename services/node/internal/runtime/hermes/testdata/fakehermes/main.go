@@ -43,6 +43,14 @@ func main() {
 		for {
 			time.Sleep(time.Second)
 		}
+	case "child-exit":
+		child := exec.Command(os.Args[0], "--child")
+		if err := child.Start(); err != nil {
+			os.Exit(7)
+		}
+		if path := os.Getenv("YORVA_FAKE_HERMES_PID_FILE"); path != "" {
+			_ = os.WriteFile(path, []byte(fmt.Sprintf("%d", child.Process.Pid)), 0o600)
+		}
 	default:
 		os.Exit(8)
 	}

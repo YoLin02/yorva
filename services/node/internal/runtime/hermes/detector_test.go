@@ -113,6 +113,47 @@ func TestDetectorWarnsForUntestedPrerelease(t *testing.T) {
 	}
 }
 
+func TestDetectorClassifiesMissingLauncherAsBrokenWithoutExecutingEvidence(t *testing.T) {
+	root := t.TempDir()
+	venvScripts := filepath.Join(root, "venv", "Scripts")
+	if err := os.MkdirAll(venvScripts, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacyAgent := filepath.Join(venvScripts, "hermes-agent.exe")
+	if err := os.WriteFile(legacyAgent, []byte("must not execute"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	executed := false
+	detector := &Detector{
+		finder: candidateFinder{
+			executableName:    "hermes.exe",
+			installationRoots: []string{root},
+			limit:             maxCandidates,
+		},
+		run: func(context.Context, string) commandResult {
+			executed = true
+			return commandResult{}
+		},
+		now:            time.Now,
+		overallTimeout: time.Second,
+	}
+
+	got, err := detector.Detect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if executed {
+		t.Fatal("Detect() executed installation evidence")
+	}
+	if got.State != yorvaruntime.DiscoveryBrokenExecutable || got.ErrorCode != yorvaruntime.ErrorRuntimeExecutableBroken {
+		t.Fatalf("Detect() state/code = %s/%s, want BROKEN_EXECUTABLE/RUNTIME_EXECUTABLE_BROKEN", got.State, got.ErrorCode)
+	}
+	if len(got.Candidates) != 0 || len(got.Warnings) != 1 || got.Warnings[0].Code != "HERMES_CLI_LAUNCHER_MISSING" {
+		t.Fatalf("Detect() = %#v, want missing-launcher evidence without a candidate", got)
+	}
+}
+
 func TestDetectorPropagatesCallerCancellation(t *testing.T) {
 	candidate := createCandidateFile(t)
 	started := make(chan struct{})

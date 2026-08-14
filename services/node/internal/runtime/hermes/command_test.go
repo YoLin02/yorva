@@ -99,6 +99,19 @@ func TestCommandRunnerTimeoutReapsDescendantProcess(t *testing.T) {
 	}
 }
 
+func TestCommandRunnerOwnsImmediateDescendantBeforeExecutableRuns(t *testing.T) {
+	executable := buildFakeHermes(t)
+	pidFile := filepath.Join(t.TempDir(), "immediate-child-pid")
+	result := testCommandRunner("child-exit", pidFile, time.Second).run(context.Background(), executable)
+	if result.exitCode != 0 || result.err != nil {
+		t.Fatalf("immediate-child run() = %#v", result)
+	}
+	pid := readPID(t, pidFile)
+	if !waitForProcessExit(pid, 2*time.Second) {
+		t.Fatalf("immediate Hermes descendant process %d still exists after normal return", pid)
+	}
+}
+
 func TestCommandRunnerReturnsAfterAlreadyCancelledContext(t *testing.T) {
 	runner := commandRunner{
 		timeout:     time.Second,

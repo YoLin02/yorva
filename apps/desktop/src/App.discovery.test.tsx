@@ -75,6 +75,7 @@ describe("App Hermes discovery", () => {
       .mockResolvedValueOnce(supported("0.19.4"));
     renderApp();
 
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Discovery unavailable");
     expect(screen.queryByText("raw transport detail")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -94,6 +95,7 @@ describe("App Hermes discovery", () => {
       .mockImplementationOnce(() => second.promise);
     renderApp();
 
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
     expect(firstSignal?.aborted).toBe(true);
     expect(await screen.findByText("Check cancelled")).toBeInTheDocument();

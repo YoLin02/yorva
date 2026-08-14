@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phase 1 frozen; Phase 2 implementation COMPLETE, verification PASS, `AUDIT-002` PENDING
+> Status: Phase 1 frozen; Phase 2 `AUDIT-002R1` PASS; exact-commit CI, merge and freeze pending
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**
@@ -487,4 +487,4 @@ pnpm --filter @yorva/desktop tauri build --no-bundle
 
 From the repository root, `pnpm audit --audit-level low` is also a CI gate. CI Actions are pinned to exact commit SHAs with the corresponding major/stable label in a comment. Dependency maintenance updates those pins deliberately: resolve the trusted upstream major tag/branch to a reviewed commit, inspect upstream release notes, replace the SHA, and rerun the full workflow. Do not restore floating action references.
 
-Phase 2 tests do not require Hermes to be installed and never install it. Adapter tests build test-only fake executables to verify direct argv execution, output bounds, timeout, cancellation and process cleanup.
+Phase 2 deterministic tests do not require Hermes to be installed and never install it. Adapter tests build test-only fake executables and fixed official-layout fixtures to verify installation evidence, direct argv execution, output bounds, timeout, cancellation and process cleanup. On a Windows host that already has Hermes, run the explicitly gated read-only smoke with `YORVA_REAL_HERMES_SMOKE=1 go test ./internal/runtime/hermes -run TestRealWindowsHermesInstallationSmoke -v`; it must never execute `hermes-agent.exe` and must not classify trusted installation evidence as `NOT_INSTALLED`. Desktop tests cover sidebar navigation, English/Simplified Chinese persistence, stable Runtime-state translations and locale/time-zone-explicit timestamp formatting.

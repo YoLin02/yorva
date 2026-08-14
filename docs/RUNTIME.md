@@ -71,6 +71,8 @@ AMBIGUOUS
 
 The application use case resolves the Runtime kind through the registry and owns the ten-second overall deadline. The Hermes adapter owns candidate enumeration, direct `--version` execution, version parsing, compatibility and aggregation. Discovery must not mutate the machine. It is a live query: Phase 2 does not persist or cache its result.
 
+On Windows, the Hermes adapter distinguishes a safely invocable CLI candidate from trusted installation evidence. It checks only the documented `%LOCALAPPDATA%\hermes\hermes-agent` root and fixed official-layout markers. A regular `hermes.exe` candidate may be executed with `--version`; the repository wrapper, package marker and `hermes-agent.exe` are evidence only and are never executed. Trusted evidence with a missing safe launcher is `BROKEN_EXECUTABLE`. `NOT_INSTALLED` is reserved for the absence of both a candidate and trusted installation evidence.
+
 If exactly one candidate is runnable, it is selected even when other candidates are unusable. If two or more distinct candidates are runnable, discovery returns `AMBIGUOUS` with no selection. Cancellation returns `context.Canceled`; completed negative states return typed discovery data.
 
 ## 6. Feature contracts

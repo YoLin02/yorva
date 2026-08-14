@@ -1,4 +1,7 @@
-import type { RuntimeDiscovery, RuntimeDiscoveryState } from "../api/types";
+import type { RuntimeDiscovery } from "../api/types";
+import { formatDateTime } from "../formatDateTime";
+import type { AppMessages, Locale } from "../i18n";
+import { StatusLabel } from "./NodeStatusView";
 
 export type HermesDiscoveryViewState =
   | { kind: "checking"; onCancel: () => void }
@@ -6,45 +9,22 @@ export type HermesDiscoveryViewState =
   | { kind: "failure"; onRetry: () => void }
   | { kind: "complete"; discovery: RuntimeDiscovery; onRetry: () => void };
 
-const stateCopy: Record<RuntimeDiscoveryState, { title: string; description: string }> = {
-  NOT_INSTALLED: {
-    title: "Hermes not installed",
-    description: "No Hermes executable was found in the supported local locations.",
-  },
-  SUPPORTED: {
-    title: "Hermes ready",
-    description: "The detected Hermes version is compatible with YORVA.",
-  },
-  UNSUPPORTED: {
-    title: "Hermes version unsupported",
-    description: "Hermes was found, but its version is outside the supported range.",
-  },
-  BROKEN_EXECUTABLE: {
-    title: "Hermes executable is broken",
-    description: "Hermes was found but could not report its version successfully.",
-  },
-  MALFORMED_VERSION: {
-    title: "Hermes version is unreadable",
-    description: "Hermes returned a version that YORVA could not safely interpret.",
-  },
-  TIMED_OUT: {
-    title: "Hermes check timed out",
-    description: "Hermes did not report its version before the discovery deadline.",
-  },
-  AMBIGUOUS: {
-    title: "Multiple Hermes executables found",
-    description: "YORVA found more than one runnable Hermes executable and did not choose between them.",
-  },
-};
-
-export function HermesDiscoveryView({ state }: { state: HermesDiscoveryViewState }) {
+export function HermesDiscoveryView({
+  state,
+  copy,
+  locale,
+}: {
+  state: HermesDiscoveryViewState;
+  copy: AppMessages;
+  locale: Locale;
+}) {
   if (state.kind === "checking") {
     return (
-      <section className="runtime-card" aria-labelledby="hermes-title" role="status">
-        <RuntimeLabel tone="pending">Checking Hermes</RuntimeLabel>
-        <h2 id="hermes-title">Hermes discovery</h2>
-        <p>Looking for a local Hermes executable and checking its version.</p>
-        <button type="button" onClick={state.onCancel}>Cancel</button>
+      <section className="panel runtime-panel" aria-labelledby="hermes-title" role="status">
+        <StatusLabel tone="pending">{copy.hermes.checking}</StatusLabel>
+        <h2 id="hermes-title">{copy.hermes.title}</h2>
+        <p>{copy.hermes.checkingDescription}</p>
+        <button type="button" className="primary-action" onClick={state.onCancel}>{copy.hermes.cancel}</button>
       </section>
     );
   }
@@ -52,62 +32,65 @@ export function HermesDiscoveryView({ state }: { state: HermesDiscoveryViewState
   if (state.kind === "cancelled" || state.kind === "failure") {
     const cancelled = state.kind === "cancelled";
     return (
-      <section className="runtime-card" aria-labelledby="hermes-title" role="alert">
-        <RuntimeLabel tone="error">{cancelled ? "Check cancelled" : "Discovery unavailable"}</RuntimeLabel>
-        <h2 id="hermes-title">Hermes discovery</h2>
-        <p>
-          {cancelled
-            ? "The Hermes check was cancelled. No Runtime state was changed."
-            : "YORVA could not complete Hermes discovery."}
-        </p>
-        <button type="button" onClick={state.onRetry}>Retry</button>
+      <section className="panel runtime-panel" aria-labelledby="hermes-title" role="alert">
+        <StatusLabel tone="error">{cancelled ? copy.hermes.cancelled : copy.hermes.unavailable}</StatusLabel>
+        <h2 id="hermes-title">{copy.hermes.title}</h2>
+        <p>{cancelled ? copy.hermes.cancelledDescription : copy.hermes.unavailableDescription}</p>
+        <button type="button" className="primary-action" onClick={state.onRetry}>{copy.hermes.retry}</button>
       </section>
     );
   }
 
   const { discovery } = state;
-  const copy = stateCopy[discovery.state];
-  const candidate = discovery.selected ?? discovery.candidates[0];
+  const stateCopy = copy.hermes.states[discovery.state];
+  const candidate = discovery.selected;
   const isSupported = discovery.state === "SUPPORTED";
+  const tone = isSupported ? "ready" : discovery.state === "NOT_INSTALLED" ? "pending" : "error";
+
   return (
     <section
-      className="runtime-card"
+      className="panel runtime-panel"
       aria-labelledby="hermes-title"
       role={isSupported || discovery.state === "NOT_INSTALLED" ? "status" : "alert"}
     >
-      <RuntimeLabel tone={isSupported ? "ready" : discovery.state === "NOT_INSTALLED" ? "pending" : "error"}>
-        {copy.title}
-      </RuntimeLabel>
-      <h2 id="hermes-title">Hermes discovery</h2>
-      <p>{copy.description}</p>
-      {(candidate || discovery.state === "NOT_INSTALLED") && (
-        <dl className="runtime-details">
-          {candidate?.version && <div><dt>Version</dt><dd>{candidate.version}</dd></div>}
-          {candidate?.path && <div><dt>Executable</dt><dd>{candidate.path}</dd></div>}
-          <div><dt>Supported range</dt><dd>{discovery.supportedRange}</dd></div>
-          <div><dt>Last checked</dt><dd><time dateTime={discovery.detectedAt}>{discovery.detectedAt}</time></dd></div>
-        </dl>
-      )}
+      <div className="panel-heading panel-heading-split">
+        <div>
+          <StatusLabel tone={tone}>{stateCopy.title}</StatusLabel>
+          <h2 id="hermes-title">{copy.hermes.title}</h2>
+          <p>{stateCopy.description}</p>
+        </div>
+        <button type="button" className="primary-action action-top" onClick={state.onRetry}>{copy.hermes.checkAgain}</button>
+      </div>
+
+      <dl className="detail-grid runtime-details">
+        {candidate?.version && <div><dt>{copy.hermes.version}</dt><dd>{candidate.version}</dd></div>}
+        {candidate?.path && <div className="detail-wide"><dt>{copy.hermes.executable}</dt><dd>{candidate.path}</dd></div>}
+        <div><dt>{copy.hermes.compatibility}</dt><dd>{stateCopy.title}</dd></div>
+        <div><dt>{copy.hermes.supportedRange}</dt><dd>{discovery.supportedRange}</dd></div>
+        <div><dt>{copy.hermes.lastChecked}</dt><dd><time dateTime={discovery.detectedAt}>{formatDateTime(discovery.detectedAt, locale)}</time></dd></div>
+      </dl>
+
       {discovery.state === "AMBIGUOUS" && (
-        <ul className="candidate-list" aria-label="Hermes candidates">
-          {discovery.candidates.map((item) => <li key={item.path}>{item.path}</li>)}
-        </ul>
+        <section className="diagnostic-block" aria-labelledby="candidate-title">
+          <h3 id="candidate-title">{copy.hermes.candidates}</h3>
+          <p>{copy.hermes.candidateCount.replace("{count}", String(discovery.candidates.length))}</p>
+          <ul className="candidate-list">
+            {discovery.candidates.map((item) => <li key={item.path}>{item.path}</li>)}
+          </ul>
+        </section>
       )}
       {discovery.warnings.length > 0 && (
-        <ul className="runtime-warnings" aria-label="Discovery warnings">
-          {discovery.warnings.map((warning) => <li key={`${warning.code}:${warning.message}`}>{warning.message}</li>)}
-        </ul>
+        <section className="diagnostic-block" aria-labelledby="warning-title">
+          <h3 id="warning-title">{copy.hermes.warnings}</h3>
+          <ul className="runtime-warnings">
+            {discovery.warnings.map((warning) => (
+              <li key={`${warning.code}:${warning.message}`}>
+                {copy.hermes.warningMessages[warning.code] ?? copy.hermes.unknownWarning}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
-      <button type="button" onClick={state.onRetry}>Check again</button>
     </section>
-  );
-}
-
-function RuntimeLabel({ children, tone }: { children: string; tone: "pending" | "ready" | "error" }) {
-  return (
-    <div className={`status status-${tone}`}>
-      <span className="status-dot" aria-hidden="true" />
-      {children}
-    </div>
   );
 }

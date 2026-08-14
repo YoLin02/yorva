@@ -41,6 +41,15 @@ func (d *Detector) Detect(ctx context.Context) (yorvaruntime.Discovery, error) {
 		SupportedRange: supportedRange,
 	}
 	if len(found.paths) == 0 {
+		if found.installationEvidence {
+			result.State = yorvaruntime.DiscoveryBrokenExecutable
+			result.ErrorCode = yorvaruntime.ErrorRuntimeExecutableBroken
+			result.Warnings = append(result.Warnings, yorvaruntime.Warning{
+				Code:    "HERMES_CLI_LAUNCHER_MISSING",
+				Message: "A Hermes installation was found, but its safe CLI launcher is missing.",
+			})
+			return result, nil
+		}
 		result.State = yorvaruntime.DiscoveryNotInstalled
 		result.ErrorCode = yorvaruntime.ErrorRuntimeNotInstalled
 		return result, nil
