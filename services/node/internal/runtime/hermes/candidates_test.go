@@ -1,6 +1,7 @@
 package hermes
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,8 +20,8 @@ func TestCandidateFinderPreservesPathOrderAndDeduplicates(t *testing.T) {
 	finder := testCandidateFinder([]string{firstDir, secondDir}, []string{first})
 	got := finder.find()
 	want := []string{canonicalPath(t, first), canonicalPath(t, second)}
-	if !slices.Equal(got.paths, want) {
-		t.Fatalf("find() paths = %#v, want %#v", got.paths, want)
+	if !slices.Equal(invocationPaths(got.commands), want) {
+		t.Fatalf("find() paths = %#v, want %#v", invocationPaths(got.commands), want)
 	}
 	if got.truncated {
 		t.Fatal("find() unexpectedly reported truncation")
@@ -36,7 +37,7 @@ func TestCandidateFinderIgnoresMissingDirectoriesAndNonFiles(t *testing.T) {
 
 	finder := testCandidateFinder([]string{filepath.Join(root, "missing"), root}, nil)
 	got := finder.find()
-	if len(got.paths) != 0 || got.truncated {
+	if len(got.commands) != 0 || got.truncated {
 		t.Fatalf("find() = %#v, want no candidates", got)
 	}
 }
@@ -52,7 +53,7 @@ func TestCandidateFinderEnforcesLimit(t *testing.T) {
 
 	finder := testCandidateFinder(directories, nil)
 	got := finder.find()
-	if len(got.paths) != maxCandidates || !got.truncated {
+	if len(got.commands) != maxCandidates || !got.truncated {
 		t.Fatalf("find() = %#v, want %d candidates and truncation", got, maxCandidates)
 	}
 }
@@ -77,8 +78,8 @@ func TestCandidateFinderSeparatesInstallationEvidenceFromExecutableCandidates(t 
 	if !got.installationEvidence {
 		t.Fatal("find() did not report trusted installation evidence")
 	}
-	if len(got.paths) != 0 {
-		t.Fatalf("find() paths = %#v, want no executable candidate", got.paths)
+	if len(got.commands) != 0 {
+		t.Fatalf("find() commands = %#v, want no executable candidate", got.commands)
 	}
 }
 
@@ -96,8 +97,153 @@ func TestCandidateFinderRecognizesOfficialWrapperEvidenceWithoutLauncher(t *test
 		installationRoots: []string{root},
 		limit:             maxCandidates,
 	}).find()
-	if !got.installationEvidence || len(got.paths) != 0 {
+	if !got.installationEvidence || len(got.commands) != 0 {
 		t.Fatalf("find() = %#v, want installation evidence without an executable candidate", got)
+	}
+}
+
+func TestCandidateFinderBuildsTrustedOfficialPythonInvocation(t *testing.T) {
+	root := writeOfficialPythonInstallation(t, hermesCLIEntryPoint)
+
+	got := (candidateFinder{
+		executableName:    "hermes.exe",
+		installationRoots: []string{root},
+		caseInsensitive:   true,
+		limit:             maxCandidates,
+	}).find()
+	if !got.installationEvidence || len(got.commands) != 1 {
+		t.Fatalf("find() = %#v, want one trusted Python invocation", got)
+	}
+	command := got.commands[0]
+	wantPython := canonicalPath(t, filepath.Join(root, "venv", "Scripts", "python.exe"))
+	wantArgs := []string{"-I", "-m", hermesCLIModule, "--version"}
+	if command.path != wantPython || command.executable != wantPython || !slices.Equal(command.args, wantArgs) {
+		t.Fatalf("Python invocation = %#v, want executable/path %q args %#v", command, wantPython, wantArgs)
+	}
+	if command.workingDir != canonicalPath(t, root) {
+		t.Fatalf("Python invocation workingDir = %q, want %q", command.workingDir, canonicalPath(t, root))
+	}
+}
+
+func TestCandidateFinderRejectsUntrustedPythonEntrypointMetadata(t *testing.T) {
+	root := writeOfficialPythonInstallation(t, "attacker.module:main")
+
+	got := (candidateFinder{
+		executableName:    "hermes.exe",
+		installationRoots: []string{root},
+		limit:             maxCandidates,
+	}).find()
+	if !got.installationEvidence || len(got.commands) != 0 {
+		t.Fatalf("find() = %#v, want evidence but no command for untrusted entry point", got)
+	}
+}
+
+func TestCandidateFinderRejectsDuplicateHermesEntrypointDefinitions(t *testing.T) {
+	root := writeOfficialPythonInstallation(t, hermesCLIEntryPoint+"\nhermes = attacker.module:main")
+
+	got := (candidateFinder{
+		executableName:    "hermes.exe",
+		installationRoots: []string{root},
+		limit:             maxCandidates,
+	}).find()
+	if !got.installationEvidence || len(got.commands) != 0 {
+		t.Fatalf("find() = %#v, want evidence but no command for duplicate entry points", got)
+	}
+}
+
+func TestCandidateFinderRejectsMultipleHermesPackageMetadataDirectories(t *testing.T) {
+	root := writeOfficialPythonInstallation(t, hermesCLIEntryPoint)
+	metadata := filepath.Join(root, "venv", "Lib", "site-packages", "hermes_agent-0.20.1.dist-info", "entry_points.txt")
+	if err := os.MkdirAll(filepath.Dir(metadata), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(metadata, []byte("[console_scripts]\nhermes = "+hermesCLIEntryPoint+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got := (candidateFinder{
+		executableName:    "hermes.exe",
+		installationRoots: []string{root},
+		limit:             maxCandidates,
+	}).find()
+	if !got.installationEvidence || len(got.commands) != 0 {
+		t.Fatalf("find() = %#v, want evidence but no command for ambiguous package metadata", got)
+	}
+}
+
+func TestCandidateFinderRejectsAdditionalNonMatchingHermesPackageMetadata(t *testing.T) {
+	root := writeOfficialPythonInstallation(t, hermesCLIEntryPoint)
+	metadata := filepath.Join(root, "venv", "Lib", "site-packages", "hermes_agent-stale.dist-info", "entry_points.txt")
+	if err := os.MkdirAll(filepath.Dir(metadata), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(metadata, []byte("[console_scripts]\nhermes = attacker.module:main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got := (candidateFinder{
+		executableName:    "hermes.exe",
+		installationRoots: []string{root},
+		limit:             maxCandidates,
+	}).find()
+	if !got.installationEvidence || len(got.commands) != 0 {
+		t.Fatalf("find() = %#v, want evidence but no command for multiple package metadata directories", got)
+	}
+}
+
+func TestCandidateFinderRejectsOversizedEntrypointMetadata(t *testing.T) {
+	root := writeOfficialPythonInstallation(t, hermesCLIEntryPoint)
+	metadata := filepath.Join(root, "venv", "Lib", "site-packages", "hermes_agent-0.20.0.dist-info", "entry_points.txt")
+	if err := os.WriteFile(metadata, []byte(strings.Repeat("x", entryPointMetadataLimit+1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got := (candidateFinder{
+		executableName:    "hermes.exe",
+		installationRoots: []string{root},
+		limit:             maxCandidates,
+	}).find()
+	if !got.installationEvidence || len(got.commands) != 0 {
+		t.Fatalf("find() = %#v, want evidence but no command for oversized metadata", got)
+	}
+}
+
+func TestCandidateFinderBoundsSitePackagesEnumeration(t *testing.T) {
+	root := writeOfficialPythonInstallation(t, hermesCLIEntryPoint)
+	sitePackages := filepath.Join(root, "venv", "Lib", "site-packages")
+	for index := 0; index < entryPointDirectoryLimit; index++ {
+		path := filepath.Join(sitePackages, fmt.Sprintf("unrelated-%04d", index))
+		if err := os.WriteFile(path, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := (candidateFinder{
+		executableName:    "hermes.exe",
+		installationRoots: []string{root},
+		limit:             maxCandidates,
+	}).find()
+	if !got.installationEvidence || len(got.commands) != 0 {
+		t.Fatalf("find() = %#v, want evidence but no command after the directory bound", got)
+	}
+}
+
+func TestCandidateFinderPrefersOfficialExecutableOverPythonFallback(t *testing.T) {
+	root := writeOfficialPythonInstallation(t, hermesCLIEntryPoint)
+	launcher := filepath.Join(root, "venv", "Scripts", "hermes.exe")
+	if err := os.WriteFile(launcher, []byte("fixture"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got := (candidateFinder{
+		executableName:    "hermes.exe",
+		officialPaths:     []string{launcher},
+		installationRoots: []string{root},
+		caseInsensitive:   true,
+		limit:             maxCandidates,
+	}).find()
+	if len(got.commands) != 1 || got.commands[0].path != canonicalPath(t, launcher) || !slices.Equal(got.commands[0].args, []string{"--version"}) {
+		t.Fatalf("find() = %#v, want only the official executable", got)
 	}
 }
 
@@ -122,6 +268,34 @@ func testCandidateFinder(pathDirectories, officialPaths []string) candidateFinde
 		requireExecBit:  runtime.GOOS != "windows",
 		limit:           maxCandidates,
 	}
+}
+
+func invocationPaths(commands []commandInvocation) []string {
+	paths := make([]string, len(commands))
+	for index, command := range commands {
+		paths[index] = command.path
+	}
+	return paths
+}
+
+func writeOfficialPythonInstallation(t *testing.T, entryPoint string) string {
+	t.Helper()
+	root := t.TempDir()
+	paths := map[string]string{
+		filepath.Join(root, "hermes"):                        "official wrapper marker",
+		filepath.Join(root, "hermes_cli", "main.py"):         "# official module marker\n",
+		filepath.Join(root, "venv", "Scripts", "python.exe"): "python fixture",
+		filepath.Join(root, "venv", "Lib", "site-packages", "hermes_agent-0.20.0.dist-info", "entry_points.txt"): "[console_scripts]\nhermes = " + entryPoint + "\nhermes-agent = run_agent:main\n",
+	}
+	for path, contents := range paths {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(contents), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return root
 }
 
 func executableNameForTest() string {

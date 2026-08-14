@@ -14,6 +14,13 @@ func main() {
 			time.Sleep(time.Second)
 		}
 	}
+	if os.Getenv("YORVA_FAKE_HERMES_MODE") == "python-entrypoint-success" {
+		if len(os.Args) != 5 || os.Args[1] != "-I" || os.Args[2] != "-m" || os.Args[3] != "hermes_cli.main" || os.Args[4] != "--version" {
+			os.Exit(9)
+		}
+		fmt.Println("Hermes Agent v0.20.0 (2026.8.3)")
+		return
+	}
 	if len(os.Args) != 2 || os.Args[1] != "--version" {
 		os.Exit(9)
 	}

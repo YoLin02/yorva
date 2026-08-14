@@ -36,7 +36,7 @@ func TestRuntimeDiscoveryReturnsTypedNegativeAndPositiveStates(t *testing.T) {
 				Candidates:     []yorvaruntime.Candidate{},
 				Warnings:       []yorvaruntime.Warning{},
 				DetectedAt:     time.Date(2026, 8, 14, 1, 2, 3, 0, time.UTC),
-				SupportedRange: ">=0.19.0 <0.20.0",
+				SupportedRange: ">=0.19.0 <0.21.0",
 			}
 			request := httptest.NewRequest(http.MethodPost, "/api/v1/runtimes/hermes/detect", nil)
 			request.Header.Set("Authorization", "Bearer "+testToken)

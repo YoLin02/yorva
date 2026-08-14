@@ -69,9 +69,9 @@ TIMED_OUT
 AMBIGUOUS
 ```
 
-The application use case resolves the Runtime kind through the registry and owns the ten-second overall deadline. The Hermes adapter owns candidate enumeration, direct `--version` execution, version parsing, compatibility and aggregation. Discovery must not mutate the machine. It is a live query: Phase 2 does not persist or cache its result.
+The application use case resolves the Runtime kind through the registry and owns the ten-second overall deadline. The Hermes adapter owns candidate enumeration, closed command construction, version parsing, compatibility and aggregation. Discovery must not mutate the machine. It is a live query: Phase 2 does not persist or cache its result.
 
-On Windows, the Hermes adapter distinguishes a safely invocable CLI candidate from trusted installation evidence. It checks only the documented `%LOCALAPPDATA%\hermes\hermes-agent` root and fixed official-layout markers. A regular `hermes.exe` candidate may be executed with `--version`; the repository wrapper, package marker and `hermes-agent.exe` are evidence only and are never executed. Trusted evidence with a missing safe launcher is `BROKEN_EXECUTABLE`. `NOT_INSTALLED` is reserved for the absence of both a candidate and trusted installation evidence.
+On Windows, the Hermes adapter distinguishes a safely invocable CLI command from trusted installation evidence. It checks only the documented `%LOCALAPPDATA%\hermes\hermes-agent` root and fixed official-layout markers. A regular `hermes.exe` candidate may be executed with `--version`. When both documented launchers are absent, the adapter may instead use the installation's canonical `venv\Scripts\python.exe` with `-I -m hermes_cli.main --version`, but only after a site-packages enumeration capped at 1,024 entries and a 16-KiB canonical metadata read prove exactly one installed Hermes package declares `hermes = hermes_cli.main:main`. The repository wrapper and `hermes-agent.exe` remain evidence only and are never executed. Trusted evidence with neither safe command form is `BROKEN_EXECUTABLE`. `NOT_INSTALLED` is reserved for the absence of both a candidate and trusted installation evidence.
 
 If exactly one candidate is runnable, it is selected even when other candidates are unusable. If two or more distinct candidates are runnable, discovery returns `AMBIGUOUS` with no selection. Cancellation returns `context.Canceled`; completed negative states return typed discovery data.
 
@@ -235,9 +235,13 @@ When CLI execution is required:
 - normalize exit failures to YORVA error codes;
 - keep command construction inside Hermes adapter packages.
 
+Hermes discovery command descriptors are closed and argument-safe: either an enumerated Hermes launcher plus `--version`, or the Phase 2 amendment 002A1 validated official-root Python plus `-I -m hermes_cli.main --version`. The latter is a narrow compatibility fallback for an official package whose generated Windows launcher is absent; it is not a generic Python execution facility.
+
 ## 12. Version compatibility
 
 The adapter owns a support policy.
+
+For Phase 2 amendment 002A1, stable Hermes `0.19.x` and `0.20.x` are supported (`>=0.19.0 <0.21.0`). This includes the current official stable package version `0.20.1` reviewed on 2026-08-14. Prereleases and `0.21.0` or later remain unsupported until explicitly reviewed.
 
 Detection returns:
 

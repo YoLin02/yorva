@@ -13,6 +13,7 @@
 > Implementation status: COMPLETE / FROZEN
 > Verification: PASS — exact implementation commit passed GitHub Actions run `31795039599`, including Go race and Windows native/Tauri
 > Audit: `AUDIT-002` — FAIL (preserved); `AUDIT-002R1` — PASS
+> Post-freeze amendment: `AMENDMENT-002A1-hermes-windows-command-resolution.md` — local verification PASS; no freeze requested
 
 ## 1. Objective
 
@@ -111,9 +112,9 @@ Discovery is read-only and Windows-first. Candidate sources, in order:
 4. Unix per-user: `~/.local/bin/hermes`;
 5. Unix system: `/usr/local/bin/hermes`.
 
-Only host-appropriate candidates are used. Enumeration returns absolute regular executable files, canonicalizes where possible, deduplicates Windows paths case-insensitively and Unix paths case-sensitively, preserves source order, and evaluates at most eight candidates. It never scans disks recursively, inspects Python packages, reads Hermes config or probes undocumented locations.
+Only host-appropriate candidates are used. Enumeration returns bounded command descriptors backed by absolute regular executable files, canonicalizes where possible, deduplicates Windows paths case-insensitively and Unix paths case-sensitively, preserves source order, and evaluates at most eight candidates. It never scans disks recursively, imports Hermes Python modules into YORVA, reads Hermes config or probes undocumented locations.
 
-On Windows, executable candidates and installation evidence are separate. The adapter may inspect only fixed paths below the documented `%LOCALAPPDATA%\hermes\hermes-agent` install root. A directory is trusted as installation evidence only when the official root and `venv` directory exist together with a fixed Hermes marker such as the repository `hermes` wrapper, `pyproject.toml`, or `venv\Scripts\hermes-agent.exe`. These markers are never executed. Trusted installation evidence without a regular `hermes.exe` CLI candidate returns `BROKEN_EXECUTABLE`, not `NOT_INSTALLED`. With no trusted evidence and no CLI candidate, the result remains `NOT_INSTALLED`.
+On Windows, executable candidates and installation evidence are separate. The adapter may inspect only fixed paths below the documented `%LOCALAPPDATA%\hermes\hermes-agent` install root. A directory is trusted as installation evidence only when the official root and `venv` directory exist together with a fixed Hermes marker such as the repository `hermes` wrapper, `pyproject.toml`, or `venv\Scripts\hermes-agent.exe`. These markers are never executed. Direct `hermes.exe` launchers retain priority. When both documented launchers are absent, the adapter may use the amendment 002A1 fallback only after canonical containment checks prove the installation's Python, module marker and one bounded package metadata file remain below the official root, a 1,024-entry site-packages scan cap is respected, and that metadata contains exactly one console definition `hermes = hermes_cli.main:main`. The fallback directly executes the official-root Python with constant argv `-I -m hermes_cli.main --version`. Evidence without either a direct launcher or this validated fallback returns `BROKEN_EXECUTABLE`, not `NOT_INSTALLED`. With no trusted evidence and no CLI candidate, the result remains `NOT_INSTALLED`.
 
 For each candidate the adapter directly invokes, without a shell:
 
@@ -123,7 +124,7 @@ For each candidate the adapter directly invokes, without a shell:
 
 No fallback command may initialize configuration or inspect unrelated runtime state. A candidate that cannot satisfy the documented global `--version` contract is broken or malformed, not repaired. Stdout and stderr are separate and limited to 64 KiB each; overflow terminates the child with `RUNTIME_COMMAND_OUTPUT_LIMIT`.
 
-`hermes-agent.exe` is installation evidence only and must never be invoked for version discovery because it can start an Agent workflow. Phase 2 does not execute the Python wrapper, invoke Hermes Python internals, repair the launcher, or modify `PATH`.
+`hermes-agent.exe` and the repository Python wrapper are installation evidence only and must never be invoked for version discovery because they can start an Agent workflow or add shell-dependent behavior. Phase 2 may execute only the package-declared official CLI module through the trusted installation Python as specified above; it does not import Hermes into YORVA, repair the launcher, or modify `PATH`.
 
 Phase 2 adds no SQLite migration. Discovery is live and non-authoritative after the response; a later phase may persist accepted installation metadata.
 
@@ -186,13 +187,13 @@ Rules:
 
 ## 8. Compatibility Model
 
-Initial tested support window:
+Current tested support window:
 
 ```text
->= 0.19.0 and < 0.20.0
+>= 0.19.0 and < 0.21.0
 ```
 
-`0.19.0` is the current official packaged release reviewed for this plan. Hermes remains on a `0.x` line, so YORVA supports only the tested minor line instead of guessing forward compatibility.
+The original frozen plan covered only `0.19.x`. On 2026-08-14 the Owner explicitly extended compatibility after upstream review: the latest stable GitHub release `v2026.8.13` declares Hermes package version `0.20.1`, and the affected official installation reports `0.20.0`. YORVA therefore supports stable `0.19.x` and `0.20.x`. Hermes remains on a `0.x` line, so `0.21.0` and later are not guessed compatible before review.
 
 Parsing accepts a documented Hermes banner containing exactly one `major.minor.patch` package version, optionally prefixed by `v`, and normalizes it to SemVer. A documented date token may be ignored only after the package version is identified. Missing, partial, ambiguous, overflowed or non-SemVer values are malformed; version must not be inferred from file metadata, paths, Git state or Python internals.
 
@@ -277,13 +278,13 @@ Implementation synchronizes `RUNTIME.md`, `PROTOCOL.md`, `api/openapi.yaml` and 
 
 ## 14. Security Boundary
 
-- invoke only an enumerated absolute Hermes executable with constant argv `--version`;
+- invoke only an enumerated absolute executable through one of two closed command forms: a Hermes launcher with constant argv `--version`, or the validated official-root Python with constant argv `-I -m hermes_cli.main --version`;
 - never use a shell, command string, `cmd /c`, PowerShell or user-controlled argv;
 - reject directories and non-regular targets;
 - use a minimal child environment containing OS execution essentials and explicitly required Hermes location variables; do not inherit provider/API credentials by default;
 - bound candidates, output and execution time;
 - run as the normal user without elevation;
-- do not read Hermes configuration, secrets, sessions or Python internals;
+- do not read Hermes configuration, secrets or sessions; package inspection is limited to one canonical, regular, at-most-16-KiB `entry_points.txt` declaring the exact public console entry point;
 - preserve loopback, bearer authentication, CORS and CSP controls.
 
 Tests must prove argument safety and environment filtering. Any need for shell invocation blocks the phase for security review.
@@ -299,11 +300,13 @@ Raw stdout/stderr is absent from info logs and Desktop. A bounded redacted previ
 | Scenario | Expected result | Level |
 | --- | --- | --- |
 | no candidate | `NOT_INSTALLED` | adapter integration |
-| trusted Windows installation evidence, launcher absent | `BROKEN_EXECUTABLE`; no evidence marker is executed | Windows adapter |
+| trusted Windows installation, launcher absent, exact package entry point | fixed isolated Python invocation; version drives compatibility | Windows adapter/security |
+| trusted Windows evidence, launcher and valid package entry point absent | `BROKEN_EXECUTABLE`; no evidence marker is executed | Windows adapter |
+| duplicate, ambiguous, malformed or oversized package metadata | fallback rejected; no command executed | Windows adapter/security |
 | `hermes-agent.exe` exists without `hermes.exe` | `BROKEN_EXECUTABLE`; `hermes-agent.exe` is never invoked | Windows adapter/security |
 | official Windows location | discovered without PATH mutation | Windows adapter |
-| `0.19.0` / `0.19.x` banner | normalized `SUPPORTED` | parser/adapter |
-| below range or `0.20.0` | `UNSUPPORTED` | compatibility unit |
+| `0.19.x` / `0.20.x` stable banner | normalized `SUPPORTED` | parser/adapter |
+| below range or `0.21.0` | `UNSUPPORTED` | compatibility unit |
 | unlisted prerelease | unsupported warning | compatibility unit |
 | missing/partial/ambiguous/overflow version | malformed | parser table |
 | start failure/non-zero exit | broken | command adapter |
@@ -352,15 +355,17 @@ Also run sidecar build, Windows lifecycle smoke and Tauri no-bundle build. Tests
 
 ## 17. Exit Criteria
 
+This checklist records the accepted frozen baseline. Amendment 002A1 has its own verification and acceptance rule; it does not inherit these checks or alter the frozen tag before a new independent `PASS`.
+
 - [x] discovery exists only behind application/Runtime/Hermes adapter boundaries;
 - [x] PATH, documented candidates and trusted Windows installation evidence are classified without mutation;
 - [x] `--version` is direct, bounded, timed and cancellable;
-- [x] tested `0.19.x` compatibility is normalized;
+- [x] tested stable `0.19.x` and `0.20.x` compatibility is normalized;
 - [x] all required negative and multiple-candidate cases, including missing launcher and ambiguity, are deterministic and tested;
 - [x] Desktop presents every state in the sidebar shell with complete English/Chinese copy and no direct Hermes access or message parsing;
 - [x] OpenAPI and generated types are synchronized;
 - [x] no migration, persistent discovery cache, installation or later-phase code exists;
-- [x] relevant local checks and exact-commit CI pass for the amended scope;
+- [x] relevant local checks and exact-commit CI passed for the frozen Phase 2 scope;
 - [x] implementation is frozen for independent Phase 2 audit;
 - [x] independent gate permits a Phase 2 baseline after exact-commit CI and before Phase 3 begins.
 
@@ -373,9 +378,9 @@ Use a fresh independent review context and `docs/AUDIT_STANDARD.md`. The audit m
 - trace Desktop → HTTP → application → Runtime contract → Hermes adapter;
 - search for forbidden direct calls, shell strings, generic execution and PATH mutation;
 - validate Windows precedence, canonicalization, deduplication and candidate bounds;
-- validate missing-launcher installation evidence, prove `hermes-agent.exe` is never executed, and run the gated real-Windows smoke;
+- validate both missing-launcher outcomes, prove only an exact unique package entry point enables the isolated Python fallback, prove `hermes-agent.exe` and the repository wrapper are never executed, and run the gated real-Windows smoke;
 - validate process timeout, cancellation, reaping, output bounds and environment filtering;
-- validate compatibility at `0.19.0`, `0.19.x`, prerelease, below-range and `0.20.0`;
+- validate compatibility at `0.19.x`, `0.20.0`, current stable `0.20.1`, prerelease, below-range and `0.21.0`;
 - validate every negative state and stable code across adapter, API and Desktop;
 - validate sidebar navigation, English/Chinese completeness, persistence, locale-aware time and accessibility;
 - validate authentication, CORS, safe messages, logs, OpenAPI and generated types;
