@@ -945,7 +945,7 @@ Bootstrap does not need durable event replay.
 
 Create only the minimum durable domain/persistence foundation if required by the initial migration and architecture.
 
-Do not add a worker pool, scheduler or generalized job framework until Phase 2 installation work needs it.
+Do not add a worker pool, scheduler or generalized job framework until an authorized installation phase demonstrates the need. Phase 2 discovery does not need one.
 
 When the first real Operation is implemented, it must follow `PROTOCOL.md` and `ARCHITECTURE.md`.
 

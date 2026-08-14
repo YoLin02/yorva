@@ -67,32 +67,60 @@ Exit criteria:
 - no Hermes command is called from React/Tauri UI code;
 - Phase 1 re-audit passes and the final baseline commit on `main` is frozen by `phase-001-bootstrap-baseline`.
 
-## Phase 2 — Hermes discovery and installation
+## Phase 2 — Hermes Discovery & Compatibility
 
-Goal: make Hermes visible and installable without terminal use.
+Status: **READY** (Specification complete; implementation not started)
+Spec: `docs/phases/PHASE-002-hermes-discovery.md`
+Baseline: `phase-001-bootstrap-baseline`
+
+Goal: detect Hermes and report executable/version compatibility without mutating the machine.
 
 Deliverables:
 
 - detect Hermes;
-- version/support reporting;
-- installation Operation;
-- post-install verification;
-- Runtime capability view;
-- structured install logs with redaction.
+- locate official executable candidates;
+- version and compatibility reporting;
+- not-installed, unsupported, broken, malformed, timeout and cancellation handling;
+- deterministic multiple-candidate selection;
+- authenticated discovery API/OpenAPI contract;
+- Desktop discovery status view.
 
 Exit criteria:
 
 ```text
-Fresh supported Windows machine
-→ open YORVA
-→ detect missing Hermes
-→ install Hermes
-→ verify supported installation
+Open YORVA
+→ detect absent or installed Hermes
+→ show executable, version and compatibility
+→ present safe negative states and retry/cancel behavior
 ```
 
-Normal path requires no manual CLI.
+Phase 2 must not install/download Hermes, modify PATH/Python, or begin Profile/lifecycle work.
 
-## Phase 3 — Instance/Profile management
+## Phase 3 — Hermes Installation
+
+Goal: install a supported official Hermes Runtime without requiring terminal use.
+
+Candidate deliverables:
+
+- explicit installation Operation;
+- official-source provenance and integrity verification;
+- narrow privilege/elevation handling where required;
+- structured, redacted install progress;
+- post-install discovery and compatibility verification;
+- failure, cancellation and recovery UX.
+
+Exit criteria:
+
+```text
+Hermes not installed
+→ user explicitly starts installation
+→ official installation completes
+→ Phase 2 discovery verifies a supported executable
+```
+
+The detailed Phase 3 Spec is prepared only after Phase 2 passes audit and is frozen.
+
+## Phase 4 — Instance/Profile management
 
 Goal: manage multiple Hermes-backed YORVA instances.
 
@@ -110,7 +138,7 @@ Exit criteria:
 - multiple independent Hermes profiles are discoverable and manageable;
 - YORVA recovers if profiles are changed outside YORVA.
 
-## Phase 4 — Models and credentials
+## Phase 5 — Models and credentials
 
 Goal: make model configuration safe and simple.
 
@@ -128,7 +156,7 @@ Exit criteria:
 - user can configure a working Hermes model without editing `.env` or YAML;
 - no API key plaintext appears in SQLite or ordinary logs.
 
-## Phase 5 — Messaging channels
+## Phase 6 — Messaging channels
 
 Goal: deliver the key YORVA promise: one-click channel connection.
 
@@ -157,7 +185,7 @@ Instance
 → status visible in YORVA
 ```
 
-## Phase 6 — Runtime management completeness
+## Phase 7 — Runtime management completeness
 
 Goal: make YORVA practical for daily local management.
 
@@ -173,7 +201,7 @@ Candidate deliverables:
 
 Only implement features with stable Hermes integration paths.
 
-## Phase 7 — Local product hardening
+## Phase 8 — Local product hardening
 
 Goal: prepare a public local release.
 
@@ -188,7 +216,7 @@ Deliverables:
 - signed release pipeline;
 - user-facing diagnostics/export bundle without secrets.
 
-## Phase 8 — Optional Control Plane prototype
+## Phase 9 — Optional Control Plane prototype
 
 Start only after local product is stable.
 
@@ -221,7 +249,7 @@ Explicitly not required for first prototype:
 - Kubernetes;
 - Redis/Kafka unless proven necessary.
 
-## Phase 9 — Enterprise management
+## Phase 10 — Enterprise management
 
 Driven by real customer requirements.
 
@@ -239,7 +267,7 @@ Possible scope:
 
 Do not commit to all features before discovery.
 
-## Phase 10 — Second Runtime
+## Phase 11 — Second Runtime
 
 This is the trigger to validate the Runtime abstraction.
 
@@ -256,9 +284,9 @@ A dynamic Runtime marketplace is not built before this phase proves the need.
 ## Release naming suggestion
 
 ```text
-0.1  foundation + Hermes detection/install
-0.2  multi-instance + model config
-0.3  Weixin/WeCom channels
+0.1  foundation + Hermes discovery/compatibility
+0.2  Hermes installation + multi-instance
+0.3  model configuration + Weixin/WeCom channels
 0.4  Skills/MCP/backup/upgrade
 0.5  local hardening/public beta
 0.8  optional remote Control Plane beta

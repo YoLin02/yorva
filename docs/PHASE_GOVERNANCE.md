@@ -96,8 +96,9 @@ Current roadmap numbering is authoritative:
 ```text
 Phase 0   Architecture freeze
 Phase 1   Repository foundation / bootstrap
-Phase 2   Hermes discovery and installation
-Phase 3   Instance/Profile management
+Phase 2   Hermes Discovery & Compatibility
+Phase 3   Hermes Installation
+Phase 4   Instance/Profile management
 ...
 ```
 
@@ -105,14 +106,14 @@ Implementation specs should use filenames such as:
 
 ```text
 docs/phases/PHASE-001-repository-foundation.md
-docs/phases/PHASE-002-hermes-discovery-installation.md
+docs/phases/PHASE-002-hermes-discovery.md
 ```
 
 Audit reports should use:
 
 ```text
 docs/phases/audits/AUDIT-001-repository-foundation.md
-docs/phases/audits/AUDIT-002-hermes-discovery-installation.md
+docs/phases/audits/AUDIT-002-hermes-discovery.md
 ```
 
 `docs/BOOTSTRAP.md` is the execution specification for **Phase 1 — Repository foundation** and does not need to be duplicated unless it is later migrated into the phase directory.
@@ -579,7 +580,7 @@ phase-001-bootstrap-baseline (logical target; final commit/tag selected after th
 Phase 2 Spec
 ```
 
-Do not begin Hermes discovery/installation code before the Phase 1 gate passes.
+Do not begin Hermes Discovery implementation before the Phase 1 gate passes and its accepted baseline is frozen. Hermes Installation is Phase 3 and remains prohibited until Phase 2 independently passes and is frozen.
 
 Phase 1 acceptance record:
 

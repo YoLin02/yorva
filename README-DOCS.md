@@ -26,9 +26,13 @@ Templates:
 Phase readiness and gate records:
 
 - `docs/phases/audits/AUDIT-000-phase0-readiness.md`
+- `docs/phases/audits/AUDIT-001-repository-foundation.md`
+- `docs/phases/audits/AUDIT-001R1-repository-foundation.md`
+- `docs/phases/audits/AUDIT-001R2-repository-foundation.md` — final Phase 1 `PASS`
+- `docs/phases/PHASE-002-hermes-discovery.md` — Phase 2 `READY`, implementation not started
 
 The architecture, security, protocol, Runtime and ADR documents define the engineering baseline. `PHASE_GOVERNANCE.md` defines how work advances between phases. `AUDIT_STANDARD.md` defines the mandatory audit and gate rules.
 
 `BOOTSTRAP.md` is the execution contract for **Phase 1 — Repository foundation**.
 
-Do not begin Phase 2 Hermes feature implementation until Phase 1 implementation, verification and audit have passed the gate and the Phase 1 baseline has been frozen.
+Phase 1 is frozen at `phase-001-bootstrap-baseline`. Phase 2 is limited to Hermes Discovery & Compatibility; Hermes Installation is reserved for Phase 3.
