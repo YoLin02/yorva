@@ -29,13 +29,13 @@ const node = {
 };
 const discovery = {
   runtimeKind: "hermes",
-  state: "UNSUPPORTED",
-  errorCode: "RUNTIME_UNSUPPORTED",
-  selected: { path: "C:\\Hermes\\hermes.exe", version: "0.20.0", state: "UNSUPPORTED", errorCode: "RUNTIME_UNSUPPORTED" },
+  state: "SUPPORTED",
+  errorCode: null,
+  selected: { path: "C:\\Hermes\\hermes.exe", version: "0.20.1", state: "SUPPORTED", errorCode: null },
   candidates: [],
   warnings: [],
   detectedAt: "2026-08-14T10:11:57Z",
-  supportedRange: ">=0.19.0 <0.20.0",
+  supportedRange: ">=0.19.0 <0.21.0",
 };
 
 function renderApp() {

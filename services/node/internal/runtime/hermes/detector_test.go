@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -34,9 +35,9 @@ func TestDetectorOutcomes(t *testing.T) {
 		},
 		{
 			name:      "unsupported",
-			commands:  []commandResult{{stdout: "Hermes Agent v0.20.0\n", exitCode: 0}},
+			commands:  []commandResult{{stdout: "Hermes Agent v0.21.0\n", exitCode: 0}},
 			wantState: yorvaruntime.DiscoveryUnsupported, wantCode: yorvaruntime.ErrorRuntimeUnsupported,
-			wantVersion: "0.20.0", wantSelected: true, wantCandidates: 1,
+			wantVersion: "0.21.0", wantSelected: true, wantCandidates: 1,
 		},
 		{
 			name:      "broken executable",
@@ -131,7 +132,7 @@ func TestDetectorClassifiesMissingLauncherAsBrokenWithoutExecutingEvidence(t *te
 			installationRoots: []string{root},
 			limit:             maxCandidates,
 		},
-		run: func(context.Context, string) commandResult {
+		run: func(context.Context, commandInvocation) commandResult {
 			executed = true
 			return commandResult{}
 		},
@@ -154,6 +155,39 @@ func TestDetectorClassifiesMissingLauncherAsBrokenWithoutExecutingEvidence(t *te
 	}
 }
 
+func TestDetectorUsesTrustedOfficialPythonEntrypointWhenLauncherIsMissing(t *testing.T) {
+	root := writeOfficialPythonInstallation(t, hermesCLIEntryPoint)
+	var executed commandInvocation
+	detector := &Detector{
+		finder: candidateFinder{
+			executableName:    "hermes.exe",
+			installationRoots: []string{root},
+			caseInsensitive:   true,
+			limit:             maxCandidates,
+		},
+		run: func(_ context.Context, command commandInvocation) commandResult {
+			executed = command
+			return commandResult{stdout: "Hermes Agent v0.20.0 (2026.8.3)\n", exitCode: 0}
+		},
+		now:            time.Now,
+		overallTimeout: time.Second,
+	}
+
+	got, err := detector.Detect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.State != yorvaruntime.DiscoverySupported || got.ErrorCode != "" {
+		t.Fatalf("Detect() state/code = %s/%s, want SUPPORTED with no error", got.State, got.ErrorCode)
+	}
+	if got.Selected == nil || got.Selected.Version != "0.20.0" || got.Selected.Path != executed.path {
+		t.Fatalf("Detect() selected = %#v, invocation = %#v", got.Selected, executed)
+	}
+	if !slices.Equal(executed.args, []string{"-I", "-m", hermesCLIModule, "--version"}) {
+		t.Fatalf("Detect() executed args %#v", executed.args)
+	}
+}
+
 func TestDetectorPropagatesCallerCancellation(t *testing.T) {
 	candidate := createCandidateFile(t)
 	started := make(chan struct{})
@@ -163,7 +197,7 @@ func TestDetectorPropagatesCallerCancellation(t *testing.T) {
 			executableName: executableNameForTest(),
 			limit:          maxCandidates,
 		},
-		run: func(ctx context.Context, _ string) commandResult {
+		run: func(ctx context.Context, _ commandInvocation) commandResult {
 			close(started)
 			<-ctx.Done()
 			return commandResult{exitCode: -1, err: ctx.Err()}
@@ -205,8 +239,8 @@ func detectorWithResults(t *testing.T, results []commandResult) *Detector {
 			executableName: executableNameForTest(),
 			limit:          maxCandidates,
 		},
-		run: func(_ context.Context, path string) commandResult {
-			return byPath[path]
+		run: func(_ context.Context, command commandInvocation) commandResult {
+			return byPath[command.path]
 		},
 		now:            func() time.Time { return time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC) },
 		overallTimeout: time.Second,

@@ -39,21 +39,35 @@ func TestMinimalEnvironmentExcludesSecrets(t *testing.T) {
 func TestCommandRunnerExecutesOnlyVersionArgument(t *testing.T) {
 	executable := buildFakeHermes(t)
 	runner := testCommandRunner("success", "", time.Second)
-	result := runner.run(context.Background(), executable)
+	result := runner.run(context.Background(), directInvocation(executable))
 	if result.err != nil || result.exitCode != 0 || result.stdout != "Hermes Agent v0.19.7 (2026.8.14)\n" {
 		t.Fatalf("run() = %#v", result)
 	}
 }
 
+func TestCommandRunnerExecutesValidatedPythonEntrypointArguments(t *testing.T) {
+	executable := buildFakeHermes(t)
+	runner := testCommandRunner("python-entrypoint-success", "", time.Second)
+	result := runner.run(context.Background(), commandInvocation{
+		path:       executable,
+		executable: executable,
+		args:       []string{"-I", "-m", hermesCLIModule, "--version"},
+		workingDir: t.TempDir(),
+	})
+	if result.err != nil || result.exitCode != 0 || result.stdout != "Hermes Agent v0.20.0 (2026.8.3)\n" {
+		t.Fatalf("Python entry-point run() = %#v", result)
+	}
+}
+
 func TestCommandRunnerBoundsOutputAndReapsOnTimeout(t *testing.T) {
 	executable := buildFakeHermes(t)
-	limited := testCommandRunner("output-limit", "", time.Second).run(context.Background(), executable)
+	limited := testCommandRunner("output-limit", "", time.Second).run(context.Background(), directInvocation(executable))
 	if !limited.limited || !errors.Is(limited.err, errOutputLimit) {
 		t.Fatalf("output-limited run() = %#v", limited)
 	}
 
 	pidFile := filepath.Join(t.TempDir(), "pid")
-	timedOut := testCommandRunner("wait", pidFile, 100*time.Millisecond).run(context.Background(), executable)
+	timedOut := testCommandRunner("wait", pidFile, 100*time.Millisecond).run(context.Background(), directInvocation(executable))
 	if !timedOut.timedOut || !errors.Is(timedOut.err, context.DeadlineExceeded) {
 		t.Fatalf("timed-out run() = %#v", timedOut)
 	}
@@ -69,7 +83,7 @@ func TestCommandRunnerCancellationReapsProcess(t *testing.T) {
 	runner := testCommandRunner("child-wait", pidFile, 5*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	result := make(chan commandResult, 1)
-	go func() { result <- runner.run(ctx, executable) }()
+	go func() { result <- runner.run(ctx, directInvocation(executable)) }()
 	waitForFile(t, pidFile)
 	cancel()
 	select {
@@ -89,7 +103,7 @@ func TestCommandRunnerCancellationReapsProcess(t *testing.T) {
 func TestCommandRunnerTimeoutReapsDescendantProcess(t *testing.T) {
 	executable := buildFakeHermes(t)
 	pidFile := filepath.Join(t.TempDir(), "child-pid")
-	result := testCommandRunner("child-wait", pidFile, 150*time.Millisecond).run(context.Background(), executable)
+	result := testCommandRunner("child-wait", pidFile, 150*time.Millisecond).run(context.Background(), directInvocation(executable))
 	if !result.timedOut || !errors.Is(result.err, context.DeadlineExceeded) {
 		t.Fatalf("timed-out process tree run() = %#v", result)
 	}
@@ -102,7 +116,7 @@ func TestCommandRunnerTimeoutReapsDescendantProcess(t *testing.T) {
 func TestCommandRunnerOwnsImmediateDescendantBeforeExecutableRuns(t *testing.T) {
 	executable := buildFakeHermes(t)
 	pidFile := filepath.Join(t.TempDir(), "immediate-child-pid")
-	result := testCommandRunner("child-exit", pidFile, time.Second).run(context.Background(), executable)
+	result := testCommandRunner("child-exit", pidFile, time.Second).run(context.Background(), directInvocation(executable))
 	if result.exitCode != 0 || result.err != nil {
 		t.Fatalf("immediate-child run() = %#v", result)
 	}
@@ -122,7 +136,7 @@ func TestCommandRunnerReturnsAfterAlreadyCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	started := time.Now()
-	result := runner.run(ctx, createCandidateFile(t))
+	result := runner.run(ctx, directInvocation(createCandidateFile(t)))
 	if time.Since(started) > time.Second {
 		t.Fatal("run() did not return promptly for a cancelled context")
 	}

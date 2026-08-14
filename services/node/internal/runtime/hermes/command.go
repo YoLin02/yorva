@@ -42,12 +42,13 @@ func newCommandRunner() commandRunner {
 	}
 }
 
-func (r commandRunner) run(ctx context.Context, executable string) commandResult {
+func (r commandRunner) run(ctx context.Context, invocation commandInvocation) commandResult {
 	commandCtx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
-	command := exec.CommandContext(commandCtx, executable, "--version")
+	command := exec.CommandContext(commandCtx, invocation.executable, invocation.args...)
 	command.Env = r.environment()
+	command.Dir = invocation.workingDir
 	command.WaitDelay = r.waitDelay
 	configureProcessTree(command)
 	stdout, err := command.StdoutPipe()

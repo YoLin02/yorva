@@ -22,7 +22,7 @@ function discovery(state: RuntimeDiscoveryState): RuntimeDiscovery {
     candidates: state === "NOT_INSTALLED" ? [] : [candidate],
     warnings: [],
     detectedAt: "2026-08-14T00:00:00Z",
-    supportedRange: ">=0.19.0 <0.20.0",
+    supportedRange: ">=0.19.0 <0.21.0",
   };
 }
 

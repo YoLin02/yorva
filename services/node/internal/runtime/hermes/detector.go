@@ -13,7 +13,7 @@ const overallDiscoveryTimeout = 10 * time.Second
 
 type Detector struct {
 	finder         candidateFinder
-	run            func(context.Context, string) commandResult
+	run            func(context.Context, commandInvocation) commandResult
 	now            func() time.Time
 	overallTimeout time.Duration
 }
@@ -35,12 +35,12 @@ func (d *Detector) Detect(ctx context.Context) (yorvaruntime.Discovery, error) {
 	found := d.finder.find()
 	result := yorvaruntime.Discovery{
 		RuntimeKind:    Kind,
-		Candidates:     make([]yorvaruntime.Candidate, 0, len(found.paths)),
+		Candidates:     make([]yorvaruntime.Candidate, 0, len(found.commands)),
 		Warnings:       make([]yorvaruntime.Warning, 0),
 		DetectedAt:     d.now().UTC(),
 		SupportedRange: supportedRange,
 	}
-	if len(found.paths) == 0 {
+	if len(found.commands) == 0 {
 		if found.installationEvidence {
 			result.State = yorvaruntime.DiscoveryBrokenExecutable
 			result.ErrorCode = yorvaruntime.ErrorRuntimeExecutableBroken
@@ -61,14 +61,14 @@ func (d *Detector) Detect(ctx context.Context) (yorvaruntime.Discovery, error) {
 		})
 	}
 
-	for _, path := range found.paths {
+	for _, command := range found.commands {
 		if err := discoveryCtx.Err(); err != nil {
 			if errors.Is(ctx.Err(), context.Canceled) {
 				return yorvaruntime.Discovery{}, ctx.Err()
 			}
 			break
 		}
-		candidate, err := d.inspect(discoveryCtx, path)
+		candidate, err := d.inspect(discoveryCtx, command)
 		if err != nil {
 			if errors.Is(ctx.Err(), context.Canceled) {
 				return yorvaruntime.Discovery{}, ctx.Err()
@@ -83,9 +83,9 @@ func (d *Detector) Detect(ctx context.Context) (yorvaruntime.Discovery, error) {
 	return aggregateDiscovery(result), nil
 }
 
-func (d *Detector) inspect(ctx context.Context, path string) (yorvaruntime.Candidate, error) {
-	candidate := yorvaruntime.Candidate{Path: path}
-	command := d.run(ctx, path)
+func (d *Detector) inspect(ctx context.Context, invocation commandInvocation) (yorvaruntime.Candidate, error) {
+	candidate := yorvaruntime.Candidate{Path: invocation.path}
+	command := d.run(ctx, invocation)
 	if command.limited {
 		candidate.State = yorvaruntime.DiscoveryBrokenExecutable
 		candidate.ErrorCode = yorvaruntime.ErrorRuntimeCommandOutputLimit
