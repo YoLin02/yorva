@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Node } from "../api/types";
 import type { EventStreamStatus } from "../hooks/useEventStreamStatus";
 import { APP_NAME } from "../appMetadata";
@@ -7,7 +8,7 @@ export type NodeScreenState =
   | { kind: "failure"; message: string }
   | { kind: "connected"; node: Node; eventStatus: EventStreamStatus };
 
-export function NodeStatusView({ state }: { state: NodeScreenState }) {
+export function NodeStatusView({ state, children }: { state: NodeScreenState; children?: ReactNode }) {
   return (
     <main className="shell">
       <section className="intro" aria-labelledby="app-title">
@@ -26,16 +27,19 @@ export function NodeStatusView({ state }: { state: NodeScreenState }) {
           </div>
         )}
         {state.kind === "connected" && (
-          <div className="status-card">
-            <StatusLabel tone="ready">Local node connected</StatusLabel>
-            <dl className="node-details">
-              <div><dt>Node name</dt><dd>{state.node.name}</dd></div>
-              <div><dt>Node ID</dt><dd>{state.node.id}</dd></div>
-              <div><dt>Platform</dt><dd>{state.node.platform} / {state.node.architecture}</dd></div>
-              <div><dt>yorvad</dt><dd>{state.node.nodeVersion}</dd></div>
-              <div><dt>Events</dt><dd>{state.eventStatus}</dd></div>
-            </dl>
-          </div>
+          <>
+            <div className="status-card">
+              <StatusLabel tone="ready">Local node connected</StatusLabel>
+              <dl className="node-details">
+                <div><dt>Node name</dt><dd>{state.node.name}</dd></div>
+                <div><dt>Node ID</dt><dd>{state.node.id}</dd></div>
+                <div><dt>Platform</dt><dd>{state.node.platform} / {state.node.architecture}</dd></div>
+                <div><dt>yorvad</dt><dd>{state.node.nodeVersion}</dd></div>
+                <div><dt>Events</dt><dd>{state.eventStatus}</dd></div>
+              </dl>
+            </div>
+            {children}
+          </>
         )}
       </section>
     </main>

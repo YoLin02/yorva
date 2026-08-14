@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: YORVA Local Node API
   version: 0.0.0
-  description: Phase 1 loopback contract between YORVA Desktop and yorvad.
+  description: Local loopback contract between YORVA Desktop and yorvad through Phase 2.
 servers:
   - url: http://127.0.0.1:{port}
     variables:
@@ -14,6 +14,8 @@ tags:
     description: Daemon bootstrap, liveness, and session event transport.
   - name: Node
     description: Persisted local Node identity.
+  - name: Runtimes
+    description: Read-only Runtime discovery and compatibility.
 paths:
   /api/v1/health:
     get:
@@ -114,6 +116,50 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/runtimes/{runtimeKind}/detect:
+    parameters:
+      - name: runtimeKind
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [hermes]
+    post:
+      operationId: detectRuntime
+      summary: Discover a registered Runtime installation
+      description: Performs a bounded, read-only discovery. Negative discovery outcomes are returned as typed 200 responses.
+      tags: [Runtimes]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The completed Runtime discovery result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeDiscovery"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    options:
+      operationId: optionsRuntimeDetection
+      summary: Validate CORS access for Runtime discovery
+      tags: [Runtimes]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
   securitySchemes:
     bearerAuth:
@@ -145,13 +191,18 @@ components:
         Allow:
           schema:
             type: string
-            const: GET, OPTIONS
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     PreflightAccepted:
       description: The known endpoint accepts the approved Desktop origin and requested headers.
+    InternalError:
+      description: Runtime discovery failed unexpectedly without exposing internal command output.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
   schemas:
     Health:
       type: object
@@ -191,6 +242,73 @@ components:
         updatedAt:
           type: string
           format: date-time
+    RuntimeDiscovery:
+      type: object
+      additionalProperties: false
+      required: [runtimeKind, state, errorCode, selected, candidates, warnings, detectedAt, supportedRange]
+      properties:
+        runtimeKind:
+          type: string
+          enum: [hermes]
+        state:
+          $ref: "#/components/schemas/RuntimeDiscoveryState"
+        errorCode:
+          $ref: "#/components/schemas/RuntimeDiscoveryErrorCode"
+        selected:
+          anyOf:
+            - $ref: "#/components/schemas/RuntimeCandidate"
+            - type: "null"
+        candidates:
+          type: array
+          maxItems: 8
+          items:
+            $ref: "#/components/schemas/RuntimeCandidate"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuntimeWarning"
+        detectedAt:
+          type: string
+          format: date-time
+        supportedRange:
+          type: string
+    RuntimeCandidate:
+      type: object
+      additionalProperties: false
+      required: [path, version, state, errorCode]
+      properties:
+        path:
+          type: string
+        version:
+          type: string
+        state:
+          type: string
+          enum: [SUPPORTED, UNSUPPORTED, BROKEN_EXECUTABLE, MALFORMED_VERSION, TIMED_OUT]
+        errorCode:
+          $ref: "#/components/schemas/RuntimeDiscoveryErrorCode"
+    RuntimeWarning:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    RuntimeDiscoveryState:
+      type: string
+      enum: [NOT_INSTALLED, SUPPORTED, UNSUPPORTED, BROKEN_EXECUTABLE, MALFORMED_VERSION, TIMED_OUT, AMBIGUOUS]
+    RuntimeDiscoveryErrorCode:
+      type: [string, "null"]
+      enum:
+        - null
+        - RUNTIME_NOT_INSTALLED
+        - RUNTIME_UNSUPPORTED
+        - RUNTIME_EXECUTABLE_BROKEN
+        - RUNTIME_VERSION_MALFORMED
+        - RUNTIME_DISCOVERY_TIMEOUT
+        - RUNTIME_COMMAND_OUTPUT_LIMIT
+        - RUNTIME_DISCOVERY_AMBIGUOUS
     ErrorResponse:
       type: object
       additionalProperties: false
@@ -205,7 +323,7 @@ components:
       properties:
         code:
           type: string
-          enum: [UNAUTHORIZED, ORIGIN_NOT_ALLOWED, NOT_FOUND, METHOD_NOT_ALLOWED, INTERNAL_ERROR]
+          enum: [UNAUTHORIZED, ORIGIN_NOT_ALLOWED, NOT_FOUND, METHOD_NOT_ALLOWED, RUNTIME_KIND_NOT_FOUND, RUNTIME_DISCOVERY_FAILED, INTERNAL_ERROR]
         message:
           type: string
         retryable:

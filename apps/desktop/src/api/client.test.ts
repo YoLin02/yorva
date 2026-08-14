@@ -50,4 +50,39 @@ describe("daemon client", () => {
       retryable: false,
     } satisfies Partial<YorvaApiError>);
   });
+
+  it("performs authenticated Hermes discovery with cancellation support", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          runtimeKind: "hermes",
+          state: "NOT_INSTALLED",
+          errorCode: "RUNTIME_NOT_INSTALLED",
+          selected: null,
+          candidates: [],
+          warnings: [],
+          detectedAt: "2026-08-14T00:00:00Z",
+          supportedRange: ">=0.19.0 <0.20.0",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+
+    await createDaemonClient(session).detectHermes(controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:49152/api/v1/runtimes/hermes/detect",
+      expect.objectContaining({
+        method: "POST",
+        signal: expect.any(AbortSignal),
+        headers: expect.objectContaining({ Authorization: "Bearer session-secret" }),
+      }),
+    );
+    const requestSignal = (fetchMock.mock.calls[0][1] as RequestInit).signal as AbortSignal;
+    expect(requestSignal.aborted).toBe(false);
+    controller.abort();
+    expect(requestSignal.aborted).toBe(true);
+  });
 });

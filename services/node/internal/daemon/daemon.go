@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/YoLin02/yorva/services/node/internal/app"
 	"github.com/YoLin02/yorva/services/node/internal/bootstrap"
 	"github.com/YoLin02/yorva/services/node/internal/buildinfo"
 	"github.com/YoLin02/yorva/services/node/internal/domain/node"
@@ -89,7 +90,7 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	requestCtx, cancelRequests := context.WithCancel(context.Background())
 	defer cancelRequests()
 	server := &http.Server{
-		Handler:           httpapi.NewHandler(message.Token, localNode, events.NewBroker()),
+		Handler:           httpapi.NewHandler(message.Token, localNode, events.NewBroker(), app.NewRuntimeDiscovery(registry)),
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       30 * time.Second,

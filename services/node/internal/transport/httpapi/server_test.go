@@ -12,6 +12,7 @@ import (
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/node"
 	"github.com/YoLin02/yorva/services/node/internal/events"
+	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
 const testToken = "test-token"
@@ -27,11 +28,37 @@ var testNode = node.Node{
 	UpdatedAt:    time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 }
 
+type fakeRuntimeDiscovery struct {
+	result yorvaruntime.Discovery
+	err    error
+	ctx    chan context.Context
+}
+
+func (d fakeRuntimeDiscovery) Detect(ctx context.Context, _ yorvaruntime.Kind) (yorvaruntime.Discovery, error) {
+	if d.ctx != nil {
+		d.ctx <- ctx
+	}
+	return d.result, d.err
+}
+
+func newTestHandler(services ...RuntimeDiscoveryService) http.Handler {
+	var service RuntimeDiscoveryService = fakeRuntimeDiscovery{result: yorvaruntime.Discovery{
+		RuntimeKind:    "hermes",
+		State:          yorvaruntime.DiscoverySupported,
+		DetectedAt:     time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		SupportedRange: ">=0.19.0 <0.20.0",
+	}}
+	if len(services) == 1 {
+		service = services[0]
+	}
+	return NewHandler(testToken, testNode, events.NewBroker(), service)
+}
+
 func TestHealthIsMinimalAndUnauthenticated(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
 	response := httptest.NewRecorder()
 
-	NewHandler(testToken, testNode, events.NewBroker()).ServeHTTP(response, request)
+	newTestHandler().ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
@@ -65,7 +92,7 @@ func TestNodeRequiresValidBearerToken(t *testing.T) {
 			request.Header.Set("Authorization", test.header)
 			response := httptest.NewRecorder()
 
-			NewHandler(testToken, testNode, events.NewBroker()).ServeHTTP(response, request)
+			newTestHandler().ServeHTTP(response, request)
 
 			if response.Code != test.status {
 				t.Fatalf("status = %d, want %d; body=%s", response.Code, test.status, response.Body.String())
@@ -83,7 +110,7 @@ func TestNodeRequiresValidBearerToken(t *testing.T) {
 func TestEventsRequiresAuthentication(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/events", nil)
 	response := httptest.NewRecorder()
-	NewHandler(testToken, testNode, events.NewBroker()).ServeHTTP(response, request)
+	newTestHandler().ServeHTTP(response, request)
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusUnauthorized)
 	}
@@ -91,7 +118,7 @@ func TestEventsRequiresAuthentication(t *testing.T) {
 
 func TestEventStreamCancellationReleasesSubscriber(t *testing.T) {
 	broker := events.NewBroker()
-	server := httptest.NewServer(NewHandler(testToken, testNode, broker))
+	server := httptest.NewServer(NewHandler(testToken, testNode, broker, fakeRuntimeDiscovery{}))
 	defer server.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -131,7 +158,7 @@ func TestOriginPolicyAllowsOnlyDesktopOrigins(t *testing.T) {
 		request := httptest.NewRequest(http.MethodOptions, "/api/v1/node", nil)
 		request.Header.Set("Origin", "http://127.0.0.1:1420")
 		response := httptest.NewRecorder()
-		NewHandler(testToken, testNode, events.NewBroker()).ServeHTTP(response, request)
+		newTestHandler().ServeHTTP(response, request)
 		if response.Code != http.StatusNoContent {
 			t.Fatalf("status = %d, want %d", response.Code, http.StatusNoContent)
 		}
@@ -147,7 +174,7 @@ func TestOriginPolicyAllowsOnlyDesktopOrigins(t *testing.T) {
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
 		request.Header.Set("Origin", "https://example.com")
 		response := httptest.NewRecorder()
-		NewHandler(testToken, testNode, events.NewBroker()).ServeHTTP(response, request)
+		newTestHandler().ServeHTTP(response, request)
 		if response.Code != http.StatusForbidden {
 			t.Fatalf("status = %d, want %d", response.Code, http.StatusForbidden)
 		}
@@ -161,7 +188,7 @@ func TestOriginPolicyAllowsOnlyDesktopOrigins(t *testing.T) {
 		request := httptest.NewRequest(http.MethodOptions, "/api/v1/missing", nil)
 		request.Header.Set("Origin", "http://tauri.localhost")
 		response := httptest.NewRecorder()
-		NewHandler(testToken, testNode, events.NewBroker()).ServeHTTP(response, request)
+		newTestHandler().ServeHTTP(response, request)
 		if response.Code != http.StatusNotFound {
 			t.Fatalf("status = %d, want %d", response.Code, http.StatusNotFound)
 		}
@@ -183,7 +210,7 @@ func TestRoutingErrorsUseStableProtocolEnvelope(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(test.method, test.path, nil)
 			response := httptest.NewRecorder()
-			NewHandler(testToken, testNode, events.NewBroker()).ServeHTTP(response, request)
+			newTestHandler().ServeHTTP(response, request)
 			if response.Code != test.status {
 				t.Fatalf("status = %d, want %d", response.Code, test.status)
 			}

@@ -58,6 +58,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runtimes/{runtimeKind}/detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeKind: "hermes";
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discover a registered Runtime installation
+         * @description Performs a bounded, read-only discovery. Negative discovery outcomes are returned as typed 200 responses.
+         */
+        post: operations["detectRuntime"];
+        delete?: never;
+        /** Validate CORS access for Runtime discovery */
+        options: operations["optionsRuntimeDetection"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -82,12 +105,39 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        RuntimeDiscovery: {
+            /** @enum {string} */
+            runtimeKind: "hermes";
+            state: components["schemas"]["RuntimeDiscoveryState"];
+            errorCode: components["schemas"]["RuntimeDiscoveryErrorCode"];
+            selected: components["schemas"]["RuntimeCandidate"] | null;
+            candidates: components["schemas"]["RuntimeCandidate"][];
+            warnings: components["schemas"]["RuntimeWarning"][];
+            /** Format: date-time */
+            detectedAt: string;
+            supportedRange: string;
+        };
+        RuntimeCandidate: {
+            path: string;
+            version: string;
+            /** @enum {string} */
+            state: "SUPPORTED" | "UNSUPPORTED" | "BROKEN_EXECUTABLE" | "MALFORMED_VERSION" | "TIMED_OUT";
+            errorCode: components["schemas"]["RuntimeDiscoveryErrorCode"];
+        };
+        RuntimeWarning: {
+            code: string;
+            message: string;
+        };
+        /** @enum {string} */
+        RuntimeDiscoveryState: "NOT_INSTALLED" | "SUPPORTED" | "UNSUPPORTED" | "BROKEN_EXECUTABLE" | "MALFORMED_VERSION" | "TIMED_OUT" | "AMBIGUOUS";
+        /** @enum {string|null} */
+        RuntimeDiscoveryErrorCode: null | "RUNTIME_NOT_INSTALLED" | "RUNTIME_UNSUPPORTED" | "RUNTIME_EXECUTABLE_BROKEN" | "RUNTIME_VERSION_MALFORMED" | "RUNTIME_DISCOVERY_TIMEOUT" | "RUNTIME_COMMAND_OUTPUT_LIMIT" | "RUNTIME_DISCOVERY_AMBIGUOUS";
         ErrorResponse: {
             error: components["schemas"]["Error"];
         };
         Error: {
             /** @enum {string} */
-            code: "UNAUTHORIZED" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR";
+            code: "UNAUTHORIZED" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "RUNTIME_KIND_NOT_FOUND" | "RUNTIME_DISCOVERY_FAILED" | "INTERNAL_ERROR";
             message: string;
             retryable: boolean;
             details: {
@@ -126,7 +176,7 @@ export interface components {
         /** @description The resource does not support the request method. */
         MethodNotAllowed: {
             headers: {
-                Allow?: "GET, OPTIONS";
+                Allow?: string;
                 [name: string]: unknown;
             };
             content: {
@@ -139,6 +189,15 @@ export interface components {
                 [name: string]: unknown;
             };
             content?: never;
+        };
+        /** @description Runtime discovery failed unexpectedly without exposing internal command output. */
+        InternalError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
         };
     };
     parameters: never;
@@ -252,6 +311,49 @@ export interface operations {
             query?: never;
             header?: never;
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    detectRuntime: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeKind: "hermes";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The completed Runtime discovery result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeDiscovery"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    optionsRuntimeDetection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeKind: "hermes";
+            };
             cookie?: never;
         };
         requestBody?: never;

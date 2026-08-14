@@ -6,7 +6,9 @@
 > Previous baseline commit: `49de99bd3b9c908f5f2065b7c56fd69e97206284`
 > Previous gate: `AUDIT-001R2-repository-foundation.md` — PASS
 > Planning transition: DRAFT → READY on 2026-08-14
-> Implementation status: ACTIVE — authorized on 2026-08-14
+> Implementation status: COMPLETE — automatic Batches 1–7 authorized on 2026-08-14
+> Verification: local PASS; exact-commit CI pending
+> Audit: `AUDIT-002` PENDING
 
 ## 1. Objective
 
@@ -27,9 +29,9 @@ Negative outcomes are first-class results: not installed, unsupported, broken ex
 - [x] Phase 1 is `COMPLETE / FROZEN`.
 - [x] `phase-001-bootstrap-baseline` exists on `main`, resolves to `49de99bd3b9c908f5f2065b7c56fd69e97206284`, and is pushed.
 - [x] Phase 2 scope excludes Hermes installation and later roadmap work.
-- [x] The repository owner requested this Specification and authorized the `READY` state only.
+- [x] The repository owner approved the Specification and later authorized continuous implementation through Batches 1–7.
 
-`READY` means this spec is sufficient for a later implementation task. It does not mean implementation has started. A separate Owner instruction is required before changing the phase to `IN_PROGRESS`.
+The phase transitioned `READY` → `IN_PROGRESS` only after the Owner's implementation authorization. Automatic batch progression did not waive any test gate or scope boundary.
 
 ## 3. In Scope
 
@@ -155,6 +157,7 @@ UNSUPPORTED
 BROKEN_EXECUTABLE
 MALFORMED_VERSION
 TIMED_OUT
+AMBIGUOUS
 ```
 
 Rules:
@@ -164,6 +167,7 @@ Rules:
 - `BROKEN_EXECUTABLE` means candidates exist but none completes the version command.
 - `MALFORMED_VERSION` means a candidate exits successfully without one accepted version.
 - `TIMED_OUT` means no decisive result was available before the deadline.
+- `AMBIGUOUS` means two or more distinct runnable candidates conflict and YORVA cannot safely select one without a selector UI.
 - cancellation returns `context.Canceled`; it is not persisted as discovery state.
 - descriptors remain static metadata; later-phase capabilities remain absent.
 - the generic contract contains no Hermes paths, output syntax or support range.
@@ -198,6 +202,7 @@ Changing the tested range requires upstream review, fixtures and contract tests.
 | `RUNTIME_DISCOVERY_TIMEOUT` | Candidate or overall deadline expired. | true |
 | `RUNTIME_DISCOVERY_CANCELLED` | Caller cancelled; application diagnostic only. | true |
 | `RUNTIME_COMMAND_OUTPUT_LIMIT` | Version output exceeded its bound. | false |
+| `RUNTIME_DISCOVERY_AMBIGUOUS` | Two or more distinct runnable candidates conflict. | false |
 
 Completed negative discovery is typed data, normally HTTP `200`, because absence or incompatibility is a valid query answer. Authentication, origin, routing and unexpected failures retain the standard error envelope. Desktop never branches on message text. User-safe messages exclude raw stderr, stack traces and environment values; internal logs retain a redacted cause and correlation ID.
 
@@ -217,14 +222,9 @@ Discovery is bounded synchronous work, not an Operation.
 
 ## 11. Multiple Candidate Handling
 
-Evaluate all bounded candidates unless cancelled or timed out. Select:
+Evaluate all bounded candidates unless cancelled or timed out. Canonical-path duplicates execute once. If exactly one candidate is runnable, select it even when other candidates are broken, and retain structured warnings for those failures. If two or more distinct candidates are runnable, return `AMBIGUOUS` with no selection and `RUNTIME_DISCOVERY_AMBIGUOUS`; do not silently choose by PATH order. If none is runnable, report the highest-fidelity malformed, broken or timeout result deterministically.
 
-1. first `SUPPORTED` candidate in source order;
-2. otherwise first `UNSUPPORTED` candidate with valid version;
-3. otherwise first `MALFORMED_VERSION` candidate;
-4. otherwise first `BROKEN_EXECUTABLE` candidate.
-
-Keep other candidates and a structured warning in the response. Desktop shows the selection and alternatives count; an executable selector is not added. A broken first candidate cannot hide a later supported candidate, and duplicates execute once.
+Desktop shows only a safe ambiguity/failure state and candidate count. An executable selector is not added in Phase 2.
 
 ## 12. Desktop UX
 
@@ -235,7 +235,7 @@ Use TanStack Query for one discovery status surface:
 - not installed: Hermes not found; installation is planned for Phase 3;
 - unsupported: detected version and supported range;
 - broken/malformed/timeout: safe explanation plus Retry;
-- multiple: selected path plus alternatives count/warning.
+- multiple: candidate paths/count plus an ambiguity warning, with no implicit selection.
 
 There is no Install, Download, Repair, PATH, Profile or lifecycle action. Raw output is hidden. Refresh only refetches discovery. Unmount and Cancel abort the request. States use accessible text, keyboard controls and announced loading status.
 
@@ -286,7 +286,8 @@ Raw stdout/stderr is absent from info logs and Desktop. A bounded redacted previ
 | output over 64 KiB | terminated/output-limit | command adapter |
 | per-command/overall timeout | timed out and reaped | adapter/application |
 | caller cancellation | cancelled, no process/leak | adapter/application |
-| duplicate/multiple candidates | one execution and deterministic selection | adapter |
+| duplicate candidates | canonical path executes once | adapter |
+| multiple distinct runnable candidates | `AMBIGUOUS`, no selection | adapter |
 | malicious PATH text | no shell interpretation | security |
 | inherited fake provider secret | absent from child | security |
 | rejected auth/origin | stable `401`/`403` | protocol |
@@ -323,14 +324,14 @@ Also run sidecar build, Windows lifecycle smoke and Tauri no-bundle build. Tests
 
 ## 17. Exit Criteria
 
-- [ ] discovery exists only behind application/Runtime/Hermes adapter boundaries;
-- [ ] PATH and documented candidates are found without mutation;
-- [ ] `--version` is direct, bounded, timed and cancellable;
-- [ ] tested `0.19.x` compatibility is normalized;
-- [ ] all required negative and multiple-candidate cases are deterministic and tested;
-- [ ] Desktop presents every state without direct Hermes access or message parsing;
-- [ ] OpenAPI and generated types are synchronized;
-- [ ] no migration, persistent discovery cache, installation or later-phase code exists;
+- [x] discovery exists only behind application/Runtime/Hermes adapter boundaries;
+- [x] PATH and documented candidates are found without mutation;
+- [x] `--version` is direct, bounded, timed and cancellable;
+- [x] tested `0.19.x` compatibility is normalized;
+- [x] all required negative and multiple-candidate cases, including ambiguity, are deterministic and tested;
+- [x] Desktop presents every state without direct Hermes access or message parsing;
+- [x] OpenAPI and generated types are synchronized;
+- [x] no migration, persistent discovery cache, installation or later-phase code exists;
 - [ ] relevant local checks and exact-commit CI pass;
 - [ ] implementation is frozen for independent Phase 2 audit;
 - [ ] independent gate permits a Phase 2 baseline before Phase 3 begins.

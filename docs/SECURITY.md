@@ -152,6 +152,8 @@ When an adapter invokes CLI commands:
 
 Generic arbitrary shell endpoints are forbidden.
 
+Phase 2 Hermes discovery applies this boundary concretely: `yorvad` enumerates only bounded documented candidates, resolves an absolute regular executable, and invokes it directly with the constant argv `--version`. It evaluates at most eight candidates, limits stdout and stderr separately to 64 KiB, uses a three-second per-candidate timeout and a ten-second overall application deadline, and always waits/reaps the child after cancellation, timeout or output overflow. The child receives an allowlisted environment containing only OS execution essentials and Hermes location variables; provider credentials and arbitrary inherited values are excluded. Raw command output is not returned through HTTP or Desktop.
+
 ## 10. Privilege model
 
 `yorvad` runs as the normal user by default.

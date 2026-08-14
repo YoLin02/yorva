@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phase 1 frozen; Phase 2 implementation IN_PROGRESS
+> Status: Phase 1 frozen; Phase 2 implementation COMPLETE, verification pending
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**
@@ -426,7 +426,7 @@ Before a feature is complete:
 - Runtime contract changes update `RUNTIME.md`;
 - architectural changes require an ADR.
 
-## 14. Phase 1 local workflow
+## 14. Local verification workflow
 
 The repository and Go module are fixed as:
 
@@ -487,4 +487,4 @@ pnpm --filter @yorva/desktop tauri build --no-bundle
 
 From the repository root, `pnpm audit --audit-level low` is also a CI gate. CI Actions are pinned to exact commit SHAs with the corresponding major/stable label in a comment. Dependency maintenance updates those pins deliberately: resolve the trusted upstream major tag/branch to a reviewed commit, inspect upstream release notes, replace the SHA, and rerun the full workflow. Do not restore floating action references.
 
-Phase 1 does not require Hermes to be installed. Its Hermes package contains static registration metadata only and performs no discovery.
+Phase 2 tests do not require Hermes to be installed and never install it. Adapter tests build test-only fake executables to verify direct argv execution, output bounds, timeout, cancellation and process cleanup.

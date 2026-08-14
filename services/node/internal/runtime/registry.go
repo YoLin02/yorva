@@ -16,6 +16,7 @@ type Descriptor struct {
 
 type Bundle struct {
 	Descriptor Descriptor
+	Discoverer Discoverer
 }
 
 type Registry struct {

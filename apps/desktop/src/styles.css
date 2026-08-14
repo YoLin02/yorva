@@ -119,3 +119,65 @@ h1 {
   overflow-wrap: anywhere;
   color: #e1e9e4;
 }
+
+.runtime-card {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid rgb(185 235 204 / 12%);
+  border-radius: 1rem;
+  background: rgb(7 12 10 / 42%);
+}
+
+.runtime-card h2 {
+  margin: 1rem 0 0;
+  font-size: 1.15rem;
+}
+
+.runtime-card p {
+  margin: 0.6rem 0 0;
+  color: #b9c5be;
+  line-height: 1.55;
+}
+
+.runtime-card button {
+  margin-top: 1rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid rgb(133 214 168 / 35%);
+  border-radius: 0.6rem;
+  color: #e1e9e4;
+  background: rgb(80 139 104 / 20%);
+  cursor: pointer;
+}
+
+.runtime-card button:hover {
+  background: rgb(80 139 104 / 34%);
+}
+
+.runtime-details {
+  margin: 1rem 0 0;
+}
+
+.runtime-details div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.45fr) 1fr;
+  gap: 1rem;
+  padding: 0.55rem 0;
+}
+
+.runtime-details dt {
+  color: #7f9187;
+}
+
+.runtime-details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.candidate-list,
+.runtime-warnings {
+  margin: 0.8rem 0 0;
+  padding-left: 1.25rem;
+  color: #b9c5be;
+  overflow-wrap: anywhere;
+}
