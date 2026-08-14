@@ -1,13 +1,13 @@
 # YORVA Phase 2 — Hermes Discovery & Compatibility
 
-> Status: IN_PROGRESS
+> Status: AUDIT
 > Owner: Repository owner
 > Previous baseline: `phase-001-bootstrap-baseline`
 > Previous baseline commit: `49de99bd3b9c908f5f2065b7c56fd69e97206284`
 > Previous gate: `AUDIT-001R2-repository-foundation.md` — PASS
 > Planning transition: DRAFT → READY on 2026-08-14
 > Implementation status: COMPLETE — automatic Batches 1–7 authorized on 2026-08-14
-> Verification: local PASS; exact-commit CI pending
+> Verification: PASS — complete local matrix and exact-commit CI
 > Audit: `AUDIT-002` PENDING
 
 ## 1. Objective
@@ -332,8 +332,8 @@ Also run sidecar build, Windows lifecycle smoke and Tauri no-bundle build. Tests
 - [x] Desktop presents every state without direct Hermes access or message parsing;
 - [x] OpenAPI and generated types are synchronized;
 - [x] no migration, persistent discovery cache, installation or later-phase code exists;
-- [ ] relevant local checks and exact-commit CI pass;
-- [ ] implementation is frozen for independent Phase 2 audit;
+- [x] relevant local checks and exact-commit CI pass;
+- [x] implementation is frozen for independent Phase 2 audit;
 - [ ] independent gate permits a Phase 2 baseline before Phase 3 begins.
 
 ## 18. Audit Requirements

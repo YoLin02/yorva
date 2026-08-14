@@ -69,7 +69,7 @@ Exit criteria:
 
 ## Phase 2 — Hermes Discovery & Compatibility
 
-Status: **IN_PROGRESS** (implementation authorized; audit pending)
+Status: **AUDIT** (implementation COMPLETE; verification PASS; `AUDIT-002` PENDING)
 Spec: `docs/phases/PHASE-002-hermes-discovery.md`
 Baseline: `phase-001-bootstrap-baseline`
 
