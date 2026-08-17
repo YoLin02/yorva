@@ -19,9 +19,12 @@ var (
 )
 
 type Message struct {
-	ProtocolVersion string `json:"protocolVersion"`
-	Token           string `json:"token"`
-	DataDir         string `json:"dataDir"`
+	ProtocolVersion          string `json:"protocolVersion"`
+	Token                    string `json:"token"`
+	DataDir                  string `json:"dataDir"`
+	HermesEmbeddedSourcePath string `json:"hermesEmbeddedSourcePath"`
+	HermesNodeArchivePath    string `json:"hermesNodeArchivePath"`
+	HermesNpmArchivePath     string `json:"hermesNpmArchivePath"`
 }
 
 type Handshake struct {

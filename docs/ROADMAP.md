@@ -106,6 +106,7 @@ Phase 2 must not install/download Hermes, modify PATH/Python, or begin Profile/l
 
 Status: **IN_PROGRESS**
 Spec: `docs/phases/PHASE-003-hermes-installation.md`
+Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
 Implementation: **IN_PROGRESS**
 Audit: `AUDIT-003` — **PENDING**
 

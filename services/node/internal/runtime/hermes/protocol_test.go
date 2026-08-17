@@ -57,6 +57,12 @@ func TestExcludedStagesNeverAppearInApprovedSpawnSet(t *testing.T) {
 			t.Fatalf("stageInvocation(%s) unexpectedly succeeded", excluded)
 		}
 	}
+	for _, owned := range yorvaOwnedOfficialStages() {
+		_, err := stageInvocation("powershell.exe", `C:\op\install.ps1`, owned, `C:\h`, `C:\h\hermes-agent`)
+		if err == nil {
+			t.Fatalf("stageInvocation(%s) unexpectedly succeeded", owned)
+		}
+	}
 	if slices.Contains(approvedInstallStages(), "desktop") {
 		t.Fatal("desktop must never be an approved execution stage")
 	}
@@ -103,14 +109,28 @@ func TestInstallerEnvironmentExcludesSentinelSecrets(t *testing.T) {
 	t.Setenv("HERMES_TOKEN", "hermes-secret")
 	t.Setenv("PYTHONPATH", "evil")
 	t.Setenv("UV_INDEX", "http://evil")
+	t.Setenv("UV_DEFAULT_INDEX", "http://evil-python")
+	t.Setenv("PIP_INDEX_URL", "http://evil-pip")
+	t.Setenv("NPM_CONFIG_REGISTRY", "http://evil-npm")
 	env := installerEnvironment(`C:\Users\a\AppData\Local\hermes`)
 	joined := strings.Join(env, "\n")
-	for _, forbidden := range []string{"sk-secret", "hermes-secret", "evil", "OPENAI_API_KEY", "HERMES_TOKEN=", "PYTHONPATH=", "UV_INDEX="} {
+	for _, forbidden := range []string{"sk-secret", "hermes-secret", "http://evil", "OPENAI_API_KEY", "HERMES_TOKEN=", "PYTHONPATH=", "UV_INDEX="} {
 		if strings.Contains(joined, forbidden) {
 			t.Fatalf("environment leaked %q: %s", forbidden, joined)
 		}
 	}
 	if !strings.Contains(joined, `HERMES_HOME=C:\Users\a\AppData\Local\hermes`) {
 		t.Fatalf("fixed HERMES_HOME missing: %s", joined)
+	}
+	for _, fixed := range []string{
+		"UV_DEFAULT_INDEX=" + hermesPythonIndex,
+		"UV_INDEX_STRATEGY=first-index",
+		"PIP_INDEX_URL=" + hermesPythonIndex,
+		"PIP_CONFIG_FILE=NUL",
+		"NPM_CONFIG_REGISTRY=" + hermesNPMRegistry,
+	} {
+		if count := strings.Count(joined, fixed); count != 1 {
+			t.Fatalf("fixed environment %q count = %d: %s", fixed, count, joined)
+		}
 	}
 }

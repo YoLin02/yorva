@@ -52,7 +52,7 @@ type RuntimeWarningResponse struct {
 	Message string `json:"message"`
 }
 
-func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService) http.Handler {
+func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService, dataDir string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", health)
 	mux.Handle("GET /api/v1/node", requireBearer(token, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -62,7 +62,10 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("GET /api/v1/events", requireBearer(token, eventStream(broker, 15*time.Second)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeKind}/detect", requireBearer(token, detectRuntime(runtimes)))
 	mux.Handle("POST /api/v1/runtimes/hermes/install", requireBearer(token, startHermesInstall(installs)))
+	mux.Handle("GET /api/v1/runtimes/hermes/prerequisites", requireBearer(token, getHermesPrerequisites(installs)))
+	mux.Handle("POST /api/v1/runtimes/hermes/prerequisites/install", requireBearer(token, startHermesPrerequisites(installs)))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
+	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
 	mux.Handle("GET /api/v1/operations", requireBearer(token, listOperations(installs)))
 	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs)))
 	return securityHeaders(restrictOrigins(routeContract(mux)))
@@ -105,6 +108,10 @@ func allowedMethods(path string) (string, bool) {
 		return "GET, OPTIONS", true
 	case "/api/v1/runtimes/hermes/install":
 		return "POST, OPTIONS", true
+	case "/api/v1/runtimes/hermes/prerequisites":
+		return "GET, OPTIONS", true
+	case "/api/v1/runtimes/hermes/prerequisites/install":
+		return "POST, OPTIONS", true
 	}
 	if strings.HasPrefix(path, "/api/v1/operations/") {
 		rest := strings.TrimPrefix(path, "/api/v1/operations/")
@@ -115,6 +122,12 @@ func allowedMethods(path string) (string, bool) {
 			id := strings.TrimSuffix(rest, "/cancel")
 			if id != "" && !strings.Contains(id, "/") {
 				return "POST, OPTIONS", true
+			}
+		}
+		if strings.HasSuffix(rest, "/log") {
+			id := strings.TrimSuffix(rest, "/log")
+			if id != "" && !strings.Contains(id, "/") {
+				return "GET, OPTIONS", true
 			}
 		}
 	}

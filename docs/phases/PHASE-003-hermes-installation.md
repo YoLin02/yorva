@@ -7,6 +7,10 @@
 > Previous baseline commit: `5b89d22ed5e7ae3f4374a26f0fcda54bdabc6bf9`
 > Previous gate: `AUDIT-002A1-hermes-discovery.md` — PASS
 > Implementation: IN_PROGRESS
+> Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
+> Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
+> Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED FOR IMPLEMENTATION
+> Dependency distribution amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
 > Phase 3 audit: `AUDIT-003` — PENDING
 > Target platform: Windows user-scope installation
 > Target Hermes release: `v2026.8.16` / package `0.20.2`
@@ -189,7 +193,9 @@ Rules:
 6. The script is re-hashed immediately before every process invocation. Any change is `RUNTIME_INSTALL_INTEGRITY_FAILED`.
 7. The private script and transient output are deleted after terminal success, failure or cancellation. Cleanup failure is a redacted warning, not permission to report false success.
 8. Updating any release, commit, script byte, digest, stage contract or compatibility target requires a reviewed Spec amendment, new fixtures and audit evidence. It is never an automatic “latest” update.
-9. The verified upstream script contains fixed official dependency sources. Phase 3 may use only those reviewed sources and fixed parameters. The adapter cannot inject additional URLs or package sources.
+9. The verified upstream script contains fixed official dependency sources. Phase 3 may use only those reviewed sources and fixed parameters. The adapter cannot inject user-supplied URLs or package sources.
+10. Amendment 003A1: acquire the official GitHub commit archive at `df4b65147d7ddd74dd449f9067aabbca5aef0ec7` with a 180-second bound. On transport/unavailability only, use the MSI-bundled archive with the compiled size `71869305` and SHA-256 `2ed02f76aaf5dab0bfd320bdbfa10aad0f67e00cbbf87906cde05462681708ba`. YORVA materializes that tree and does not spawn the official PowerShell `repository` stage. Integrity mismatch does not fall back. No Gitee, `gitclone.com`, `kkgithub.com` or user-supplied source is permitted.
+11. Amendment 003A2: the existing dependency stages receive adapter-owned `https://pypi.tuna.tsinghua.edu.cn/simple` and `https://registry.npmmirror.com` endpoints. Inherited Python, uv, pip and npm registry settings are removed first. These fixed mirrors are artifact transport only; the official lockfiles remain unchanged and the feature is not described as fully offline.
 
 ## 8. Official Installer Protocol and Stage Policy
 
@@ -265,7 +271,7 @@ Paths are derived from the current user's OS-known local application-data locati
 
 The confirmation UI must disclose that the reviewed official installer may:
 
-- download Hermes and required official dependencies;
+- download Hermes and required official dependencies, or materialize the verified bundled official source archive when GitHub is unavailable; remaining dependency stages may still need network;
 - create an isolated Python environment and install Node dependencies;
 - install Hermes-managed `uv` and PortableGit when needed;
 - use approved Windows package sources for reviewed prerequisites;
@@ -384,6 +390,7 @@ Authenticated local endpoints:
 ```text
 POST /api/v1/runtimes/hermes/install
 GET  /api/v1/operations/{operationId}
+GET  /api/v1/operations/{operationId}/log
 GET  /api/v1/operations?targetType=runtime-kind&targetId=hermes&limit=...
 POST /api/v1/operations/{operationId}/cancel
 ```
@@ -441,11 +448,11 @@ The installation is long-running, but every unit is bounded.
 
 - source download: 30-second connect/header timeout, 120-second overall deadline, 512-KiB body limit;
 - protocol/manifest probes: 30 seconds each;
-- prerequisite stages: 10 minutes each;
+- required prerequisite stages (`uv`, `python`, `git`): 10 minutes each;
+- optional stages (`node`, `node-deps`, `system-packages`): 45 seconds, then skip so a missing Node.js / nodejs.org download cannot block Hermes CLI installation;
 - repository: 10 minutes;
 - virtual environment: 10 minutes;
 - Python dependencies: 30 minutes;
-- Node dependencies: 15 minutes;
 - path/config/bootstrap stages: 2 minutes each;
 - whole Operation safety ceiling: 60 minutes.
 
@@ -486,7 +493,7 @@ HERMES_* except the fixed HERMES_HOME
 
 Tests must use sentinel secrets to prove they do not reach the child or logs. Environment handling may not break standard Windows certificate/proxy behavior; any credential-bearing proxy value must be treated as secret and never logged.
 
-Emit one structured application log per Operation transition and stage outcome with only:
+Emit one structured application log per Operation transition and stage outcome. Desktop/daemon persist those records as JSON lines in `{dataDir}/logs/install.ndjson` (Windows: `%APPDATA%\com.yorva.desktop.dev\logs\install.ndjson`) and still mirror them to stderr. Owner-authorized temporary diagnostics also append bounded installer/git stdout and stderr plus remote probe details, and Desktop polls `GET /api/v1/operations/{id}/log` to show them live. Tighten this surface after the current install-debug cycle. Each record includes only:
 
 - operation/correlation ID;
 - Runtime kind;
@@ -508,6 +515,7 @@ Do not log raw stdout/stderr, script contents, full paths, environment values, r
 | `RUNTIME_INSTALL_IN_PROGRESS` | Another Hermes install Operation is active. | true |
 | `RUNTIME_INSTALL_TARGET_OCCUPIED` | Fixed target contains non-retry-eligible data. | false |
 | `RUNTIME_INSTALL_SOURCE_UNAVAILABLE` | Exact official source could not be downloaded. | true |
+| `RUNTIME_INSTALL_INSUFFICIENT_DISK` | The destination volume lacks space to materialize the official source. | true |
 | `RUNTIME_INSTALL_INTEGRITY_FAILED` | Size or SHA-256 did not match. | false |
 | `RUNTIME_INSTALL_PROTOCOL_UNSUPPORTED` | Official protocol is not exactly version 1. | false |
 | `RUNTIME_INSTALL_MANIFEST_MISMATCH` | Reviewed stage manifest changed or is malformed. | false |
@@ -692,6 +700,7 @@ Any Critical, High, Medium or blocking Low finding produces Gate `FAIL` under `A
 4. **Cancellation cannot roll back arbitrary completed installer stages.** Mitigation: full process cleanup, durable state, no destructive rollback and narrow same-pin retry.
 5. **Official templates include Hermes-owned skills/persona scaffolding.** Mitigation: treat them as opaque official distribution artifacts; no YORVA management or editing in Phase 3.
 6. **Windows-only delivery leaves other platforms unsupported.** This is the deliberate smallest complete Phase 3 scope accepted with the Owner-approved Specification.
+7. **GitHub may be unreachable on some networks.** Mitigation (Amendment 003A1): bounded official commit-archive download, then one verified MSI-bundled official archive. Residual risk: remaining official stages still need network for uv/Python/Node/PyPI/npm; this is not a full offline installer.
 
 No unresolved architecture or security blocker was found during Specification review. The Owner approved the Windows-only, fixed-version and no-automatic-elevation boundaries. Separate authorization to begin implementation remains pending.
 
@@ -706,7 +715,7 @@ No unresolved architecture or security blocker was found during Specification re
 - [x] `api/openapi.yaml`
 - [x] generated Desktop API types/client
 - [x] SQLite migration documentation/tests
-- [ ] ADR only if a review trigger in this Spec is reached
+- [x] Amendment 003A1 embedded official Hermes source for Demo MSI
 
 ## 25. Specification Review Record
 

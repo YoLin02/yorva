@@ -5,15 +5,19 @@ import { App } from "./App";
 import { localeStorageKey } from "./i18n";
 
 const sessionMocks = vi.hoisted(() => ({ getDaemonSession: vi.fn() }));
-const clientMocks = vi.hoisted(() => ({ getNode: vi.fn(), detectHermes: vi.fn() }));
+const clientMocks = vi.hoisted(() => ({ getNode: vi.fn(), detectHermes: vi.fn(), getHermesPrerequisites: vi.fn() }));
 
 vi.mock("./api/session", () => ({
   getDaemonSession: sessionMocks.getDaemonSession,
   isDaemonNotReady: () => false,
 }));
-vi.mock("./api/client", () => ({
-  createDaemonClient: () => ({ getNode: clientMocks.getNode, detectHermes: clientMocks.detectHermes }),
-}));
+vi.mock("./api/client", async () => {
+  const actual = await vi.importActual<typeof import("./api/client")>("./api/client");
+  return {
+    ...actual,
+    createDaemonClient: () => ({ getNode: clientMocks.getNode, detectHermes: clientMocks.detectHermes, getHermesPrerequisites: clientMocks.getHermesPrerequisites }),
+  };
+});
 vi.mock("./hooks/useEventStreamStatus", () => ({ useEventStreamStatus: () => "connected" }));
 
 const session = { baseUrl: "http://127.0.0.1:49152", token: "token", protocolVersion: "1" };
@@ -48,6 +52,13 @@ describe("App Desktop navigation and locale", () => {
     sessionMocks.getDaemonSession.mockReset().mockResolvedValue(session);
     clientMocks.getNode.mockReset().mockResolvedValue(node);
     clientMocks.detectHermes.mockReset().mockResolvedValue(discovery);
+    clientMocks.getHermesPrerequisites.mockReset().mockResolvedValue({
+      node: { state: "READY", version: "22.23.1", errorCode: null, retryable: false },
+      npm: { state: "READY", version: "12.0.2", errorCode: null, retryable: false },
+      nodeDependencies: { state: "READY", version: "", errorCode: null, retryable: false },
+      checkedAt: "2026-08-17T00:00:00Z",
+      activeOperationId: null,
+    });
   });
 
   it("uses separate Dashboard and Runtimes surfaces", async () => {

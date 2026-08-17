@@ -29,7 +29,7 @@ func probeInvocation(powershell, script string, probe string, home, installDir s
 }
 
 func stageInvocation(powershell, script, stage, home, installDir string) (installInvocation, error) {
-	if !isApprovedStage(stage) || isExcludedStage(stage) {
+	if !isApprovedStage(stage) || isExcludedStage(stage) || isYorvaOwnedOfficialStage(stage) {
 		return installInvocation{}, installError(yorvaruntime.ErrorRuntimeInstallManifestMismatch, errors.New("refusing unapproved stage"))
 	}
 	args := append(baseInstallerArgs(script), "-Stage", stage, "-NonInteractive", "-Json")

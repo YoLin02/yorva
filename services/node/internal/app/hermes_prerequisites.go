@@ -1,0 +1,158 @@
+package app
+
+import (
+	"context"
+	"time"
+
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+)
+
+type PrerequisiteSnapshot struct {
+	NodeState        string
+	NodeVersion      string
+	NodeCode         yorvaruntime.ErrorCode
+	NPMState         string
+	NPMVersion       string
+	NPMCode          yorvaruntime.ErrorCode
+	DepsState        string
+	DepsCode         yorvaruntime.ErrorCode
+	Retryable        bool
+	CheckedAt        time.Time
+	ActiveOperationID string
+}
+
+type PrerequisiteApplier interface {
+	Inspect() PrerequisiteSnapshot
+	Apply(ctx context.Context, operationID string, report func(operation.Stage, string)) error
+}
+
+func (s *RuntimeInstall) WithPrerequisite(applier PrerequisiteApplier) *RuntimeInstall {
+	s.prereq = applier
+	return s
+}
+
+func (s *RuntimeInstall) InspectPrerequisites(ctx context.Context) (PrerequisiteSnapshot, error) {
+	if s.prereq == nil {
+		return PrerequisiteSnapshot{}, ErrRuntimeKindNotFound
+	}
+	snap := s.prereq.Inspect()
+	if active, ok, err := s.store.ActiveHermesPrerequisite(ctx, "hermes"); err == nil && ok {
+		snap.ActiveOperationID = active.ID
+	}
+	return snap, nil
+}
+
+func (s *RuntimeInstall) StartPrerequisites(ctx context.Context, idempotencyKey string) (InstallStartResult, error) {
+	if err := ValidateIdempotencyKey(idempotencyKey); err != nil {
+		return InstallStartResult{}, err
+	}
+	if existing, ok, err := s.store.GetOperationByIdempotencyKey(ctx, idempotencyKey); err != nil {
+		return InstallStartResult{}, err
+	} else if ok {
+		return InstallStartResult{Operation: existing}, nil
+	}
+	if active, ok, err := s.store.ActiveHermesPrerequisite(ctx, "hermes"); err != nil {
+		return InstallStartResult{}, err
+	} else if ok {
+		return InstallStartResult{}, InstallRejection{
+			Code:      yorvaruntime.ErrorRuntimeInstallInProgress,
+			Retryable: true,
+			ActiveID:  active.ID,
+		}
+	}
+	now := s.now()
+	id, err := s.newID()
+	if err != nil {
+		return InstallStartResult{}, err
+	}
+	correlation, err := newCorrelationID()
+	if err != nil {
+		return InstallStartResult{}, err
+	}
+	created := operation.Operation{
+		ID:             id,
+		Type:           operation.TypeHermesPrerequisites,
+		TargetType:     operation.TargetRuntimeKind,
+		TargetID:       "hermes",
+		Status:         operation.StatusPending,
+		Stage:          operation.StagePreflight,
+		IdempotencyKey: idempotencyKey,
+		CorrelationID:  correlation,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if err := s.store.CreateOperation(ctx, created); err != nil {
+		return InstallStartResult{}, err
+	}
+	if s.prereq != nil {
+		workerCtx := s.bindWorker(context.Background(), created.ID)
+		go s.executePrerequisites(workerCtx, created)
+	}
+	return InstallStartResult{Operation: created, Created: true}, nil
+}
+
+func (s *RuntimeInstall) executePrerequisites(ctx context.Context, started operation.Operation) {
+	defer s.stopWorker(started.ID)
+	fail := func(code yorvaruntime.ErrorCode, retryable bool) {
+		latest, err := s.store.GetOperation(context.Background(), started.ID)
+		if err != nil || operation.IsTerminal(latest.Status) {
+			return
+		}
+		now := s.now()
+		next := latest
+		next.Status = operation.StatusFailed
+		next.ErrorCode = code
+		next.Retryable = retryable
+		next.CompletedAt = &now
+		next.UpdatedAt = now
+		_ = s.store.UpdateOperation(context.Background(), latest, next)
+	}
+	now := s.now()
+	running := started
+	running.Status = operation.StatusRunning
+	running.StartedAt = &now
+	running.UpdatedAt = now
+	if err := s.store.UpdateOperation(ctx, started, running); err != nil {
+		return
+	}
+	current := running
+	report := func(stage operation.Stage, _ string) {
+		updated := current
+		updated.Stage = stage
+		updated.UpdatedAt = s.now()
+		if err := s.store.UpdateOperation(context.Background(), current, updated); err == nil {
+			current = updated
+		}
+	}
+	if s.prereq == nil {
+		fail(yorvaruntime.ErrorHermesNodeMissing, false)
+		return
+	}
+	if err := s.prereq.Apply(ctx, started.ID, report); err != nil {
+		if err == context.Canceled {
+			latest, getErr := s.store.GetOperation(context.Background(), started.ID)
+			if getErr != nil || operation.IsTerminal(latest.Status) {
+				return
+			}
+			now := s.now()
+			next := latest
+			next.Status = operation.StatusCancelled
+			next.ErrorCode = yorvaruntime.ErrorRuntimeInstallCancelled
+			next.Retryable = true
+			next.CompletedAt = &now
+			next.UpdatedAt = now
+			_ = s.store.UpdateOperation(context.Background(), latest, next)
+			return
+		}
+		code := installErrorCodeOr(err, yorvaruntime.ErrorHermesNodeDepsFailed)
+		fail(code, code == yorvaruntime.ErrorHermesNodeDepsTimeout || code == yorvaruntime.ErrorHermesNodeMissing)
+		return
+	}
+	now = s.now()
+	succeeded := current
+	succeeded.Status = operation.StatusSucceeded
+	succeeded.CompletedAt = &now
+	succeeded.UpdatedAt = now
+	_ = s.store.UpdateOperation(context.Background(), current, succeeded)
+}

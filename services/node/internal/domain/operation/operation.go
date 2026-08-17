@@ -10,6 +10,8 @@ type Type string
 
 const TypeRuntimeInstall Type = "runtime.install"
 
+const TypeHermesPrerequisites Type = "hermes.prerequisites"
+
 type TargetType string
 
 const TargetRuntimeKind TargetType = "runtime-kind"
@@ -40,6 +42,7 @@ const (
 	StageInstallVenv            Stage = "install.venv"
 	StageInstallDependencies    Stage = "install.dependencies"
 	StageInstallNodeDeps        Stage = "install.node-deps"
+	StageInstallNPM             Stage = "install.npm"
 	StageInstallPath            Stage = "install.path"
 	StageInstallConfigTemplates Stage = "install.config-templates"
 	StageInstallBootstrapMarker Stage = "install.bootstrap-marker"

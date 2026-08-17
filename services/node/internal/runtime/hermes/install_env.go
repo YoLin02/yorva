@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+const (
+	// These endpoints are adapter-owned Phase 3 distribution policy. They
+	// cannot be supplied by a request or inherited from the launching shell.
+	hermesPythonIndex = "https://pypi.tuna.tsinghua.edu.cn/simple"
+	hermesNPMRegistry = "https://registry.npmmirror.com"
+)
+
 var installerAllowedEnv = map[string]struct{}{
 	"ALLUSERSPROFILE": {}, "APPDATA": {}, "COMMONPROGRAMFILES": {},
 	"COMMONPROGRAMFILES(X86)": {}, "COMSPEC": {}, "COMPUTERNAME": {},
@@ -17,7 +24,7 @@ var installerAllowedEnv = map[string]struct{}{
 }
 
 var installerBlockedPrefixes = []string{
-	"PYTHON", "PIP_", "UV_", "OPENAI_", "ANTHROPIC_", "GOOGLE_", "GEMINI_", "HERMES_",
+	"PYTHON", "PIP_", "UV_", "NPM_", "NODE_", "OPENAI_", "ANTHROPIC_", "GOOGLE_", "GEMINI_", "HERMES_",
 }
 
 func installerEnvironment(home string) []string {
@@ -36,7 +43,17 @@ func installerEnvironment(home string) []string {
 		}
 		result = append(result, entry)
 	}
-	result = append(result, "HERMES_HOME="+home)
+	result = append(result,
+		"HERMES_HOME="+home,
+		"UV_DEFAULT_INDEX="+hermesPythonIndex,
+		"UV_INDEX_STRATEGY=first-index",
+		"PIP_INDEX_URL="+hermesPythonIndex,
+		"PIP_CONFIG_FILE=NUL",
+		"PIP_DISABLE_PIP_VERSION_CHECK=1",
+		"NPM_CONFIG_REGISTRY="+hermesNPMRegistry,
+		"NPM_CONFIG_AUDIT=false",
+		"NPM_CONFIG_FUND=false",
+	)
 	return result
 }
 

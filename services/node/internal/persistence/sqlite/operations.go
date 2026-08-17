@@ -91,6 +91,19 @@ func (d *Database) ActiveRuntimeInstall(ctx context.Context, runtimeKind string)
 	return value, true, nil
 }
 
+func (d *Database) ActiveHermesPrerequisite(ctx context.Context, runtimeKind string) (operation.Operation, bool, error) {
+	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
+        WHERE operation_type = ? AND target_type = ? AND target_id = ? AND status IN ('PENDING', 'RUNNING')
+    `, string(operation.TypeHermesPrerequisites), string(operation.TargetRuntimeKind), runtimeKind))
+	if errors.Is(err, sql.ErrNoRows) {
+		return operation.Operation{}, false, nil
+	}
+	if err != nil {
+		return operation.Operation{}, false, err
+	}
+	return value, true, nil
+}
+
 func (d *Database) LatestRuntimeInstall(ctx context.Context, runtimeKind string) (operation.Operation, bool, error) {
 	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
         WHERE operation_type = ? AND target_type = ? AND target_id = ?
@@ -187,8 +200,8 @@ func (d *Database) UpdateOperation(ctx context.Context, current, next operation.
 
 func (d *Database) InterruptActiveInstalls(ctx context.Context, now time.Time) ([]operation.Operation, error) {
 	rows, err := d.db.QueryContext(ctx, operationSelect+`
-        WHERE operation_type = ? AND status IN ('PENDING', 'RUNNING')
-    `, string(operation.TypeRuntimeInstall))
+        WHERE operation_type IN (?, ?) AND status IN ('PENDING', 'RUNNING')
+    `, string(operation.TypeRuntimeInstall), string(operation.TypeHermesPrerequisites))
 	if err != nil {
 		return nil, fmt.Errorf("list interrupted operations: %w", err)
 	}

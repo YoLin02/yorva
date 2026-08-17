@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -34,6 +36,7 @@ type installOperationStore interface {
 	GetOperation(context.Context, string) (operation.Operation, error)
 	GetOperationByIdempotencyKey(context.Context, string) (operation.Operation, bool, error)
 	ActiveRuntimeInstall(context.Context, string) (operation.Operation, bool, error)
+	ActiveHermesPrerequisite(context.Context, string) (operation.Operation, bool, error)
 	LatestRuntimeInstall(context.Context, string) (operation.Operation, bool, error)
 	PreviousRuntimeInstall(context.Context, string, string) (operation.Operation, bool, error)
 	UpdateOperation(context.Context, operation.Operation, operation.Operation) error
@@ -47,11 +50,13 @@ type RuntimeInstall struct {
 	now             func() time.Time
 	newID           func() (string, error)
 	applier         HostApplier
+	prereq          PrerequisiteApplier
 	completer       InstallCompleter
 	nodeID          string
 	cancels         map[string]context.CancelFunc
 	mu              sync.Mutex
 	allowNonWindows bool
+	logger          *slog.Logger
 }
 
 type InstallStartResult struct {
@@ -75,7 +80,15 @@ func NewRuntimeInstall(discovery *RuntimeDiscovery, store installOperationStore)
 		store:     store,
 		now:       func() time.Time { return time.Now().UTC() },
 		newID:     newOperationID,
+		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
+}
+
+func (s *RuntimeInstall) WithLogger(logger *slog.Logger) *RuntimeInstall {
+	if logger != nil {
+		s.logger = logger
+	}
+	return s
 }
 
 func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idempotencyKey string) (InstallStartResult, error) {
@@ -113,6 +126,15 @@ func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idem
 		return InstallStartResult{}, err
 	}
 	if decision := DecideInstallPreflight(discovery, latest); !decision.Allow {
+		s.logInstall("rejected", operation.Operation{
+			Type:       operation.TypeRuntimeInstall,
+			TargetType: operation.TargetRuntimeKind,
+			TargetID:   string(kind),
+			Status:     operation.StatusFailed,
+			Stage:      operation.StagePreflight,
+			ErrorCode:  decision.Code,
+			Retryable:  decision.Retryable,
+		})
 		return InstallStartResult{}, InstallRejection{Code: decision.Code, Retryable: decision.Retryable}
 	}
 
@@ -140,6 +162,7 @@ func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idem
 	if err := s.store.CreateOperation(ctx, created); err != nil {
 		return InstallStartResult{}, err
 	}
+	s.logInstall("created", created)
 	if s.applier != nil {
 		workerCtx := s.bindWorker(context.Background(), created.ID)
 		go s.execute(workerCtx, created)
@@ -190,10 +213,12 @@ func (s *RuntimeInstall) Cancel(ctx context.Context, id string) (operation.Opera
 	if err := s.store.UpdateOperation(ctx, current, next); err != nil {
 		latest, getErr := s.store.GetOperation(ctx, id)
 		if getErr == nil && latest.Status == operation.StatusCancelled {
+			s.logInstall("cancelled", latest)
 			return latest, nil
 		}
 		return operation.Operation{}, err
 	}
+	s.logInstall("cancelled", next)
 	return next, nil
 }
 
@@ -235,6 +260,24 @@ func RetryEligible(latest operation.Operation) bool {
 		return false
 	}
 	return latest.Retryable
+}
+
+func (s *RuntimeInstall) logInstall(event string, op operation.Operation) {
+	if s == nil || s.logger == nil {
+		return
+	}
+	attrs := []any{
+		"event", event,
+		"operationId", op.ID,
+		"correlationId", op.CorrelationID,
+		"runtimeKind", op.TargetID,
+		"stage", string(op.Stage),
+		"status", string(op.Status),
+	}
+	if op.ErrorCode != "" {
+		attrs = append(attrs, "errorCode", string(op.ErrorCode), "retryable", op.Retryable)
+	}
+	s.logger.Info("runtime install", attrs...)
 }
 
 func ValidateIdempotencyKey(value string) error {

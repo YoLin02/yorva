@@ -1,7 +1,9 @@
 package app
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -103,6 +105,26 @@ func TestRuntimeInstallCancelAndInterrupt(t *testing.T) {
 	}
 }
 
+func TestRuntimeInstallLogsRejectedPreflight(t *testing.T) {
+	var output bytes.Buffer
+	service := newTestRuntimeInstall(newMemoryOperationStore(), yorvaruntime.Discovery{State: yorvaruntime.DiscoverySupported})
+	service.WithLogger(slog.New(slog.NewJSONHandler(&output, nil)))
+	_, err := service.Start(context.Background(), "hermes", "install-already")
+	if err == nil {
+		t.Fatal("expected already-present rejection")
+	}
+	var payload map[string]any
+	if decodeErr := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &payload); decodeErr != nil {
+		t.Fatal(decodeErr)
+	}
+	if payload["event"] != "rejected" || payload["errorCode"] != string(yorvaruntime.ErrorRuntimeInstallAlreadyPresent) {
+		t.Fatalf("install log = %#v", payload)
+	}
+	if payload["stage"] != "preflight" || payload["runtimeKind"] != "hermes" {
+		t.Fatalf("install log missing test location fields: %#v", payload)
+	}
+}
+
 func TestValidateIdempotencyKey(t *testing.T) {
 	if err := ValidateIdempotencyKey(""); err == nil {
 		t.Fatal("empty key unexpectedly valid")
@@ -188,6 +210,17 @@ func (s *memoryOperationStore) ActiveRuntimeInstall(_ context.Context, runtimeKi
 	defer s.mu.Unlock()
 	for _, value := range s.byID {
 		if value.Type == operation.TypeRuntimeInstall && value.TargetID == runtimeKind && !operation.IsTerminal(value.Status) {
+			return value, true, nil
+		}
+	}
+	return operation.Operation{}, false, nil
+}
+
+func (s *memoryOperationStore) ActiveHermesPrerequisite(_ context.Context, runtimeKind string) (operation.Operation, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, value := range s.byID {
+		if value.Type == operation.TypeHermesPrerequisites && value.TargetID == runtimeKind && !operation.IsTerminal(value.Status) {
 			return value, true, nil
 		}
 	}

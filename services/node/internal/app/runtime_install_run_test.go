@@ -138,9 +138,9 @@ func (f *fakeApplier) ExpectedVersion() string   { return f.version }
 func (f *fakeApplier) ContainsManagedPath(path string) bool {
 	return path == f.dir
 }
-func (f *fakeApplier) Apply(ctx context.Context, _ string, report func(operation.Stage)) error {
+func (f *fakeApplier) Apply(ctx context.Context, _ string, report func(operation.Stage, string)) error {
 	if report != nil {
-		report(operation.StageSourceDownload)
+		report(operation.StageSourceDownload, "")
 	}
 	if f.block != nil {
 		close(f.block)

@@ -99,6 +99,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runtimes/hermes/prerequisites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Hermes Node.js prerequisite health */
+        get: operations["getHermesPrerequisites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Hermes prerequisites */
+        options: operations["optionsHermesPrerequisites"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/hermes/prerequisites/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a Hermes Node prerequisite Operation */
+        post: operations["startHermesPrerequisites"];
+        delete?: never;
+        /** Validate CORS access for Hermes prerequisite installation */
+        options: operations["optionsHermesPrerequisitesInstall"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/operations": {
         parameters: {
             query?: never;
@@ -133,6 +169,26 @@ export interface paths {
         delete?: never;
         /** Validate CORS access for an Operation */
         options: operations["optionsOperation"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operations/{operationId}/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        /** Read diagnostic install log text for one Operation */
+        get: operations["getOperationLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Operation diagnostic log */
+        options: operations["optionsOperationLog"];
         head?: never;
         patch?: never;
         trace?: never;
@@ -207,16 +263,31 @@ export interface components {
         /** @enum {string} */
         RuntimeDiscoveryState: "NOT_INSTALLED" | "SUPPORTED" | "UNSUPPORTED" | "BROKEN_EXECUTABLE" | "MALFORMED_VERSION" | "TIMED_OUT" | "AMBIGUOUS";
         RuntimeInstallRequest: Record<string, never>;
+        HermesPrerequisiteComponent: {
+            state: string;
+            version: string;
+            errorCode: string | null;
+            retryable: boolean;
+        };
+        HermesPrerequisites: {
+            node: components["schemas"]["HermesPrerequisiteComponent"];
+            npm: components["schemas"]["HermesPrerequisiteComponent"];
+            nodeDependencies: components["schemas"]["HermesPrerequisiteComponent"];
+            /** Format: date-time */
+            checkedAt: string;
+            activeOperationId: string | null;
+        };
         Operation: {
             id: string;
             /** @enum {string} */
-            type: "runtime.install";
+            type: "runtime.install" | "hermes.prerequisites";
             targetType: string;
             targetId: string;
             /** @enum {string} */
             status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED";
             stage: string;
             progress: number | null;
+            message: string;
             errorCode: string | null;
             retryable: boolean;
             correlationId: string;
@@ -226,6 +297,11 @@ export interface components {
             completedAt: string | null;
             /** Format: date-time */
             updatedAt: string;
+        };
+        OperationLog: {
+            operationId: string;
+            correlationId: string;
+            text: string;
         };
         OperationList: {
             operations: components["schemas"]["Operation"][];
@@ -527,6 +603,84 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    getHermesPrerequisites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Typed Node/npm/dependency health. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HermesPrerequisites"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    optionsHermesPrerequisites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    startHermesPrerequisites: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuntimeInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description The prerequisite Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsHermesPrerequisitesInstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     listOperations: {
         parameters: {
             query?: {
@@ -594,6 +748,47 @@ export interface operations {
         };
     };
     optionsOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getOperationLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Temporary diagnostic log text for this Operation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationLog"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+        };
+    };
+    optionsOperationLog: {
         parameters: {
             query?: never;
             header?: never;

@@ -215,12 +215,20 @@ QR/login flows return an Operation. QR payloads/events must have short validity 
 POST /api/v1/runtimes/hermes/install
 ```
 
-Phase 3 starts one durable `runtime.install` Operation for Windows user-scope Hermes `0.20.2`. The request body is a closed empty object.
+Phase 3 starts one durable `runtime.install` Operation for Windows user-scope Hermes `0.20.2`. The request body is a closed empty object. Amendment 003A1 may set `message` to a stable source-warning key such as `HERMES_SOURCE_BUNDLED_USED`. That field never contains a filesystem path, mirror URL or installer transcript.
+
+Hermes Node.js health is a separate live query and Operation:
+
+```text
+GET  /api/v1/runtimes/hermes/prerequisites
+POST /api/v1/runtimes/hermes/prerequisites/install
+```
 
 ### Operations
 
 ```text
 GET  /api/v1/operations/{operationId}
+GET  /api/v1/operations/{operationId}/log
 GET  /api/v1/operations?targetType=...&targetId=...&limit=...
 POST /api/v1/operations/{operationId}/cancel
 ```

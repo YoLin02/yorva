@@ -66,6 +66,10 @@ func excludedInstallStages() []string {
 	return []string{"desktop", "platform-sdks", "configure", "gateway"}
 }
 
+func yorvaOwnedOfficialStages() []string {
+	return []string{"node", "node-deps"}
+}
+
 func parseProtocolVersion(output string) error {
 	trimmed := strings.TrimSpace(output)
 	if trimmed != "1" {
@@ -154,6 +158,15 @@ func isApprovedStage(name string) bool {
 
 func isExcludedStage(name string) bool {
 	for _, stage := range excludedInstallStages() {
+		if stage == name {
+			return true
+		}
+	}
+	return false
+}
+
+func isYorvaOwnedOfficialStage(name string) bool {
+	for _, stage := range yorvaOwnedOfficialStages() {
 		if stage == name {
 			return true
 		}

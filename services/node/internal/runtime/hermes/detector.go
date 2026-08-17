@@ -80,7 +80,7 @@ func (d *Detector) Detect(ctx context.Context) (yorvaruntime.Discovery, error) {
 		result.Candidates = append(result.Candidates, candidate)
 	}
 
-	return aggregateDiscovery(result), nil
+	return aggregateDiscovery(result, d.finder.installationRoots), nil
 }
 
 func (d *Detector) inspect(ctx context.Context, invocation commandInvocation) (yorvaruntime.Candidate, error) {
@@ -121,12 +121,22 @@ func (d *Detector) inspect(ctx context.Context, invocation commandInvocation) (y
 	return candidate, nil
 }
 
-func aggregateDiscovery(result yorvaruntime.Discovery) yorvaruntime.Discovery {
+func aggregateDiscovery(result yorvaruntime.Discovery, officialRoots []string) yorvaruntime.Discovery {
 	runnable := make([]int, 0, len(result.Candidates))
 	for index, candidate := range result.Candidates {
 		if candidate.State == yorvaruntime.DiscoverySupported || candidate.State == yorvaruntime.DiscoveryUnsupported {
 			runnable = append(runnable, index)
 		}
+	}
+	if selected, ok := officialLauncherAliasSelection(result.Candidates, runnable, officialRoots); ok {
+		result.Selected = &selected
+		result.State = selected.State
+		result.ErrorCode = selected.ErrorCode
+		result.Warnings = append(result.Warnings, yorvaruntime.Warning{
+			Code:    "HERMES_LAUNCHER_ALIAS",
+			Message: "Official bin and venv Hermes launchers are aliases of one installation.",
+		})
+		return result
 	}
 	if len(runnable) > 1 {
 		result.State = yorvaruntime.DiscoveryAmbiguous

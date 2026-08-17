@@ -14,7 +14,7 @@ import (
 type HostApplier interface {
 	PlatformSupported() bool
 	ValidateTarget(retry bool) error
-	Apply(ctx context.Context, operationID string, report func(operation.Stage)) error
+	Apply(ctx context.Context, operationID string, report func(operation.Stage, string)) error
 	ManagedInstallDir() string
 	ExpectedVersion() string
 	ContainsManagedPath(path string) bool
@@ -71,6 +71,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		next.CompletedAt = &now
 		next.UpdatedAt = now
 		_ = s.store.UpdateOperation(context.Background(), latest, next)
+		s.logInstall("failed", next)
 	}
 	if s.applier == nil {
 		return
@@ -93,12 +94,16 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		return
 	}
 	current = running
-	report := func(stage operation.Stage) {
+	report := func(stage operation.Stage, warning string) {
 		updated := current
 		updated.Stage = stage
+		if warning != "" {
+			updated.Message = warning
+		}
 		updated.UpdatedAt = s.now()
 		if err := s.store.UpdateOperation(context.Background(), current, updated); err == nil {
 			current = updated
+			s.logInstall("stage", current)
 		}
 	}
 	if err := s.applier.Apply(ctx, started.ID, report); err != nil {
@@ -115,18 +120,19 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 			next.CompletedAt = &now
 			next.UpdatedAt = now
 			_ = s.store.UpdateOperation(context.Background(), latest, next)
+			s.logInstall("cancelled", next)
 			return
 		}
 		fail(installErrorCodeOr(err, yorvaruntime.ErrorRuntimeInstallStageFailed), isRetryableInstall(err))
 		return
 	}
-	report(operation.StagePostcheckDiscovery)
+	report(operation.StagePostcheckDiscovery, "")
 	discovery, err := s.discovery.Detect(ctx, yorvaruntime.Kind(started.TargetID))
 	if err != nil || !postcheckAccepted(discovery, s.applier) {
 		fail(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, true)
 		return
 	}
-	report(operation.StageCleanup)
+	report(operation.StageCleanup, "")
 	now = s.now()
 	succeeded := current
 	succeeded.Status = operation.StatusSucceeded
@@ -134,6 +140,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 	succeeded.UpdatedAt = now
 	if s.completer == nil {
 		_ = s.store.UpdateOperation(context.Background(), current, succeeded)
+		s.logInstall("succeeded", succeeded)
 		return
 	}
 	installationID, err := sqlite.NewInstallationID()
@@ -154,7 +161,9 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		UpdatedAt:      now,
 	}); err != nil {
 		fail(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, true)
+		return
 	}
+	s.logInstall("succeeded", succeeded)
 }
 
 func postcheckAccepted(discovery yorvaruntime.Discovery, applier HostApplier) bool {
@@ -171,6 +180,7 @@ func installErrorCodeOr(err error, fallback yorvaruntime.ErrorCode) yorvaruntime
 	message := err.Error()
 	for _, code := range []yorvaruntime.ErrorCode{
 		yorvaruntime.ErrorRuntimeInstallIntegrityFailed,
+		yorvaruntime.ErrorRuntimeInstallInsufficientDisk,
 		yorvaruntime.ErrorRuntimeInstallSourceUnavailable,
 		yorvaruntime.ErrorRuntimeInstallProtocolUnsupported,
 		yorvaruntime.ErrorRuntimeInstallManifestMismatch,
@@ -179,6 +189,14 @@ func installErrorCodeOr(err error, fallback yorvaruntime.ErrorCode) yorvaruntime
 		yorvaruntime.ErrorRuntimeInstallPrivilegeRequired,
 		yorvaruntime.ErrorRuntimeInstallTargetOccupied,
 		yorvaruntime.ErrorRuntimeInstallStageFailed,
+		yorvaruntime.ErrorHermesNodeMissing,
+		yorvaruntime.ErrorHermesNodeUnsupported,
+		yorvaruntime.ErrorHermesNPMMissing,
+		yorvaruntime.ErrorHermesNPMUnsupported,
+		yorvaruntime.ErrorHermesNodeArchiveIntegrityFailed,
+		yorvaruntime.ErrorHermesNPMArchiveIntegrityFailed,
+		yorvaruntime.ErrorHermesNodeDepsFailed,
+		yorvaruntime.ErrorHermesNodeDepsTimeout,
 	} {
 		if strings.Contains(message, string(code)) {
 			return code
@@ -194,7 +212,7 @@ func installErrorCodeOr(err error, fallback yorvaruntime.ErrorCode) yorvaruntime
 func isRetryableInstall(err error) bool {
 	code := installErrorCodeOr(err, "")
 	switch code {
-	case yorvaruntime.ErrorRuntimeInstallSourceUnavailable, yorvaruntime.ErrorRuntimeInstallTimeout, yorvaruntime.ErrorRuntimeInstallPostcheckFailed:
+	case yorvaruntime.ErrorRuntimeInstallSourceUnavailable, yorvaruntime.ErrorRuntimeInstallTimeout, yorvaruntime.ErrorRuntimeInstallPostcheckFailed, yorvaruntime.ErrorRuntimeInstallInsufficientDisk:
 		return true
 	default:
 		return false

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/app"
+	"github.com/YoLin02/yorva/services/node/internal/applog"
 	"github.com/YoLin02/yorva/services/node/internal/bootstrap"
 	"github.com/YoLin02/yorva/services/node/internal/buildinfo"
 	"github.com/YoLin02/yorva/services/node/internal/domain/node"
@@ -47,10 +47,8 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 		return fmt.Errorf("read bootstrap configuration: %w", err)
 	}
 
-	logger := slog.New(slog.NewJSONHandler(streams.Stderr, nil)).With(
-		"service", buildinfo.Service,
-		"version", buildinfo.Version,
-	)
+	logger, closeLog := applog.New(streams.Stderr, message.DataDir)
+	defer closeLog()
 	registry := yorvaruntime.NewRegistry()
 	if err := hermes.Register(registry); err != nil {
 		return fmt.Errorf("register Hermes Runtime descriptor: %w", err)
@@ -90,12 +88,14 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	requestCtx, cancelRequests := context.WithCancel(context.Background())
 	defer cancelRequests()
 	discovery := app.NewRuntimeDiscovery(registry, logger)
-	installs := app.NewRuntimeInstall(discovery, database).WithHost(hermes.NewHostInstaller(message.DataDir), database, localNode.ID)
+	host := hermes.NewHostInstaller(message.DataDir).WithLogger(logger).WithEmbeddedSource(message.HermesEmbeddedSourcePath)
+	nodeHost := hermes.NewNodeHost(message.DataDir, message.HermesNodeArchivePath, message.HermesNpmArchivePath)
+	installs := app.NewRuntimeInstall(discovery, database).WithLogger(logger).WithHost(host, database, localNode.ID).WithPrerequisite(app.HermesPrerequisiteHost{Host: nodeHost})
 	if _, err := installs.InterruptStale(ctx); err != nil {
 		logger.Warn("failed to interrupt stale install operations", "error", err)
 	}
 	server := &http.Server{
-		Handler:           httpapi.NewHandler(message.Token, localNode, events.NewBroker(), discovery, installs),
+		Handler:           httpapi.NewHandler(message.Token, localNode, events.NewBroker(), discovery, installs, message.DataDir),
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       30 * time.Second,

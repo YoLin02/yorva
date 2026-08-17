@@ -35,6 +35,7 @@ const (
 	ErrorRuntimeInstallInProgress          ErrorCode = "RUNTIME_INSTALL_IN_PROGRESS"
 	ErrorRuntimeInstallTargetOccupied      ErrorCode = "RUNTIME_INSTALL_TARGET_OCCUPIED"
 	ErrorRuntimeInstallSourceUnavailable   ErrorCode = "RUNTIME_INSTALL_SOURCE_UNAVAILABLE"
+	ErrorRuntimeInstallInsufficientDisk    ErrorCode = "RUNTIME_INSTALL_INSUFFICIENT_DISK"
 	ErrorRuntimeInstallIntegrityFailed     ErrorCode = "RUNTIME_INSTALL_INTEGRITY_FAILED"
 	ErrorRuntimeInstallProtocolUnsupported ErrorCode = "RUNTIME_INSTALL_PROTOCOL_UNSUPPORTED"
 	ErrorRuntimeInstallManifestMismatch    ErrorCode = "RUNTIME_INSTALL_MANIFEST_MISMATCH"
@@ -46,6 +47,15 @@ const (
 	ErrorRuntimeInstallCancelled           ErrorCode = "RUNTIME_INSTALL_CANCELLED"
 	ErrorOperationInterrupted              ErrorCode = "OPERATION_INTERRUPTED"
 	ErrorOperationNotCancellable           ErrorCode = "OPERATION_NOT_CANCELLABLE"
+
+	ErrorHermesNodeMissing                 ErrorCode = "RUNTIME_HERMES_NODE_MISSING"
+	ErrorHermesNodeUnsupported             ErrorCode = "RUNTIME_HERMES_NODE_UNSUPPORTED"
+	ErrorHermesNPMMissing                  ErrorCode = "RUNTIME_HERMES_NPM_MISSING"
+	ErrorHermesNPMUnsupported              ErrorCode = "RUNTIME_HERMES_NPM_UNSUPPORTED"
+	ErrorHermesNodeArchiveIntegrityFailed  ErrorCode = "RUNTIME_HERMES_NODE_ARCHIVE_INTEGRITY_FAILED"
+	ErrorHermesNPMArchiveIntegrityFailed   ErrorCode = "RUNTIME_HERMES_NPM_ARCHIVE_INTEGRITY_FAILED"
+	ErrorHermesNodeDepsFailed              ErrorCode = "RUNTIME_HERMES_NODE_DEPS_FAILED"
+	ErrorHermesNodeDepsTimeout             ErrorCode = "RUNTIME_HERMES_NODE_DEPS_TIMEOUT"
 )
 
 type Candidate struct {

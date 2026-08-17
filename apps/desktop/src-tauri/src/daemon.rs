@@ -265,6 +265,12 @@ struct BootstrapMessage<'a> {
     protocol_version: &'static str,
     token: &'a str,
     data_dir: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hermes_embedded_source_path: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hermes_node_archive_path: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hermes_npm_archive_path: Option<&'a str>,
 }
 
 #[derive(Deserialize)]
@@ -293,10 +299,16 @@ fn try_start_daemon(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = app.path().app_data_dir()?;
     let data_dir_text = path_to_utf8(&data_dir)?;
     let token = generate_token()?;
+    let embedded_source = resolve_hermes_resource(app, HERMES_EMBEDDED_SOURCE_NAME);
+    let node_archive = resolve_hermes_resource(app, HERMES_NODE_ARCHIVE_NAME);
+    let npm_archive = resolve_hermes_resource(app, HERMES_NPM_ARCHIVE_NAME);
     let bootstrap = serde_json::to_vec(&BootstrapMessage {
         protocol_version: PROTOCOL_VERSION,
         token: &token,
         data_dir: data_dir_text,
+        hermes_embedded_source_path: embedded_source.as_deref(),
+        hermes_node_archive_path: node_archive.as_deref(),
+        hermes_npm_archive_path: npm_archive.as_deref(),
     })?;
 
     let (mut events, child) = app
@@ -383,6 +395,27 @@ fn generate_token() -> Result<String, getrandom::Error> {
     let mut bytes = [0_u8; 32];
     getrandom::fill(&mut bytes)?;
     Ok(URL_SAFE_NO_PAD.encode(bytes))
+}
+
+const HERMES_EMBEDDED_SOURCE_NAME: &str =
+    "hermes-agent-df4b65147d7ddd74dd449f9067aabbca5aef0ec7.zip";
+const HERMES_NODE_ARCHIVE_NAME: &str = "node-v22.23.1-win-x64.zip";
+const HERMES_NPM_ARCHIVE_NAME: &str = "npm-12.0.2.tgz";
+
+fn resolve_hermes_resource(app: &AppHandle, name: &str) -> Option<String> {
+    let resource_dir = app.path().resource_dir().ok()?;
+    let candidates = [
+        resource_dir.join("hermes").join("source").join(name),
+        resource_dir
+            .join("resources")
+            .join("hermes")
+            .join("source")
+            .join(name),
+    ];
+    candidates
+        .into_iter()
+        .find(|path| path.is_file())
+        .and_then(|path| path.to_str().map(str::to_owned))
 }
 
 fn path_to_utf8(path: &Path) -> Result<&str, Box<dyn std::error::Error>> {

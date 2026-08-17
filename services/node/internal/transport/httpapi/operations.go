@@ -12,12 +12,15 @@ import (
 	"unicode/utf8"
 
 	"github.com/YoLin02/yorva/services/node/internal/app"
+	"github.com/YoLin02/yorva/services/node/internal/applog"
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
 type RuntimeInstallService interface {
 	Start(context.Context, yorvaruntime.Kind, string) (app.InstallStartResult, error)
+	StartPrerequisites(context.Context, string) (app.InstallStartResult, error)
+	InspectPrerequisites(context.Context) (app.PrerequisiteSnapshot, error)
 	Get(context.Context, string) (operation.Operation, error)
 	List(context.Context, string, string, int) ([]operation.Operation, error)
 	Cancel(context.Context, string) (operation.Operation, error)
@@ -31,6 +34,7 @@ type OperationResponse struct {
 	Status        string     `json:"status"`
 	Stage         string     `json:"stage"`
 	Progress      *int       `json:"progress"`
+	Message       string     `json:"message"`
 	ErrorCode     *string    `json:"errorCode"`
 	Retryable     bool       `json:"retryable"`
 	CorrelationID string     `json:"correlationId"`
@@ -42,6 +46,85 @@ type OperationResponse struct {
 
 type OperationListResponse struct {
 	Operations []OperationResponse `json:"operations"`
+}
+
+type OperationLogResponse struct {
+	OperationID   string `json:"operationId"`
+	CorrelationID string `json:"correlationId"`
+	Text          string `json:"text"`
+}
+
+type PrerequisiteResponse struct {
+	Node              PrerequisiteComponent `json:"node"`
+	NPM               PrerequisiteComponent `json:"npm"`
+	NodeDependencies  PrerequisiteComponent `json:"nodeDependencies"`
+	CheckedAt         time.Time             `json:"checkedAt"`
+	ActiveOperationID *string               `json:"activeOperationId"`
+}
+
+type PrerequisiteComponent struct {
+	State     string  `json:"state"`
+	Version   string  `json:"version"`
+	ErrorCode *string `json:"errorCode"`
+	Retryable bool    `json:"retryable"`
+}
+
+func getHermesPrerequisites(installs RuntimeInstallService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if installs == nil {
+			writeError(w, http.StatusNotFound, ErrorBody{Code: "NOT_FOUND", Message: "The requested local API resource was not found."})
+			return
+		}
+		snap, err := installs.InspectPrerequisites(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Hermes prerequisites could not be inspected.", Retryable: true})
+			return
+		}
+		var active *string
+		if snap.ActiveOperationID != "" {
+			id := snap.ActiveOperationID
+			active = &id
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(PrerequisiteResponse{
+			Node:              prereqComponent(snap.NodeState, snap.NodeVersion, snap.NodeCode, snap.Retryable),
+			NPM:               prereqComponent(snap.NPMState, snap.NPMVersion, snap.NPMCode, snap.Retryable),
+			NodeDependencies:  prereqComponent(snap.DepsState, "", snap.DepsCode, snap.Retryable),
+			CheckedAt:         snap.CheckedAt,
+			ActiveOperationID: active,
+		})
+	})
+}
+
+func startHermesPrerequisites(installs RuntimeInstallService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if installs == nil {
+			writeError(w, http.StatusNotFound, ErrorBody{Code: "NOT_FOUND", Message: "The requested local API resource was not found."})
+			return
+		}
+		key := r.Header.Get("Idempotency-Key")
+		if err := app.ValidateIdempotencyKey(key); err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_IDEMPOTENCY_KEY", Message: "A valid Idempotency-Key header is required.", Retryable: false})
+			return
+		}
+		result, err := installs.StartPrerequisites(r.Context(), key)
+		if err != nil {
+			writeInstallError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(newOperationResponse(result.Operation))
+	})
+}
+
+func prereqComponent(state, version string, code yorvaruntime.ErrorCode, retryable bool) PrerequisiteComponent {
+	var errorCode *string
+	if code != "" {
+		value := string(code)
+		errorCode = &value
+	}
+	return PrerequisiteComponent{State: state, Version: version, ErrorCode: errorCode, Retryable: retryable}
 }
 
 func startHermesInstall(installs RuntimeInstallService) http.Handler {
@@ -121,6 +204,30 @@ func listOperations(installs RuntimeInstallService) http.Handler {
 	})
 }
 
+func getOperationLog(installs RuntimeInstallService, dataDir string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if installs == nil {
+			writeError(w, http.StatusNotFound, ErrorBody{Code: "NOT_FOUND", Message: "The requested local API resource was not found."})
+			return
+		}
+		value, err := installs.Get(r.Context(), r.PathValue("operationId"))
+		if err != nil {
+			writeError(w, http.StatusNotFound, ErrorBody{Code: "NOT_FOUND", Message: "The requested operation was not found."})
+			return
+		}
+		text := applog.ReadMatching(dataDir, value.ID, 96*1024)
+		if text == "" && value.CorrelationID != "" {
+			text = applog.ReadMatching(dataDir, value.CorrelationID, 96*1024)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(OperationLogResponse{
+			OperationID:   value.ID,
+			CorrelationID: value.CorrelationID,
+			Text:          text,
+		})
+	})
+}
+
 func cancelOperation(installs RuntimeInstallService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if installs == nil {
@@ -151,6 +258,7 @@ func newOperationResponse(value operation.Operation) OperationResponse {
 		Status:        string(value.Status),
 		Stage:         string(value.Stage),
 		Progress:      nil,
+		Message:       value.Message,
 		ErrorCode:     errorCode,
 		Retryable:     value.Retryable,
 		CorrelationID: value.CorrelationID,

@@ -206,6 +206,74 @@ paths:
           $ref: "#/components/responses/PreflightAccepted"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/runtimes/hermes/prerequisites:
+    get:
+      operationId: getHermesPrerequisites
+      summary: Read Hermes Node.js prerequisite health
+      tags: [Runtimes]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Typed Node/npm/dependency health.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HermesPrerequisites"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    options:
+      operationId: optionsHermesPrerequisites
+      summary: Validate CORS access for Hermes prerequisites
+      tags: [Runtimes]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/runtimes/hermes/prerequisites/install:
+    post:
+      operationId: startHermesPrerequisites
+      summary: Start a Hermes Node prerequisite Operation
+      tags: [Runtimes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuntimeInstallRequest"
+      responses:
+        "202":
+          description: The prerequisite Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    options:
+      operationId: optionsHermesPrerequisitesInstall
+      summary: Validate CORS access for Hermes prerequisite installation
+      tags: [Runtimes]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/operations:
     get:
       operationId: listOperations
@@ -282,6 +350,44 @@ paths:
     options:
       operationId: optionsOperation
       summary: Validate CORS access for an Operation
+      tags: [Operations]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/operations/{operationId}/log:
+    parameters:
+      - name: operationId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getOperationLog
+      summary: Read diagnostic install log text for one Operation
+      tags: [Operations]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Temporary diagnostic log text for this Operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationLog"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    options:
+      operationId: optionsOperationLog
+      summary: Validate CORS access for Operation diagnostic log
       tags: [Operations]
       security: []
       responses:
@@ -493,16 +599,45 @@ components:
       type: object
       additionalProperties: false
       properties: {}
+    HermesPrerequisiteComponent:
+      type: object
+      additionalProperties: false
+      required: [state, version, errorCode, retryable]
+      properties:
+        state:
+          type: string
+        version:
+          type: string
+        errorCode:
+          type: ["string", "null"]
+        retryable:
+          type: boolean
+    HermesPrerequisites:
+      type: object
+      additionalProperties: false
+      required: [node, npm, nodeDependencies, checkedAt, activeOperationId]
+      properties:
+        node:
+          $ref: "#/components/schemas/HermesPrerequisiteComponent"
+        npm:
+          $ref: "#/components/schemas/HermesPrerequisiteComponent"
+        nodeDependencies:
+          $ref: "#/components/schemas/HermesPrerequisiteComponent"
+        checkedAt:
+          type: string
+          format: date-time
+        activeOperationId:
+          type: ["string", "null"]
     Operation:
       type: object
       additionalProperties: false
-      required: [id, type, targetType, targetId, status, stage, progress, errorCode, retryable, correlationId, createdAt, startedAt, completedAt, updatedAt]
+      required: [id, type, targetType, targetId, status, stage, progress, message, errorCode, retryable, correlationId, createdAt, startedAt, completedAt, updatedAt]
       properties:
         id:
           type: string
         type:
           type: string
-          enum: [runtime.install]
+          enum: [runtime.install, hermes.prerequisites]
         targetType:
           type: string
         targetId:
@@ -514,6 +649,8 @@ components:
           type: string
         progress:
           type: ["integer", "null"]
+        message:
+          type: string
         errorCode:
           type: ["string", "null"]
         retryable:
@@ -536,6 +673,17 @@ components:
         updatedAt:
           type: string
           format: date-time
+    OperationLog:
+      type: object
+      additionalProperties: false
+      required: [operationId, correlationId, text]
+      properties:
+        operationId:
+          type: string
+        correlationId:
+          type: string
+        text:
+          type: string
     OperationList:
       type: object
       additionalProperties: false

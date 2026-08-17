@@ -83,6 +83,12 @@ Avoid one giant interface. Feature groups are explicit and small.
 
 Phase 3 implements only `Install`. Upgrade, repair and uninstall are absent.
 
+Amendment 003A1 keeps installation Hermes-specific. The adapter acquires the official GitHub commit archive for `df4b65147d7ddd74dd449f9067aabbca5aef0ec7`, or the identical MSI-bundled archive after a transport failure, verifies the compiled size and SHA-256, extracts it with ZIP-slip/symlink/expansion limits, and skips the official PowerShell `repository` stage. This is a source fallback, not a complete offline installer.
+
+Amendment 003A3: official `node` / `node-deps` PowerShell stages are never spawned. Managed Node `v22.23.1` and npm `12.0.2` live under `%LOCALAPPDATA%\hermes\node`. Safe dependency installation is `npm ci --workspaces=false --omit=dev --ignore-scripts`.
+
+Amendment 003A2 keeps dependency distribution inside the same Hermes adapter. The owned installer environment removes inherited Python/uv/pip/npm registry settings and injects fixed HTTPS PyPI and npm endpoints for the China Demo. The official `uv.lock` and `package-lock.json` remain unchanged; no generic mirror contract, user-selected registry or Runtime plugin abstraction is introduced.
+
 ```go
 type Installer interface {
     Install(ctx context.Context, req InstallRequest, progress ProgressSink) (Installation, error)

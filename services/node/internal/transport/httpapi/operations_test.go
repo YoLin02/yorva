@@ -19,6 +19,14 @@ type fakeInstallService struct {
 	err     error
 }
 
+func (f fakeInstallService) StartPrerequisites(context.Context, string) (app.InstallStartResult, error) {
+	return f.started, f.err
+}
+
+func (f fakeInstallService) InspectPrerequisites(context.Context) (app.PrerequisiteSnapshot, error) {
+	return app.PrerequisiteSnapshot{NodeState: "MISSING", NPMState: "MISSING", DepsState: "NOT_INSTALLED"}, f.err
+}
+
 func (f fakeInstallService) Start(_ context.Context, _ yorvaruntime.Kind, key string) (app.InstallStartResult, error) {
 	if f.err != nil {
 		return app.InstallStartResult{}, f.err
@@ -43,7 +51,7 @@ func (f fakeInstallService) Cancel(context.Context, string) (operation.Operation
 }
 
 func TestInstallRequiresIdempotencyKeyAndRejectsCommandFields(t *testing.T) {
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()})
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, "")
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/runtimes/hermes/install", bytes.NewBufferString(`{"url":"https://evil"}`))
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("Content-Type", "application/json")
@@ -65,7 +73,7 @@ func TestInstallRequiresIdempotencyKeyAndRejectsCommandFields(t *testing.T) {
 }
 
 func TestInstallStartGetAndCancel(t *testing.T) {
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()})
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, "")
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/runtimes/hermes/install", bytes.NewBufferString(`{}`))
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("Idempotency-Key", "install-key")
@@ -78,6 +86,12 @@ func TestInstallStartGetAndCancel(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil || created.ID == "" || created.Progress != nil {
 		t.Fatalf("start body = %s err=%v", response.Body.String(), err)
 	}
+	if created.Message != "HERMES_SOURCE_BUNDLED_USED" {
+		t.Fatalf("message = %q", created.Message)
+	}
+	if bytes.Contains(response.Body.Bytes(), []byte(".zip")) || bytes.Contains(response.Body.Bytes(), []byte("resources")) {
+		t.Fatalf("operation leaked a resource path: %s", response.Body.String())
+	}
 
 	get := httptest.NewRequest(http.MethodGet, "/api/v1/operations/"+created.ID, nil)
 	get.Header.Set("Authorization", "Bearer "+testToken)
@@ -85,6 +99,14 @@ func TestInstallStartGetAndCancel(t *testing.T) {
 	handler.ServeHTTP(getResponse, get)
 	if getResponse.Code != http.StatusOK {
 		t.Fatalf("get status = %d", getResponse.Code)
+	}
+
+	logReq := httptest.NewRequest(http.MethodGet, "/api/v1/operations/"+created.ID+"/log", nil)
+	logReq.Header.Set("Authorization", "Bearer "+testToken)
+	logResponse := httptest.NewRecorder()
+	handler.ServeHTTP(logResponse, logReq)
+	if logResponse.Code != http.StatusOK || !bytes.Contains(logResponse.Body.Bytes(), []byte(`"operationId"`)) {
+		t.Fatalf("log status = %d body=%s", logResponse.Code, logResponse.Body.String())
 	}
 
 	cancel := httptest.NewRequest(http.MethodPost, "/api/v1/operations/"+created.ID+"/cancel", nil)
@@ -107,6 +129,7 @@ func testInstallOperation() app.InstallStartResult {
 			TargetID:      "hermes",
 			Status:        operation.StatusPending,
 			Stage:         operation.StagePreflight,
+			Message:       "HERMES_SOURCE_BUNDLED_USED",
 			CorrelationID: "cor_test",
 			CreatedAt:     now,
 			UpdatedAt:     now,

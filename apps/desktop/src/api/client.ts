@@ -87,6 +87,18 @@ export function createDaemonClient(session: DaemonSession) {
           ? AbortSignal.any([signal, AbortSignal.timeout(desktopDiscoveryTimeoutMs)])
           : AbortSignal.timeout(desktopDiscoveryTimeoutMs),
       }),
+    getHermesPrerequisites: (signal?: AbortSignal) =>
+      request<import("./types").HermesPrerequisites>("/api/v1/runtimes/hermes/prerequisites", { signal }),
+    startHermesPrerequisites: (idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>("/api/v1/runtimes/hermes/prerequisites/install", {
+        method: "POST",
+        signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: "{}",
+      }),
     startHermesInstall: (idempotencyKey: string, signal?: AbortSignal) =>
       request<Operation>("/api/v1/runtimes/hermes/install", {
         method: "POST",
@@ -99,6 +111,11 @@ export function createDaemonClient(session: DaemonSession) {
       }),
     getOperation: (operationId: string, signal?: AbortSignal) =>
       request<Operation>(`/api/v1/operations/${encodeURIComponent(operationId)}`, { signal }),
+    getOperationLog: (operationId: string, signal?: AbortSignal) =>
+      request<{ operationId: string; correlationId: string; text: string }>(
+        `/api/v1/operations/${encodeURIComponent(operationId)}/log`,
+        { signal },
+      ),
     listOperations: (targetType: string, targetId: string, signal?: AbortSignal) =>
       request<OperationList>(
         `/api/v1/operations?targetType=${encodeURIComponent(targetType)}&targetId=${encodeURIComponent(targetId)}&limit=5`,
