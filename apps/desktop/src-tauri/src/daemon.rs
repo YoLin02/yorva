@@ -402,17 +402,20 @@ const HERMES_EMBEDDED_SOURCE_NAME: &str =
 const HERMES_NODE_ARCHIVE_NAME: &str = "node-v22.23.1-win-x64.zip";
 const HERMES_NPM_ARCHIVE_NAME: &str = "npm-12.0.2.tgz";
 
-fn resolve_hermes_resource(app: &AppHandle, name: &str) -> Option<String> {
-    let resource_dir = app.path().resource_dir().ok()?;
-    let candidates = [
+fn hermes_resource_candidates(resource_dir: &Path, name: &str) -> [std::path::PathBuf; 2] {
+    [
         resource_dir.join("hermes").join("source").join(name),
         resource_dir
             .join("resources")
             .join("hermes")
             .join("source")
             .join(name),
-    ];
-    candidates
+    ]
+}
+
+fn resolve_hermes_resource(app: &AppHandle, name: &str) -> Option<String> {
+    let resource_dir = app.path().resource_dir().ok()?;
+    hermes_resource_candidates(&resource_dir, name)
         .into_iter()
         .find(|path| path.is_file())
         .and_then(|path| path.to_str().map(str::to_owned))
@@ -508,6 +511,19 @@ mod tests {
             self.killed.store(true, Ordering::SeqCst);
             Ok(())
         }
+    }
+
+    #[test]
+    fn hermes_resource_candidates_stay_inside_resource_dir() {
+        let root = Path::new(r"C:\app\resources");
+        let got = hermes_resource_candidates(root, HERMES_NODE_ARCHIVE_NAME);
+        assert!(got[0].starts_with(root));
+        assert!(got[1].starts_with(root));
+        assert!(got[0].ends_with(HERMES_NODE_ARCHIVE_NAME));
+        assert!(
+            !got.iter()
+                .any(|path| { path.to_string_lossy().contains("api/v1") })
+        );
     }
 
     #[test]
