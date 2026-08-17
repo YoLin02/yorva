@@ -48,9 +48,24 @@ foreach ($name in $licenses) {
     }
 }
 
-pnpm --filter @yorva/desktop tauri build --bundles msi
-if ($LASTEXITCODE -ne 0) {
-    throw "tauri MSI build failed"
+$configPath = Join-Path $repoRoot "apps\desktop\src-tauri\tauri.conf.json"
+$configBackup = [System.IO.File]::ReadAllText($configPath)
+try {
+    $config = $configBackup | ConvertFrom-Json
+    $config.bundle.resources = @(
+        "resources/hermes/source/LICENSE",
+        "resources/hermes/source/NODE-LICENSE",
+        "resources/hermes/source/NPM-LICENSE"
+    ) + @($required | ForEach-Object { "resources/hermes/source/$($_.Name)" })
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 20), $utf8)
+    pnpm --filter @yorva/desktop tauri build --bundles msi
+    if ($LASTEXITCODE -ne 0) {
+        throw "tauri MSI build failed"
+    }
+}
+finally {
+    [System.IO.File]::WriteAllText($configPath, $configBackup)
 }
 
 $msi = Get-ChildItem -Path (Join-Path $repoRoot "apps\desktop\src-tauri\target\release\bundle\msi") -Filter "YORVA_*.msi" | Sort-Object LastWriteTime -Descending | Select-Object -First 1

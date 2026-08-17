@@ -44,9 +44,7 @@
     "resources": [
       "resources/hermes/source/LICENSE",
       "resources/hermes/source/NODE-LICENSE",
-      "resources/hermes/source/NPM-LICENSE",
-      "resources/hermes/source/*.zip",
-      "resources/hermes/source/*.tgz"
+      "resources/hermes/source/NPM-LICENSE"
     ]
   }
 }
