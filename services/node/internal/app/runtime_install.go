@@ -167,6 +167,19 @@ func (s *RuntimeInstall) Cancel(ctx context.Context, id string) (operation.Opera
 		}
 	}
 	s.stopWorker(id)
+	current, err = s.store.GetOperation(ctx, id)
+	if err != nil {
+		return operation.Operation{}, err
+	}
+	if current.Status == operation.StatusCancelled {
+		return current, nil
+	}
+	if operation.IsTerminal(current.Status) {
+		return operation.Operation{}, InstallRejection{
+			Code:      yorvaruntime.ErrorOperationNotCancellable,
+			Retryable: false,
+		}
+	}
 	now := s.now()
 	next := current
 	next.Status = operation.StatusCancelled
@@ -175,6 +188,10 @@ func (s *RuntimeInstall) Cancel(ctx context.Context, id string) (operation.Opera
 	next.CompletedAt = &now
 	next.UpdatedAt = now
 	if err := s.store.UpdateOperation(ctx, current, next); err != nil {
+		latest, getErr := s.store.GetOperation(ctx, id)
+		if getErr == nil && latest.Status == operation.StatusCancelled {
+			return latest, nil
+		}
 		return operation.Operation{}, err
 	}
 	return next, nil

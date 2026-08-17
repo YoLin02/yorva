@@ -30,8 +30,9 @@ func TestRuntimeInstallWorkerSucceedsOnlyAfterSupportedPostcheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitForStatus(t, service, started.Operation.ID, operation.StatusSucceeded)
-	if completer.saved.Version != "0.20.2" || completer.saved.InstallPath != applier.dir {
-		t.Fatalf("accepted installation = %#v", completer.saved)
+	saved := completer.snapshot()
+	if saved.Version != "0.20.2" || saved.InstallPath != applier.dir {
+		t.Fatalf("accepted installation = %#v", saved)
 	}
 }
 
@@ -48,8 +49,8 @@ func TestRuntimeInstallWorkerRejectsFailedPostcheckWithoutInstallation(t *testin
 		t.Fatal(err)
 	}
 	got := waitForStatus(t, service, started.Operation.ID, operation.StatusFailed)
-	if got.ErrorCode != yorvaruntime.ErrorRuntimeInstallPostcheckFailed || completer.saved.ID != "" {
-		t.Fatalf("failed postcheck = %#v installation=%#v", got, completer.saved)
+	if got.ErrorCode != yorvaruntime.ErrorRuntimeInstallPostcheckFailed || completer.snapshot().ID != "" {
+		t.Fatalf("failed postcheck = %#v installation=%#v", got, completer.snapshot())
 	}
 }
 
@@ -150,11 +151,20 @@ func (f *fakeApplier) Apply(ctx context.Context, _ string, report func(operation
 }
 
 type fakeCompleter struct {
+	mu    sync.Mutex
 	store *memoryOperationStore
 	saved sqlite.AcceptedInstallation
 }
 
 func (f *fakeCompleter) CompleteInstallSuccess(ctx context.Context, current, next operation.Operation, installation sqlite.AcceptedInstallation) error {
+	f.mu.Lock()
 	f.saved = installation
+	f.mu.Unlock()
 	return f.store.UpdateOperation(ctx, current, next)
+}
+
+func (f *fakeCompleter) snapshot() sqlite.AcceptedInstallation {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.saved
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -134,6 +135,7 @@ func (s staticDiscoverer) Detect(context.Context) (yorvaruntime.Discovery, error
 }
 
 type memoryOperationStore struct {
+	mu    sync.Mutex
 	byID  map[string]operation.Operation
 	byKey map[string]string
 }
@@ -146,6 +148,8 @@ func newMemoryOperationStore() *memoryOperationStore {
 }
 
 func (s *memoryOperationStore) CreateOperation(_ context.Context, value operation.Operation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if _, exists := s.byKey[value.IdempotencyKey]; exists {
 		return errors.New("duplicate idempotency key")
 	}
@@ -160,6 +164,8 @@ func (s *memoryOperationStore) CreateOperation(_ context.Context, value operatio
 }
 
 func (s *memoryOperationStore) GetOperation(_ context.Context, id string) (operation.Operation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	value, ok := s.byID[id]
 	if !ok {
 		return operation.Operation{}, errors.New("operation not found")
@@ -168,6 +174,8 @@ func (s *memoryOperationStore) GetOperation(_ context.Context, id string) (opera
 }
 
 func (s *memoryOperationStore) GetOperationByIdempotencyKey(_ context.Context, key string) (operation.Operation, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	id, ok := s.byKey[key]
 	if !ok {
 		return operation.Operation{}, false, nil
@@ -176,6 +184,8 @@ func (s *memoryOperationStore) GetOperationByIdempotencyKey(_ context.Context, k
 }
 
 func (s *memoryOperationStore) ActiveRuntimeInstall(_ context.Context, runtimeKind string) (operation.Operation, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, value := range s.byID {
 		if value.Type == operation.TypeRuntimeInstall && value.TargetID == runtimeKind && !operation.IsTerminal(value.Status) {
 			return value, true, nil
@@ -185,6 +195,8 @@ func (s *memoryOperationStore) ActiveRuntimeInstall(_ context.Context, runtimeKi
 }
 
 func (s *memoryOperationStore) LatestRuntimeInstall(_ context.Context, runtimeKind string) (operation.Operation, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var latest operation.Operation
 	found := false
 	for _, value := range s.byID {
@@ -200,6 +212,8 @@ func (s *memoryOperationStore) LatestRuntimeInstall(_ context.Context, runtimeKi
 }
 
 func (s *memoryOperationStore) ListOperations(_ context.Context, targetType, targetID string, limit int) ([]operation.Operation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if limit <= 0 {
 		limit = 20
 	}
@@ -220,6 +234,8 @@ func (s *memoryOperationStore) ListOperations(_ context.Context, targetType, tar
 }
 
 func (s *memoryOperationStore) PreviousRuntimeInstall(_ context.Context, runtimeKind, excludeID string) (operation.Operation, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var latest operation.Operation
 	found := false
 	for _, value := range s.byID {
@@ -235,6 +251,8 @@ func (s *memoryOperationStore) PreviousRuntimeInstall(_ context.Context, runtime
 }
 
 func (s *memoryOperationStore) UpdateOperation(_ context.Context, current, next operation.Operation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	stored, ok := s.byID[current.ID]
 	if !ok || stored.Status != current.Status {
 		return errors.New("operation update conflict")
@@ -247,6 +265,8 @@ func (s *memoryOperationStore) UpdateOperation(_ context.Context, current, next 
 }
 
 func (s *memoryOperationStore) InterruptActiveInstalls(_ context.Context, now time.Time) ([]operation.Operation, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var result []operation.Operation
 	for id, current := range s.byID {
 		if current.Type != operation.TypeRuntimeInstall || operation.IsTerminal(current.Status) {

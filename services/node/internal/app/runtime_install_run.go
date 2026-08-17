@@ -59,14 +59,18 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 	defer s.stopWorker(started.ID)
 	current := started
 	fail := func(code yorvaruntime.ErrorCode, retryable bool) {
+		latest, err := s.store.GetOperation(context.Background(), started.ID)
+		if err != nil || operation.IsTerminal(latest.Status) {
+			return
+		}
 		now := s.now()
-		next := current
+		next := latest
 		next.Status = operation.StatusFailed
 		next.ErrorCode = code
 		next.Retryable = retryable
 		next.CompletedAt = &now
 		next.UpdatedAt = now
-		_ = s.store.UpdateOperation(context.Background(), current, next)
+		_ = s.store.UpdateOperation(context.Background(), latest, next)
 	}
 	if s.applier == nil {
 		return
@@ -99,14 +103,18 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 	}
 	if err := s.applier.Apply(ctx, started.ID, report); err != nil {
 		if errors.Is(err, context.Canceled) {
+			latest, getErr := s.store.GetOperation(context.Background(), started.ID)
+			if getErr != nil || operation.IsTerminal(latest.Status) {
+				return
+			}
 			now := s.now()
-			next := current
+			next := latest
 			next.Status = operation.StatusCancelled
 			next.ErrorCode = yorvaruntime.ErrorRuntimeInstallCancelled
 			next.Retryable = true
 			next.CompletedAt = &now
 			next.UpdatedAt = now
-			_ = s.store.UpdateOperation(context.Background(), current, next)
+			_ = s.store.UpdateOperation(context.Background(), latest, next)
 			return
 		}
 		fail(installErrorCodeOr(err, yorvaruntime.ErrorRuntimeInstallStageFailed), isRetryableInstall(err))
