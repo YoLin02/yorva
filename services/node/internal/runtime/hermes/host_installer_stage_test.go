@@ -1,9 +1,15 @@
 package hermes
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
+
+	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
 func TestOptionalStageTimeoutDoesNotFailInstall(t *testing.T) {
@@ -31,6 +37,34 @@ func TestOptionalStageHardFailureDoesNotFailInstall(t *testing.T) {
 	}
 	if err := installer.runStage(context.Background(), "powershell", "install.ps1", "system-packages", "C:\\hermes", "C:\\hermes\\hermes-agent"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestLogCommandOmitsRawCommandOutput(t *testing.T) {
+	var output bytes.Buffer
+	installer := NewHostInstaller(t.TempDir())
+	installer.logger = slog.New(slog.NewJSONHandler(&output, nil))
+	installer.logCommand("installer.stage", "venv", "", commandResult{
+		stdout:   "SECRET_TOKEN=super-secret\nC:\\Users\\private\\hermes",
+		stderr:   "official reason: disk full at C:\\Users\\private",
+		exitCode: 1,
+		err:      errors.New("raw powershell error"),
+	})
+	text := output.String()
+	if strings.Contains(text, "SECRET_TOKEN") || strings.Contains(text, "C:\\Users\\private") || strings.Contains(text, "raw powershell") {
+		t.Fatalf("raw output persisted: %s", text)
+	}
+	if !strings.Contains(text, string(yorvaruntime.ErrorRuntimeInstallStageFailed)) {
+		t.Fatalf("missing structured code: %s", text)
+	}
+}
+
+func TestVerifyPublicLauncherRejectsEmptyBin(t *testing.T) {
+	installer := NewHostInstaller(t.TempDir())
+	installer.installDir = func() string { return t.TempDir() }
+	installer.userPath = func(string) bool { return true }
+	if err := installer.verifyPublicLauncher(context.Background()); installErrorCode(err) != yorvaruntime.ErrorRuntimeInstallPostcheckFailed {
+		t.Fatalf("empty bin error = %v", err)
 	}
 }
 

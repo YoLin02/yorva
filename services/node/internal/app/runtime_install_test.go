@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -68,6 +69,31 @@ func TestRuntimeInstallStartIdempotencyAndConcurrency(t *testing.T) {
 	}
 }
 
+func TestRuntimeInstallAndPrerequisitesShareHostMutationLock(t *testing.T) {
+	store := newMemoryOperationStore()
+	service := newTestRuntimeInstall(store, yorvaruntime.Discovery{State: yorvaruntime.DiscoveryNotInstalled})
+	first, err := service.Start(context.Background(), "hermes", "install-lock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.StartPrerequisites(context.Background(), "prereq-lock")
+	var rejected InstallRejection
+	if !errors.As(err, &rejected) || rejected.ActiveID != first.Operation.ID {
+		t.Fatalf("prerequisite during install = %v", err)
+	}
+	if _, err := service.Cancel(context.Background(), first.Operation.ID); err != nil {
+		t.Fatal(err)
+	}
+	prereq, err := service.StartPrerequisites(context.Background(), "prereq-after")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.Start(context.Background(), "hermes", "install-after-prereq")
+	if !errors.As(err, &rejected) || rejected.ActiveID != prereq.Operation.ID {
+		t.Fatalf("install during prerequisite = %v", err)
+	}
+}
+
 func TestRuntimeInstallRejectsUnsupportedDiscovery(t *testing.T) {
 	service := newTestRuntimeInstall(newMemoryOperationStore(), yorvaruntime.Discovery{State: yorvaruntime.DiscoverySupported})
 	_, err := service.Start(context.Background(), "hermes", "install-supported")
@@ -102,6 +128,18 @@ func TestRuntimeInstallCancelAndInterrupt(t *testing.T) {
 	}
 	if interrupted[0].Status != operation.StatusFailed || interrupted[0].ErrorCode != yorvaruntime.ErrorOperationInterrupted {
 		t.Fatalf("interrupted operation = %#v", interrupted[0])
+	}
+}
+
+func TestDiscoveryRemainsAvailableDuringActiveHermesMutation(t *testing.T) {
+	store := newMemoryOperationStore()
+	service := newTestRuntimeInstall(store, yorvaruntime.Discovery{State: yorvaruntime.DiscoveryNotInstalled})
+	if _, err := service.Start(context.Background(), "hermes", "install-discover"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := service.discovery.Detect(context.Background(), "hermes")
+	if err != nil || got.State != yorvaruntime.DiscoveryNotInstalled {
+		t.Fatalf("discovery during install = %#v, %v", got, err)
 	}
 }
 
@@ -176,8 +214,8 @@ func (s *memoryOperationStore) CreateOperation(_ context.Context, value operatio
 		return errors.New("duplicate idempotency key")
 	}
 	for _, current := range s.byID {
-		if current.Type == value.Type && current.TargetID == value.TargetID && !operation.IsTerminal(current.Status) {
-			return errors.New("active install exists")
+		if current.TargetID == value.TargetID && !operation.IsTerminal(current.Status) && hermesHostMutation(current.Type) && hermesHostMutation(value.Type) {
+			return sqlite.ErrActiveInstallExists
 		}
 	}
 	s.byID[value.ID] = value
@@ -225,6 +263,21 @@ func (s *memoryOperationStore) ActiveHermesPrerequisite(_ context.Context, runti
 		}
 	}
 	return operation.Operation{}, false, nil
+}
+
+func (s *memoryOperationStore) ActiveHermesHostMutation(_ context.Context, runtimeKind string) (operation.Operation, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, value := range s.byID {
+		if value.TargetID == runtimeKind && !operation.IsTerminal(value.Status) && hermesHostMutation(value.Type) {
+			return value, true, nil
+		}
+	}
+	return operation.Operation{}, false, nil
+}
+
+func hermesHostMutation(value operation.Type) bool {
+	return value == operation.TypeRuntimeInstall || value == operation.TypeHermesPrerequisites
 }
 
 func (s *memoryOperationStore) LatestRuntimeInstall(_ context.Context, runtimeKind string) (operation.Operation, bool, error) {
@@ -302,7 +355,7 @@ func (s *memoryOperationStore) InterruptActiveInstalls(_ context.Context, now ti
 	defer s.mu.Unlock()
 	var result []operation.Operation
 	for id, current := range s.byID {
-		if current.Type != operation.TypeRuntimeInstall || operation.IsTerminal(current.Status) {
+		if !hermesHostMutation(current.Type) || operation.IsTerminal(current.Status) {
 			continue
 		}
 		next := current

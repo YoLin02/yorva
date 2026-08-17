@@ -5,11 +5,22 @@ import (
 	"errors"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
+
+const (
+	operationDeadline   = 60 * time.Minute
+	operationCancelWait = 45 * time.Second
+)
+
+type installWorker struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+}
 
 type HostApplier interface {
 	PlatformSupported() bool
@@ -18,6 +29,7 @@ type HostApplier interface {
 	ManagedInstallDir() string
 	ExpectedVersion() string
 	ContainsManagedPath(path string) bool
+	CanonicalPublicLauncher() string
 }
 
 type InstallCompleter interface {
@@ -28,30 +40,46 @@ func (s *RuntimeInstall) WithHost(applier HostApplier, completer InstallComplete
 	s.applier = applier
 	s.completer = completer
 	s.nodeID = nodeID
-	s.cancels = map[string]context.CancelFunc{}
+	s.workers = map[string]*installWorker{}
 	return s
 }
 
 func (s *RuntimeInstall) bindWorker(parent context.Context, id string) context.Context {
-	ctx, cancel := context.WithCancel(parent)
+	ctx, cancel := context.WithTimeout(parent, operationDeadline)
+	done := make(chan struct{})
 	s.mu.Lock()
-	if s.cancels == nil {
-		s.cancels = map[string]context.CancelFunc{}
+	if s.workers == nil {
+		s.workers = map[string]*installWorker{}
 	}
-	s.cancels[id] = cancel
+	s.workers[id] = &installWorker{cancel: cancel, done: done}
 	s.mu.Unlock()
 	return ctx
 }
 
+func (s *RuntimeInstall) requestCancel(id string) <-chan struct{} {
+	s.mu.Lock()
+	worker := s.workers[id]
+	s.mu.Unlock()
+	if worker == nil {
+		return nil
+	}
+	worker.cancel()
+	return worker.done
+}
+
 func (s *RuntimeInstall) stopWorker(id string) {
 	s.mu.Lock()
-	cancel, ok := s.cancels[id]
-	if ok {
-		delete(s.cancels, id)
-	}
+	worker := s.workers[id]
+	delete(s.workers, id)
 	s.mu.Unlock()
-	if ok {
-		cancel()
+	if worker == nil {
+		return
+	}
+	worker.cancel()
+	select {
+	case <-worker.done:
+	default:
+		close(worker.done)
 	}
 }
 
@@ -107,6 +135,10 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		}
 	}
 	if err := s.applier.Apply(ctx, started.ID, report); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			fail(yorvaruntime.ErrorRuntimeInstallTimeout, true)
+			return
+		}
 		if errors.Is(err, context.Canceled) {
 			latest, getErr := s.store.GetOperation(context.Background(), started.ID)
 			if getErr != nil || operation.IsTerminal(latest.Status) {
@@ -171,6 +203,10 @@ func postcheckAccepted(discovery yorvaruntime.Discovery, applier HostApplier) bo
 		return false
 	}
 	if discovery.Selected.Version != applier.ExpectedVersion() {
+		return false
+	}
+	launcher := applier.CanonicalPublicLauncher()
+	if launcher == "" || discovery.Selected.Path != launcher {
 		return false
 	}
 	return applier.ContainsManagedPath(discovery.Selected.Path)

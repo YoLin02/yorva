@@ -125,6 +125,8 @@ Indexes:
 ```text
 (status, created_at)
 (target_id, created_at)
+UNIQUE(target_type, target_id) WHERE status IN ('PENDING', 'RUNNING')
+  AND operation_type IN ('runtime.install', 'hermes.prerequisites')
 ```
 
 If idempotency is used locally:

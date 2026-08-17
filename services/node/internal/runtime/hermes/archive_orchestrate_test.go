@@ -84,6 +84,7 @@ func TestApplyMaterializesSourceWithoutOfficialRepositoryStage(t *testing.T) {
 	installer.acquireArchive = func(context.Context, string) (string, string, error) {
 		return archive, sourceOriginBundled, nil
 	}
+	installer.userPath = func(string) bool { return true }
 	installer.run = func(_ context.Context, invocation installInvocation, _ time.Duration) commandResult {
 		joined := strings.Join(invocation.Args, " ")
 		spawned = append(spawned, joined)
@@ -94,6 +95,15 @@ func TestApplyMaterializesSourceWithoutOfficialRepositoryStage(t *testing.T) {
 			return commandResult{stdout: string(manifest) + "\n"}
 		}
 		stage := stageFromArgs(invocation.Args)
+		if stage == "path" {
+			launcher := filepath.Join(installDir, "bin", "hermes.exe")
+			if err := os.MkdirAll(filepath.Dir(launcher), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(launcher, []byte("mz"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
 		return commandResult{stdout: `{"stage":"` + stage + `","ok":true,"skipped":false}` + "\n"}
 	}
 

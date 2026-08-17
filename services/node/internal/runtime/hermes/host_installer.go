@@ -2,6 +2,7 @@ package hermes
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -28,6 +29,7 @@ type HostInstaller struct {
 	operationID        string
 	acquireArchive     func(context.Context, string) (string, string, error)
 	verifyArchive      func(string) error
+	userPath           func(string) bool
 }
 
 func NewHostInstaller(stateRoot string) *HostInstaller {
@@ -73,6 +75,10 @@ func (h *HostInstaller) ExpectedVersion() string {
 func (h *HostInstaller) ContainsManagedPath(path string) bool {
 	root := h.installDir()
 	return pathWithin(root, path) || pathWithin(h.home(), path)
+}
+
+func (h *HostInstaller) CanonicalPublicLauncher() string {
+	return filepath.Join(h.installDir(), "bin", "hermes.exe")
 }
 
 func (h *HostInstaller) ValidateTarget(retry bool) error {
@@ -160,9 +166,27 @@ func (h *HostInstaller) Apply(ctx context.Context, operationID string, report fu
 			return err
 		}
 	}
+	if err := h.verifyPublicLauncher(ctx); err != nil {
+		return err
+	}
 	if report != nil {
 		report(operation.StageCleanup, "")
 	}
+	return nil
+}
+
+func (h *HostInstaller) verifyPublicLauncher(ctx context.Context) error {
+	launcher := h.CanonicalPublicLauncher()
+	if !isRegularFile(launcher) || !pathWithin(h.installDir(), launcher) {
+		return installError(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, errors.New("canonical public launcher is missing"))
+	}
+	if h.userPath != nil && !h.userPath(filepath.Join(h.installDir(), "bin")) {
+		return installError(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, errors.New("user PATH does not contain the Hermes launcher directory"))
+	}
+	if h.userPath == nil && !userPathContainsDir(filepath.Join(h.installDir(), "bin")) {
+		return installError(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, errors.New("user PATH does not contain the Hermes launcher directory"))
+	}
+	_ = ctx
 	return nil
 }
 
@@ -382,26 +406,12 @@ func (h *HostInstaller) logCommand(event, stage, remote string, result commandRe
 	if remote != "" {
 		args = append(args, "remote", remote)
 	}
-	if result.err != nil {
-		args = append(args, "error", result.err.Error())
-	}
-	if text := clipDiagnostic(result.stdout); text != "" {
-		args = append(args, "stdout", text)
-	}
-	if text := clipDiagnostic(result.stderr); text != "" {
-		args = append(args, "stderr", text)
+	if result.timedOut {
+		args = append(args, "errorCode", string(yorvaruntime.ErrorRuntimeInstallTimeout))
+	} else if result.limited {
+		args = append(args, "errorCode", string(yorvaruntime.ErrorRuntimeInstallOutputLimit))
+	} else if result.err != nil || result.exitCode != 0 {
+		args = append(args, "errorCode", string(yorvaruntime.ErrorRuntimeInstallStageFailed))
 	}
 	h.debug(event, args...)
-}
-
-func clipDiagnostic(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return ""
-	}
-	const limit = 8000
-	if len(trimmed) > limit {
-		return trimmed[len(trimmed)-limit:]
-	}
-	return trimmed
 }

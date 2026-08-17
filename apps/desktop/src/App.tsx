@@ -28,6 +28,7 @@ export function App() {
   const [prereqKey, setPrereqKey] = useState<string | null>(null);
   const [prereqOperationId, setPrereqOperationId] = useState<string | null>(null);
   const [prereqBusy, setPrereqBusy] = useState(false);
+  const [prereqRequestError, setPrereqRequestError] = useState<InstallRequestError | null>(null);
   const copy = messages[locale];
 
   const sessionQuery = useQuery({
@@ -126,46 +127,67 @@ export function App() {
     enabled: client !== undefined && nodeQuery.isSuccess && discoveryQuery.isSuccess,
     retry: false,
   });
+  const followedPrereqOperationId = prereqOperationId ?? prerequisitesQuery.data?.activeOperationId ?? null;
   const prereqOperationQuery = useQuery({
-    queryKey: ["hermes-prereq-operation", prereqOperationId, sessionQuery.data?.baseUrl],
-    queryFn: ({ signal }) => client!.getOperation(prereqOperationId!, signal),
-    enabled: client !== undefined && prereqOperationId !== null,
+    queryKey: ["hermes-prereq-operation", followedPrereqOperationId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getOperation(followedPrereqOperationId!, signal),
+    enabled: client !== undefined && followedPrereqOperationId !== null,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === "PENDING" || status === "RUNNING" ? 1000 : false;
     },
   });
   const prereqLogQuery = useQuery({
-    queryKey: ["hermes-prereq-log", prereqOperationId, sessionQuery.data?.baseUrl],
-    queryFn: ({ signal }) => client!.getOperationLog(prereqOperationId!, signal),
-    enabled: client !== undefined && prereqOperationId !== null,
+    queryKey: ["hermes-prereq-log", followedPrereqOperationId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getOperationLog(followedPrereqOperationId!, signal),
+    enabled: client !== undefined && followedPrereqOperationId !== null,
     refetchInterval: () => {
       const status = prereqOperationQuery.data?.status;
       return status === "PENDING" || status === "RUNNING" ? 1000 : false;
     },
   });
-  const startPrereq = async () => {
+  const startPrereq = async (nextKey?: string) => {
     if (!client || prereqBusy) return;
+    const key = nextKey ?? prereqKey ?? crypto.randomUUID();
     setPrereqBusy(true);
+    setPrereqRequestError(null);
+    setPrereqKey(key);
+    if (nextKey) {
+      setPrereqOperationId(null);
+    }
     try {
-      const key = prereqKey ?? crypto.randomUUID();
-      setPrereqKey(key);
       const operation = await client.startHermesPrerequisites(key);
       setPrereqOperationId(operation.id);
+    } catch (error) {
+      const activeId = activeOperationIdFromError(error);
+      if (activeId) {
+        setPrereqOperationId(activeId);
+      } else if (error instanceof YorvaApiError) {
+        setPrereqRequestError({
+          code: error.code,
+          message: error.message,
+          retryable: error.retryable,
+        });
+      } else {
+        setPrereqRequestError({
+          code: "INTERNAL_ERROR",
+          message: copy.node.nodeReachFailure,
+          retryable: true,
+        });
+      }
+      void prerequisitesQuery.refetch();
     } finally {
       setPrereqBusy(false);
     }
   };
   const retryPrereq = () => {
-    setPrereqKey(crypto.randomUUID());
-    setPrereqOperationId(null);
-    void startPrereq();
+    void startPrereq(crypto.randomUUID());
   };
   const cancelPrereq = async () => {
-    if (!client || !prereqOperationId || prereqBusy) return;
+    if (!client || !followedPrereqOperationId || prereqBusy) return;
     setPrereqBusy(true);
     try {
-      await client.cancelOperation(prereqOperationId);
+      await client.cancelOperation(followedPrereqOperationId);
       await prereqOperationQuery.refetch();
     } finally {
       setPrereqBusy(false);
@@ -215,6 +237,10 @@ export function App() {
   } else if (activePage === "runtimes") {
     const windowsHost = nodeQuery.data.platform.toLowerCase() === "windows";
     const notInstalled = discoveryQuery.data?.state === "NOT_INSTALLED";
+    const prereqBlocking = Boolean(followedPrereqOperationId) &&
+      (prereqOperationQuery.data === undefined ||
+        prereqOperationQuery.data.status === "PENDING" ||
+        prereqOperationQuery.data.status === "RUNNING");
     content = (
       <div>
         <HermesDiscoveryView state={discoveryState} copy={copy} locale={locale} />
@@ -225,12 +251,14 @@ export function App() {
             operation={(prereqOperationQuery.data as Operation | undefined) ?? null}
             liveLog={prereqLogQuery.data?.text ?? ""}
             busy={prereqBusy}
+            requestError={prereqRequestError}
+            hermesNotInstalled={notInstalled}
             onInstall={() => { void startPrereq(); }}
             onRetryDeps={retryPrereq}
             onCancel={() => { void cancelPrereq(); }}
           />
         )}
-        {notInstalled && (
+        {notInstalled && !prereqBlocking && (
           <HermesInstallPanel
             copy={copy}
             windowsHost={windowsHost}
@@ -274,4 +302,12 @@ export function App() {
       {content}
     </DesktopShell>
   );
+}
+
+function activeOperationIdFromError(error: unknown): string | null {
+  if (!(error instanceof YorvaApiError) || error.code !== "RUNTIME_INSTALL_IN_PROGRESS") {
+    return null;
+  }
+  const id = error.details?.operationId;
+  return typeof id === "string" && id.length > 0 ? id : null;
 }

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
@@ -37,10 +38,41 @@ func (s *RuntimeInstall) InspectPrerequisites(ctx context.Context) (Prerequisite
 		return PrerequisiteSnapshot{}, ErrRuntimeKindNotFound
 	}
 	snap := s.prereq.Inspect()
-	if active, ok, err := s.store.ActiveHermesPrerequisite(ctx, "hermes"); err == nil && ok {
+	if active, ok, err := s.store.ActiveHermesHostMutation(ctx, "hermes"); err == nil && ok && active.Type == operation.TypeHermesPrerequisites {
 		snap.ActiveOperationID = active.ID
 	}
+	if snap.DepsState != "READY" {
+		if latest, ok, err := latestHermesPrerequisite(s.store, ctx); err == nil && ok {
+			switch latest.ErrorCode {
+			case yorvaruntime.ErrorHermesNodeDepsTimeout:
+				snap.DepsState = "TIMED_OUT"
+				snap.DepsCode = latest.ErrorCode
+			case yorvaruntime.ErrorHermesNodeDepsFailed:
+				snap.DepsState = "FAILED"
+				snap.DepsCode = latest.ErrorCode
+			}
+		}
+	}
 	return snap, nil
+}
+
+func latestHermesPrerequisite(store installOperationStore, ctx context.Context) (operation.Operation, bool, error) {
+	values, err := store.ListOperations(ctx, string(operation.TargetRuntimeKind), "hermes", 20)
+	if err != nil {
+		return operation.Operation{}, false, err
+	}
+	var latest operation.Operation
+	found := false
+	for _, value := range values {
+		if value.Type != operation.TypeHermesPrerequisites {
+			continue
+		}
+		if !found || value.CreatedAt.After(latest.CreatedAt) {
+			latest = value
+			found = true
+		}
+	}
+	return latest, found, nil
 }
 
 func (s *RuntimeInstall) StartPrerequisites(ctx context.Context, idempotencyKey string) (InstallStartResult, error) {
@@ -52,14 +84,8 @@ func (s *RuntimeInstall) StartPrerequisites(ctx context.Context, idempotencyKey 
 	} else if ok {
 		return InstallStartResult{Operation: existing}, nil
 	}
-	if active, ok, err := s.store.ActiveHermesPrerequisite(ctx, "hermes"); err != nil {
+	if err := s.rejectActiveHermesMutation(ctx, "hermes"); err != nil {
 		return InstallStartResult{}, err
-	} else if ok {
-		return InstallStartResult{}, InstallRejection{
-			Code:      yorvaruntime.ErrorRuntimeInstallInProgress,
-			Retryable: true,
-			ActiveID:  active.ID,
-		}
 	}
 	now := s.now()
 	id, err := s.newID()
@@ -83,7 +109,7 @@ func (s *RuntimeInstall) StartPrerequisites(ctx context.Context, idempotencyKey 
 		UpdatedAt:      now,
 	}
 	if err := s.store.CreateOperation(ctx, created); err != nil {
-		return InstallStartResult{}, err
+		return InstallStartResult{}, s.normalizeCreateConflict(ctx, "hermes", err)
 	}
 	if s.prereq != nil {
 		workerCtx := s.bindWorker(context.Background(), created.ID)
@@ -130,7 +156,11 @@ func (s *RuntimeInstall) executePrerequisites(ctx context.Context, started opera
 		return
 	}
 	if err := s.prereq.Apply(ctx, started.ID, report); err != nil {
-		if err == context.Canceled {
+		if errors.Is(err, context.DeadlineExceeded) {
+			fail(yorvaruntime.ErrorRuntimeInstallTimeout, true)
+			return
+		}
+		if errors.Is(err, context.Canceled) {
 			latest, getErr := s.store.GetOperation(context.Background(), started.ID)
 			if getErr != nil || operation.IsTerminal(latest.Status) {
 				return

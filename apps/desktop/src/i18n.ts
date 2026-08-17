@@ -101,6 +101,11 @@ type Messages = {
       retryDeps: string;
       installingNode: string;
       installingDeps: string;
+      starting: string;
+      failed: string;
+      cancelled: string;
+      retry: string;
+      continueWithoutNode: string;
       logTitle: string;
       cancel: string;
     };
@@ -276,6 +281,11 @@ const english: Messages = {
       retryDeps: "Retry Node dependencies",
       installingNode: "Installing Node.js",
       installingDeps: "Installing Node dependencies",
+      starting: "Starting Node.js / npm installation",
+      failed: "Node.js / npm installation failed",
+      cancelled: "Node.js / npm installation was cancelled",
+      retry: "Retry Node.js / npm installation",
+      continueWithoutNode: "Node.js / npm can be installed before Hermes. That step installs only the managed Node and npm. Install Hermes after it finishes; the two Operations cannot run at the same time. If this stays on Installing, cancel first. Do not wait on the official hermes command in a terminal; close that session with Ctrl+C.",
       logTitle: "Install log",
       cancel: "Cancel",
     },
@@ -451,6 +461,11 @@ const simplifiedChinese: Messages = {
       retryDeps: "重试 Node 依赖",
       installingNode: "正在安装 Node.js",
       installingDeps: "正在安装 Node 依赖",
+      starting: "正在启动 Node.js / npm 安装",
+      failed: "Node.js / npm 安装失败",
+      cancelled: "Node.js / npm 安装已取消",
+      retry: "重试 Node.js / npm 安装",
+      continueWithoutNode: "可以先安装 Node.js / npm，这一步只安装托管的 Node 和 npm。完成后再安装 Hermes；这两项操作不能同时进行。若一直停在「正在安装」，请先取消。不要在终端里等待官方 hermes 命令；用 Ctrl+C 结束那个会话。",
       logTitle: "安装日志",
       cancel: "取消",
     },

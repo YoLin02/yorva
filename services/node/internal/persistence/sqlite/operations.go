@@ -104,6 +104,20 @@ func (d *Database) ActiveHermesPrerequisite(ctx context.Context, runtimeKind str
 	return value, true, nil
 }
 
+func (d *Database) ActiveHermesHostMutation(ctx context.Context, runtimeKind string) (operation.Operation, bool, error) {
+	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
+        WHERE target_type = ? AND target_id = ? AND status IN ('PENDING', 'RUNNING')
+          AND operation_type IN (?, ?)
+    `, string(operation.TargetRuntimeKind), runtimeKind, string(operation.TypeRuntimeInstall), string(operation.TypeHermesPrerequisites)))
+	if errors.Is(err, sql.ErrNoRows) {
+		return operation.Operation{}, false, nil
+	}
+	if err != nil {
+		return operation.Operation{}, false, err
+	}
+	return value, true, nil
+}
+
 func (d *Database) LatestRuntimeInstall(ctx context.Context, runtimeKind string) (operation.Operation, bool, error) {
 	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
         WHERE operation_type = ? AND target_type = ? AND target_id = ?
@@ -316,7 +330,9 @@ func mapOperationWriteError(err error) error {
 	if strings.Contains(message, "operations_idempotency_key") || strings.Contains(message, "operations.idempotency_key") {
 		return ErrDuplicateIdempotency
 	}
-	if strings.Contains(message, "operations_one_active_runtime_install") ||
+	if strings.Contains(message, "operations_one_active_hermes_host_mutation") ||
+		strings.Contains(message, "operations_one_active_runtime_install") ||
+		(strings.Contains(message, "operations.target_type") && strings.Contains(message, "operations.target_id")) ||
 		(strings.Contains(message, "operations.operation_type") && strings.Contains(message, "operations.target_id")) {
 		return ErrActiveInstallExists
 	}

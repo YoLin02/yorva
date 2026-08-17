@@ -1,5 +1,6 @@
 import type { Operation } from "../api/types";
 import type { HermesPrerequisites } from "../api/types";
+import type { InstallRequestError } from "../installDiagnostic";
 import type { AppMessages } from "../i18n";
 
 export function HermesPrerequisitePanel({
@@ -8,6 +9,8 @@ export function HermesPrerequisitePanel({
   operation,
   liveLog,
   busy,
+  requestError,
+  hermesNotInstalled,
   onInstall,
   onRetryDeps,
   onCancel,
@@ -17,12 +20,18 @@ export function HermesPrerequisitePanel({
   operation: Operation | null;
   liveLog?: string;
   busy: boolean;
+  requestError?: InstallRequestError | null;
+  hermesNotInstalled?: boolean;
   onInstall: () => void;
   onRetryDeps: () => void;
   onCancel: () => void;
 }) {
   const text = copy.hermes.prerequisites;
   const running = operation && (operation.status === "PENDING" || operation.status === "RUNNING");
+  const failed = Boolean(
+    requestError || (operation && (operation.status === "FAILED" || operation.status === "CANCELLED")),
+  );
+  const starting = busy && !running && !failed;
   const nodeState = status?.node.state ?? "MISSING";
   const npmState = status?.npm.state ?? "MISSING";
   const depsState = status?.nodeDependencies.state ?? "NOT_INSTALLED";
@@ -42,6 +51,7 @@ export function HermesPrerequisitePanel({
 
   const showInstall = nodeState !== "READY" || npmState !== "READY";
   const showRetryDeps = nodeState === "READY" && npmState === "READY" && depsState !== "READY";
+  const errorCode = operation?.errorCode ?? requestError?.code ?? status?.node.errorCode;
 
   return (
     <section className="diagnostic-block" aria-live="polite">
@@ -49,7 +59,11 @@ export function HermesPrerequisitePanel({
       <p>{summary}</p>
       {status?.node.version && <p>Node {status.node.version}</p>}
       {status?.npm.version && <p>npm {status.npm.version}</p>}
-      {status?.node.errorCode && <p>{copy.hermes.install.errorCode}: {status.node.errorCode}</p>}
+      {hermesNotInstalled && (running || failed || showInstall) && <p>{text.continueWithoutNode}</p>}
+      {!failed && status?.node.errorCode && (
+        <p>{copy.hermes.install.errorCode}: {status.node.errorCode}</p>
+      )}
+      {starting && <p>{text.starting}</p>}
       {running && (
         <>
           <p>{copy.hermes.install.stage}: {operation?.stage === "install.node" ? text.installingNode : text.installingDeps}</p>
@@ -57,12 +71,27 @@ export function HermesPrerequisitePanel({
           <button type="button" onClick={onCancel} disabled={busy}>{text.cancel}</button>
         </>
       )}
-      {!running && showInstall && (
+      {failed && !running && (
+        <div role="alert">
+          <p>{operation?.status === "CANCELLED" ? text.cancelled : text.failed}</p>
+          {operation?.stage && (
+            <p>{copy.hermes.install.stage}: {operation.stage === "install.node" ? text.installingNode : operation.stage}</p>
+          )}
+          {errorCode && <p>{copy.hermes.install.errorCode}: {errorCode}</p>}
+          {operation?.correlationId && <p>{copy.hermes.install.correlation}: {operation.correlationId}</p>}
+          {requestError?.message && <p>{requestError.message}</p>}
+          {liveLog && <pre className="install-log">{liveLog}</pre>}
+          <button type="button" className="primary-action" onClick={onRetryDeps} disabled={busy}>
+            {text.retry}
+          </button>
+        </div>
+      )}
+      {!running && !failed && !starting && showInstall && (
         <button type="button" className="primary-action" onClick={onInstall} disabled={busy}>
           {text.installAction}
         </button>
       )}
-      {!running && showRetryDeps && (
+      {!running && !failed && !starting && showRetryDeps && (
         <button type="button" className="primary-action" onClick={onRetryDeps} disabled={busy}>
           {text.retryDeps}
         </button>

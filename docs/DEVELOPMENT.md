@@ -485,14 +485,13 @@ pwsh -NoProfile -File scripts/windows-lifecycle-smoke.ps1
 pnpm --filter @yorva/desktop tauri build --no-bundle
 ```
 
-Owner test distribution on Windows may also build a user-scope MSI (requires WiX 3 on `PATH` / `WIX`). Demo MSI builds must first prepare the verified official Hermes source archive without committing it:
+Owner test distribution on Windows may also build a user-scope MSI (requires WiX 3 on `PATH` / `WIX`). Demo MSI builds must use the fail-closed packaging entry point, which requires the pinned Hermes source, Node zip, npm tarball, and license files:
 
 ```text
-pwsh -NoProfile -File scripts/prepare-hermes-embedded-source.ps1 -RequirePresent
-pnpm --filter @yorva/desktop tauri build --bundles msi
+pwsh -NoProfile -File scripts/package-yorva-msi.ps1
 ```
 
-Ordinary `pnpm test` / `tauri build --no-bundle` must not download the ~70 MiB archive. The payload is a gitignored build input whose size and SHA-256 are compiled into the Hermes adapter.
+Ordinary `pnpm test` / `tauri build --no-bundle` must not download the large archives. Those payloads are gitignored build inputs whose sizes and SHA-256 values are compiled into the Hermes adapter. A missing, wrong-sized, or wrong-hashed payload fails packaging.
 
 Hermes install Operations write redacted JSON lines to `%APPDATA%\com.yorva.desktop.dev\logs\install.ndjson`. Use `correlationId`, `stage` and `errorCode` to locate a failed test. Do not treat this file as an upstream installer transcript.
 

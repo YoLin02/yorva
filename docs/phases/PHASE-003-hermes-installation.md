@@ -6,18 +6,17 @@
 > Previous baseline: `phase-002-hermes-discovery-baseline-r1`
 > Previous baseline commit: `5b89d22ed5e7ae3f4374a26f0fcda54bdabc6bf9`
 > Previous gate: `AUDIT-002A1-hermes-discovery.md` — PASS
-> Implementation: IN_PROGRESS
+> Implementation: AUDIT
 > Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED FOR IMPLEMENTATION
-> Dependency distribution amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
-> Phase 3 audit: `AUDIT-003` — PENDING
+> Phase 3 audit: `AUDIT-003` — FAIL; remediations applied; `AUDIT-003R1` required in a fresh review context
 > Target platform: Windows user-scope installation
 > Target Hermes release: `v2026.8.16` / package `0.20.2`
 > Spec review date: 2026-08-17
 > Owner approval date: 2026-08-17
 
-The Repository Owner approved this Specification on 2026-08-17. Phase 3 is `READY`, but implementation remains `NOT STARTED` until the Owner separately authorizes implementation in the development task.
+The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Feature work is frozen except for `AUDIT-003` remediations.
 
 ## 1. Objective
 
@@ -48,7 +47,7 @@ Phase 3 installs Hermes. It does not configure a Hermes profile, credentials, mo
 - [x] Repository Owner approved this Phase 3 Specification on 2026-08-17.
 - [x] Repository Owner authorizes Phase 3 implementation.
 
-The remaining unchecked criterion is a hard gate. Spec approval is not implementation authorization.
+Implementation authorization was granted. The remaining gate is independent re-audit `AUDIT-003R1`.
 
 ## 3. User-Visible Success Flow
 
@@ -228,12 +227,12 @@ Approved execution order:
 | 1 | `uv` | Hermes-managed Python package tool | required |
 | 2 | `python` | supported Python runtime | required |
 | 3 | `git` | official repository transport/tooling | required |
-| 4 | `node` | optional browser tooling prerequisite | `skipped=true` allowed with warning |
+| 4 | `node` | official Node stage | verified in the official manifest; never spawned. Replaced by YORVA-managed Node (`AMENDMENT-003A3`) |
 | 5 | `system-packages` | official ripgrep/ffmpeg prerequisite handling | required stage; bounded warning behavior may be retained |
-| 6 | `repository` | official Hermes checkout pinned to the reviewed commit | required |
+| 6 | `repository` | official Hermes checkout pinned to the reviewed commit | required identity; YORVA materializes the verified archive and does not spawn the official stage (`AMENDMENT-003A1`) |
 | 7 | `venv` | isolated Hermes Python environment | required |
 | 8 | `dependencies` | Hermes Python dependencies | required |
-| 9 | `node-deps` | Hermes Node dependencies when Node is available | required stage; documented skip may be retained |
+| 9 | `node-deps` | official Node dependency stage | verified in the official manifest; never spawned. Replaced by YORVA-managed `npm ci` after Hermes exists (`AMENDMENT-003A3`) |
 | 10 | `path` | official launcher directory and `HERMES_HOME` user variables | required |
 | 11 | `config-templates` | official initial distribution templates | required, but never exposed as YORVA profile/skills management |
 | 12 | `bootstrap-marker` | official completion marker | required |
@@ -644,7 +643,7 @@ All must be true before Phase 3 implementation can be declared complete and ente
 - [ ] Installation is Windows user-scope and available only from valid preflight state.
 - [ ] Source is the exact immutable reviewed commit and digest.
 - [ ] Protocol and full manifest verify before mutation.
-- [ ] Only the twelve approved stages execute; four excluded capabilities never execute.
+- [ ] Official `node` and `node-deps` are verified then skipped; YORVA-owned managed Node/npm replace them. Four excluded capabilities never execute.
 - [ ] No HTTP or Desktop input controls command, URL, version, path or environment.
 - [ ] Installation is a durable, idempotent, cancellable Operation.
 - [ ] Process tree is contained before resume and fully cleaned on every terminal path.

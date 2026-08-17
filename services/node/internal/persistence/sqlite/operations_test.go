@@ -23,7 +23,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := emptyDB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, emptyDir, 2)
+	assertMigrationCount(t, emptyDir, 3)
 
 	phase2Dir := t.TempDir()
 	applyNamedMigration(t, ctx, phase2Dir, "001_initial.sql")
@@ -35,7 +35,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := phase2DB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, phase2Dir, 2)
+	assertMigrationCount(t, phase2Dir, 3)
 }
 
 func TestOperationIdempotencyAndOneActiveInstall(t *testing.T) {
@@ -74,6 +74,42 @@ func TestOperationIdempotencyAndOneActiveInstall(t *testing.T) {
 	}
 	if err := db.CreateOperation(ctx, newTestOperation("op_4", "key-3", operation.StatusPending, completed)); err != nil {
 		t.Fatalf("create after terminal error = %v", err)
+	}
+}
+
+func TestHermesHostMutationIsExclusiveAcrossOperationTypes(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDatabase(t)
+	defer db.Close()
+	now := time.Date(2026, 8, 17, 14, 0, 0, 0, time.UTC)
+	install := newTestOperation("op_install", "key-install", operation.StatusPending, now)
+	if err := db.CreateOperation(ctx, install); err != nil {
+		t.Fatal(err)
+	}
+	prereq := operation.Operation{
+		ID:             "op_prereq",
+		Type:           operation.TypeHermesPrerequisites,
+		TargetType:     operation.TargetRuntimeKind,
+		TargetID:       "hermes",
+		Status:         operation.StatusPending,
+		Stage:          operation.StagePreflight,
+		IdempotencyKey: "key-prereq",
+		CorrelationID:  "cor_prereq",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if err := db.CreateOperation(ctx, prereq); !errors.Is(err, ErrActiveInstallExists) {
+		t.Fatalf("cross-type create error = %v", err)
+	}
+	secondPrereq := prereq
+	secondPrereq.ID = "op_prereq_2"
+	secondPrereq.IdempotencyKey = "key-prereq-2"
+	if err := db.CreateOperation(ctx, secondPrereq); !errors.Is(err, ErrActiveInstallExists) {
+		t.Fatalf("second prerequisite create error = %v", err)
+	}
+	active, ok, err := db.ActiveHermesHostMutation(ctx, "hermes")
+	if err != nil || !ok || active.ID != install.ID {
+		t.Fatalf("ActiveHermesHostMutation() = %#v ok=%v err=%v", active, ok, err)
 	}
 }
 

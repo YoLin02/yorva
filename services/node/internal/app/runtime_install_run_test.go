@@ -15,7 +15,7 @@ import (
 
 func TestRuntimeInstallWorkerSucceedsOnlyAfterSupportedPostcheck(t *testing.T) {
 	store := newMemoryOperationStore()
-	applier := &fakeApplier{dir: `C:\Users\a\AppData\Local\hermes\hermes-agent\venv\Scripts\python.exe`, version: "0.20.2"}
+	applier := &fakeApplier{dir: `C:\Users\a\AppData\Local\hermes\hermes-agent\bin\hermes.exe`, version: "0.20.2"}
 	completer := &fakeCompleter{store: store}
 	service := newOrchestratedInstall(store, []yorvaruntime.Discovery{
 		{State: yorvaruntime.DiscoveryNotInstalled},
@@ -51,6 +51,57 @@ func TestRuntimeInstallWorkerRejectsFailedPostcheckWithoutInstallation(t *testin
 	got := waitForStatus(t, service, started.Operation.ID, operation.StatusFailed)
 	if got.ErrorCode != yorvaruntime.ErrorRuntimeInstallPostcheckFailed || completer.snapshot().ID != "" {
 		t.Fatalf("failed postcheck = %#v installation=%#v", got, completer.snapshot())
+	}
+}
+
+func TestRuntimeInstallWorkerRejectsPythonFallbackPostcheck(t *testing.T) {
+	store := newMemoryOperationStore()
+	applier := &fakeApplier{
+		dir:      `C:\Users\a\AppData\Local\hermes\hermes-agent\bin\hermes.exe`,
+		version:  "0.20.2",
+		selected: `C:\Users\a\AppData\Local\hermes\hermes-agent\venv\Scripts\python.exe`,
+	}
+	completer := &fakeCompleter{store: store}
+	service := newOrchestratedInstall(store, []yorvaruntime.Discovery{
+		{State: yorvaruntime.DiscoveryNotInstalled},
+		{
+			State:    yorvaruntime.DiscoverySupported,
+			Selected: &yorvaruntime.Candidate{Path: applier.selected, Version: "0.20.2", State: yorvaruntime.DiscoverySupported},
+		},
+	}, applier, completer)
+	started, err := service.Start(context.Background(), "hermes", "install-fallback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := waitForStatus(t, service, started.Operation.ID, operation.StatusFailed)
+	if got.ErrorCode != yorvaruntime.ErrorRuntimeInstallPostcheckFailed || completer.snapshot().ID != "" {
+		t.Fatalf("fallback postcheck = %#v installation=%#v", got, completer.snapshot())
+	}
+}
+
+func TestRuntimeInstallCancelWaitsForWorkerCleanup(t *testing.T) {
+	store := newMemoryOperationStore()
+	startedApply := make(chan struct{})
+	applier := &fakeApplier{
+		dir: `C:\Users\a\AppData\Local\hermes\hermes-agent\bin\hermes.exe`, version: "0.20.2",
+		block:   startedApply,
+		cleanup: 80 * time.Millisecond,
+	}
+	service := newOrchestratedInstall(store, []yorvaruntime.Discovery{
+		{State: yorvaruntime.DiscoveryNotInstalled},
+	}, applier, &fakeCompleter{})
+	started, err := service.Start(context.Background(), "hermes", "install-cancel-wait")
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-startedApply
+	begin := time.Now()
+	cancelled, err := service.Cancel(context.Background(), started.Operation.ID)
+	if err != nil || cancelled.Status != operation.StatusCancelled {
+		t.Fatalf("Cancel() = %#v, %v", cancelled, err)
+	}
+	if time.Since(begin) < 70*time.Millisecond {
+		t.Fatalf("Cancel returned before worker cleanup: %s", time.Since(begin))
 	}
 }
 
@@ -126,9 +177,11 @@ func (s *sequenceDiscoverer) Detect(context.Context) (yorvaruntime.Discovery, er
 }
 
 type fakeApplier struct {
-	dir     string
-	version string
-	block   chan struct{}
+	dir      string
+	version  string
+	selected string
+	block    chan struct{}
+	cleanup  time.Duration
 }
 
 func (f *fakeApplier) PlatformSupported() bool   { return true }
@@ -138,6 +191,7 @@ func (f *fakeApplier) ExpectedVersion() string   { return f.version }
 func (f *fakeApplier) ContainsManagedPath(path string) bool {
 	return path == f.dir
 }
+func (f *fakeApplier) CanonicalPublicLauncher() string { return f.dir }
 func (f *fakeApplier) Apply(ctx context.Context, _ string, report func(operation.Stage, string)) error {
 	if report != nil {
 		report(operation.StageSourceDownload, "")
@@ -145,6 +199,9 @@ func (f *fakeApplier) Apply(ctx context.Context, _ string, report func(operation
 	if f.block != nil {
 		close(f.block)
 		<-ctx.Done()
+		if f.cleanup > 0 {
+			time.Sleep(f.cleanup)
+		}
 		return ctx.Err()
 	}
 	return nil

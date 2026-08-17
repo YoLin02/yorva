@@ -23,6 +23,12 @@ export type StreamEvent = {
 export type DaemonClient = ReturnType<typeof createDaemonClient>;
 
 const desktopDiscoveryTimeoutMs = 12_000;
+const desktopRequestTimeoutMs = 15_000;
+
+function withDesktopTimeout(signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(desktopRequestTimeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
 
 export function createDaemonClient(session: DaemonSession) {
   async function request<T>(path: string, init: RequestInit = {}, authenticated = true): Promise<T> {
@@ -88,11 +94,13 @@ export function createDaemonClient(session: DaemonSession) {
           : AbortSignal.timeout(desktopDiscoveryTimeoutMs),
       }),
     getHermesPrerequisites: (signal?: AbortSignal) =>
-      request<import("./types").HermesPrerequisites>("/api/v1/runtimes/hermes/prerequisites", { signal }),
+      request<import("./types").HermesPrerequisites>("/api/v1/runtimes/hermes/prerequisites", {
+        signal: withDesktopTimeout(signal),
+      }),
     startHermesPrerequisites: (idempotencyKey: string, signal?: AbortSignal) =>
       request<Operation>("/api/v1/runtimes/hermes/prerequisites/install", {
         method: "POST",
-        signal,
+        signal: withDesktopTimeout(signal),
         headers: {
           "Content-Type": "application/json",
           "Idempotency-Key": idempotencyKey,

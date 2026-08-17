@@ -104,11 +104,14 @@ Phase 2 must not install/download Hermes, modify PATH/Python, or begin Profile/l
 
 ## Phase 3 — Hermes Installation
 
-Status: **IN_PROGRESS**
+Status: **AUDIT**
 Spec: `docs/phases/PHASE-003-hermes-installation.md`
-Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
-Implementation: **IN_PROGRESS**
-Audit: `AUDIT-003` — **PENDING**
+Amendments:
+- `AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED
+- `AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED
+- `AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED
+Implementation branch: `fix/phase3-managed-node-prerequisites`
+Audit: `AUDIT-003` — **FAIL**; remediations applied; `AUDIT-003R1` required
 
 Goal: install a supported official Hermes Runtime without requiring terminal use.
 

@@ -25,6 +25,7 @@ type OperationStore interface {
 	GetOperation(context.Context, string) (operation.Operation, error)
 	GetOperationByIdempotencyKey(context.Context, string) (operation.Operation, bool, error)
 	ActiveRuntimeInstall(context.Context, string) (operation.Operation, bool, error)
+	ActiveHermesHostMutation(context.Context, string) (operation.Operation, bool, error)
 	LatestRuntimeInstall(context.Context, string) (operation.Operation, bool, error)
 	ListOperations(context.Context, any) ([]operation.Operation, error)
 	UpdateOperation(context.Context, operation.Operation, operation.Operation) error
@@ -37,6 +38,7 @@ type installOperationStore interface {
 	GetOperationByIdempotencyKey(context.Context, string) (operation.Operation, bool, error)
 	ActiveRuntimeInstall(context.Context, string) (operation.Operation, bool, error)
 	ActiveHermesPrerequisite(context.Context, string) (operation.Operation, bool, error)
+	ActiveHermesHostMutation(context.Context, string) (operation.Operation, bool, error)
 	LatestRuntimeInstall(context.Context, string) (operation.Operation, bool, error)
 	PreviousRuntimeInstall(context.Context, string, string) (operation.Operation, bool, error)
 	UpdateOperation(context.Context, operation.Operation, operation.Operation) error
@@ -53,7 +55,7 @@ type RuntimeInstall struct {
 	prereq          PrerequisiteApplier
 	completer       InstallCompleter
 	nodeID          string
-	cancels         map[string]context.CancelFunc
+	workers         map[string]*installWorker
 	mu              sync.Mutex
 	allowNonWindows bool
 	logger          *slog.Logger
@@ -101,14 +103,8 @@ func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idem
 		return InstallStartResult{Operation: existing}, nil
 	}
 
-	if active, ok, err := s.store.ActiveRuntimeInstall(ctx, string(kind)); err != nil {
+	if err := s.rejectActiveHermesMutation(ctx, string(kind)); err != nil {
 		return InstallStartResult{}, err
-	} else if ok {
-		return InstallStartResult{}, InstallRejection{
-			Code:      yorvaruntime.ErrorRuntimeInstallInProgress,
-			Retryable: true,
-			ActiveID:  active.ID,
-		}
 	}
 
 	discovery, err := s.discovery.Detect(ctx, kind)
@@ -160,7 +156,7 @@ func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idem
 		UpdatedAt:      now,
 	}
 	if err := s.store.CreateOperation(ctx, created); err != nil {
-		return InstallStartResult{}, err
+		return InstallStartResult{}, s.normalizeCreateConflict(ctx, string(kind), err)
 	}
 	s.logInstall("created", created)
 	if s.applier != nil {
@@ -189,19 +185,28 @@ func (s *RuntimeInstall) Cancel(ctx context.Context, id string) (operation.Opera
 			Retryable: false,
 		}
 	}
-	s.stopWorker(id)
-	current, err = s.store.GetOperation(ctx, id)
-	if err != nil {
-		return operation.Operation{}, err
-	}
-	if current.Status == operation.StatusCancelled {
-		return current, nil
-	}
-	if operation.IsTerminal(current.Status) {
-		return operation.Operation{}, InstallRejection{
-			Code:      yorvaruntime.ErrorOperationNotCancellable,
-			Retryable: false,
+	done := s.requestCancel(id)
+	if done != nil {
+		select {
+		case <-done:
+		case <-ctx.Done():
+		case <-time.After(operationCancelWait):
 		}
+		latest, getErr := s.store.GetOperation(ctx, id)
+		if getErr != nil {
+			return operation.Operation{}, getErr
+		}
+		if latest.Status == operation.StatusCancelled {
+			s.logInstall("cancelled", latest)
+			return latest, nil
+		}
+		if operation.IsTerminal(latest.Status) {
+			return operation.Operation{}, InstallRejection{
+				Code:      yorvaruntime.ErrorOperationNotCancellable,
+				Retryable: false,
+			}
+		}
+		return latest, nil
 	}
 	now := s.now()
 	next := current
@@ -220,6 +225,35 @@ func (s *RuntimeInstall) Cancel(ctx context.Context, id string) (operation.Opera
 	}
 	s.logInstall("cancelled", next)
 	return next, nil
+}
+
+func (s *RuntimeInstall) rejectActiveHermesMutation(ctx context.Context, runtimeKind string) error {
+	active, ok, err := s.store.ActiveHermesHostMutation(ctx, runtimeKind)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	return InstallRejection{
+		Code:      yorvaruntime.ErrorRuntimeInstallInProgress,
+		Retryable: true,
+		ActiveID:  active.ID,
+	}
+}
+
+func (s *RuntimeInstall) normalizeCreateConflict(ctx context.Context, runtimeKind string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if active, ok, lookupErr := s.store.ActiveHermesHostMutation(ctx, runtimeKind); lookupErr == nil && ok {
+		return InstallRejection{
+			Code:      yorvaruntime.ErrorRuntimeInstallInProgress,
+			Retryable: true,
+			ActiveID:  active.ID,
+		}
+	}
+	return err
 }
 
 func (s *RuntimeInstall) InterruptStale(ctx context.Context) ([]operation.Operation, error) {
