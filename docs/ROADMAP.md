@@ -104,6 +104,11 @@ Phase 2 must not install/download Hermes, modify PATH/Python, or begin Profile/l
 
 ## Phase 3 — Hermes Installation
 
+Status: **IN_PROGRESS**
+Spec: `docs/phases/PHASE-003-hermes-installation.md`
+Implementation: **IN_PROGRESS**
+Audit: `AUDIT-003` — **PENDING**
+
 Goal: install a supported official Hermes Runtime without requiring terminal use.
 
 Candidate deliverables:
@@ -124,7 +129,7 @@ Hermes not installed
 → Phase 2 discovery verifies a supported executable
 ```
 
-The detailed Phase 3 Spec is prepared only after Phase 2 passes audit and is frozen.
+The detailed Phase 3 Spec was prepared after Phase 2 amendment 002A1 passed independent audit and `phase-002-hermes-discovery-baseline-r1` was frozen. The Repository Owner approved the Spec on 2026-08-17 and authorized implementation in automatic batch-gate mode on 2026-08-17.
 
 ## Phase 4 — Instance/Profile management
 

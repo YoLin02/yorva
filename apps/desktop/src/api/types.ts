@@ -6,6 +6,8 @@ export type ErrorResponse = components["schemas"]["ErrorResponse"];
 export type RuntimeDiscovery = components["schemas"]["RuntimeDiscovery"];
 export type RuntimeDiscoveryState = components["schemas"]["RuntimeDiscoveryState"];
 export type RuntimeCandidate = components["schemas"]["RuntimeCandidate"];
+export type Operation = components["schemas"]["Operation"];
+export type OperationList = components["schemas"]["OperationList"];
 
 export type DaemonSession = {
   baseUrl: string;

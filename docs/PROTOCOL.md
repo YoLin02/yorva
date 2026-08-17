@@ -147,7 +147,7 @@ GET /api/v1/health
 POST /api/v1/runtimes/{runtimeKind}/detect
 ```
 
-Phase 2 implements only authenticated, read-only discovery for the registered `hermes` kind. It accepts no executable path or arguments. Completed negative outcomes are HTTP `200` typed results with state, stable error code, candidates, warnings, detection time and supported range. Installation, upgrade and persisted Runtime installation resources are later-phase contracts.
+Phase 2 implements authenticated, read-only discovery for the registered `hermes` kind. Phase 3 adds one authenticated installation Operation. The install request accepts no version, URL, path, command or environment fields and requires an `Idempotency-Key`. Completed negative discovery outcomes remain HTTP `200` typed results.
 
 ### Instances
 
@@ -209,11 +209,19 @@ GET  /api/v1/instances/{instanceId}/channels/{channel}
 
 QR/login flows return an Operation. QR payloads/events must have short validity and must not be persisted longer than needed.
 
+### Runtime installation
+
+```text
+POST /api/v1/runtimes/hermes/install
+```
+
+Phase 3 starts one durable `runtime.install` Operation for Windows user-scope Hermes `0.20.2`. The request body is a closed empty object.
+
 ### Operations
 
 ```text
 GET  /api/v1/operations/{operationId}
-GET  /api/v1/operations?targetId=...
+GET  /api/v1/operations?targetType=...&targetId=...&limit=...
 POST /api/v1/operations/{operationId}/cancel
 ```
 

@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	commandTimeout     = 3 * time.Second
-	commandWaitDelay   = time.Second
-	commandOutputLimit = 64 * 1024
+	commandTimeout            = 3 * time.Second
+	commandWaitDelay          = time.Second
+	commandOutputLimit        = 64 * 1024
+	installCommandOutputLimit = 1024 * 1024
 )
 
 var errOutputLimit = errors.New("command output limit exceeded")
@@ -40,6 +41,24 @@ func newCommandRunner() commandRunner {
 		outputLimit: commandOutputLimit,
 		environment: minimalEnvironment,
 	}
+}
+
+func newInstallCommandRunner(timeout time.Duration, home string) commandRunner {
+	return commandRunner{
+		timeout:     timeout,
+		waitDelay:   commandWaitDelay,
+		outputLimit: installCommandOutputLimit,
+		environment: func() []string { return installerEnvironment(home) },
+	}
+}
+
+func runInstallInvocation(ctx context.Context, runner commandRunner, invocation installInvocation) commandResult {
+	return runner.run(ctx, commandInvocation{
+		path:       invocation.Executable,
+		executable: invocation.Executable,
+		args:       invocation.Args,
+		workingDir: invocation.Dir,
+	})
 }
 
 func (r commandRunner) run(ctx context.Context, invocation commandInvocation) commandResult {

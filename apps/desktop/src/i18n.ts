@@ -57,6 +57,31 @@ type Messages = {
     unknownWarning: string;
     states: Record<RuntimeDiscoveryState, RuntimeStateCopy>;
     warningMessages: Record<string, string>;
+    install: {
+      action: string;
+      confirmTitle: string;
+      confirmDescription: string;
+      source: string;
+      version: string;
+      destination: string;
+      hostChanges: string;
+      hostChangeItems: string[];
+      noProfileNote: string;
+      confirm: string;
+      back: string;
+      unavailable: string;
+      blocked: string;
+      running: string;
+      cancelling: string;
+      cancelled: string;
+      failed: string;
+      interrupted: string;
+      succeeded: string;
+      stage: string;
+      correlation: string;
+      retryInstall: string;
+      cancelInstall: string;
+    };
   };
   settings: {
     language: string;
@@ -170,6 +195,40 @@ const english: Messages = {
       PRERELEASE_UNTESTED: "The detected Hermes prerelease is outside the tested compatibility range.",
       HERMES_CLI_LAUNCHER_MISSING: "The Hermes installation does not contain a safe CLI launcher.",
     },
+    install: {
+      action: "Install Hermes",
+      confirmTitle: "Install official Hermes",
+      confirmDescription: "Review the official source and host changes before YORVA starts the installation Operation.",
+      source: "Official source",
+      version: "Hermes version",
+      destination: "User-scope destination",
+      hostChanges: "This official installer may:",
+      hostChangeItems: [
+        "Download Hermes and required official dependencies",
+        "Create an isolated Python environment and install Node dependencies",
+        "Install Hermes-managed uv and PortableGit when needed",
+        "Use approved Windows package sources for reviewed prerequisites",
+        "Create official Hermes bootstrap and config-template directories",
+        "Add only the official Hermes launcher directory to this user's PATH",
+        "Set this user's HERMES_HOME",
+        "Preserve an existing Hermes .env or config.yaml rather than overwrite it",
+      ],
+      noProfileNote: "YORVA will not configure a model, API key, profile or messaging channel.",
+      confirm: "Install",
+      back: "Back",
+      unavailable: "Hermes installation is available on Windows only.",
+      blocked: "Installation is not available because the current Hermes state must be resolved first.",
+      running: "Installing Hermes",
+      cancelling: "Cancelling installation",
+      cancelled: "Installation cancelled",
+      failed: "Installation failed",
+      interrupted: "Installation was interrupted",
+      succeeded: "Hermes installation succeeded",
+      stage: "Current stage",
+      correlation: "Correlation ID",
+      retryInstall: "Retry installation",
+      cancelInstall: "Cancel installation",
+    },
   },
   settings: {
     language: "Language",
@@ -282,6 +341,40 @@ const simplifiedChinese: Messages = {
       OTHER_CANDIDATES_UNUSABLE: "其他 Hermes 候选项无法使用。",
       PRERELEASE_UNTESTED: "检测到的 Hermes 预发布版本不在已测试的兼容范围内。",
       HERMES_CLI_LAUNCHER_MISSING: "Hermes 安装中缺少安全的 CLI 启动器。",
+    },
+    install: {
+      action: "安装 Hermes",
+      confirmTitle: "安装官方 Hermes",
+      confirmDescription: "在 YORVA 开始安装操作前，请确认官方来源和本机将发生的变更。",
+      source: "官方来源",
+      version: "Hermes 版本",
+      destination: "当前用户安装位置",
+      hostChanges: "该官方安装程序可能会：",
+      hostChangeItems: [
+        "下载 Hermes 及官方依赖",
+        "创建隔离的 Python 环境并安装 Node 依赖",
+        "在需要时安装 Hermes 管理的 uv 和 PortableGit",
+        "通过已审核的 Windows 软件源安装必要前置组件",
+        "创建官方 Hermes 引导和配置模板目录",
+        "仅将官方 Hermes 启动器目录加入当前用户 PATH",
+        "设置当前用户的 HERMES_HOME",
+        "保留已有的 Hermes .env 或 config.yaml，而不会覆盖",
+      ],
+      noProfileNote: "YORVA 不会配置模型、API 密钥、配置档案或消息通道。",
+      confirm: "安装",
+      back: "返回",
+      unavailable: "Hermes 安装目前仅支持 Windows。",
+      blocked: "当前 Hermes 状态需要先处理，因此无法安装。",
+      running: "正在安装 Hermes",
+      cancelling: "正在取消安装",
+      cancelled: "安装已取消",
+      failed: "安装失败",
+      interrupted: "安装被中断",
+      succeeded: "Hermes 安装成功",
+      stage: "当前阶段",
+      correlation: "关联 ID",
+      retryInstall: "重试安装",
+      cancelInstall: "取消安装",
     },
   },
   settings: {

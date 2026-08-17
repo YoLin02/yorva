@@ -52,7 +52,7 @@ type RuntimeWarningResponse struct {
 	Message string `json:"message"`
 }
 
-func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService) http.Handler {
+func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", health)
 	mux.Handle("GET /api/v1/node", requireBearer(token, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -61,6 +61,10 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	})))
 	mux.Handle("GET /api/v1/events", requireBearer(token, eventStream(broker, 15*time.Second)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeKind}/detect", requireBearer(token, detectRuntime(runtimes)))
+	mux.Handle("POST /api/v1/runtimes/hermes/install", requireBearer(token, startHermesInstall(installs)))
+	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
+	mux.Handle("GET /api/v1/operations", requireBearer(token, listOperations(installs)))
+	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs)))
 	return securityHeaders(restrictOrigins(routeContract(mux)))
 }
 
@@ -97,6 +101,22 @@ func allowedMethods(path string) (string, bool) {
 	switch path {
 	case "/api/v1/health", "/api/v1/node", "/api/v1/events":
 		return "GET, OPTIONS", true
+	case "/api/v1/operations":
+		return "GET, OPTIONS", true
+	case "/api/v1/runtimes/hermes/install":
+		return "POST, OPTIONS", true
+	}
+	if strings.HasPrefix(path, "/api/v1/operations/") {
+		rest := strings.TrimPrefix(path, "/api/v1/operations/")
+		if rest != "" && !strings.Contains(rest, "/") {
+			return "GET, POST, OPTIONS", true
+		}
+		if strings.HasSuffix(rest, "/cancel") {
+			id := strings.TrimSuffix(rest, "/cancel")
+			if id != "" && !strings.Contains(id, "/") {
+				return "POST, OPTIONS", true
+			}
+		}
 	}
 	const prefix = "/api/v1/runtimes/"
 	const suffix = "/detect"
@@ -288,7 +308,7 @@ func restrictOrigins(next http.Handler) http.Handler {
 			}
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Accept, Content-Type")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Accept, Content-Type, Idempotency-Key")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		}
 		next.ServeHTTP(w, r)

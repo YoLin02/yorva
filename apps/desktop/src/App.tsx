@@ -1,9 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createDaemonClient } from "./api/client";
+import type { Operation } from "./api/types";
 import { getDaemonSession, isDaemonNotReady } from "./api/session";
 import { DesktopShell } from "./components/DesktopShell";
 import { HermesDiscoveryView, type HermesDiscoveryViewState } from "./components/HermesDiscoveryView";
+import { HermesInstallPanel } from "./components/HermesInstallPanel";
 import { HermesSummaryCard } from "./components/HermesSummaryCard";
 import { NodeStatusView } from "./components/NodeStatusView";
 import { SettingsView } from "./components/SettingsView";
@@ -15,6 +17,10 @@ export function App() {
   const [activePage, setActivePage] = useState<PageId>("dashboard");
   const [locale, setLocale] = useState<Locale>(loadLocale);
   const [discoveryCancelled, setDiscoveryCancelled] = useState(false);
+  const [confirmInstall, setConfirmInstall] = useState(false);
+  const [installBusy, setInstallBusy] = useState(false);
+  const [installKey, setInstallKey] = useState<string | null>(null);
+  const [activeOperationId, setActiveOperationId] = useState<string | null>(null);
   const copy = messages[locale];
 
   const sessionQuery = useQuery({
@@ -54,6 +60,48 @@ export function App() {
     setDiscoveryCancelled(false);
     void discoveryQuery.refetch({ cancelRefetch: true });
   };
+  const operationQuery = useQuery({
+    queryKey: ["runtime-install", activeOperationId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getOperation(activeOperationId!, signal),
+    enabled: client !== undefined && activeOperationId !== null,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "RUNNING" ? 1000 : false;
+    },
+  });
+  const startInstall = async () => {
+    if (!client || installBusy) return;
+    setInstallBusy(true);
+    try {
+      const key = installKey ?? crypto.randomUUID();
+      setInstallKey(key);
+      const operation = await client.startHermesInstall(key);
+      setActiveOperationId(operation.id);
+      setConfirmInstall(false);
+    } finally {
+      setInstallBusy(false);
+    }
+  };
+  const retryInstall = () => {
+    setInstallKey(crypto.randomUUID());
+    setActiveOperationId(null);
+    setConfirmInstall(true);
+  };
+  const cancelInstall = async () => {
+    if (!client || !activeOperationId || installBusy) return;
+    setInstallBusy(true);
+    try {
+      await client.cancelOperation(activeOperationId);
+      await operationQuery.refetch();
+    } finally {
+      setInstallBusy(false);
+    }
+  };
+  useEffect(() => {
+    if (operationQuery.data?.status === "SUCCEEDED" && discoveryQuery.data?.state !== "SUPPORTED") {
+      void discoveryQuery.refetch();
+    }
+  }, [operationQuery.data?.status, discoveryQuery.data?.state, discoveryQuery]);
 
   let discoveryState: HermesDiscoveryViewState;
   if (discoveryCancelled) {
@@ -76,7 +124,27 @@ export function App() {
   } else if (nodeQuery.isError) {
     content = <NodeStatusView state={{ kind: "failure", message: copy.node.nodeReachFailure }} copy={copy} />;
   } else if (activePage === "runtimes") {
-    content = <HermesDiscoveryView state={discoveryState} copy={copy} locale={locale} />;
+    const windowsHost = nodeQuery.data.platform.toLowerCase() === "windows";
+    const notInstalled = discoveryQuery.data?.state === "NOT_INSTALLED";
+    content = (
+      <div>
+        <HermesDiscoveryView state={discoveryState} copy={copy} locale={locale} />
+        {notInstalled && (
+          <HermesInstallPanel
+            copy={copy}
+            windowsHost={windowsHost}
+            confirmOpen={confirmInstall}
+            busy={installBusy}
+            operation={(operationQuery.data as Operation | undefined) ?? null}
+            onOpenConfirm={() => setConfirmInstall(true)}
+            onCloseConfirm={() => setConfirmInstall(false)}
+            onConfirm={() => { void startInstall(); }}
+            onCancel={() => { void cancelInstall(); }}
+            onRetry={retryInstall}
+          />
+        )}
+      </div>
+    );
   } else {
     content = (
       <div className="dashboard-grid">

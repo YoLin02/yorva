@@ -81,10 +81,11 @@ Avoid one giant interface. Feature groups are explicit and small.
 
 ### Installation
 
+Phase 3 implements only `Install`. Upgrade, repair and uninstall are absent.
+
 ```go
 type Installer interface {
     Install(ctx context.Context, req InstallRequest, progress ProgressSink) (Installation, error)
-    Upgrade(ctx context.Context, installation Installation, progress ProgressSink) (Installation, error)
 }
 ```
 

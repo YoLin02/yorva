@@ -1,4 +1,4 @@
-import type { DaemonSession, ErrorResponse, Health, Node, RuntimeDiscovery } from "./types";
+import type { DaemonSession, ErrorResponse, Health, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -86,6 +86,28 @@ export function createDaemonClient(session: DaemonSession) {
         signal: signal
           ? AbortSignal.any([signal, AbortSignal.timeout(desktopDiscoveryTimeoutMs)])
           : AbortSignal.timeout(desktopDiscoveryTimeoutMs),
+      }),
+    startHermesInstall: (idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>("/api/v1/runtimes/hermes/install", {
+        method: "POST",
+        signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: "{}",
+      }),
+    getOperation: (operationId: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/operations/${encodeURIComponent(operationId)}`, { signal }),
+    listOperations: (targetType: string, targetId: string, signal?: AbortSignal) =>
+      request<OperationList>(
+        `/api/v1/operations?targetType=${encodeURIComponent(targetType)}&targetId=${encodeURIComponent(targetId)}&limit=5`,
+        { signal },
+      ),
+    cancelOperation: (operationId: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/operations/${encodeURIComponent(operationId)}/cancel`, {
+        method: "POST",
+        signal,
       }),
     connectEvents,
   };

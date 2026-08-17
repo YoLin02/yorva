@@ -89,8 +89,13 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 
 	requestCtx, cancelRequests := context.WithCancel(context.Background())
 	defer cancelRequests()
+	discovery := app.NewRuntimeDiscovery(registry, logger)
+	installs := app.NewRuntimeInstall(discovery, database).WithHost(hermes.NewHostInstaller(message.DataDir), database, localNode.ID)
+	if _, err := installs.InterruptStale(ctx); err != nil {
+		logger.Warn("failed to interrupt stale install operations", "error", err)
+	}
 	server := &http.Server{
-		Handler:           httpapi.NewHandler(message.Token, localNode, events.NewBroker(), app.NewRuntimeDiscovery(registry, logger)),
+		Handler:           httpapi.NewHandler(message.Token, localNode, events.NewBroker(), discovery, installs),
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       30 * time.Second,

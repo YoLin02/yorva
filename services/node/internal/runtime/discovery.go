@@ -28,6 +28,24 @@ const (
 	ErrorRuntimeDiscoveryCancelled ErrorCode = "RUNTIME_DISCOVERY_CANCELLED"
 	ErrorRuntimeCommandOutputLimit ErrorCode = "RUNTIME_COMMAND_OUTPUT_LIMIT"
 	ErrorRuntimeDiscoveryAmbiguous ErrorCode = "RUNTIME_DISCOVERY_AMBIGUOUS"
+
+	ErrorRuntimeInstallPlatformUnsupported ErrorCode = "RUNTIME_INSTALL_PLATFORM_UNSUPPORTED"
+	ErrorRuntimeInstallAlreadyPresent      ErrorCode = "RUNTIME_INSTALL_ALREADY_PRESENT"
+	ErrorRuntimeInstallStateConflict       ErrorCode = "RUNTIME_INSTALL_STATE_CONFLICT"
+	ErrorRuntimeInstallInProgress          ErrorCode = "RUNTIME_INSTALL_IN_PROGRESS"
+	ErrorRuntimeInstallTargetOccupied      ErrorCode = "RUNTIME_INSTALL_TARGET_OCCUPIED"
+	ErrorRuntimeInstallSourceUnavailable   ErrorCode = "RUNTIME_INSTALL_SOURCE_UNAVAILABLE"
+	ErrorRuntimeInstallIntegrityFailed     ErrorCode = "RUNTIME_INSTALL_INTEGRITY_FAILED"
+	ErrorRuntimeInstallProtocolUnsupported ErrorCode = "RUNTIME_INSTALL_PROTOCOL_UNSUPPORTED"
+	ErrorRuntimeInstallManifestMismatch    ErrorCode = "RUNTIME_INSTALL_MANIFEST_MISMATCH"
+	ErrorRuntimeInstallStageFailed         ErrorCode = "RUNTIME_INSTALL_STAGE_FAILED"
+	ErrorRuntimeInstallPrivilegeRequired   ErrorCode = "RUNTIME_INSTALL_PRIVILEGE_REQUIRED"
+	ErrorRuntimeInstallTimeout             ErrorCode = "RUNTIME_INSTALL_TIMEOUT"
+	ErrorRuntimeInstallOutputLimit         ErrorCode = "RUNTIME_INSTALL_OUTPUT_LIMIT"
+	ErrorRuntimeInstallPostcheckFailed     ErrorCode = "RUNTIME_INSTALL_POSTCHECK_FAILED"
+	ErrorRuntimeInstallCancelled           ErrorCode = "RUNTIME_INSTALL_CANCELLED"
+	ErrorOperationInterrupted              ErrorCode = "OPERATION_INTERRUPTED"
+	ErrorOperationNotCancellable           ErrorCode = "OPERATION_NOT_CANCELLABLE"
 )
 
 type Candidate struct {
