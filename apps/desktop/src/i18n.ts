@@ -57,6 +57,58 @@ type Messages = {
     unknownWarning: string;
     states: Record<RuntimeDiscoveryState, RuntimeStateCopy>;
     warningMessages: Record<string, string>;
+    install: {
+      action: string;
+      confirmTitle: string;
+      confirmDescription: string;
+      source: string;
+      version: string;
+      destination: string;
+      hostChanges: string;
+      hostChangeItems: string[];
+      bundledSourceNote: string;
+      sourceNotes: Record<string, string>;
+      noProfileNote: string;
+      confirm: string;
+      back: string;
+      unavailable: string;
+      blocked: string;
+      running: string;
+      cancelling: string;
+      cancelled: string;
+      failed: string;
+      interrupted: string;
+      succeeded: string;
+      stage: string;
+      errorCode: string;
+      correlation: string;
+      logTitle: string;
+      logHint: string;
+      copyLog: string;
+      logCopied: string;
+      retryInstall: string;
+      cancelInstall: string;
+    };
+    prerequisites: {
+      title: string;
+      nodeReady: string;
+      nodeMissing: string;
+      nodeUnsupported: string;
+      npmUnsupported: string;
+      depsNotInstalled: string;
+      depsFailed: string;
+      installAction: string;
+      retryDeps: string;
+      installingNode: string;
+      installingDeps: string;
+      starting: string;
+      failed: string;
+      cancelled: string;
+      retry: string;
+      continueWithoutNode: string;
+      logTitle: string;
+      cancel: string;
+    };
   };
   settings: {
     language: string;
@@ -169,6 +221,73 @@ const english: Messages = {
       OTHER_CANDIDATES_UNUSABLE: "Other Hermes candidates could not be used.",
       PRERELEASE_UNTESTED: "The detected Hermes prerelease is outside the tested compatibility range.",
       HERMES_CLI_LAUNCHER_MISSING: "The Hermes installation does not contain a safe CLI launcher.",
+      HERMES_LAUNCHER_ALIAS: "Official Hermes launchers in bin and venv are the same installation.",
+    },
+    install: {
+      action: "Install Hermes",
+      confirmTitle: "Install official Hermes",
+      confirmDescription: "Review the official source and host changes before YORVA starts the installation Operation.",
+      source: "Official source",
+      version: "Hermes version",
+      destination: "User-scope destination",
+      hostChanges: "This official installer may:",
+      hostChangeItems: [
+        "Download Hermes and required official dependencies",
+        "If the official GitHub source archive cannot be downloaded, use the verified copy packaged in this YORVA installer",
+        "Create an isolated Python environment and install Node dependencies",
+        "Install Hermes-managed uv and PortableGit when needed",
+        "Use approved Windows package sources for reviewed prerequisites",
+        "Create official Hermes bootstrap and config-template directories",
+        "Add only the official Hermes launcher directory to this user's PATH",
+        "Set this user's HERMES_HOME",
+        "Preserve an existing Hermes .env or config.yaml rather than overwrite it",
+      ],
+      bundledSourceNote: "Bundled source prepared; dependencies may still require network.",
+      sourceNotes: {
+        HERMES_SOURCE_OFFICIAL_UNAVAILABLE: "Official source download unavailable.",
+        HERMES_SOURCE_BUNDLED_USED: "Verified bundled source used.",
+        HERMES_SOURCE_PREPARED: "Bundled source prepared; dependencies may still require network.",
+      },
+      noProfileNote: "YORVA will not configure a model, API key, profile or messaging channel.",
+      confirm: "Install",
+      back: "Back",
+      unavailable: "Hermes installation is available on Windows only.",
+      blocked: "Installation is not available because the current Hermes state must be resolved first.",
+      running: "Installing Hermes",
+      cancelling: "Cancelling installation",
+      cancelled: "Installation cancelled",
+      failed: "Installation failed",
+      interrupted: "Installation was interrupted",
+      succeeded: "Hermes installation succeeded",
+      stage: "Current stage",
+      errorCode: "Error code",
+      correlation: "Correlation ID",
+      logTitle: "Install log",
+      logHint: "Install log on this computer: %APPDATA%\\com.yorva.desktop.dev\\logs\\install.ndjson",
+      copyLog: "Copy log",
+      logCopied: "Copied",
+      retryInstall: "Retry installation",
+      cancelInstall: "Cancel installation",
+    },
+    prerequisites: {
+      title: "Node.js / npm components",
+      nodeReady: "Node.js is ready",
+      nodeMissing: "Node.js was not detected",
+      nodeUnsupported: "The Node.js version is not supported",
+      npmUnsupported: "The npm version is not supported",
+      depsNotInstalled: "Node dependencies are not installed",
+      depsFailed: "Node dependency installation failed",
+      installAction: "Install or reinstall Node.js / npm",
+      retryDeps: "Retry Node dependencies",
+      installingNode: "Installing Node.js",
+      installingDeps: "Installing Node dependencies",
+      starting: "Starting Node.js / npm installation",
+      failed: "Node.js / npm installation failed",
+      cancelled: "Node.js / npm installation was cancelled",
+      retry: "Retry Node.js / npm installation",
+      continueWithoutNode: "Node.js / npm can be installed before Hermes. That step installs only the managed Node and npm. Install Hermes after it finishes; the two Operations cannot run at the same time. If this stays on Installing, cancel first. Do not wait on the official hermes command in a terminal; close that session with Ctrl+C.",
+      logTitle: "Install log",
+      cancel: "Cancel",
     },
   },
   settings: {
@@ -282,6 +401,73 @@ const simplifiedChinese: Messages = {
       OTHER_CANDIDATES_UNUSABLE: "其他 Hermes 候选项无法使用。",
       PRERELEASE_UNTESTED: "检测到的 Hermes 预发布版本不在已测试的兼容范围内。",
       HERMES_CLI_LAUNCHER_MISSING: "Hermes 安装中缺少安全的 CLI 启动器。",
+      HERMES_LAUNCHER_ALIAS: "官方 bin 与 venv 中的 Hermes 启动器属于同一安装。",
+    },
+    install: {
+      action: "安装 Hermes",
+      confirmTitle: "安装官方 Hermes",
+      confirmDescription: "在 YORVA 开始安装操作前，请确认官方来源和本机将发生的变更。",
+      source: "官方来源",
+      version: "Hermes 版本",
+      destination: "当前用户安装位置",
+      hostChanges: "该官方安装程序可能会：",
+      hostChangeItems: [
+        "下载 Hermes 及官方依赖",
+        "若无法下载官方 GitHub 源码归档，则使用本安装包内已校验的官方源码副本",
+        "创建隔离的 Python 环境并安装 Node 依赖",
+        "在需要时安装 Hermes 管理的 uv 和 PortableGit",
+        "通过已审核的 Windows 软件源安装必要前置组件",
+        "创建官方 Hermes 引导和配置模板目录",
+        "仅将官方 Hermes 启动器目录加入当前用户 PATH",
+        "设置当前用户的 HERMES_HOME",
+        "保留已有的 Hermes .env 或 config.yaml，而不会覆盖",
+      ],
+      bundledSourceNote: "已准备内置源码；依赖安装仍可能需要网络。",
+      sourceNotes: {
+        HERMES_SOURCE_OFFICIAL_UNAVAILABLE: "官方源码下载不可用。",
+        HERMES_SOURCE_BUNDLED_USED: "已使用经验证的内置源码。",
+        HERMES_SOURCE_PREPARED: "已准备内置源码；依赖安装仍可能需要网络。",
+      },
+      noProfileNote: "YORVA 不会配置模型、API 密钥、配置档案或消息通道。",
+      confirm: "安装",
+      back: "返回",
+      unavailable: "Hermes 安装目前仅支持 Windows。",
+      blocked: "当前 Hermes 状态需要先处理，因此无法安装。",
+      running: "正在安装 Hermes",
+      cancelling: "正在取消安装",
+      cancelled: "安装已取消",
+      failed: "安装失败",
+      interrupted: "安装被中断",
+      succeeded: "Hermes 安装成功",
+      stage: "当前阶段",
+      errorCode: "错误码",
+      correlation: "关联 ID",
+      logTitle: "安装日志",
+      logHint: "本机安装日志：%APPDATA%\\com.yorva.desktop.dev\\logs\\install.ndjson",
+      copyLog: "复制日志",
+      logCopied: "已复制",
+      retryInstall: "重试安装",
+      cancelInstall: "取消安装",
+    },
+    prerequisites: {
+      title: "Node.js / npm 组件",
+      nodeReady: "Node.js 已就绪",
+      nodeMissing: "未检测到 Node.js",
+      nodeUnsupported: "Node.js 版本不受支持",
+      npmUnsupported: "npm 版本不受支持",
+      depsNotInstalled: "Node 依赖尚未安装",
+      depsFailed: "Node 依赖安装失败",
+      installAction: "重新安装 Node.js / npm",
+      retryDeps: "重试 Node 依赖",
+      installingNode: "正在安装 Node.js",
+      installingDeps: "正在安装 Node 依赖",
+      starting: "正在启动 Node.js / npm 安装",
+      failed: "Node.js / npm 安装失败",
+      cancelled: "Node.js / npm 安装已取消",
+      retry: "重试 Node.js / npm 安装",
+      continueWithoutNode: "可以先安装 Node.js / npm，这一步只安装托管的 Node 和 npm。完成后再安装 Hermes；这两项操作不能同时进行。若一直停在「正在安装」，请先取消。不要在终端里等待官方 hermes 命令；用 Ctrl+C 结束那个会话。",
+      logTitle: "安装日志",
+      cancel: "取消",
     },
   },
   settings: {

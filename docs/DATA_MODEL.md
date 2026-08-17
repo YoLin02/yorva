@@ -46,7 +46,7 @@ Do not store Cloud auth secrets in this table.
 
 Represents a detected/managed Runtime installation.
 
-Phase 2 does not create this table or persist discovery responses. Hermes discovery is live and Runtime-authoritative; this conceptual model remains reserved for a later phase that explicitly accepts/manages an installation and adds a migration.
+Phase 3 creates this table and writes a row only after authoritative Phase 2 post-check succeeds for the managed official installation. Hermes remains authoritative; the row is last-known accepted metadata.
 
 ```text
 id                TEXT PRIMARY KEY
@@ -125,6 +125,8 @@ Indexes:
 ```text
 (status, created_at)
 (target_id, created_at)
+UNIQUE(target_type, target_id) WHERE status IN ('PENDING', 'RUNNING')
+  AND operation_type IN ('runtime.install', 'hermes.prerequisites')
 ```
 
 If idempotency is used locally:

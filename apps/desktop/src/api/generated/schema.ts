@@ -81,6 +81,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runtimes/hermes/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a Hermes installation Operation */
+        post: operations["startHermesInstall"];
+        delete?: never;
+        /** Validate CORS access for Hermes installation */
+        options: operations["optionsHermesInstall"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/hermes/prerequisites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Hermes Node.js prerequisite health */
+        get: operations["getHermesPrerequisites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Hermes prerequisites */
+        options: operations["optionsHermesPrerequisites"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/hermes/prerequisites/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a Hermes Node prerequisite Operation */
+        post: operations["startHermesPrerequisites"];
+        delete?: never;
+        /** Validate CORS access for Hermes prerequisite installation */
+        options: operations["optionsHermesPrerequisitesInstall"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List recent Operations for Desktop recovery */
+        get: operations["listOperations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Operation listing */
+        options: operations["optionsOperations"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operations/{operationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        /** Read one Operation */
+        get: operations["getOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for an Operation */
+        options: operations["optionsOperation"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operations/{operationId}/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        /** Read diagnostic install log text for one Operation */
+        get: operations["getOperationLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Operation diagnostic log */
+        options: operations["optionsOperationLog"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operations/{operationId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a non-terminal Operation */
+        post: operations["cancelOperation"];
+        delete?: never;
+        /** Validate CORS access for Operation cancellation */
+        options: operations["optionsCancelOperation"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -130,14 +262,57 @@ export interface components {
         };
         /** @enum {string} */
         RuntimeDiscoveryState: "NOT_INSTALLED" | "SUPPORTED" | "UNSUPPORTED" | "BROKEN_EXECUTABLE" | "MALFORMED_VERSION" | "TIMED_OUT" | "AMBIGUOUS";
+        RuntimeInstallRequest: Record<string, never>;
+        HermesPrerequisiteComponent: {
+            state: string;
+            version: string;
+            errorCode: string | null;
+            retryable: boolean;
+        };
+        HermesPrerequisites: {
+            node: components["schemas"]["HermesPrerequisiteComponent"];
+            npm: components["schemas"]["HermesPrerequisiteComponent"];
+            nodeDependencies: components["schemas"]["HermesPrerequisiteComponent"];
+            /** Format: date-time */
+            checkedAt: string;
+            activeOperationId: string | null;
+        };
+        Operation: {
+            id: string;
+            /** @enum {string} */
+            type: "runtime.install" | "hermes.prerequisites";
+            targetType: string;
+            targetId: string;
+            /** @enum {string} */
+            status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "CANCELLED";
+            stage: string;
+            progress: number | null;
+            message: string;
+            errorCode: string | null;
+            retryable: boolean;
+            correlationId: string;
+            /** Format: date-time */
+            createdAt: string;
+            startedAt: string | null;
+            completedAt: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        OperationLog: {
+            operationId: string;
+            correlationId: string;
+            text: string;
+        };
+        OperationList: {
+            operations: components["schemas"]["Operation"][];
+        };
         /** @enum {string|null} */
         RuntimeDiscoveryErrorCode: null | "RUNTIME_NOT_INSTALLED" | "RUNTIME_UNSUPPORTED" | "RUNTIME_EXECUTABLE_BROKEN" | "RUNTIME_VERSION_MALFORMED" | "RUNTIME_DISCOVERY_TIMEOUT" | "RUNTIME_COMMAND_OUTPUT_LIMIT" | "RUNTIME_DISCOVERY_AMBIGUOUS";
         ErrorResponse: {
             error: components["schemas"]["Error"];
         };
         Error: {
-            /** @enum {string} */
-            code: "UNAUTHORIZED" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "RUNTIME_KIND_NOT_FOUND" | "RUNTIME_DISCOVERY_FAILED" | "INTERNAL_ERROR";
+            code: string;
             message: string;
             retryable: boolean;
             details: {
@@ -199,8 +374,28 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description The request was syntactically or semantically invalid. */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description The request conflicts with current Operation or installation state. */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
     };
-    parameters: never;
+    parameters: {
+        IdempotencyKey: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -361,6 +556,293 @@ export interface operations {
             204: components["responses"]["PreflightAccepted"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    startHermesInstall: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuntimeInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description The installation Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsHermesInstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getHermesPrerequisites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Typed Node/npm/dependency health. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HermesPrerequisites"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    optionsHermesPrerequisites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    startHermesPrerequisites: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuntimeInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description The prerequisite Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsHermesPrerequisitesInstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listOperations: {
+        parameters: {
+            query?: {
+                targetType?: string;
+                targetId?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A bounded Operation list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+        };
+    };
+    optionsOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Operation resource. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+        };
+    };
+    optionsOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getOperationLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Temporary diagnostic log text for this Operation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationLog"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+        };
+    };
+    optionsOperationLog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    cancelOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Operation after cancellation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsCancelOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }

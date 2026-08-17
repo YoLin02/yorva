@@ -10,6 +10,7 @@ const sessionMocks = vi.hoisted(() => ({
 const clientMocks = vi.hoisted(() => ({
   getNode: vi.fn(),
   detectHermes: vi.fn(),
+  getHermesPrerequisites: vi.fn(),
 }));
 
 vi.mock("./api/session", () => ({
@@ -20,12 +21,17 @@ vi.mock("./api/session", () => ({
     (error as { code?: string }).code === "DAEMON_NOT_READY",
 }));
 
-vi.mock("./api/client", () => ({
-  createDaemonClient: () => ({
-    getNode: clientMocks.getNode,
-    detectHermes: clientMocks.detectHermes,
-  }),
-}));
+vi.mock("./api/client", async () => {
+  const actual = await vi.importActual<typeof import("./api/client")>("./api/client");
+  return {
+    ...actual,
+    createDaemonClient: () => ({
+      getNode: clientMocks.getNode,
+      detectHermes: clientMocks.detectHermes,
+      getHermesPrerequisites: clientMocks.getHermesPrerequisites,
+    }),
+  };
+});
 
 vi.mock("./hooks/useEventStreamStatus", () => ({
   useEventStreamStatus: () => "connected",
@@ -68,6 +74,13 @@ describe("App daemon startup", () => {
     clientMocks.getNode.mockReset();
     clientMocks.getNode.mockResolvedValue(node);
     clientMocks.detectHermes.mockReset();
+    clientMocks.getHermesPrerequisites.mockReset().mockResolvedValue({
+      node: { state: "MISSING", version: "", errorCode: "RUNTIME_HERMES_NODE_MISSING", retryable: true },
+      npm: { state: "MISSING", version: "", errorCode: "RUNTIME_HERMES_NPM_MISSING", retryable: true },
+      nodeDependencies: { state: "NOT_INSTALLED", version: "", errorCode: null, retryable: true },
+      checkedAt: "2026-08-17T00:00:00Z",
+      activeOperationId: null,
+    });
     clientMocks.detectHermes.mockResolvedValue({
       runtimeKind: "hermes",
       state: "NOT_INSTALLED",

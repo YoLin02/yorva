@@ -1,8 +1,8 @@
 [package]
 name = "yorva-desktop"
-version = "0.0.0"
+version = "0.3.0"
 description = "YORVA local-first desktop shell"
-authors = ["YORVA contributors"]
+authors = ["yolin"]
 edition = "2024"
 rust-version = "1.88"
 

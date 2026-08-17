@@ -4514,7 +4514,7 @@ dependencies = [
 
 [[package]]
 name = "yorva-desktop"
-version = "0.0.0"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "getrandom 0.4.3",

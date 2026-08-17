@@ -18,4 +18,18 @@ describe("i18n", () => {
     expect(Object.keys(messages["zh-CN"].hermes.states).sort()).toEqual(Object.keys(messages["en-US"].hermes.states).sort());
     expect(messages["zh-CN"].hermes.states.BROKEN_EXECUTABLE.title).not.toBe(messages["zh-CN"].hermes.states.NOT_INSTALLED.title);
   });
+
+  it("states the embedded source fallback without claiming offline installation", () => {
+    expect(messages["en-US"].hermes.install.bundledSourceNote).toBe(
+      "Bundled source prepared; dependencies may still require network.",
+    );
+    expect(messages["zh-CN"].hermes.install.bundledSourceNote).toBe(
+      "已准备内置源码；依赖安装仍可能需要网络。",
+    );
+    expect(Object.keys(messages["en-US"].hermes.install.sourceNotes).sort()).toEqual(
+      Object.keys(messages["zh-CN"].hermes.install.sourceNotes).sort(),
+    );
+    expect(messages["en-US"].hermes.install.bundledSourceNote.toLowerCase()).not.toContain("offline installation");
+    expect(messages["zh-CN"].hermes.install.bundledSourceNote).not.toContain("离线安装");
+  });
 });

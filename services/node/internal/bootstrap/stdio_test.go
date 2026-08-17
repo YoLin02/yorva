@@ -21,6 +21,18 @@ func TestReadMessage(t *testing.T) {
 	}
 }
 
+func TestReadMessageAcceptsHermesEmbeddedSourcePath(t *testing.T) {
+	token := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x5a}, 32))
+	input := `{"protocolVersion":"1","token":"` + token + `","dataDir":"C:\\yorva","hermesEmbeddedSourcePath":"C:\\app\\hermes-source.zip"}`
+	message, err := ReadMessage(NewReader(strings.NewReader(input)), "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if message.HermesEmbeddedSourcePath != `C:\app\hermes-source.zip` {
+		t.Fatalf("embedded path = %#v", message.HermesEmbeddedSourcePath)
+	}
+}
+
 func TestReadMessageRejectsShortToken(t *testing.T) {
 	input := `{"protocolVersion":"1","token":"c2hvcnQ","dataDir":"C:\\yorva"}`
 	_, err := ReadMessage(NewReader(strings.NewReader(input)), "1")

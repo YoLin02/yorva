@@ -11,15 +11,17 @@ import (
 )
 
 const (
-	commandTimeout     = 3 * time.Second
-	commandWaitDelay   = time.Second
-	commandOutputLimit = 64 * 1024
+	commandTimeout            = 3 * time.Second
+	commandWaitDelay          = time.Second
+	commandOutputLimit        = 64 * 1024
+	installCommandOutputLimit = 1024 * 1024
 )
 
 var errOutputLimit = errors.New("command output limit exceeded")
 
 type commandResult struct {
 	stdout   string
+	stderr   string
 	exitCode int
 	err      error
 	timedOut bool
@@ -40,6 +42,24 @@ func newCommandRunner() commandRunner {
 		outputLimit: commandOutputLimit,
 		environment: minimalEnvironment,
 	}
+}
+
+func newInstallCommandRunner(timeout time.Duration, home string) commandRunner {
+	return commandRunner{
+		timeout:     timeout,
+		waitDelay:   commandWaitDelay,
+		outputLimit: installCommandOutputLimit,
+		environment: func() []string { return installerEnvironment(home) },
+	}
+}
+
+func runInstallInvocation(ctx context.Context, runner commandRunner, invocation installInvocation) commandResult {
+	return runner.run(ctx, commandInvocation{
+		path:       invocation.Executable,
+		executable: invocation.Executable,
+		args:       invocation.Args,
+		workingDir: invocation.Dir,
+	})
 }
 
 func (r commandRunner) run(ctx context.Context, invocation commandInvocation) commandResult {
@@ -87,6 +107,7 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 	go func() { waited <- command.Wait() }()
 
 	var stdoutData []byte
+	var stderrData []byte
 	var waitErr error
 	received := 0
 	waitComplete := false
@@ -98,6 +119,8 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 			received++
 			if stream.name == "stdout" {
 				stdoutData = stream.data
+			} else {
+				stderrData = stream.data
 			}
 			if errors.Is(stream.err, errOutputLimit) {
 				limited = true
@@ -117,17 +140,21 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 	if command.ProcessState != nil {
 		exitCode = command.ProcessState.ExitCode()
 	}
+	stdoutText := string(stdoutData)
+	stderrText := string(stderrData)
 	if limited {
-		return commandResult{exitCode: exitCode, err: errOutputLimit, limited: true}
+		return commandResult{stdout: stdoutText, stderr: stderrText, exitCode: exitCode, err: errOutputLimit, limited: true}
 	}
 	if commandCtx.Err() != nil {
 		return commandResult{
+			stdout:   stdoutText,
+			stderr:   stderrText,
 			exitCode: exitCode,
 			err:      commandCtx.Err(),
 			timedOut: errors.Is(commandCtx.Err(), context.DeadlineExceeded),
 		}
 	}
-	return commandResult{stdout: string(stdoutData), exitCode: exitCode, err: waitErr}
+	return commandResult{stdout: stdoutText, stderr: stderrText, exitCode: exitCode, err: waitErr}
 }
 
 func readBounded(source io.Reader, limit int64) ([]byte, error) {

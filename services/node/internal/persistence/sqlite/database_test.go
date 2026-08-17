@@ -69,10 +69,10 @@ func TestMigrationsAreIdempotentAndNodeIdentityPersists(t *testing.T) {
 	if err := raw.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&migrations); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if migrations != 1 {
-		t.Fatalf("migration count = %d, want 1", migrations)
+	if migrations != 3 {
+		t.Fatalf("migration count = %d, want 3", migrations)
 	}
-	for _, table := range []string{"schema_migrations", "nodes", "app_settings"} {
+	for _, table := range []string{"schema_migrations", "nodes", "app_settings", "operations", "runtime_installations"} {
 		var count int
 		if err := raw.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", table).Scan(&count); err != nil {
 			t.Fatalf("query table %s: %v", table, err)

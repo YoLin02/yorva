@@ -145,6 +145,63 @@ func TestCommandRunnerReturnsAfterAlreadyCancelledContext(t *testing.T) {
 	}
 }
 
+func TestInstallCommandRunnerOwnsProcessTreeAndBoundsOutput(t *testing.T) {
+	executable := buildFakeHermes(t)
+	home := t.TempDir()
+	limited := testInstallCommandRunner("install-output-limit", "", time.Second, home).run(context.Background(), directInvocation(executable))
+	if !limited.limited || !errors.Is(limited.err, errOutputLimit) {
+		t.Fatalf("install output-limited run() = %#v", limited)
+	}
+
+	pidFile := filepath.Join(t.TempDir(), "child-pid")
+	result := testInstallCommandRunner("child-exit", pidFile, time.Second, home).run(context.Background(), commandInvocation{
+		path:       executable,
+		executable: executable,
+		args:       []string{"--version"},
+		workingDir: t.TempDir(),
+	})
+	if result.exitCode != 0 || result.err != nil {
+		t.Fatalf("install immediate-child run() = %#v", result)
+	}
+	pid := readPID(t, pidFile)
+	if !waitForProcessExit(pid, 2*time.Second) {
+		t.Fatalf("install descendant process %d still exists", pid)
+	}
+
+	cancelFile := filepath.Join(t.TempDir(), "cancel-pid")
+	runner := testInstallCommandRunner("child-wait", cancelFile, 5*time.Second, home)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan commandResult, 1)
+	go func() { done <- runner.run(ctx, directInvocation(executable)) }()
+	waitForFile(t, cancelFile)
+	cancel()
+	select {
+	case got := <-done:
+		if !errors.Is(got.err, context.Canceled) {
+			t.Fatalf("cancelled install run() = %#v", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("install run() did not return after cancellation")
+	}
+	if !waitForProcessExit(readPID(t, cancelFile), 2*time.Second) {
+		t.Fatal("cancelled install descendant still exists")
+	}
+}
+
+func testInstallCommandRunner(mode, pidFile string, timeout time.Duration, home string) commandRunner {
+	return commandRunner{
+		timeout:     timeout,
+		waitDelay:   time.Second,
+		outputLimit: installCommandOutputLimit,
+		environment: func() []string {
+			return append(installerEnvironment(home),
+				"YORVA_FAKE_HERMES_MODE="+mode,
+				"YORVA_FAKE_HERMES_PID_FILE="+pidFile,
+			)
+		},
+	}
+}
+
 func testCommandRunner(mode, pidFile string, timeout time.Duration) commandRunner {
 	return commandRunner{
 		timeout:     timeout,

@@ -1,4 +1,4 @@
-import type { DaemonSession, ErrorResponse, Health, Node, RuntimeDiscovery } from "./types";
+import type { DaemonSession, ErrorResponse, Health, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -23,6 +23,12 @@ export type StreamEvent = {
 export type DaemonClient = ReturnType<typeof createDaemonClient>;
 
 const desktopDiscoveryTimeoutMs = 12_000;
+const desktopRequestTimeoutMs = 15_000;
+
+function withDesktopTimeout(signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(desktopRequestTimeoutMs);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
 
 export function createDaemonClient(session: DaemonSession) {
   async function request<T>(path: string, init: RequestInit = {}, authenticated = true): Promise<T> {
@@ -86,6 +92,47 @@ export function createDaemonClient(session: DaemonSession) {
         signal: signal
           ? AbortSignal.any([signal, AbortSignal.timeout(desktopDiscoveryTimeoutMs)])
           : AbortSignal.timeout(desktopDiscoveryTimeoutMs),
+      }),
+    getHermesPrerequisites: (signal?: AbortSignal) =>
+      request<import("./types").HermesPrerequisites>("/api/v1/runtimes/hermes/prerequisites", {
+        signal: withDesktopTimeout(signal),
+      }),
+    startHermesPrerequisites: (idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>("/api/v1/runtimes/hermes/prerequisites/install", {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: "{}",
+      }),
+    startHermesInstall: (idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>("/api/v1/runtimes/hermes/install", {
+        method: "POST",
+        signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: "{}",
+      }),
+    getOperation: (operationId: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/operations/${encodeURIComponent(operationId)}`, { signal }),
+    getOperationLog: (operationId: string, signal?: AbortSignal) =>
+      request<{ operationId: string; correlationId: string; text: string }>(
+        `/api/v1/operations/${encodeURIComponent(operationId)}/log`,
+        { signal },
+      ),
+    listOperations: (targetType: string, targetId: string, signal?: AbortSignal) =>
+      request<OperationList>(
+        `/api/v1/operations?targetType=${encodeURIComponent(targetType)}&targetId=${encodeURIComponent(targetId)}&limit=5`,
+        { signal },
+      ),
+    cancelOperation: (operationId: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/operations/${encodeURIComponent(operationId)}/cancel`, {
+        method: "POST",
+        signal,
       }),
     connectEvents,
   };

@@ -485,6 +485,17 @@ pwsh -NoProfile -File scripts/windows-lifecycle-smoke.ps1
 pnpm --filter @yorva/desktop tauri build --no-bundle
 ```
 
+Owner test distribution on Windows may also build a user-scope MSI (requires WiX 3 on `PATH` / `WIX`). Demo MSI builds must use the fail-closed packaging entry point, which requires the pinned Hermes source, Node zip, npm tarball, and license files:
+
+```text
+pwsh -NoProfile -File scripts/package-yorva-msi.ps1
+```
+
+Ordinary `pnpm test` / `tauri build --no-bundle` must not download the large archives. Those payloads are gitignored build inputs whose sizes and SHA-256 values are compiled into the Hermes adapter. A missing, wrong-sized, or wrong-hashed payload fails packaging.
+
+Hermes install Operations write redacted JSON lines to `%APPDATA%\com.yorva.desktop.dev\logs\install.ndjson`. Use `correlationId`, `stage` and `errorCode` to locate a failed test. Do not treat this file as an upstream installer transcript.
+
+
 From the repository root, `pnpm audit --audit-level low` is also a CI gate. CI Actions are pinned to exact commit SHAs with the corresponding major/stable label in a comment. Dependency maintenance updates those pins deliberately: resolve the trusted upstream major tag/branch to a reviewed commit, inspect upstream release notes, replace the SHA, and rerun the full workflow. Do not restore floating action references.
 
 Phase 2 deterministic tests do not require Hermes to be installed and never install it. Adapter tests build test-only fake executables and fixed official-layout fixtures to verify installation evidence, closed direct argv execution, bounded package-entry-point validation, output bounds, timeout, cancellation and process cleanup. On a Windows host that already has Hermes, run the explicitly gated read-only smoke with `YORVA_REAL_HERMES_SMOKE=1 go test ./internal/runtime/hermes -run TestRealWindowsHermesInstallationSmoke -v`; it must never execute `hermes-agent.exe` or the repository wrapper. A valid official package entry point without a generated launcher must still resolve through the installation's isolated Python command. Stable `0.19.x` and `0.20.x`, including the current official `0.20.1`, classify as `SUPPORTED`; `0.21.0` remains unsupported pending review. Desktop tests cover sidebar navigation, English/Simplified Chinese persistence, stable Runtime-state translations and locale/time-zone-explicit timestamp formatting.

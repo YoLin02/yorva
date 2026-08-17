@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: YORVA Local Node API
   version: 0.0.0
-  description: Local loopback contract between YORVA Desktop and yorvad through Phase 2.
+  description: Local loopback contract between YORVA Desktop and yorvad through Phase 3.
 servers:
   - url: http://127.0.0.1:{port}
     variables:
@@ -15,7 +15,9 @@ tags:
   - name: Node
     description: Persisted local Node identity.
   - name: Runtimes
-    description: Read-only Runtime discovery and compatibility.
+    description: Runtime discovery, compatibility, and Hermes installation Operations.
+  - name: Operations
+    description: Durable local management Operations.
 paths:
   /api/v1/health:
     get:
@@ -160,6 +162,279 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/runtimes/hermes/install:
+    post:
+      operationId: startHermesInstall
+      summary: Start a Hermes installation Operation
+      tags: [Runtimes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuntimeInstallRequest"
+      responses:
+        "202":
+          description: The installation Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    options:
+      operationId: optionsHermesInstall
+      summary: Validate CORS access for Hermes installation
+      tags: [Runtimes]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/runtimes/hermes/prerequisites:
+    get:
+      operationId: getHermesPrerequisites
+      summary: Read Hermes Node.js prerequisite health
+      tags: [Runtimes]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Typed Node/npm/dependency health.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HermesPrerequisites"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    options:
+      operationId: optionsHermesPrerequisites
+      summary: Validate CORS access for Hermes prerequisites
+      tags: [Runtimes]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/runtimes/hermes/prerequisites/install:
+    post:
+      operationId: startHermesPrerequisites
+      summary: Start a Hermes Node prerequisite Operation
+      tags: [Runtimes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuntimeInstallRequest"
+      responses:
+        "202":
+          description: The prerequisite Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    options:
+      operationId: optionsHermesPrerequisitesInstall
+      summary: Validate CORS access for Hermes prerequisite installation
+      tags: [Runtimes]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/operations:
+    get:
+      operationId: listOperations
+      summary: List recent Operations for Desktop recovery
+      tags: [Operations]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: targetType
+          in: query
+          schema:
+            type: string
+        - name: targetId
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: A bounded Operation list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    options:
+      operationId: optionsOperations
+      summary: Validate CORS access for Operation listing
+      tags: [Operations]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/operations/{operationId}:
+    parameters:
+      - name: operationId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getOperation
+      summary: Read one Operation
+      tags: [Operations]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The Operation resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    options:
+      operationId: optionsOperation
+      summary: Validate CORS access for an Operation
+      tags: [Operations]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/operations/{operationId}/log:
+    parameters:
+      - name: operationId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getOperationLog
+      summary: Read diagnostic install log text for one Operation
+      tags: [Operations]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Temporary diagnostic log text for this Operation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationLog"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    options:
+      operationId: optionsOperationLog
+      summary: Validate CORS access for Operation diagnostic log
+      tags: [Operations]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/operations/{operationId}/cancel:
+    parameters:
+      - name: operationId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: cancelOperation
+      summary: Cancel a non-terminal Operation
+      tags: [Operations]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The Operation after cancellation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    options:
+      operationId: optionsCancelOperation
+      summary: Validate CORS access for Operation cancellation
+      tags: [Operations]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   securitySchemes:
     bearerAuth:
@@ -203,6 +478,28 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+    BadRequest:
+      description: The request was syntactically or semantically invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: The request conflicts with current Operation or installation state.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: "^[\\x21-\\x7E]+$"
   schemas:
     Health:
       type: object
@@ -298,6 +595,105 @@ components:
     RuntimeDiscoveryState:
       type: string
       enum: [NOT_INSTALLED, SUPPORTED, UNSUPPORTED, BROKEN_EXECUTABLE, MALFORMED_VERSION, TIMED_OUT, AMBIGUOUS]
+    RuntimeInstallRequest:
+      type: object
+      additionalProperties: false
+      properties: {}
+    HermesPrerequisiteComponent:
+      type: object
+      additionalProperties: false
+      required: [state, version, errorCode, retryable]
+      properties:
+        state:
+          type: string
+        version:
+          type: string
+        errorCode:
+          type: ["string", "null"]
+        retryable:
+          type: boolean
+    HermesPrerequisites:
+      type: object
+      additionalProperties: false
+      required: [node, npm, nodeDependencies, checkedAt, activeOperationId]
+      properties:
+        node:
+          $ref: "#/components/schemas/HermesPrerequisiteComponent"
+        npm:
+          $ref: "#/components/schemas/HermesPrerequisiteComponent"
+        nodeDependencies:
+          $ref: "#/components/schemas/HermesPrerequisiteComponent"
+        checkedAt:
+          type: string
+          format: date-time
+        activeOperationId:
+          type: ["string", "null"]
+    Operation:
+      type: object
+      additionalProperties: false
+      required: [id, type, targetType, targetId, status, stage, progress, message, errorCode, retryable, correlationId, createdAt, startedAt, completedAt, updatedAt]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [runtime.install, hermes.prerequisites]
+        targetType:
+          type: string
+        targetId:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, RUNNING, SUCCEEDED, FAILED, CANCELLED]
+        stage:
+          type: string
+        progress:
+          type: ["integer", "null"]
+        message:
+          type: string
+        errorCode:
+          type: ["string", "null"]
+        retryable:
+          type: boolean
+        correlationId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        completedAt:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        updatedAt:
+          type: string
+          format: date-time
+    OperationLog:
+      type: object
+      additionalProperties: false
+      required: [operationId, correlationId, text]
+      properties:
+        operationId:
+          type: string
+        correlationId:
+          type: string
+        text:
+          type: string
+    OperationList:
+      type: object
+      additionalProperties: false
+      required: [operations]
+      properties:
+        operations:
+          type: array
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/Operation"
     RuntimeDiscoveryErrorCode:
       type: [string, "null"]
       enum:
@@ -323,7 +719,6 @@ components:
       properties:
         code:
           type: string
-          enum: [UNAUTHORIZED, ORIGIN_NOT_ALLOWED, NOT_FOUND, METHOD_NOT_ALLOWED, RUNTIME_KIND_NOT_FOUND, RUNTIME_DISCOVERY_FAILED, INTERNAL_ERROR]
         message:
           type: string
         retryable:

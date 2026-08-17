@@ -38,3 +38,10 @@ Desktop.ini
 *.log
 tmp/
 temp/
+.tools/
+
+# Hermes embedded source payload (verified build input; not Git history)
+.cache/hermes-source/
+apps/desktop/src-tauri/resources/hermes/source/*.zip
+apps/desktop/src-tauri/resources/hermes/source/*.tgz
+.cache/hermes-node/

@@ -5,15 +5,19 @@ import type { RuntimeDiscovery } from "./api/types";
 import { App } from "./App";
 
 const sessionMocks = vi.hoisted(() => ({ getDaemonSession: vi.fn() }));
-const clientMocks = vi.hoisted(() => ({ getNode: vi.fn(), detectHermes: vi.fn() }));
+const clientMocks = vi.hoisted(() => ({ getNode: vi.fn(), detectHermes: vi.fn(), getHermesPrerequisites: vi.fn() }));
 
 vi.mock("./api/session", () => ({
   getDaemonSession: sessionMocks.getDaemonSession,
   isDaemonNotReady: () => false,
 }));
-vi.mock("./api/client", () => ({
-  createDaemonClient: () => ({ getNode: clientMocks.getNode, detectHermes: clientMocks.detectHermes }),
-}));
+vi.mock("./api/client", async () => {
+  const actual = await vi.importActual<typeof import("./api/client")>("./api/client");
+  return {
+    ...actual,
+    createDaemonClient: () => ({ getNode: clientMocks.getNode, detectHermes: clientMocks.detectHermes, getHermesPrerequisites: clientMocks.getHermesPrerequisites }),
+  };
+});
 vi.mock("./hooks/useEventStreamStatus", () => ({ useEventStreamStatus: () => "connected" }));
 
 const session = { baseUrl: "http://127.0.0.1:49152", token: "token", protocolVersion: "1" };
@@ -67,6 +71,13 @@ describe("App Hermes discovery", () => {
     sessionMocks.getDaemonSession.mockReset().mockResolvedValue(session);
     clientMocks.getNode.mockReset().mockResolvedValue(node);
     clientMocks.detectHermes.mockReset();
+    clientMocks.getHermesPrerequisites.mockReset().mockResolvedValue({
+      node: { state: "MISSING", version: "", errorCode: null, retryable: true },
+      npm: { state: "MISSING", version: "", errorCode: null, retryable: true },
+      nodeDependencies: { state: "NOT_INSTALLED", version: "", errorCode: null, retryable: true },
+      checkedAt: "2026-08-17T00:00:00Z",
+      activeOperationId: null,
+    });
   });
 
   it("shows a safe request failure and retries", async () => {
