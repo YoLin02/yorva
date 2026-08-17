@@ -43,7 +43,13 @@ foreach ($item in $artifacts) {
             continue
         }
         $part = "$cacheFile.part"
-        Invoke-WebRequest -Uri $item.Url -OutFile $part -UseBasicParsing
+        if (Test-Path -LiteralPath $part) {
+            Remove-Item -LiteralPath $part -Force
+        }
+        & curl.exe -L --fail --retry 5 --retry-all-errors --connect-timeout 30 --output $part $item.Url
+        if ($LASTEXITCODE -ne 0) {
+            throw "$($item.Name) download failed with exit $LASTEXITCODE"
+        }
         if (-not (Test-Artifact $part $item.Size $item.SHA256)) {
             Remove-Item $part -ErrorAction SilentlyContinue
             throw "$($item.Name) failed size/SHA-256 verification"

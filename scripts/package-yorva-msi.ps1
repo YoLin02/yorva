@@ -8,8 +8,14 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $repoRoot
 
-pwsh -NoProfile -File (Join-Path $PSScriptRoot "prepare-hermes-embedded-source.ps1") -RequirePresent
-pwsh -NoProfile -File (Join-Path $PSScriptRoot "prepare-hermes-node-prerequisites.ps1") -RequirePresent
+& (Join-Path $PSScriptRoot "prepare-hermes-embedded-source.ps1") -RequirePresent
+if ($LASTEXITCODE -ne 0) {
+    throw "Hermes source preparation failed"
+}
+& (Join-Path $PSScriptRoot "prepare-hermes-node-prerequisites.ps1") -RequirePresent
+if ($LASTEXITCODE -ne 0) {
+    throw "Node/npm payload preparation failed"
+}
 
 $resourceDir = Join-Path $repoRoot "apps\desktop\src-tauri\resources\hermes\source"
 $required = @(
@@ -52,5 +58,5 @@ if (-not $msi) {
     throw "MSI output was not produced"
 }
 
-pwsh -NoProfile -File (Join-Path $PSScriptRoot "inspect-yorva-msi.ps1") -MsiPath $msi.FullName
+& (Join-Path $PSScriptRoot "inspect-yorva-msi.ps1") -MsiPath $msi.FullName
 Write-Host ("MSI {0} SHA-256 {1} size {2}" -f $msi.Name, (Get-FileHash -Algorithm SHA256 -Path $msi.FullName).Hash, $msi.Length)

@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 $commit = "df4b65147d7ddd74dd449f9067aabbca5aef0ec7"
 $expectedSize = 71869305
 $expectedSha = "2ED02F76AAF5DAB0BFD320BDBFA10AAD0F67E00CBBF87906CDE05462681708BA"
-$url = "https://github.com/NousResearch/hermes-agent/archive/$commit.zip"
+$url = "https://codeload.github.com/NousResearch/hermes-agent/zip/$commit"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $cacheDir = Join-Path $repoRoot ".cache\hermes-source"
 $resourceDir = Join-Path $repoRoot "apps\desktop\src-tauri\resources\hermes\source"
@@ -46,7 +46,13 @@ if (-not (Test-OfficialArchive $cacheFile)) {
         if ($RequirePresent) {
             Write-Host "Downloading official Hermes archive..."
             $part = "$cacheFile.part"
-            Invoke-WebRequest -Uri $url -OutFile $part -UseBasicParsing
+            if (Test-Path -LiteralPath $part) {
+                Remove-Item -LiteralPath $part -Force
+            }
+            & curl.exe -L --fail --retry 5 --retry-all-errors --connect-timeout 30 --output $part $url
+            if ($LASTEXITCODE -ne 0) {
+                throw "Hermes archive download failed with exit $LASTEXITCODE"
+            }
             if (-not (Test-OfficialArchive $part)) {
                 Remove-Item -LiteralPath $part -ErrorAction SilentlyContinue
                 throw "Downloaded Hermes archive failed size/SHA-256 verification."
