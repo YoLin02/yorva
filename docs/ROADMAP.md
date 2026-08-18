@@ -116,8 +116,8 @@ Amendments:
 - `AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED FOR IMPLEMENTATION (batch-gated; not Phase 3 PASS)
 Architecture: `docs/phases/PHASE-003-generation-installation-architecture.md` — Owner-approved 2026-08-18
 ADR: `ADR-0006-generation-install-transaction.md` — Accepted
-Implementation branch: `fix/phase3-audit-r6-remediation` (generation batches 0–8 implemented; post-seal manifest re-walk closed; `AUDIT-003R7` PENDING)
-Audit: `AUDIT-003` — **FAIL**; `AUDIT-003R1` — **FAIL**; `AUDIT-003R2` — **FAIL**; `AUDIT-003R3` — **FAIL**; `AUDIT-003R4` — **FAIL**; `AUDIT-003R5` — **FAIL**; `AUDIT-003R6` — **FAIL**; `AUDIT-003R7` — **PENDING**
+Implementation branch: `fix/phase3-audit-r6-remediation` (generation batches 0–8; dual-state-machine and persist-ahead remediations landed)
+Audit: `AUDIT-003` — **FAIL**; `AUDIT-003R1`–`R7` — **FAIL**; `AUDIT-003R8` — **PENDING**
 
 Goal: install a supported official Hermes Runtime without requiring terminal use.
 
@@ -142,6 +142,9 @@ Hermes not installed
 The detailed Phase 3 Spec was prepared after Phase 2 amendment 002A1 passed independent audit and `phase-002-hermes-discovery-baseline-r1` was frozen. The Repository Owner approved the Spec on 2026-08-17 and authorized implementation in automatic batch-gate mode on 2026-08-17.
 
 ## Phase 4 — Instance/Profile management
+
+Status: **DRAFT / NOT AUTHORIZED** (blocked on Phase 3 freeze)
+Spec: `docs/phases/PHASE-004-instance-profile.md`
 
 Goal: manage multiple Hermes-backed YORVA instances.
 
