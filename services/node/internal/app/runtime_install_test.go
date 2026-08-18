@@ -235,6 +235,12 @@ func newMemoryOperationStore() *memoryOperationStore {
 	}
 }
 
+func (s *memoryOperationStore) setAfterLookup(hook func()) {
+	s.mu.Lock()
+	s.afterLookup = hook
+	s.mu.Unlock()
+}
+
 func (s *memoryOperationStore) CreateOperation(_ context.Context, value operation.Operation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -273,9 +279,10 @@ func (s *memoryOperationStore) GetOperationByIdempotencyKey(_ context.Context, k
 	if ok {
 		value = s.byID[id]
 	}
+	hook := s.afterLookup
 	s.mu.Unlock()
-	if s.afterLookup != nil {
-		s.afterLookup()
+	if hook != nil {
+		hook()
 	}
 	if !ok {
 		return operation.Operation{}, false, nil

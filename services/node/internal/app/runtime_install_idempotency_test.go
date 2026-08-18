@@ -15,11 +15,11 @@ func TestSimultaneousSameKeyStartReturnsSameOperation(t *testing.T) {
 	service := newTestRuntimeInstall(store, yorvaruntime.Discovery{State: yorvaruntime.DiscoveryNotInstalled})
 	var lookups sync.WaitGroup
 	lookups.Add(2)
-	store.afterLookup = func() {
+	store.setAfterLookup(func() {
 		lookups.Done()
 		lookups.Wait()
-		store.afterLookup = nil
-	}
+		store.setAfterLookup(nil)
+	})
 
 	results := make([]InstallStartResult, 2)
 	errs := make([]error, 2)
@@ -60,11 +60,11 @@ func TestSimultaneousSameKeyPrerequisitesReturnSameOperation(t *testing.T) {
 	service := newTestRuntimeInstall(store, yorvaruntime.Discovery{State: yorvaruntime.DiscoveryNotInstalled})
 	var lookups sync.WaitGroup
 	lookups.Add(2)
-	store.afterLookup = func() {
+	store.setAfterLookup(func() {
 		lookups.Done()
 		lookups.Wait()
-		store.afterLookup = nil
-	}
+		store.setAfterLookup(nil)
+	})
 
 	results := make([]InstallStartResult, 2)
 	errs := make([]error, 2)
