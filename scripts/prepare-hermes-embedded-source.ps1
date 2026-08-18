@@ -34,7 +34,7 @@ New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
 New-Item -ItemType Directory -Force -Path $resourceDir | Out-Null
 
 function Publish-OfficialLicense([string]$archivePath, [string]$licensePath) {
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    try { Add-Type -AssemblyName System.IO.Compression.FileSystem } catch { }
     $zip = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
     try {
         $entry = $zip.Entries | Where-Object { $_.FullName -eq "hermes-agent-$commit/LICENSE" } | Select-Object -First 1

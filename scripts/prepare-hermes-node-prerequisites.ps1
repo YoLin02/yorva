@@ -66,7 +66,7 @@ foreach ($item in $artifacts) {
 $nodeZip = Join-Path $resourceDir "node-v22.23.1-win-x64.zip"
 $npmTgz = Join-Path $resourceDir "npm-12.0.2.tgz"
 if ((Test-Path -LiteralPath $nodeZip) -and (Test-Path -LiteralPath $npmTgz)) {
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    try { Add-Type -AssemblyName System.IO.Compression.FileSystem } catch { }
     $nodeLicense = Join-Path $resourceDir "NODE-LICENSE"
     $zip = [System.IO.Compression.ZipFile]::OpenRead($nodeZip)
     try {

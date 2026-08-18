@@ -8,11 +8,11 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $repoRoot
 
-& (Join-Path $PSScriptRoot "prepare-hermes-embedded-source.ps1") -RequirePresent
+pwsh -NoProfile -File (Join-Path $PSScriptRoot "prepare-hermes-embedded-source.ps1") -RequirePresent
 if ($LASTEXITCODE -ne 0) {
     throw "Hermes source preparation failed"
 }
-& (Join-Path $PSScriptRoot "prepare-hermes-node-prerequisites.ps1") -RequirePresent
+pwsh -NoProfile -File (Join-Path $PSScriptRoot "prepare-hermes-node-prerequisites.ps1") -RequirePresent
 if ($LASTEXITCODE -ne 0) {
     throw "Node/npm payload preparation failed"
 }
