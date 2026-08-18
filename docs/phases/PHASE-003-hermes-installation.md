@@ -758,7 +758,7 @@ Remediation candidate for independent `AUDIT-003R2`. This is not an audit PASS.
 ```text
 Owner approval: 2026-08-17 explicit implementation authorization
 Implementation branch: fix/phase3-audit-r1-remediation
-Implementation commit: recorded on the remediation branch after verification
+Implementation commit: 2f1e4989664bacedc1d6c88095633632a085f71d
 Exact-commit CI run: PENDING
 MSI CI run: PENDING
 Batch results: AUDIT-003R1 remediations implemented in automatic batch-gate mode
