@@ -46,6 +46,31 @@ func TestExtractPrefixedZipRejectsRealBounds(t *testing.T) {
 	})
 }
 
+func TestExtractPrefixedZipRejectsAggregateOnlyUncompressedLimit(t *testing.T) {
+	const members = 9
+	claimed := make([]claimedZipMember, members)
+	var total uint64
+	for i := 0; i < members; i++ {
+		size := uint32(nodeArchiveMaxMember)
+		claimed[i] = claimedZipMember{Name: officialNodeZipRoot + "/part" + itoa(i) + ".bin", Uncompressed: size}
+		total += uint64(size)
+	}
+	if uint64(nodeArchiveMaxMember) >= uint64(nodeArchiveMaxUncompressed) {
+		t.Fatal("member limit no longer smaller than aggregate limit")
+	}
+	if total <= uint64(nodeArchiveMaxUncompressed) {
+		t.Fatalf("fixture total %d does not exceed aggregate %d", total, nodeArchiveMaxUncompressed)
+	}
+	archive := writeClaimedSizeZipMembers(t, claimed)
+	dest := filepath.Join(t.TempDir(), "out")
+	if err := extractPrefixedZip(context.Background(), archive, dest, officialNodeZipRoot); err == nil {
+		t.Fatal("aggregate-only uncompressed overflow accepted")
+	}
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		t.Fatal("failed aggregate zip extract left a destination")
+	}
+}
+
 func TestExtractNpmTarballRejectsRealBounds(t *testing.T) {
 	t.Run("entry count", func(t *testing.T) {
 		path := writeTarGZHeaders(t, npmArchiveMaxEntries+1, 1)
@@ -72,56 +97,77 @@ func TestExtractNpmTarballRejectsRealBounds(t *testing.T) {
 	})
 }
 
+type claimedZipMember struct {
+	Name         string
+	Uncompressed uint32
+}
+
 func writeClaimedSizeZip(t *testing.T, name string, claimed uint32) string {
 	t.Helper()
+	return writeClaimedSizeZipMembers(t, []claimedZipMember{{Name: name, Uncompressed: claimed}})
+}
+
+func writeClaimedSizeZipMembers(t *testing.T, members []claimedZipMember) string {
+	t.Helper()
 	var body bytes.Buffer
-	nameBytes := []byte(name)
-	data := []byte{'x'}
 	write := func(v any) {
 		if err := binary.Write(&body, binary.LittleEndian, v); err != nil {
 			t.Fatal(err)
 		}
 	}
-	body.Write([]byte("PK\x03\x04"))
-	write(uint16(20))
-	write(uint16(0))
-	write(uint16(0))
-	write(uint16(0))
-	write(uint16(0))
-	write(uint32(0))
-	write(uint32(len(data)))
-	write(claimed)
-	write(uint16(len(nameBytes)))
-	write(uint16(0))
-	body.Write(nameBytes)
-	body.Write(data)
-	localSize := body.Len()
-	body.Write([]byte("PK\x01\x02"))
-	write(uint16(20))
-	write(uint16(20))
-	write(uint16(0))
-	write(uint16(0))
-	write(uint16(0))
-	write(uint16(0))
-	write(uint32(0))
-	write(uint32(len(data)))
-	write(claimed)
-	write(uint16(len(nameBytes)))
-	write(uint16(0))
-	write(uint16(0))
-	write(uint16(0))
-	write(uint16(0))
-	write(uint32(0))
-	write(uint32(0))
-	body.Write(nameBytes)
-	centralSize := body.Len() - localSize
+	type localMeta struct {
+		name  []byte
+		start int
+	}
+	locals := make([]localMeta, 0, len(members))
+	data := []byte{'x'}
+	for _, member := range members {
+		nameBytes := []byte(member.Name)
+		start := body.Len()
+		body.Write([]byte("PK\x03\x04"))
+		write(uint16(20))
+		write(uint16(0))
+		write(uint16(0))
+		write(uint16(0))
+		write(uint16(0))
+		write(uint32(0))
+		write(uint32(len(data)))
+		write(member.Uncompressed)
+		write(uint16(len(nameBytes)))
+		write(uint16(0))
+		body.Write(nameBytes)
+		body.Write(data)
+		locals = append(locals, localMeta{name: nameBytes, start: start})
+	}
+	centralStart := body.Len()
+	for i, member := range members {
+		body.Write([]byte("PK\x01\x02"))
+		write(uint16(20))
+		write(uint16(20))
+		write(uint16(0))
+		write(uint16(0))
+		write(uint16(0))
+		write(uint16(0))
+		write(uint32(0))
+		write(uint32(len(data)))
+		write(member.Uncompressed)
+		write(uint16(len(locals[i].name)))
+		write(uint16(0))
+		write(uint16(0))
+		write(uint16(0))
+		write(uint16(0))
+		write(uint32(0))
+		write(uint32(locals[i].start))
+		body.Write(locals[i].name)
+	}
+	centralSize := body.Len() - centralStart
 	body.Write([]byte("PK\x05\x06"))
 	write(uint16(0))
 	write(uint16(0))
-	write(uint16(1))
-	write(uint16(1))
+	write(uint16(len(members)))
+	write(uint16(len(members)))
 	write(uint32(centralSize))
-	write(uint32(localSize))
+	write(uint32(centralStart))
 	write(uint16(0))
 	path := filepath.Join(t.TempDir(), "claimed.zip")
 	if err := os.WriteFile(path, body.Bytes(), 0o600); err != nil {
@@ -130,6 +176,10 @@ func writeClaimedSizeZip(t *testing.T, name string, claimed uint32) string {
 	reader, err := zip.OpenReader(path)
 	if err != nil {
 		t.Fatalf("crafted zip unreadable: %v", err)
+	}
+	if len(reader.File) != len(members) {
+		_ = reader.Close()
+		t.Fatalf("crafted zip files = %d", len(reader.File))
 	}
 	_ = reader.Close()
 	return path

@@ -6,8 +6,8 @@
 > Owner: Repository owner
 > Phase: 3 — Hermes Installation
 > Related: `AMENDMENT-003A1-embedded-hermes-source.md`, `AMENDMENT-003A2-china-dependency-distribution.md`
-> Implementation: R2 REMEDIATION; AUDIT-003R3 PENDING
-> Audit: historical `AUDIT-003`, `AUDIT-003R1` and `AUDIT-003R2` are FAIL; this status is not an audit PASS
+> Implementation: R3 REMEDIATION; AUDIT-003R4 PENDING
+> Audit: historical `AUDIT-003`, `AUDIT-003R1`, `AUDIT-003R2` and `AUDIT-003R3` are FAIL; this status is not an audit PASS
 
 ## 1. Problem
 

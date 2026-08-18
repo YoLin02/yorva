@@ -185,6 +185,55 @@ func writeOwnershipRecord(root string, identity ownershipIdentity) error {
 	return os.WriteFile(filepath.Join(root, yorvaPartialMarker), payload, 0o600)
 }
 
+func requireCurrentOwnedTree(root string, identity ownershipIdentity) error {
+	if identity.OperationID == "" || identity.Nonce == "" || identity.SourcePin == "" {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+	}
+	return ownedPartialIdentity(root, operation.Operation{
+		ID:             identity.OperationID,
+		TargetID:       identity.RuntimeKind,
+		SourcePin:      identity.SourcePin,
+		OwnershipNonce: identity.Nonce,
+	}, identity.SourcePin)
+}
+
+func refreshOwnedInventory(root string, identity ownershipIdentity) error {
+	if identity.OperationID == "" || identity.Nonce == "" || identity.SourcePin == "" {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+	}
+	info, err := os.Lstat(root)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, err)
+	}
+	if !info.IsDir() || isReparsePoint(info) || info.Mode()&os.ModeSymlink != 0 {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+	}
+	if err := rejectReparsePoint(root); err != nil {
+		return err
+	}
+	record, err := readOwnershipRecord(root)
+	if err != nil {
+		return err
+	}
+	canonical, err := filepath.Abs(root)
+	if err != nil {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, err)
+	}
+	if record.Schema != ownershipSchemaVersion || record.OperationID != identity.OperationID || record.RuntimeKind != identity.RuntimeKind {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+	}
+	if record.SourcePin != identity.SourcePin || !sameCanonicalPath(record.Target, canonical) {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+	}
+	if !hmac.Equal([]byte(strings.ToLower(record.MAC)), []byte(ownershipMAC(identity.Nonce, record))) {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+	}
+	return writeOwnershipRecord(root, identity)
+}
+
 func ownershipMAC(nonce string, record ownershipRecord) string {
 	mac := hmac.New(sha256.New, []byte(nonce))
 	_, _ = mac.Write([]byte(strings.Join([]string{

@@ -169,9 +169,6 @@ func (h *HostInstaller) Apply(ctx context.Context, operationID string, report fu
 	}
 	home := h.home()
 	installDir := h.installDir()
-	if err := writeOwnershipRecord(installDir, h.installIdentity(installDir)); err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
 	if report != nil {
 		report(operation.StageProtocolVerify, "")
 	}
@@ -184,6 +181,8 @@ func (h *HostInstaller) Apply(ctx context.Context, operationID string, report fu
 	if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
 		return err
 	}
+	handedOff := false
+	identity := h.installIdentity(installDir)
 	for _, stage := range approvedInstallStages() {
 		if report != nil {
 			note := ""
@@ -203,12 +202,13 @@ func (h *HostInstaller) Apply(ctx context.Context, operationID string, report fu
 			if err := h.materializeRepository(ctx, archivePath, origin, workDir, installDir); err != nil {
 				return err
 			}
+			handedOff = true
 			if report != nil && origin == sourceOriginBundled {
 				report(operation.StageInstallRepository, warningSourcePrepared)
 			}
 			continue
 		}
-		if err := h.runStage(ctx, powershell, script.Path, stage, home, installDir); err != nil {
+		if err := h.runOwnedStage(ctx, powershell, script.Path, stage, home, installDir, identity, handedOff); err != nil {
 			return err
 		}
 	}
@@ -343,6 +343,31 @@ func (h *HostInstaller) probe(ctx context.Context, powershell, script, probe, ho
 
 func parseProtocolOutput(output string) error {
 	return parseProtocolVersion(output)
+}
+
+func stageMutatesInstallTree(stage string) bool {
+	switch stage {
+	case "venv", "dependencies", "path", "config-templates", "bootstrap-marker":
+		return true
+	default:
+		return false
+	}
+}
+
+func (h *HostInstaller) runOwnedStage(ctx context.Context, powershell, script, stage, home, installDir string, identity ownershipIdentity, handedOff bool) error {
+	mutates := handedOff && stageMutatesInstallTree(stage)
+	if mutates {
+		if err := requireCurrentOwnedTree(installDir, identity); err != nil {
+			return err
+		}
+	}
+	err := h.runStage(ctx, powershell, script, stage, home, installDir)
+	if mutates {
+		if refreshErr := refreshOwnedInventory(installDir, identity); refreshErr != nil && err == nil {
+			return refreshErr
+		}
+	}
+	return err
 }
 
 func (h *HostInstaller) runStage(ctx context.Context, powershell, script, stage, home, installDir string) error {
