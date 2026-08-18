@@ -25,7 +25,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := emptyDB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, emptyDir, 5)
+	assertMigrationCount(t, emptyDir, 6)
 
 	phase2Dir := t.TempDir()
 	applyNamedMigration(t, ctx, phase2Dir, "001_initial.sql")
@@ -37,7 +37,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := phase2DB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, phase2Dir, 5)
+	assertMigrationCount(t, phase2Dir, 6)
 }
 
 func TestSimultaneousSameKeyCreateReturnsDuplicateIdempotency(t *testing.T) {

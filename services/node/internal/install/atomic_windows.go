@@ -1,14 +1,9 @@
 //go:build windows
 
-package hermes
+package install
 
-import (
-	"golang.org/x/sys/windows"
-)
+import "golang.org/x/sys/windows"
 
-// replaceFileAtomic uses MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH so
-// the replacement is requested to hit stable storage before the API returns.
-// The caller still requires SyncDir success; a SyncDir error is not ignored.
 func replaceFileAtomic(tmp, dest string) error {
 	from, err := windows.UTF16PtrFromString(tmp)
 	if err != nil {

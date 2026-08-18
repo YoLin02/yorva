@@ -153,7 +153,7 @@ func TestRuntimeInstallWorkerCancelBeforeSuccess(t *testing.T) {
 	}
 }
 
-func newOrchestratedInstall(store *memoryOperationStore, discoveries []yorvaruntime.Discovery, applier *fakeApplier, completer *fakeCompleter) *RuntimeInstall {
+func newOrchestratedInstall(store *memoryOperationStore, discoveries []yorvaruntime.Discovery, applier HostApplier, completer InstallCompleter) *RuntimeInstall {
 	registry := yorvaruntime.NewRegistry()
 	_ = registry.Register("hermes", yorvaruntime.Bundle{
 		Descriptor: yorvaruntime.Descriptor{Kind: "hermes", Name: "Hermes Agent"},
@@ -206,6 +206,7 @@ type fakeApplier struct {
 	selected string
 	block    chan struct{}
 	cleanup  time.Duration
+	applyErr error
 }
 
 func (f *fakeApplier) PlatformSupported() bool { return true }
@@ -233,7 +234,7 @@ func (f *fakeApplier) Apply(ctx context.Context, _ string, report func(operation
 		}
 		return ctx.Err()
 	}
-	return nil
+	return f.applyErr
 }
 
 type fakeCompleter struct {

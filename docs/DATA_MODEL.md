@@ -115,7 +115,8 @@ retryable          INTEGER
 idempotency_key    TEXT
 correlation_id     TEXT
 source_pin         TEXT  # Hermes install pin recorded at create; empty or mismatched pin never authorizes retry
-ownership_nonce    TEXT  # secret HMAC key for the filesystem ownership record; never returned by HTTP
+ownership_nonce    TEXT  # unused by generation install retry; never returned by HTTP
+transaction_id     TEXT  # one-way projection of InstallTransaction id; not an activation source
 created_at         ... NOT NULL
 started_at         ...
 completed_at       ...
@@ -137,9 +138,9 @@ If idempotency is used locally:
 UNIQUE(idempotency_key) WHERE idempotency_key IS NOT NULL
 ```
 
-`ownership_nonce` is generated at Operation create and never appears in HTTP Operation responses. The on-disk `.yorva-phase3-install` file is a versioned HMAC-authenticated ownership record written through an exclusive temp file and atomic replace. Retry requires the durable non-empty `source_pin` and nonce to match that record and the current partial-tree inventory digest. Empty migrated pins do not authorize retry.
+`transaction_id` is a one-way projection of the filesystem InstallTransaction. Recovery and retry authority is the transaction record and `active.json`, not this column. `ownership_nonce` is not generated for generation installs and must not authorize retry. HTTP Operation responses still omit nonce and secret material.
 
-Promotion state lives in a Hermes-home `.yorva-phase3/promote-<operationId>.json` journal (`PREPARED`, `OLD_QUARANTINED`, `NEW_PROMOTED`, `COMMITTED`). The nonce is not stored in the journal; the journal MAC uses the durable Operation nonce. Quarantined previous trees are not automatically deleted.
+Generation install state lives in `control/transactions/txn_*.json` and `control/active.json`. Automatic GC follows D4 retention and never deletes unknown directories, legacy `hermes-agent`, or official Hermes user data.
 
 Progress must be null when percentage has no meaningful interpretation. Do not invent fake percentages.
 

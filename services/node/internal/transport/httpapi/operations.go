@@ -270,6 +270,9 @@ func writeInstallError(w http.ResponseWriter, err error) {
 		if rejected.Code == yorvaruntime.ErrorRuntimeInstallPlatformUnsupported {
 			status = http.StatusBadRequest
 		}
+		if rejected.Code == yorvaruntime.ErrorRuntimeInstallNotReady {
+			status = http.StatusServiceUnavailable
+		}
 		details := map[string]any{}
 		if rejected.ActiveID != "" {
 			details["operationId"] = rejected.ActiveID

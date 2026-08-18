@@ -57,19 +57,24 @@ func newCandidateFinder() candidateFinder {
 	if runtime.GOOS == "windows" {
 		executableName = "hermes.exe"
 		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
-			installRoot := filepath.Join(localAppData, "hermes", "hermes-agent")
-			installationRoots = append(installationRoots, installRoot)
-			officialPaths = append(officialPaths, filepath.Join(
-				installRoot,
-				"bin",
-				"hermes.exe",
-			))
-			officialPaths = append(officialPaths, filepath.Join(
-				installRoot,
-				"venv",
-				"Scripts",
-				"hermes.exe",
-			))
+			if gen, ok := resolveActiveGeneration(localAppData); ok {
+				officialPaths = append(officialPaths, gen.officialPaths...)
+				installationRoots = append(installationRoots, gen.installationRoots...)
+			} else {
+				installRoot := filepath.Join(localAppData, "hermes", "hermes-agent")
+				installationRoots = append(installationRoots, installRoot)
+				officialPaths = append(officialPaths, filepath.Join(
+					installRoot,
+					"bin",
+					"hermes.exe",
+				))
+				officialPaths = append(officialPaths, filepath.Join(
+					installRoot,
+					"venv",
+					"Scripts",
+					"hermes.exe",
+				))
+			}
 		}
 	} else {
 		if home, err := os.UserHomeDir(); err == nil && home != "" {

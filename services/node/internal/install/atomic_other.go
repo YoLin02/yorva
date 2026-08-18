@@ -1,6 +1,6 @@
 //go:build !windows
 
-package hermes
+package install
 
 import "os"
 

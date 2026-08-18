@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	"github.com/YoLin02/yorva/services/node/internal/events"
@@ -16,6 +17,9 @@ func (s *RuntimeInstall) persistCreate(ctx context.Context, created operation.Op
 }
 
 func (s *RuntimeInstall) persistUpdate(ctx context.Context, current, next operation.Operation) error {
+	if s.failStageProjection && current.Status == next.Status {
+		return errors.New("injected stage projection failure")
+	}
 	if err := s.store.UpdateOperation(ctx, current, next); err != nil {
 		return err
 	}

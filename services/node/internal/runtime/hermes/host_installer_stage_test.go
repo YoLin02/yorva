@@ -59,15 +59,6 @@ func TestLogCommandOmitsRawCommandOutput(t *testing.T) {
 	}
 }
 
-func TestVerifyPublicLauncherRejectsEmptyBin(t *testing.T) {
-	installer := NewHostInstaller(t.TempDir())
-	installer.installDir = func() string { return t.TempDir() }
-	installer.userPath = func(string) bool { return true }
-	if err := installer.verifyPublicLauncher(context.Background()); installErrorCode(err) != yorvaruntime.ErrorRuntimeInstallPostcheckFailed {
-		t.Fatalf("empty bin error = %v", err)
-	}
-}
-
 func TestRequiredStageTimeoutFailsInstall(t *testing.T) {
 	installer := &HostInstaller{
 		run: func(context.Context, installInvocation, time.Duration) commandResult {

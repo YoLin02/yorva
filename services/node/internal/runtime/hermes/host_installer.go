@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	"github.com/YoLin02/yorva/services/node/internal/install"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -28,14 +29,10 @@ type HostInstaller struct {
 	logger             *slog.Logger
 	operationID        string
 	currentOp          operation.Operation
-	previousOp         operation.Operation
 	acquireArchive     func(context.Context, string) (string, string, error)
 	verifyArchive      func(string) error
-	userPath           func(string) bool
-	promote            promotionEngine
 	afterStage         func(stage, dir string)
-	lookupIdentity     func(string) (ownershipIdentity, bool)
-	applyPathEnv       func(home, binDir string) error
+	env                install.EnvironmentStore
 }
 
 func NewHostInstaller(stateRoot string) *HostInstaller {
@@ -47,41 +44,7 @@ func NewHostInstaller(stateRoot string) *HostInstaller {
 		home:       officialHermesHome,
 		installDir: officialInstallDir,
 		shell:      trustedPowerShell,
-		promote:    newPromotionEngine(),
 	}
-}
-
-func (h *HostInstaller) WithOperationLookup(fn func(string) (operation.Operation, bool)) *HostInstaller {
-	if fn == nil {
-		return h
-	}
-	h.lookupIdentity = func(id string) (ownershipIdentity, bool) {
-		op, ok := fn(id)
-		if !ok || op.ID == "" {
-			return ownershipIdentity{}, false
-		}
-		kind := op.TargetID
-		if kind == "" {
-			kind = "hermes"
-		}
-		return ownershipIdentity{
-			OperationID: op.ID,
-			RuntimeKind: kind,
-			Target:      h.installDir(),
-			SourcePin:   firstNonEmpty(op.SourcePin, officialCommit),
-			Nonce:       op.OwnershipNonce,
-		}, true
-	}
-	return h
-}
-
-func (h *HostInstaller) RecoverPromotions() error {
-	eng := h.promote
-	if eng.rename == nil {
-		eng = newPromotionEngine()
-	}
-	eng.lookup = h.lookupIdentity
-	return recoverPromotions(h.home(), eng)
 }
 
 func (h *HostInstaller) WithLogger(logger *slog.Logger) *HostInstaller {
@@ -118,25 +81,45 @@ func (h *HostInstaller) ContainsManagedPath(path string) bool {
 }
 
 func (h *HostInstaller) CanonicalPublicLauncher() string {
+	if launcher, ok := h.activeGenerationLauncher(); ok {
+		return launcher
+	}
 	return filepath.Join(h.installDir(), "bin", "hermes.exe")
 }
 
-func (h *HostInstaller) installIdentity(installDir string) ownershipIdentity {
-	target := installDir
-	if abs, err := filepath.Abs(installDir); err == nil {
-		target = abs
+func (h *HostInstaller) activeGenerationLauncher() (string, bool) {
+	store, err := install.NewStore(h.home())
+	if err != nil {
+		return "", false
 	}
-	kind := h.currentOp.TargetID
-	if kind == "" {
-		kind = "hermes"
+	rec, err := store.LoadActive()
+	if err != nil {
+		return "", false
 	}
-	return ownershipIdentity{
-		OperationID: h.currentOp.ID,
-		RuntimeKind: kind,
-		Target:      target,
-		SourcePin:   firstNonEmpty(h.currentOp.SourcePin, officialCommit),
-		Nonce:       h.currentOp.OwnershipNonce,
+	genAbs, err := store.Layout().GenerationPath(rec.GenerationID)
+	if err != nil {
+		return "", false
 	}
+	if err := install.VerifyPublishedGeneration(genAbs, rec.GenerationID, rec.ManifestSHA256, rec.SealSHA256); err != nil {
+		return "", false
+	}
+	launcher := filepath.Join(genAbs, "bin", "hermes.exe")
+	if !isRegularFile(launcher) {
+		return "", false
+	}
+	return launcher, true
+}
+
+func validateGenerationHome(home string) error {
+	if home == "" {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errPlatform)
+	}
+	if err := rejectReparsePoint(home); err != nil && !os.IsNotExist(err) {
+		if _, statErr := os.Lstat(home); statErr == nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func firstNonEmpty(values ...string) string {
@@ -158,150 +141,13 @@ func (h *HostInstaller) SetInstallIdentity(op operation.Operation) {
 }
 
 func (h *HostInstaller) ValidateTarget(retry bool, previous operation.Operation) error {
-	h.previousOp = previous
-	return validateInstallTarget(h.home(), h.installDir(), retry, previous, officialCommit)
+	_ = retry
+	_ = previous
+	return validateGenerationHome(h.home())
 }
 
 func (h *HostInstaller) Apply(ctx context.Context, operationID string, report func(operation.Stage, string)) error {
-	if h.currentOp.ID == "" {
-		h.SetInstallIdentity(operation.Operation{
-			ID:             operationID,
-			TargetID:       "hermes",
-			SourcePin:      officialCommit,
-			OwnershipNonce: "own_apply_" + operationID,
-		})
-	}
-	if !h.PlatformSupported() {
-		return installError(yorvaruntime.ErrorRuntimeInstallPlatformUnsupported, errPlatform)
-	}
-	if report != nil {
-		report(operation.StageSourceDownload, "")
-	}
-	workDir, err := operationPrivateDir(h.stateRoot, operationID)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = os.RemoveAll(workDir) }()
-	archivePath, origin, err := h.resolveArchive(ctx, workDir)
-	if err != nil {
-		return err
-	}
-	if report != nil {
-		report(operation.StageSourceVerify, "")
-	}
-	if h.acquireArchive == nil {
-		if err := h.checkArchive(archivePath); err != nil {
-			return err
-		}
-	}
-	script, err := h.obtainScript(ctx, archivePath, workDir)
-	if err != nil {
-		return err
-	}
-	if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
-		return err
-	}
-	powershell, err := h.shell()
-	if err != nil {
-		return err
-	}
-	home := h.home()
-	installDir := h.installDir()
-	parent := filepath.Dir(installDir)
-	candidate, err := createCandidateDir(parent, operationID)
-	if err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	promoted := false
-	defer func() {
-		if !promoted {
-			_ = os.RemoveAll(candidate)
-		}
-	}()
-	if report != nil {
-		report(operation.StageProtocolVerify, "")
-	}
-	if err := h.probe(ctx, powershell, script.Path, "ProtocolVersion", home, candidate, 30*time.Second, parseProtocolOutput); err != nil {
-		return err
-	}
-	if err := h.probe(ctx, powershell, script.Path, "Manifest", home, candidate, 30*time.Second, parseAndValidateManifest); err != nil {
-		return err
-	}
-	if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
-		return err
-	}
-	identity := h.installIdentity(installDir)
-	identity.Target = installDir
-	if abs, absErr := filepath.Abs(installDir); absErr == nil {
-		identity.Target = abs
-	}
-	for _, stage := range approvedInstallStages() {
-		if report != nil {
-			note := ""
-			if stage == "repository" && origin == sourceOriginBundled {
-				note = warningBundledUsed
-			}
-			report(installStageName(stage), note)
-		}
-		if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
-			return err
-		}
-		if stage == "node" || stage == "node-deps" {
-			h.debug("installer.stage.skipped", "stage", stage, "reason", "yorva-managed-prerequisite")
-			continue
-		}
-		if stage == "path" {
-			continue
-		}
-		if stage == "repository" {
-			if err := h.materializeCandidate(ctx, archivePath, origin, workDir, candidate, identity); err != nil {
-				return err
-			}
-			if report != nil && origin == sourceOriginBundled {
-				report(operation.StageInstallRepository, warningSourcePrepared)
-			}
-			continue
-		}
-		if err := h.runCandidateStage(ctx, powershell, script.Path, stage, home, candidate, identity); err != nil {
-			return err
-		}
-	}
-	if err := h.materializeAuthenticatedLaunchers(candidate, identity); err != nil {
-		return err
-	}
-	if err := promoteCandidate(ctx, h.promoteOrDefault(), home, candidate, installDir, identity, h.previousOp); err != nil {
-		return err
-	}
-	promoted = true
-	applyEnv := h.applyPathEnv
-	if applyEnv == nil {
-		applyEnv = applyUserPathPostcondition
-	}
-	if err := applyEnv(home, filepath.Join(installDir, "bin")); err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	if err := h.verifyPublicLauncher(ctx); err != nil {
-		return err
-	}
-	if report != nil {
-		report(operation.StageCleanup, "")
-	}
-	return nil
-}
-
-func (h *HostInstaller) verifyPublicLauncher(ctx context.Context) error {
-	launcher := h.CanonicalPublicLauncher()
-	if !isRegularFile(launcher) || !pathWithin(h.installDir(), launcher) {
-		return installError(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, errors.New("canonical public launcher is missing"))
-	}
-	if h.userPath != nil && !h.userPath(filepath.Join(h.installDir(), "bin")) {
-		return installError(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, errors.New("user PATH does not contain the Hermes launcher directory"))
-	}
-	if h.userPath == nil && !userPathContainsDir(filepath.Join(h.installDir(), "bin")) {
-		return installError(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, errors.New("user PATH does not contain the Hermes launcher directory"))
-	}
-	_ = ctx
-	return nil
+	return h.applyGeneration(ctx, operationID, report)
 }
 
 func (h *HostInstaller) resolveArchive(ctx context.Context, workDir string) (string, string, error) {
@@ -347,55 +193,6 @@ func (h *HostInstaller) obtainScript(ctx context.Context, archivePath, workDir s
 	return fetchedScript{Directory: workDir, Path: scriptPath, SHA256: fetched.SHA256, Size: fetched.Size}, nil
 }
 
-func (h *HostInstaller) materializeCandidate(ctx context.Context, archivePath, origin, workDir, candidate string, identity ownershipIdentity) error {
-	if origin == sourceOriginBundled {
-		h.debug("source.materialize", "warning", warningBundledUsed)
-	}
-	if err := requireExtractBudget(workDir, h.archive.diskFree); err != nil {
-		return err
-	}
-	if err := requireExtractBudget(candidate, h.archive.diskFree); err != nil {
-		return err
-	}
-	staging := filepath.Join(workDir, "staging")
-	if err := extractOfficialArchive(ctx, archivePath, staging); err != nil {
-		_ = os.RemoveAll(staging)
-		return err
-	}
-	if h.acquireArchive == nil {
-		if err := verifyOfficialExtractedIdentity(staging); err != nil {
-			_ = os.RemoveAll(staging)
-			return err
-		}
-	} else if err := verifyExtractedLayout(staging); err != nil {
-		_ = os.RemoveAll(staging)
-		return err
-	}
-	if err := copyOwnedTree(ctx, staging, candidate); err != nil {
-		_ = os.RemoveAll(staging)
-		return err
-	}
-	_ = os.RemoveAll(staging)
-	if err := writeOwnershipRecordWith(h.promoteOrDefault().ops, candidate, identity); err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	h.debug("source.materialize", "warning", warningSourcePrepared, "origin", origin)
-	return nil
-}
-
-func (h *HostInstaller) promoteOrDefault() promotionEngine {
-	if h.promote.rename == nil && h.promote.ops.CreateExclusive == nil {
-		return newPromotionEngine()
-	}
-	if h.promote.ops.CreateExclusive == nil {
-		h.promote.ops = defaultAtomicFileOps()
-	}
-	if h.promote.rename == nil {
-		h.promote.rename = os.Rename
-	}
-	return h.promote
-}
-
 func (h *HostInstaller) checkArchive(path string) error {
 	if h.verifyArchive != nil {
 		return h.verifyArchive(path)
@@ -427,80 +224,6 @@ func (h *HostInstaller) probe(ctx context.Context, powershell, script, probe, ho
 
 func parseProtocolOutput(output string) error {
 	return parseProtocolVersion(output)
-}
-
-func stageMutatesInstallTree(stage string) bool {
-	switch stage {
-	case "venv", "dependencies", "config-templates", "bootstrap-marker":
-		return true
-	default:
-		return false
-	}
-}
-
-func (h *HostInstaller) runCandidateStage(ctx context.Context, powershell, script, stage, home, candidate string, identity ownershipIdentity) error {
-	var before fileInventory
-	if stageMutatesInstallTree(stage) {
-		snap, err := snapshotOwnedInventory(candidate, identity)
-		if err != nil {
-			return err
-		}
-		before = snap
-	}
-	err := h.runStage(ctx, powershell, script, stage, home, candidate)
-	produced, _, walkErr := walkInventory(candidate)
-	if walkErr != nil && err == nil {
-		return walkErr
-	}
-	if h.afterStage != nil {
-		h.afterStage(stage, candidate)
-	}
-	if before != nil && produced != nil {
-		if deltaErr := applyAuthenticatedStageDelta(h.promoteOrDefault().ops, candidate, identity, stage, before, produced); deltaErr != nil {
-			if err == nil {
-				return deltaErr
-			}
-		}
-	}
-	return err
-}
-
-func (h *HostInstaller) materializeAuthenticatedLaunchers(candidate string, identity ownershipIdentity) error {
-	before, err := snapshotOwnedInventory(candidate, identity)
-	if err != nil {
-		return err
-	}
-	if err := materializePublicLaunchers(candidate); err != nil {
-		return err
-	}
-	produced, _, err := walkInventory(candidate)
-	if err != nil {
-		return err
-	}
-	if h.afterStage != nil {
-		h.afterStage("path", candidate)
-	}
-	return applyAuthenticatedStageDelta(h.promoteOrDefault().ops, candidate, identity, "path", before, produced)
-}
-
-func materializePublicLaunchers(root string) error {
-	bin := filepath.Join(root, "bin")
-	if err := os.MkdirAll(bin, 0o700); err != nil {
-		return err
-	}
-	if err := rejectReparsePoint(bin); err != nil {
-		return err
-	}
-	for _, name := range []string{"hermes.exe", "hermes-acp.exe"} {
-		src := filepath.Join(root, "venv", "Scripts", name)
-		if !isRegularFile(src) {
-			continue
-		}
-		if err := copyRegularFile(src, filepath.Join(bin, name)); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (h *HostInstaller) runStage(ctx context.Context, powershell, script, stage, home, installDir string) error {

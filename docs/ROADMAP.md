@@ -69,10 +69,13 @@ Exit criteria:
 
 ## Phase 2 — Hermes Discovery & Compatibility
 
-Status: **COMPLETE / FROZEN**
+Status: **COMPLETE / FROZEN** (baseline `phase-002-hermes-discovery-baseline-r1` unchanged)
 Gate: **PASS** (`AUDIT-002R1-hermes-discovery.md`); amendment 002A1 **ACCEPTED** (`AUDIT-002A1-hermes-discovery.md` — `PASS`)
 Spec: `docs/phases/PHASE-002-hermes-discovery.md`
-Amendment: `docs/phases/amendments/AMENDMENT-002A1-hermes-windows-command-resolution.md`
+Amendments:
+- `AMENDMENT-002A1-hermes-windows-command-resolution.md` — ACCEPTED / FROZEN into r1
+- `AMENDMENT-002A2-hermes-launcher-alias-normalization.md` — ACCEPTED
+- `AMENDMENT-002A3-active-generation-discovery.md` — ACCEPTED FOR IMPLEMENTATION (Owner 2026-08-18; not a Phase 2 re-freeze)
 Historical baseline: `phase-002-hermes-discovery-baseline` → `a67de04e900bc3ddce99cd76501eec13586082ed` (immutable)
 Current baseline: `phase-002-hermes-discovery-baseline-r1`
 Amendment implementation commit: `dbcb54da4bc4bffcff51888426848246a1900ea6`
@@ -110,7 +113,10 @@ Amendments:
 - `AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED
 - `AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED
 - `AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED
-Implementation branch: `fix/phase3-audit-r6-remediation`
+- `AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED FOR IMPLEMENTATION (batch-gated; not Phase 3 PASS)
+Architecture: `docs/phases/PHASE-003-generation-installation-architecture.md` — Owner-approved 2026-08-18
+ADR: `ADR-0006-generation-install-transaction.md` — Accepted
+Implementation branch: `fix/phase3-audit-r6-remediation` (generation batches 0–8 implemented; `AUDIT-003R7` PENDING)
 Audit: `AUDIT-003` — **FAIL**; `AUDIT-003R1` — **FAIL**; `AUDIT-003R2` — **FAIL**; `AUDIT-003R3` — **FAIL**; `AUDIT-003R4` — **FAIL**; `AUDIT-003R5` — **FAIL**; `AUDIT-003R6` — **FAIL**; `AUDIT-003R7` — **PENDING**
 
 Goal: install a supported official Hermes Runtime without requiring terminal use.

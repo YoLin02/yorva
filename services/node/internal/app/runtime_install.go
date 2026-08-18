@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	"github.com/YoLin02/yorva/services/node/internal/events"
+	"github.com/YoLin02/yorva/services/node/internal/install"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
@@ -49,20 +51,25 @@ type installOperationStore interface {
 }
 
 type RuntimeInstall struct {
-	discovery       *RuntimeDiscovery
-	store           installOperationStore
-	now             func() time.Time
-	newID           func() (string, error)
-	applier         HostApplier
-	prereq          PrerequisiteApplier
-	completer       InstallCompleter
-	nodeID          string
-	workers         map[string]*installWorker
-	mu              sync.Mutex
-	allowNonWindows bool
-	logger          *slog.Logger
-	events          *events.Broker
-	deadline        time.Duration
+	discovery            *RuntimeDiscovery
+	store                installOperationStore
+	now                  func() time.Time
+	newID                func() (string, error)
+	applier              HostApplier
+	prereq               PrerequisiteApplier
+	completer            InstallCompleter
+	nodeID               string
+	workers              map[string]*installWorker
+	mu                   sync.Mutex
+	allowNonWindows      bool
+	logger               *slog.Logger
+	events               *events.Broker
+	deadline             time.Duration
+	gate                 *install.GateHolder
+	managedRoot          string
+	failAfterTxnCreate   bool
+	failStageProjection  bool
+	failAfterCommittedOp bool
 }
 
 type InstallStartResult struct {
@@ -109,7 +116,169 @@ func (s *RuntimeInstall) WithDeadline(deadline time.Duration) *RuntimeInstall {
 	return s
 }
 
+func (s *RuntimeInstall) WithInstallGate(gate *install.GateHolder) *RuntimeInstall {
+	s.gate = gate
+	return s
+}
+
+func (s *RuntimeInstall) WithManagedRoot(root string) *RuntimeInstall {
+	s.managedRoot = strings.TrimSpace(root)
+	return s
+}
+
+func (s *RuntimeInstall) persistCreatedTransaction(op operation.Operation) (install.InstallTransaction, error) {
+	if s.managedRoot == "" || op.Type != operation.TypeRuntimeInstall {
+		return install.InstallTransaction{}, nil
+	}
+	store, err := install.NewStore(s.managedRoot)
+	if err != nil {
+		return install.InstallTransaction{}, err
+	}
+	version := ""
+	if s.applier != nil {
+		version = s.applier.ExpectedVersion()
+	}
+	txn, err := install.NewCreatedTransaction(op.TargetID, op.ID, op.SourcePin, version)
+	if err != nil {
+		return install.InstallTransaction{}, err
+	}
+	if err := store.SaveTransaction(txn); err != nil {
+		return install.InstallTransaction{}, err
+	}
+	return store.LoadTransaction(txn.ID)
+}
+
+func (s *RuntimeInstall) markTransactionFailed(txn install.InstallTransaction) {
+	if s.managedRoot == "" || txn.ID == "" {
+		return
+	}
+	store, err := install.NewStore(s.managedRoot)
+	if err != nil {
+		return
+	}
+	loaded, err := store.LoadTransaction(txn.ID)
+	if err != nil {
+		return
+	}
+	if loaded.State.Terminal() {
+		return
+	}
+	loaded.State = install.StateFailed
+	loaded.ErrorCode = install.CodeInterrupted
+	loaded.UpdatedAt = s.now()
+	_ = store.SaveTransaction(loaded)
+}
+
+func (s *RuntimeInstall) loadLinkedTransaction(op operation.Operation) (install.InstallTransaction, bool) {
+	if s.managedRoot == "" || op.TransactionID == "" {
+		return install.InstallTransaction{}, false
+	}
+	store, err := install.NewStore(s.managedRoot)
+	if err != nil {
+		return install.InstallTransaction{}, false
+	}
+	txn, err := store.LoadTransaction(op.TransactionID)
+	if err != nil {
+		return install.InstallTransaction{}, false
+	}
+	return txn, true
+}
+
+func StageFromTransaction(txn install.InstallTransaction) operation.Stage {
+	switch txn.State {
+	case install.StateCreated:
+		return operation.StagePreflight
+	case install.StateBuilding:
+		return operation.StageSourceDownload
+	case install.StateSealed:
+		return operation.StageInstallBootstrapMarker
+	case install.StatePublished, install.StateActivating:
+		return operation.StageInstallPath
+	case install.StateCommitted:
+		return operation.StageCleanup
+	default:
+		return operation.StagePreflight
+	}
+}
+
+func (s *RuntimeInstall) projectOperation(ctx context.Context, op operation.Operation) (operation.Operation, error) {
+	txn, ok := s.loadLinkedTransaction(op)
+	if !ok {
+		return op, nil
+	}
+	next := op
+	next.Stage = StageFromTransaction(txn)
+	now := s.now()
+	if txn.State == install.StateCommitted && !operation.IsTerminal(op.Status) {
+		if op.Status == operation.StatusPending {
+			next.Status = operation.StatusRunning
+			next.StartedAt = &now
+			next.UpdatedAt = now
+			if err := s.persistUpdate(ctx, op, next); err != nil {
+				next.Status = operation.StatusSucceeded
+				next.CompletedAt = &now
+				return next, nil
+			}
+			op = next
+		}
+		next = op
+		next.Status = operation.StatusSucceeded
+		next.Stage = operation.StageCleanup
+		next.CompletedAt = &now
+		next.UpdatedAt = now
+		if next.StartedAt == nil {
+			next.StartedAt = &now
+		}
+		_ = s.persistUpdate(ctx, op, next)
+		return next, nil
+	}
+	if txn.State == install.StateFailed && !operation.IsTerminal(op.Status) {
+		next.Status = operation.StatusFailed
+		if txn.ErrorCode != "" {
+			next.ErrorCode = yorvaruntime.ErrorCode(txn.ErrorCode)
+		}
+		next.Retryable = true
+		next.CompletedAt = &now
+		next.UpdatedAt = now
+		_ = s.persistUpdate(ctx, op, next)
+		return next, nil
+	}
+	if next.Stage != op.Stage && !operation.IsTerminal(op.Status) {
+		next.UpdatedAt = now
+		if err := s.persistUpdate(ctx, op, next); err != nil {
+			return next, nil
+		}
+	}
+	return next, nil
+}
+
+func (s *RuntimeInstall) projectOpenInstalls(ctx context.Context) {
+	ops, err := s.store.ListOperations(ctx, string(operation.TargetRuntimeKind), "", 50)
+	if err != nil {
+		return
+	}
+	for _, op := range ops {
+		if op.Type == operation.TypeRuntimeInstall && !operation.IsTerminal(op.Status) {
+			_, _ = s.projectOperation(ctx, op)
+		}
+	}
+}
+
+func (s *RuntimeInstall) rejectInstallGate() error {
+	switch s.gate.Get() {
+	case install.GateReady, "":
+		return nil
+	case install.GateReconciling:
+		return InstallRejection{Code: yorvaruntime.ErrorRuntimeInstallNotReady, Retryable: true}
+	default:
+		return InstallRejection{Code: yorvaruntime.ErrorRuntimeInstallBlockedUnsafe, Retryable: false}
+	}
+}
+
 func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idempotencyKey string) (InstallStartResult, error) {
+	if err := s.rejectInstallGate(); err != nil {
+		return InstallStartResult{}, err
+	}
 	if err := ValidateIdempotencyKey(idempotencyKey); err != nil {
 		return InstallStartResult{}, err
 	}
@@ -173,13 +342,20 @@ func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idem
 	}
 	if s.applier != nil {
 		created.SourcePin = s.applier.ExpectedPin()
-		nonce, nonceErr := newOwnershipNonce()
-		if nonceErr != nil {
-			return InstallStartResult{}, nonceErr
-		}
-		created.OwnershipNonce = nonce
+	}
+	txn, txnErr := s.persistCreatedTransaction(created)
+	if txnErr != nil {
+		return InstallStartResult{}, txnErr
+	}
+	if txn.ID != "" {
+		created.TransactionID = txn.ID
+	}
+	if s.failAfterTxnCreate {
+		s.markTransactionFailed(txn)
+		return InstallStartResult{}, errors.New("injected fail after CREATED")
 	}
 	if err := s.persistCreate(ctx, created); err != nil {
+		s.markTransactionFailed(txn)
 		return s.recoverCreate(ctx, created, err)
 	}
 	s.logInstall("created", created)
@@ -191,7 +367,11 @@ func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idem
 }
 
 func (s *RuntimeInstall) Get(ctx context.Context, id string) (operation.Operation, error) {
-	return s.store.GetOperation(ctx, id)
+	value, err := s.store.GetOperation(ctx, id)
+	if err != nil {
+		return operation.Operation{}, err
+	}
+	return s.projectOperation(ctx, value)
 }
 
 func (s *RuntimeInstall) List(ctx context.Context, targetType, targetID string, limit int) ([]operation.Operation, error) {
@@ -317,6 +497,7 @@ func (s *RuntimeInstall) recoverCreate(ctx context.Context, intended operation.O
 }
 
 func (s *RuntimeInstall) InterruptStale(ctx context.Context) ([]operation.Operation, error) {
+	s.projectOpenInstalls(ctx)
 	interrupted, err := s.store.InterruptActiveInstalls(ctx, s.now())
 	if err != nil {
 		return nil, err

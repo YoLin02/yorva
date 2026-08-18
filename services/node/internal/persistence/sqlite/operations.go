@@ -46,11 +46,12 @@ func (d *Database) CreateOperation(ctx context.Context, value operation.Operatio
         INSERT INTO operations(
             id, operation_type, target_type, target_id, status, stage, progress, message,
             error_code, error_message, retryable, idempotency_key, correlation_id, source_pin, ownership_nonce,
-            created_at, started_at, completed_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            transaction_id, created_at, started_at, completed_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, value.ID, string(value.Type), string(value.TargetType), value.TargetID, string(value.Status),
 		string(value.Stage), value.Message, string(value.ErrorCode), value.ErrorMessage,
 		boolToInt(value.Retryable), value.IdempotencyKey, value.CorrelationID, value.SourcePin, value.OwnershipNonce,
+		value.TransactionID,
 		formatTime(value.CreatedAt), formatOptionalTime(value.StartedAt),
 		formatOptionalTime(value.CompletedAt), formatTime(value.UpdatedAt))
 	if err != nil {
@@ -256,7 +257,7 @@ func (d *Database) InterruptActiveInstalls(ctx context.Context, now time.Time) (
 const operationSelect = `
     SELECT id, operation_type, target_type, target_id, status, stage, progress, message,
            error_code, error_message, retryable, idempotency_key, correlation_id, source_pin, ownership_nonce,
-           created_at, started_at, completed_at, updated_at
+           transaction_id, created_at, started_at, completed_at, updated_at
     FROM operations
 `
 
@@ -274,7 +275,7 @@ func scanOperation(row operationRow) (operation.Operation, error) {
 	if err := row.Scan(
 		&value.ID, &value.Type, &targetType, &value.TargetID, &value.Status, &stage, &progress,
 		&value.Message, &errorCode, &value.ErrorMessage, &retryable, &value.IdempotencyKey,
-		&value.CorrelationID, &value.SourcePin, &value.OwnershipNonce, &createdAt, &startedAt, &completedAt, &updatedAt,
+		&value.CorrelationID, &value.SourcePin, &value.OwnershipNonce, &value.TransactionID, &createdAt, &startedAt, &completedAt, &updatedAt,
 	); err != nil {
 		return operation.Operation{}, err
 	}

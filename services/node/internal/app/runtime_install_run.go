@@ -114,9 +114,8 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		fail(yorvaruntime.ErrorRuntimeInstallPlatformUnsupported, false)
 		return
 	}
-	previous, _, _ := s.store.PreviousRuntimeInstall(ctx, started.TargetID, started.ID)
 	s.applier.SetInstallIdentity(started)
-	if err := s.applier.ValidateTarget(RetryEligibleForPin(previous, s.applier.ExpectedPin()), previous); err != nil {
+	if err := s.applier.ValidateTarget(false, operation.Operation{}); err != nil {
 		fail(installErrorCodeOr(err, yorvaruntime.ErrorRuntimeInstallTargetOccupied), false)
 		return
 	}
@@ -163,6 +162,9 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 			return
 		}
 		fail(installErrorCodeOr(err, yorvaruntime.ErrorRuntimeInstallStageFailed), isRetryableInstall(err))
+		return
+	}
+	if s.failAfterCommittedOp {
 		return
 	}
 	report(operation.StagePostcheckDiscovery, "")

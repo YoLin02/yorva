@@ -2,7 +2,6 @@ package hermes
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,9 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -52,78 +49,18 @@ func TestResolveArchiveDoesNotFallBackOnIntegrityFailure(t *testing.T) {
 	}
 }
 
-func TestApplyMaterializesSourceWithoutOfficialRepositoryStage(t *testing.T) {
+func TestBuildStagingMaterializesSourceWithoutOfficialRepositoryStage(t *testing.T) {
 	if runtime.GOOS != "windows" {
-		t.Skip("installer Apply is Windows user-scope")
+		t.Skip("Hermes staging build is Windows user-scope")
 	}
-	script := []byte("official-script\n")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write(script)
-	}))
-	t.Cleanup(server.Close)
-
-	archive := writeTestArchive(t, map[string]string{
-		officialArchiveRoot + "/LICENSE":             "license",
-		officialArchiveRoot + "/pyproject.toml":      `version = "0.20.2"`,
-		officialArchiveRoot + "/scripts/install.ps1": "crlf-copy\r\n",
-		officialArchiveRoot + "/hermes_cli/main.py":  "pass\n",
-	})
-	home := t.TempDir()
-	installDir := filepath.Join(home, "hermes-agent")
-	var spawned []string
-	manifest, err := json.Marshal(reviewedManifest())
-	if err != nil {
+	env := newStagingBuildEnv(t)
+	if err := env.installer.BuildStaging(context.Background(), "op_embed", env.staging, env.home); err != nil {
 		t.Fatal(err)
 	}
-	installer := NewHostInstaller(t.TempDir())
-	installer.source = testSourceClient(server.URL, script)
-	installer.home = func() string { return home }
-	installer.installDir = func() string { return installDir }
-	installer.shell = func() (string, error) { return `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`, nil }
-	installer.archive.diskFree = func(string) (uint64, error) { return archiveDiskBudget + archiveDiskMargin, nil }
-	installer.acquireArchive = func(context.Context, string) (string, string, error) {
-		return archive, sourceOriginBundled, nil
-	}
-	installer.userPath = func(string) bool { return true }
-	installer.applyPathEnv = func(string, string) error { return nil }
-	installer.run = func(_ context.Context, invocation installInvocation, _ time.Duration) commandResult {
-		joined := strings.Join(invocation.Args, " ")
-		spawned = append(spawned, joined)
-		if strings.Contains(joined, "ProtocolVersion") {
-			return commandResult{stdout: "1\n"}
-		}
-		if strings.Contains(joined, "Manifest") {
-			return commandResult{stdout: string(manifest) + "\n"}
-		}
-		stage := stageFromArgs(invocation.Args)
-		if stage == "venv" {
-			stageDir := installDirFromArgs(invocation.Args)
-			if stageDir == "" {
-				stageDir = installDir
-			}
-			launcher := filepath.Join(stageDir, "venv", "Scripts", "hermes.exe")
-			if err := os.MkdirAll(filepath.Dir(launcher), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(launcher, []byte("mz"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-		}
-		return commandResult{stdout: `{"stage":"` + stage + `","ok":true,"skipped":false}` + "\n"}
-	}
-
-	var notes []string
-	if err := installer.Apply(context.Background(), "op_embed", func(_ operation.Stage, note string) {
-		if note != "" {
-			notes = append(notes, note)
-		}
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if !isRegularFile(filepath.Join(installDir, "pyproject.toml")) {
+	if !isRegularFile(filepath.Join(env.staging, "pyproject.toml")) {
 		t.Fatal("source was not materialized")
 	}
-	for _, args := range spawned {
+	for _, args := range env.spawned {
 		if strings.Contains(args, "-Stage") && strings.Contains(args, "repository") {
 			t.Fatalf("official repository stage spawned: %s", args)
 		}
@@ -132,9 +69,6 @@ func TestApplyMaterializesSourceWithoutOfficialRepositoryStage(t *testing.T) {
 				t.Fatalf("excluded stage spawned: %s", args)
 			}
 		}
-	}
-	if !containsString(notes, warningBundledUsed) || !containsString(notes, warningSourcePrepared) {
-		t.Fatalf("notes = %#v", notes)
 	}
 }
 

@@ -66,6 +66,7 @@ type Operation struct {
 	CorrelationID  string
 	SourcePin      string
 	OwnershipNonce string
+	TransactionID  string
 	CreatedAt      time.Time
 	StartedAt      *time.Time
 	CompletedAt    *time.Time

@@ -10,6 +10,7 @@
 > Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED FOR IMPLEMENTATION
+> Amendment: `docs/phases/amendments/AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED FOR IMPLEMENTATION (batch-gated; not PASS)
 > Phase 3 audit: `AUDIT-003` — FAIL; `AUDIT-003R1` — FAIL; `AUDIT-003R2` — FAIL; `AUDIT-003R3` — FAIL; `AUDIT-003R4` — FAIL; `AUDIT-003R5` — FAIL; `AUDIT-003R6` — FAIL; `AUDIT-003R7` — PENDING
 > Target platform: Windows user-scope installation
 > Target Hermes release: `v2026.8.16` / package `0.20.2`

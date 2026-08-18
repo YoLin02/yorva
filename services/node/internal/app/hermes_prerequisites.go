@@ -76,6 +76,9 @@ func latestHermesPrerequisite(store installOperationStore, ctx context.Context) 
 }
 
 func (s *RuntimeInstall) StartPrerequisites(ctx context.Context, idempotencyKey string) (InstallStartResult, error) {
+	if err := s.rejectInstallGate(); err != nil {
+		return InstallStartResult{}, err
+	}
 	if err := ValidateIdempotencyKey(idempotencyKey); err != nil {
 		return InstallStartResult{}, err
 	}

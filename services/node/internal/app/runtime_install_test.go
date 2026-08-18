@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	"github.com/YoLin02/yorva/services/node/internal/install"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
@@ -91,6 +92,29 @@ func TestRuntimeInstallAndPrerequisitesShareHostMutationLock(t *testing.T) {
 	_, err = service.Start(context.Background(), "hermes", "install-after-prereq")
 	if !errors.As(err, &rejected) || rejected.ActiveID != prereq.Operation.ID {
 		t.Fatalf("install during prerequisite = %v", err)
+	}
+}
+
+func TestRuntimeInstallRejectsWhenGateNotReady(t *testing.T) {
+	service := newTestRuntimeInstall(newMemoryOperationStore(), yorvaruntime.Discovery{State: yorvaruntime.DiscoveryNotInstalled})
+	blocked := install.NewGateHolder()
+	blocked.Set(install.GateBlockedUnsafe)
+	service.WithInstallGate(blocked)
+	_, err := service.Start(context.Background(), "hermes", "install-blocked")
+	var rejected InstallRejection
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallBlockedUnsafe || rejected.Retryable {
+		t.Fatalf("blocked Start() = %v", err)
+	}
+	_, err = service.StartPrerequisites(context.Background(), "prereq-blocked")
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallBlockedUnsafe {
+		t.Fatalf("blocked prerequisites = %v", err)
+	}
+
+	reconciling := install.NewGateHolder()
+	service.WithInstallGate(reconciling)
+	_, err = service.Start(context.Background(), "hermes", "install-reconciling")
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallNotReady || !rejected.Retryable {
+		t.Fatalf("reconciling Start() = %v", err)
 	}
 }
 
