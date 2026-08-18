@@ -1,0 +1,1 @@
+ALTER TABLE operations ADD COLUMN source_pin TEXT NOT NULL DEFAULT '';

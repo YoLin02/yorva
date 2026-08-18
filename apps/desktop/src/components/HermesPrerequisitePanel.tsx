@@ -9,6 +9,7 @@ export function HermesPrerequisitePanel({
   operation,
   liveLog,
   busy,
+  blocked,
   requestError,
   hermesNotInstalled,
   onInstall,
@@ -20,6 +21,7 @@ export function HermesPrerequisitePanel({
   operation: Operation | null;
   liveLog?: string;
   busy: boolean;
+  blocked?: boolean;
   requestError?: InstallRequestError | null;
   hermesNotInstalled?: boolean;
   onInstall: () => void;
@@ -31,7 +33,8 @@ export function HermesPrerequisitePanel({
   const failed = Boolean(
     requestError || (operation && (operation.status === "FAILED" || operation.status === "CANCELLED")),
   );
-  const starting = busy && !running && !failed;
+  const starting = busy && !blocked && !running && !failed;
+  const disabled = busy || Boolean(blocked);
   const nodeState = status?.node.state ?? "MISSING";
   const npmState = status?.npm.state ?? "MISSING";
   const depsState = status?.nodeDependencies.state ?? "NOT_INSTALLED";
@@ -68,7 +71,7 @@ export function HermesPrerequisitePanel({
         <>
           <p>{copy.hermes.install.stage}: {operation?.stage === "install.node" ? text.installingNode : text.installingDeps}</p>
           {liveLog && <pre className="install-log">{liveLog}</pre>}
-          <button type="button" onClick={onCancel} disabled={busy}>{text.cancel}</button>
+          <button type="button" onClick={onCancel} disabled={disabled}>{text.cancel}</button>
         </>
       )}
       {failed && !running && (
@@ -81,18 +84,18 @@ export function HermesPrerequisitePanel({
           {operation?.correlationId && <p>{copy.hermes.install.correlation}: {operation.correlationId}</p>}
           {requestError?.message && <p>{requestError.message}</p>}
           {liveLog && <pre className="install-log">{liveLog}</pre>}
-          <button type="button" className="primary-action" onClick={onRetryDeps} disabled={busy}>
+          <button type="button" className="primary-action" onClick={onRetryDeps} disabled={disabled}>
             {text.retry}
           </button>
         </div>
       )}
       {!running && !failed && !starting && showInstall && (
-        <button type="button" className="primary-action" onClick={onInstall} disabled={busy}>
+        <button type="button" className="primary-action" onClick={onInstall} disabled={disabled}>
           {text.installAction}
         </button>
       )}
       {!running && !failed && !starting && showRetryDeps && (
-        <button type="button" className="primary-action" onClick={onRetryDeps} disabled={busy}>
+        <button type="button" className="primary-action" onClick={onRetryDeps} disabled={disabled}>
           {text.retryDeps}
         </button>
       )}

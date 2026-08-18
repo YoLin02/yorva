@@ -33,8 +33,31 @@ function Test-OfficialArchive([string]$path) {
 New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
 New-Item -ItemType Directory -Force -Path $resourceDir | Out-Null
 
+function Publish-OfficialLicense([string]$archivePath, [string]$licensePath) {
+    try { Add-Type -AssemblyName System.IO.Compression.FileSystem } catch { }
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
+    try {
+        $entry = $zip.Entries | Where-Object { $_.FullName -eq "hermes-agent-$commit/LICENSE" } | Select-Object -First 1
+        if (-not $entry) {
+            throw "official archive is missing LICENSE"
+        }
+        if (Test-Path -LiteralPath $licensePath) {
+            Remove-Item -LiteralPath $licensePath -Force
+        }
+        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $licensePath, $true)
+    } finally {
+        $zip.Dispose()
+    }
+    $licenseHash = (Get-FileHash -Algorithm SHA256 -Path $licensePath).Hash
+    if ((Get-Item -LiteralPath $licensePath).Length -ne 1070 -or $licenseHash -ne "821556E6336796450AB852D375117B48A4887E71D255794FD6318D99982A5AB6") {
+        throw "extracted Hermes LICENSE failed size/SHA-256 verification"
+    }
+    Write-Host "verified LICENSE 1070 $licenseHash"
+}
+
 if (Test-OfficialArchive $resourceFile) {
     Write-Host "Hermes embedded source already verified at $resourceFile"
+    Publish-OfficialLicense $resourceFile (Join-Path $resourceDir "LICENSE")
     exit 0
 }
 
@@ -75,3 +98,4 @@ if (-not (Test-OfficialArchive $resourceFile)) {
 }
 
 Write-Host "Verified Hermes embedded source ready: $resourceFile"
+Publish-OfficialLicense $resourceFile (Join-Path $resourceDir "LICENSE")

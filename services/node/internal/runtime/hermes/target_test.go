@@ -1,42 +1,60 @@
 package hermes
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
-func TestValidateInstallTarget(t *testing.T) {
-	home := t.TempDir()
-	installDir := filepath.Join(home, "hermes-agent")
-	if err := validateInstallTarget(home, installDir, false); err != nil {
-		t.Fatalf("absent target: %v", err)
-	}
-	if err := os.MkdirAll(installDir, 0o700); err != nil {
+func TestCopyOwnedTreeStaysContained(t *testing.T) {
+	staging := t.TempDir()
+	dest := t.TempDir()
+	if err := os.WriteFile(filepath.Join(staging, "pyproject.toml"), []byte("owned"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(installDir, "foreign.txt"), []byte("no"), 0o600); err != nil {
+	if err := copyOwnedTree(context.Background(), staging, dest); err != nil {
 		t.Fatal(err)
 	}
-	if installErrorCode(validateInstallTarget(home, installDir, false)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
-		t.Fatal("foreign occupied target was accepted")
-	}
-	if installErrorCode(validateInstallTarget(home, installDir, true)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
-		t.Fatal("unrecognized retry target was accepted")
-	}
-	if err := writeYorvaPartialMarker(installDir, officialCommit); err != nil {
+	if _, err := os.Stat(filepath.Join(dest, "pyproject.toml")); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateInstallTarget(home, installDir, true); err != nil {
-		t.Fatalf("yorva partial retry: %v", err)
+}
+
+func TestCopyOwnedTreeRejectsReparseDestination(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("reparse check is Windows-specific")
 	}
-	outside := filepath.Join(t.TempDir(), "elsewhere")
-	if err := os.MkdirAll(outside, 0o700); err != nil {
+	staging := t.TempDir()
+	if err := os.WriteFile(filepath.Join(staging, "file.txt"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if installErrorCode(validateInstallTarget(home, outside, true)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
-		t.Fatal("path outside hermes home was accepted")
+	parent := t.TempDir()
+	realDest := filepath.Join(parent, "real")
+	if err := os.Mkdir(realDest, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(parent, "link")
+	if err := os.Symlink(realDest, link); err != nil {
+		t.Skip(err)
+	}
+	if installErrorCode(copyOwnedTree(context.Background(), staging, link)) != yorvaruntime.ErrorRuntimeInstallIntegrityFailed &&
+		installErrorCode(copyOwnedTree(context.Background(), staging, link)) != yorvaruntime.ErrorRuntimeInstallStageFailed {
+		err := copyOwnedTree(context.Background(), staging, link)
+		if err == nil {
+			t.Fatal("reparse destination accepted")
+		}
+	}
+}
+
+func TestValidateGenerationHomeRejectsEmpty(t *testing.T) {
+	if err := validateGenerationHome(""); err == nil {
+		t.Fatal("empty home accepted")
+	}
+	if err := validateGenerationHome(t.TempDir()); err != nil {
+		t.Fatal(err)
 	}
 }

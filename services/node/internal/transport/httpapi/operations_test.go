@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/app"
+	"github.com/YoLin02/yorva/services/node/internal/applog"
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
@@ -69,6 +70,27 @@ func TestInstallRequiresIdempotencyKeyAndRejectsCommandFields(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest || !bytes.Contains(response.Body.Bytes(), []byte("INVALID_REQUEST")) {
 		t.Fatalf("command field status = %d body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestOperationLogHTTPOmitsSentinelSecrets(t *testing.T) {
+	dataDir := t.TempDir()
+	logger, closer := applog.New(nil, dataDir)
+	defer closer()
+	logger.Info("runtime install", "event", "source.archive.integrity", "operationId", "op_test", "errorCode", "RUNTIME_INSTALL_INTEGRITY_FAILED", "integrityMismatch", true)
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, dataDir)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/operations/op_test/log", nil)
+	request.Header.Set("Authorization", "Bearer "+testToken)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", response.Code, response.Body.String())
+	}
+	if bytes.Contains(response.Body.Bytes(), []byte("https://")) || bytes.Contains(response.Body.Bytes(), []byte("token=")) {
+		t.Fatalf("HTTP log leaked a secret: %s", response.Body.String())
+	}
+	if !bytes.Contains(response.Body.Bytes(), []byte("source.archive.integrity")) {
+		t.Fatalf("HTTP log missing structured event: %s", response.Body.String())
 	}
 }
 

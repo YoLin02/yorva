@@ -7,11 +7,13 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	"github.com/YoLin02/yorva/services/node/internal/install"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
@@ -94,6 +96,64 @@ func TestRuntimeInstallAndPrerequisitesShareHostMutationLock(t *testing.T) {
 	}
 }
 
+func TestRuntimeInstallRejectsWhenGateNotReady(t *testing.T) {
+	service := newTestRuntimeInstall(newMemoryOperationStore(), yorvaruntime.Discovery{State: yorvaruntime.DiscoveryNotInstalled})
+	blocked := install.NewGateHolder()
+	blocked.Set(install.GateBlockedUnsafe)
+	service.WithInstallGate(blocked)
+	_, err := service.Start(context.Background(), "hermes", "install-blocked")
+	var rejected InstallRejection
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallBlockedUnsafe || rejected.Retryable {
+		t.Fatalf("blocked Start() = %v", err)
+	}
+	_, err = service.StartPrerequisites(context.Background(), "prereq-blocked")
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallBlockedUnsafe {
+		t.Fatalf("blocked prerequisites = %v", err)
+	}
+
+	reconciling := install.NewGateHolder()
+	service.WithInstallGate(reconciling)
+	_, err = service.Start(context.Background(), "hermes", "install-reconciling")
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallNotReady || !rejected.Retryable {
+		t.Fatalf("reconciling Start() = %v", err)
+	}
+}
+
+func TestRuntimeInstallRejectsInvalidActivePointer(t *testing.T) {
+	root := t.TempDir()
+	store, err := install.NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Layout().EnsureControl(); err != nil {
+		t.Fatal(err)
+	}
+	path := store.Layout().ActivePath()
+	original := []byte("{")
+	if err := os.WriteFile(path, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service := newTestRuntimeInstall(newMemoryOperationStore(), yorvaruntime.Discovery{State: yorvaruntime.DiscoveryNotInstalled}).WithManagedRoot(root)
+	service.WithInstallGate(install.NewGateHolder())
+	service.gate.Set(install.GateReady)
+	_, err = service.Start(context.Background(), "hermes", "install-invalid-pointer")
+	var rejected InstallRejection
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallBlockedUnsafe || rejected.Retryable {
+		t.Fatalf("invalid pointer Start() = %v", err)
+	}
+	_, err = service.StartPrerequisites(context.Background(), "prereq-invalid-pointer")
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallBlockedUnsafe {
+		t.Fatalf("invalid pointer prerequisites = %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(original) {
+		t.Fatalf("start rewrote invalid pointer: %q", got)
+	}
+}
+
 func TestRuntimeInstallRejectsUnsupportedDiscovery(t *testing.T) {
 	service := newTestRuntimeInstall(newMemoryOperationStore(), yorvaruntime.Discovery{State: yorvaruntime.DiscoverySupported})
 	_, err := service.Start(context.Background(), "hermes", "install-supported")
@@ -163,6 +223,40 @@ func TestRuntimeInstallLogsRejectedPreflight(t *testing.T) {
 	}
 }
 
+func TestRetryEligibleForPinRejectsStaleOperation(t *testing.T) {
+	latest := operation.Operation{
+		ID:        "op_stale",
+		Type:      operation.TypeRuntimeInstall,
+		Status:    operation.StatusFailed,
+		Retryable: true,
+		SourcePin: "cccccccccccccccccccccccccccccccccccccccc",
+	}
+	if !RetryEligible(latest) {
+		t.Fatal("retryable history should remain retryable without a pin check")
+	}
+	if RetryEligibleForPin(latest, "df4b65147d7ddd74dd449f9067aabbca5aef0ec7") {
+		t.Fatal("stale operation pin was treated as retry-eligible")
+	}
+	latest.SourcePin = "df4b65147d7ddd74dd449f9067aabbca5aef0ec7"
+	if RetryEligibleForPin(latest, "df4b65147d7ddd74dd449f9067aabbca5aef0ec7") {
+		t.Fatal("empty ownership nonce was treated as retry-eligible")
+	}
+	latest.OwnershipNonce = "own_test"
+	if !RetryEligibleForPin(latest, "df4b65147d7ddd74dd449f9067aabbca5aef0ec7") {
+		t.Fatal("matching operation pin was rejected")
+	}
+	latest.SourcePin = ""
+	if RetryEligibleForPin(latest, "df4b65147d7ddd74dd449f9067aabbca5aef0ec7") {
+		t.Fatal("empty durable source pin was treated as retry-eligible")
+	}
+}
+
+func TestOperationDeadlineIsSixtyMinutes(t *testing.T) {
+	if operationDeadline != 60*time.Minute {
+		t.Fatalf("operationDeadline = %s", operationDeadline)
+	}
+}
+
 func TestValidateIdempotencyKey(t *testing.T) {
 	if err := ValidateIdempotencyKey(""); err == nil {
 		t.Fatal("empty key unexpectedly valid")
@@ -195,9 +289,11 @@ func (s staticDiscoverer) Detect(context.Context) (yorvaruntime.Discovery, error
 }
 
 type memoryOperationStore struct {
-	mu    sync.Mutex
-	byID  map[string]operation.Operation
-	byKey map[string]string
+	mu           sync.Mutex
+	byID         map[string]operation.Operation
+	byKey        map[string]string
+	beforeCreate func()
+	afterLookup  func()
 }
 
 func newMemoryOperationStore() *memoryOperationStore {
@@ -207,11 +303,22 @@ func newMemoryOperationStore() *memoryOperationStore {
 	}
 }
 
+func (s *memoryOperationStore) setAfterLookup(hook func()) {
+	s.mu.Lock()
+	s.afterLookup = hook
+	s.mu.Unlock()
+}
+
 func (s *memoryOperationStore) CreateOperation(_ context.Context, value operation.Operation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.beforeCreate != nil {
+		s.mu.Unlock()
+		s.beforeCreate()
+		s.mu.Lock()
+	}
 	if _, exists := s.byKey[value.IdempotencyKey]; exists {
-		return errors.New("duplicate idempotency key")
+		return sqlite.ErrDuplicateIdempotency
 	}
 	for _, current := range s.byID {
 		if current.TargetID == value.TargetID && !operation.IsTerminal(current.Status) && hermesHostMutation(current.Type) && hermesHostMutation(value.Type) {
@@ -235,12 +342,20 @@ func (s *memoryOperationStore) GetOperation(_ context.Context, id string) (opera
 
 func (s *memoryOperationStore) GetOperationByIdempotencyKey(_ context.Context, key string) (operation.Operation, bool, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	id, ok := s.byKey[key]
+	var value operation.Operation
+	if ok {
+		value = s.byID[id]
+	}
+	hook := s.afterLookup
+	s.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
 	if !ok {
 		return operation.Operation{}, false, nil
 	}
-	return s.byID[id], true, nil
+	return value, true, nil
 }
 
 func (s *memoryOperationStore) ActiveRuntimeInstall(_ context.Context, runtimeKind string) (operation.Operation, bool, error) {
@@ -343,7 +458,7 @@ func (s *memoryOperationStore) UpdateOperation(_ context.Context, current, next 
 	if !ok || stored.Status != current.Status {
 		return errors.New("operation update conflict")
 	}
-	if stored.Status != next.Status && !operation.ValidTransition(stored.Status, next.Status) {
+	if stored.Status != next.Status && !operation.ValidStatusChange(stored.Status, next.Status) {
 		return errors.New("invalid transition")
 	}
 	s.byID[next.ID] = next

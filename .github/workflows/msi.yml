@@ -6,6 +6,11 @@ on:
     branches:
       - main
       - fix/phase3-managed-node-prerequisites
+      - fix/phase3-audit-r1-remediation
+      - fix/phase3-audit-r2-remediation
+      - fix/phase3-audit-r3-remediation
+      - fix/phase3-audit-r5-remediation
+      - fix/phase3-audit-r6-remediation
 
 permissions:
   contents: read
@@ -34,6 +39,7 @@ jobs:
           components: rustfmt, clippy
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:sidecar
+      - run: pwsh -NoProfile -File scripts/inspect-yorva-msi.tests.ps1
       - run: pwsh -NoProfile -File scripts/package-yorva-msi.ps1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

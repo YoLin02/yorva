@@ -486,7 +486,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description An SSE stream. Phase 1 may contain keepalive comments only. */
+            /** @description An SSE stream of redacted notifications, including operation.started, operation.progress, operation.completed, operation.failed and operation.cancelled. Resource GET remains the source of truth. */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	"github.com/YoLin02/yorva/services/node/internal/install"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -27,9 +28,11 @@ type HostInstaller struct {
 	shell              func() (string, error)
 	logger             *slog.Logger
 	operationID        string
+	currentOp          operation.Operation
 	acquireArchive     func(context.Context, string) (string, string, error)
 	verifyArchive      func(string) error
-	userPath           func(string) bool
+	afterStage         func(stage, dir string)
+	env                install.EnvironmentStore
 }
 
 func NewHostInstaller(stateRoot string) *HostInstaller {
@@ -78,116 +81,80 @@ func (h *HostInstaller) ContainsManagedPath(path string) bool {
 }
 
 func (h *HostInstaller) CanonicalPublicLauncher() string {
+	if launcher, ok := h.activeGenerationLauncher(); ok {
+		return launcher
+	}
 	return filepath.Join(h.installDir(), "bin", "hermes.exe")
 }
 
-func (h *HostInstaller) ValidateTarget(retry bool) error {
-	return validateInstallTarget(h.home(), h.installDir(), retry)
+func (h *HostInstaller) activeGenerationLauncher() (string, bool) {
+	store, err := install.NewStore(h.home())
+	if err != nil {
+		return "", false
+	}
+	rec, err := store.LoadActive()
+	if err != nil {
+		return "", false
+	}
+	genAbs, err := store.Layout().GenerationPath(rec.GenerationID)
+	if err != nil {
+		return "", false
+	}
+	if err := install.VerifyPublishedGeneration(genAbs, rec.GenerationID, rec.ManifestSHA256, rec.SealSHA256); err != nil {
+		return "", false
+	}
+	launcher := filepath.Join(genAbs, "bin", "hermes.exe")
+	if !isRegularFile(launcher) {
+		return "", false
+	}
+	if canonical, ok := canonicalRegularWithin(genAbs, launcher); ok {
+		return canonical, true
+	}
+	absolute, err := filepath.Abs(launcher)
+	if err != nil {
+		return filepath.Clean(launcher), true
+	}
+	return filepath.Clean(absolute), true
+}
+
+func validateGenerationHome(home string) error {
+	if home == "" {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errPlatform)
+	}
+	if err := rejectReparsePoint(home); err != nil && !os.IsNotExist(err) {
+		if _, statErr := os.Lstat(home); statErr == nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func (h *HostInstaller) ExpectedPin() string {
+	return officialCommit
+}
+
+func (h *HostInstaller) SetInstallIdentity(op operation.Operation) {
+	h.currentOp = op
+	h.operationID = op.ID
+}
+
+func (h *HostInstaller) ValidateTarget(retry bool, previous operation.Operation) error {
+	_ = retry
+	_ = previous
+	return validateGenerationHome(h.home())
 }
 
 func (h *HostInstaller) Apply(ctx context.Context, operationID string, report func(operation.Stage, string)) error {
-	h.operationID = operationID
-	if !h.PlatformSupported() {
-		return installError(yorvaruntime.ErrorRuntimeInstallPlatformUnsupported, errPlatform)
-	}
-	if report != nil {
-		report(operation.StageSourceDownload, "")
-	}
-	workDir, err := operationPrivateDir(h.stateRoot, operationID)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = os.RemoveAll(workDir) }()
-	archivePath, origin, err := h.resolveArchive(ctx, workDir)
-	if err != nil {
-		return err
-	}
-	if report != nil {
-		report(operation.StageSourceVerify, "")
-	}
-	if h.acquireArchive == nil {
-		if err := h.checkArchive(archivePath); err != nil {
-			return err
-		}
-	}
-	script, err := h.obtainScript(ctx, archivePath, workDir)
-	if err != nil {
-		return err
-	}
-	if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
-		return err
-	}
-	powershell, err := h.shell()
-	if err != nil {
-		return err
-	}
-	home := h.home()
-	installDir := h.installDir()
-	if err := writeYorvaPartialMarker(installDir, officialCommit); err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	if report != nil {
-		report(operation.StageProtocolVerify, "")
-	}
-	if err := h.probe(ctx, powershell, script.Path, "ProtocolVersion", home, installDir, 30*time.Second, parseProtocolOutput); err != nil {
-		return err
-	}
-	if err := h.probe(ctx, powershell, script.Path, "Manifest", home, installDir, 30*time.Second, parseAndValidateManifest); err != nil {
-		return err
-	}
-	if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
-		return err
-	}
-	for _, stage := range approvedInstallStages() {
-		if report != nil {
-			note := ""
-			if stage == "repository" && origin == sourceOriginBundled {
-				note = warningBundledUsed
-			}
-			report(installStageName(stage), note)
-		}
-		if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
-			return err
-		}
-		if stage == "node" || stage == "node-deps" {
-			h.debug("installer.stage.skipped", "stage", stage, "reason", "yorva-managed-prerequisite")
-			continue
-		}
-		if stage == "repository" {
-			if err := h.materializeRepository(ctx, archivePath, origin, workDir, installDir); err != nil {
-				return err
-			}
-			if report != nil && origin == sourceOriginBundled {
-				report(operation.StageInstallRepository, warningSourcePrepared)
-			}
-			continue
-		}
-		if err := h.runStage(ctx, powershell, script.Path, stage, home, installDir); err != nil {
-			return err
-		}
-	}
-	if err := h.verifyPublicLauncher(ctx); err != nil {
-		return err
-	}
-	if report != nil {
-		report(operation.StageCleanup, "")
-	}
-	return nil
-}
-
-func (h *HostInstaller) verifyPublicLauncher(ctx context.Context) error {
-	launcher := h.CanonicalPublicLauncher()
-	if !isRegularFile(launcher) || !pathWithin(h.installDir(), launcher) {
-		return installError(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, errors.New("canonical public launcher is missing"))
-	}
-	if h.userPath != nil && !h.userPath(filepath.Join(h.installDir(), "bin")) {
-		return installError(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, errors.New("user PATH does not contain the Hermes launcher directory"))
-	}
-	if h.userPath == nil && !userPathContainsDir(filepath.Join(h.installDir(), "bin")) {
-		return installError(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, errors.New("user PATH does not contain the Hermes launcher directory"))
-	}
-	_ = ctx
-	return nil
+	return h.applyGeneration(ctx, operationID, report)
 }
 
 func (h *HostInstaller) resolveArchive(ctx context.Context, workDir string) (string, string, error) {
@@ -201,10 +168,10 @@ func (h *HostInstaller) resolveArchive(ctx context.Context, workDir string) (str
 		return downloaded, sourceOriginOfficial, nil
 	}
 	if !isTransportArchiveError(err) {
-		h.debug("source.archive.integrity", "error", err.Error())
+		h.debug("source.archive.integrity", archiveLogFields(err, sourceOriginOfficial)...)
 		return "", "", err
 	}
-	h.debug("source.archive.official_unavailable", "error", err.Error())
+	h.debug("source.archive.official_unavailable", archiveLogFields(err, sourceOriginOfficial)...)
 	if h.embeddedSourcePath == "" {
 		return "", "", err
 	}
@@ -231,39 +198,6 @@ func (h *HostInstaller) obtainScript(ctx context.Context, archivePath, workDir s
 	}
 	_ = cleanupFetchedScript(fetched)
 	return fetchedScript{Directory: workDir, Path: scriptPath, SHA256: fetched.SHA256, Size: fetched.Size}, nil
-}
-
-func (h *HostInstaller) materializeRepository(ctx context.Context, archivePath, origin, workDir, installDir string) error {
-	if origin == sourceOriginBundled {
-		h.debug("source.materialize", "warning", warningBundledUsed)
-	}
-	if err := requireExtractBudget(workDir, h.archive.diskFree); err != nil {
-		return err
-	}
-	if err := requireExtractBudget(installDir, h.archive.diskFree); err != nil {
-		return err
-	}
-	staging := filepath.Join(workDir, "staging")
-	if err := extractOfficialArchive(ctx, archivePath, staging); err != nil {
-		_ = os.RemoveAll(staging)
-		return err
-	}
-	if h.acquireArchive == nil {
-		if err := verifyOfficialExtractedIdentity(staging); err != nil {
-			_ = os.RemoveAll(staging)
-			return err
-		}
-	} else if err := verifyExtractedLayout(staging); err != nil {
-		_ = os.RemoveAll(staging)
-		return err
-	}
-	if err := placeMaterializedTree(staging, installDir); err != nil {
-		_ = os.RemoveAll(staging)
-		return err
-	}
-	_ = os.RemoveAll(staging)
-	h.debug("source.materialize", "warning", warningSourcePrepared, "origin", origin)
-	return nil
 }
 
 func (h *HostInstaller) checkArchive(path string) error {
@@ -385,6 +319,32 @@ func installStageName(stage string) operation.Stage {
 		return operation.StageInstallBootstrapMarker
 	default:
 		return operation.Stage(stage)
+	}
+}
+
+func archiveLogFields(err error, sourceKind string) []any {
+	code := installErrorCode(err)
+	return []any{
+		"errorCode", string(code),
+		"category", archiveErrorCategory(code),
+		"retryable", isTransportArchiveError(err),
+		"timeout", code == yorvaruntime.ErrorRuntimeInstallTimeout,
+		"cancelled", errors.Is(err, context.Canceled),
+		"integrityMismatch", code == yorvaruntime.ErrorRuntimeInstallIntegrityFailed,
+		"sourceKind", sourceKind,
+	}
+}
+
+func archiveErrorCategory(code yorvaruntime.ErrorCode) string {
+	switch code {
+	case yorvaruntime.ErrorRuntimeInstallIntegrityFailed:
+		return "integrity"
+	case yorvaruntime.ErrorRuntimeInstallTimeout:
+		return "timeout"
+	case yorvaruntime.ErrorRuntimeInstallSourceUnavailable:
+		return "transport"
+	default:
+		return "source"
 	}
 }
 

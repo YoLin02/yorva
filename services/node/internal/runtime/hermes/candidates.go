@@ -41,35 +41,43 @@ type candidateSet struct {
 }
 
 type candidateFinder struct {
-	pathValue         string
-	executableName    string
-	officialPaths     []string
-	installationRoots []string
-	caseInsensitive   bool
-	requireExecBit    bool
-	limit             int
+	pathValue          string
+	executableName     string
+	officialPaths      []string
+	installationRoots  []string
+	ignorePathPrefixes []string
+	caseInsensitive    bool
+	requireExecBit     bool
+	limit              int
 }
 
 func newCandidateFinder() candidateFinder {
 	executableName := "hermes"
 	officialPaths := make([]string, 0, 2)
 	installationRoots := make([]string, 0, 1)
+	ignorePathPrefixes := make([]string, 0, 1)
 	if runtime.GOOS == "windows" {
 		executableName = "hermes.exe"
 		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
-			installRoot := filepath.Join(localAppData, "hermes", "hermes-agent")
-			installationRoots = append(installationRoots, installRoot)
-			officialPaths = append(officialPaths, filepath.Join(
-				installRoot,
-				"bin",
-				"hermes.exe",
-			))
-			officialPaths = append(officialPaths, filepath.Join(
-				installRoot,
-				"venv",
-				"Scripts",
-				"hermes.exe",
-			))
+			if gen, ok := resolveActiveGeneration(localAppData); ok {
+				officialPaths = append(officialPaths, gen.officialPaths...)
+				installationRoots = append(installationRoots, gen.installationRoots...)
+				ignorePathPrefixes = append(ignorePathPrefixes, gen.ignorePathPrefixes...)
+			} else {
+				installRoot := filepath.Join(localAppData, "hermes", "hermes-agent")
+				installationRoots = append(installationRoots, installRoot)
+				officialPaths = append(officialPaths, filepath.Join(
+					installRoot,
+					"bin",
+					"hermes.exe",
+				))
+				officialPaths = append(officialPaths, filepath.Join(
+					installRoot,
+					"venv",
+					"Scripts",
+					"hermes.exe",
+				))
+			}
 		}
 	} else {
 		if home, err := os.UserHomeDir(); err == nil && home != "" {
@@ -78,20 +86,21 @@ func newCandidateFinder() candidateFinder {
 		officialPaths = append(officialPaths, "/usr/local/bin/hermes")
 	}
 	return candidateFinder{
-		pathValue:         os.Getenv("PATH"),
-		executableName:    executableName,
-		officialPaths:     officialPaths,
-		installationRoots: installationRoots,
-		caseInsensitive:   runtime.GOOS == "windows",
-		requireExecBit:    runtime.GOOS != "windows",
-		limit:             maxCandidates,
+		pathValue:          os.Getenv("PATH"),
+		executableName:     executableName,
+		officialPaths:      officialPaths,
+		installationRoots:  installationRoots,
+		ignorePathPrefixes: ignorePathPrefixes,
+		caseInsensitive:    runtime.GOOS == "windows",
+		requireExecBit:     runtime.GOOS != "windows",
+		limit:              maxCandidates,
 	}
 }
 
 func (f candidateFinder) find() candidateSet {
 	ordered := make([]commandInvocation, 0, f.limit)
 	for _, directory := range filepath.SplitList(f.pathValue) {
-		if directory == "" {
+		if directory == "" || f.pathPrefixIgnored(directory) {
 			continue
 		}
 		ordered = append(ordered, directInvocation(filepath.Join(directory, f.executableName)))
@@ -277,10 +286,39 @@ func canonicalRegularWithin(root, path string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	if !pathWithin(root, canonical) || !isRegularFile(canonical) {
+	rootCanon, ok := canonicalDirectory(root)
+	if !ok {
+		rootAbs, absErr := filepath.Abs(root)
+		if absErr != nil {
+			return "", false
+		}
+		rootCanon = filepath.Clean(rootAbs)
+	}
+	if !pathWithin(rootCanon, canonical) || !isRegularFile(canonical) {
 		return "", false
 	}
 	return filepath.Clean(canonical), true
+}
+
+func (f candidateFinder) pathPrefixIgnored(directory string) bool {
+	if len(f.ignorePathPrefixes) == 0 {
+		return false
+	}
+	absolute, err := filepath.Abs(directory)
+	if err != nil {
+		return false
+	}
+	clean := filepath.Clean(absolute)
+	for _, prefix := range f.ignorePathPrefixes {
+		prefixAbs, err := filepath.Abs(prefix)
+		if err != nil {
+			continue
+		}
+		if pathWithin(filepath.Clean(prefixAbs), clean) {
+			return true
+		}
+	}
+	return false
 }
 
 func pathWithin(root, target string) bool {

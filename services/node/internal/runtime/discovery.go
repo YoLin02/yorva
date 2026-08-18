@@ -45,17 +45,20 @@ const (
 	ErrorRuntimeInstallOutputLimit         ErrorCode = "RUNTIME_INSTALL_OUTPUT_LIMIT"
 	ErrorRuntimeInstallPostcheckFailed     ErrorCode = "RUNTIME_INSTALL_POSTCHECK_FAILED"
 	ErrorRuntimeInstallCancelled           ErrorCode = "RUNTIME_INSTALL_CANCELLED"
+	ErrorRuntimeInstallNotReady            ErrorCode = "INSTALL_NOT_READY"
+	ErrorRuntimeInstallBlockedUnsafe       ErrorCode = "INSTALL_BLOCKED_UNSAFE"
 	ErrorOperationInterrupted              ErrorCode = "OPERATION_INTERRUPTED"
 	ErrorOperationNotCancellable           ErrorCode = "OPERATION_NOT_CANCELLABLE"
+	ErrorIdempotencyKeyConflict            ErrorCode = "IDEMPOTENCY_KEY_CONFLICT"
 
-	ErrorHermesNodeMissing                 ErrorCode = "RUNTIME_HERMES_NODE_MISSING"
-	ErrorHermesNodeUnsupported             ErrorCode = "RUNTIME_HERMES_NODE_UNSUPPORTED"
-	ErrorHermesNPMMissing                  ErrorCode = "RUNTIME_HERMES_NPM_MISSING"
-	ErrorHermesNPMUnsupported              ErrorCode = "RUNTIME_HERMES_NPM_UNSUPPORTED"
-	ErrorHermesNodeArchiveIntegrityFailed  ErrorCode = "RUNTIME_HERMES_NODE_ARCHIVE_INTEGRITY_FAILED"
-	ErrorHermesNPMArchiveIntegrityFailed   ErrorCode = "RUNTIME_HERMES_NPM_ARCHIVE_INTEGRITY_FAILED"
-	ErrorHermesNodeDepsFailed              ErrorCode = "RUNTIME_HERMES_NODE_DEPS_FAILED"
-	ErrorHermesNodeDepsTimeout             ErrorCode = "RUNTIME_HERMES_NODE_DEPS_TIMEOUT"
+	ErrorHermesNodeMissing                ErrorCode = "RUNTIME_HERMES_NODE_MISSING"
+	ErrorHermesNodeUnsupported            ErrorCode = "RUNTIME_HERMES_NODE_UNSUPPORTED"
+	ErrorHermesNPMMissing                 ErrorCode = "RUNTIME_HERMES_NPM_MISSING"
+	ErrorHermesNPMUnsupported             ErrorCode = "RUNTIME_HERMES_NPM_UNSUPPORTED"
+	ErrorHermesNodeArchiveIntegrityFailed ErrorCode = "RUNTIME_HERMES_NODE_ARCHIVE_INTEGRITY_FAILED"
+	ErrorHermesNPMArchiveIntegrityFailed  ErrorCode = "RUNTIME_HERMES_NPM_ARCHIVE_INTEGRITY_FAILED"
+	ErrorHermesNodeDepsFailed             ErrorCode = "RUNTIME_HERMES_NODE_DEPS_FAILED"
+	ErrorHermesNodeDepsTimeout            ErrorCode = "RUNTIME_HERMES_NODE_DEPS_TIMEOUT"
 )
 
 type Candidate struct {

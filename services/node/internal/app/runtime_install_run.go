@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -24,7 +25,9 @@ type installWorker struct {
 
 type HostApplier interface {
 	PlatformSupported() bool
-	ValidateTarget(retry bool) error
+	SetInstallIdentity(operation.Operation)
+	ValidateTarget(retry bool, previous operation.Operation) error
+	ExpectedPin() string
 	Apply(ctx context.Context, operationID string, report func(operation.Stage, string)) error
 	ManagedInstallDir() string
 	ExpectedVersion() string
@@ -45,7 +48,11 @@ func (s *RuntimeInstall) WithHost(applier HostApplier, completer InstallComplete
 }
 
 func (s *RuntimeInstall) bindWorker(parent context.Context, id string) context.Context {
-	ctx, cancel := context.WithTimeout(parent, operationDeadline)
+	timeout := operationDeadline
+	if s.deadline > 0 {
+		timeout = s.deadline
+	}
+	ctx, cancel := context.WithTimeout(parent, timeout)
 	done := make(chan struct{})
 	s.mu.Lock()
 	if s.workers == nil {
@@ -88,7 +95,14 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 	current := started
 	fail := func(code yorvaruntime.ErrorCode, retryable bool) {
 		latest, err := s.store.GetOperation(context.Background(), started.ID)
-		if err != nil || operation.IsTerminal(latest.Status) {
+		if err != nil {
+			return
+		}
+		if s.filesystemOwnsOperation(latest) {
+			_, _ = s.projectOperation(context.Background(), latest)
+			return
+		}
+		if operation.IsTerminal(latest.Status) {
 			return
 		}
 		now := s.now()
@@ -98,7 +112,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		next.Retryable = retryable
 		next.CompletedAt = &now
 		next.UpdatedAt = now
-		_ = s.store.UpdateOperation(context.Background(), latest, next)
+		_ = s.persistUpdate(context.Background(), latest, next)
 		s.logInstall("failed", next)
 	}
 	if s.applier == nil {
@@ -108,8 +122,8 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		fail(yorvaruntime.ErrorRuntimeInstallPlatformUnsupported, false)
 		return
 	}
-	previous, _, _ := s.store.PreviousRuntimeInstall(ctx, started.TargetID, started.ID)
-	if err := s.applier.ValidateTarget(RetryEligible(previous)); err != nil {
+	s.applier.SetInstallIdentity(started)
+	if err := s.applier.ValidateTarget(false, operation.Operation{}); err != nil {
 		fail(installErrorCodeOr(err, yorvaruntime.ErrorRuntimeInstallTargetOccupied), false)
 		return
 	}
@@ -118,7 +132,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 	running.Status = operation.StatusRunning
 	running.StartedAt = &now
 	running.UpdatedAt = now
-	if err := s.store.UpdateOperation(ctx, current, running); err != nil {
+	if err := s.persistUpdate(ctx, current, running); err != nil {
 		return
 	}
 	current = running
@@ -129,18 +143,22 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 			updated.Message = warning
 		}
 		updated.UpdatedAt = s.now()
-		if err := s.store.UpdateOperation(context.Background(), current, updated); err == nil {
+		if err := s.persistUpdate(context.Background(), current, updated); err == nil {
 			current = updated
 			s.logInstall("stage", current)
 		}
 	}
 	if err := s.applier.Apply(ctx, started.ID, report); err != nil {
+		latest, getErr := s.store.GetOperation(context.Background(), started.ID)
+		if getErr == nil && s.filesystemOwnsOperation(latest) {
+			_, _ = s.projectOperation(context.Background(), latest)
+			return
+		}
 		if errors.Is(err, context.DeadlineExceeded) {
 			fail(yorvaruntime.ErrorRuntimeInstallTimeout, true)
 			return
 		}
 		if errors.Is(err, context.Canceled) {
-			latest, getErr := s.store.GetOperation(context.Background(), started.ID)
 			if getErr != nil || operation.IsTerminal(latest.Status) {
 				return
 			}
@@ -151,16 +169,24 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 			next.Retryable = true
 			next.CompletedAt = &now
 			next.UpdatedAt = now
-			_ = s.store.UpdateOperation(context.Background(), latest, next)
+			_ = s.persistUpdate(context.Background(), latest, next)
 			s.logInstall("cancelled", next)
 			return
 		}
 		fail(installErrorCodeOr(err, yorvaruntime.ErrorRuntimeInstallStageFailed), isRetryableInstall(err))
 		return
 	}
+	if s.failAfterCommittedOp {
+		return
+	}
 	report(operation.StagePostcheckDiscovery, "")
 	discovery, err := s.discovery.Detect(ctx, yorvaruntime.Kind(started.TargetID))
 	if err != nil || !postcheckAccepted(discovery, s.applier) {
+		latest, getErr := s.store.GetOperation(context.Background(), started.ID)
+		if getErr == nil && s.filesystemOwnsOperation(latest) {
+			_, _ = s.projectOperation(context.Background(), latest)
+			return
+		}
 		fail(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, true)
 		return
 	}
@@ -171,7 +197,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 	succeeded.CompletedAt = &now
 	succeeded.UpdatedAt = now
 	if s.completer == nil {
-		_ = s.store.UpdateOperation(context.Background(), current, succeeded)
+		_ = s.persistUpdate(context.Background(), current, succeeded)
 		s.logInstall("succeeded", succeeded)
 		return
 	}
@@ -195,6 +221,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		fail(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, true)
 		return
 	}
+	s.emitOperation(current, succeeded, false)
 	s.logInstall("succeeded", succeeded)
 }
 
@@ -206,10 +233,25 @@ func postcheckAccepted(discovery yorvaruntime.Discovery, applier HostApplier) bo
 		return false
 	}
 	launcher := applier.CanonicalPublicLauncher()
-	if launcher == "" || discovery.Selected.Path != launcher {
+	if launcher == "" || !sameInstallPath(discovery.Selected.Path, launcher) {
 		return false
 	}
 	return applier.ContainsManagedPath(discovery.Selected.Path)
+}
+
+func sameInstallPath(left, right string) bool {
+	if filepath.Clean(left) == filepath.Clean(right) {
+		return true
+	}
+	absLeft, errLeft := filepath.Abs(left)
+	absRight, errRight := filepath.Abs(right)
+	if errLeft != nil || errRight != nil {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(filepath.Clean(absLeft), filepath.Clean(absRight))
+	}
+	return filepath.Clean(absLeft) == filepath.Clean(absRight)
 }
 
 func installErrorCodeOr(err error, fallback yorvaruntime.ErrorCode) yorvaruntime.ErrorCode {

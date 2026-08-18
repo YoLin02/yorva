@@ -79,6 +79,30 @@ func TestRuntimeInstallWorkerRejectsPythonFallbackPostcheck(t *testing.T) {
 	}
 }
 
+func TestRuntimeInstallDeadlineCancelsWorker(t *testing.T) {
+	store := newMemoryOperationStore()
+	startedApply := make(chan struct{})
+	applier := &fakeApplier{
+		dir: `C:\Users\a\AppData\Local\hermes\hermes-agent\bin\hermes.exe`, version: "0.20.2",
+		block: startedApply,
+	}
+	service := newOrchestratedInstall(store, []yorvaruntime.Discovery{
+		{State: yorvaruntime.DiscoveryNotInstalled},
+	}, applier, &fakeCompleter{}).WithDeadline(80 * time.Millisecond)
+	started, err := service.Start(context.Background(), "hermes", "install-deadline")
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-startedApply
+	got := waitForStatus(t, service, started.Operation.ID, operation.StatusFailed)
+	if got.ErrorCode != yorvaruntime.ErrorRuntimeInstallTimeout {
+		t.Fatalf("deadline operation = %#v", got)
+	}
+	if service.requestCancel(started.Operation.ID) != nil {
+		t.Fatal("worker still registered after deadline")
+	}
+}
+
 func TestRuntimeInstallCancelWaitsForWorkerCleanup(t *testing.T) {
 	store := newMemoryOperationStore()
 	startedApply := make(chan struct{})
@@ -129,7 +153,7 @@ func TestRuntimeInstallWorkerCancelBeforeSuccess(t *testing.T) {
 	}
 }
 
-func newOrchestratedInstall(store *memoryOperationStore, discoveries []yorvaruntime.Discovery, applier *fakeApplier, completer *fakeCompleter) *RuntimeInstall {
+func newOrchestratedInstall(store *memoryOperationStore, discoveries []yorvaruntime.Discovery, applier HostApplier, completer InstallCompleter) *RuntimeInstall {
 	registry := yorvaruntime.NewRegistry()
 	_ = registry.Register("hermes", yorvaruntime.Bundle{
 		Descriptor: yorvaruntime.Descriptor{Kind: "hermes", Name: "Hermes Agent"},
@@ -181,11 +205,18 @@ type fakeApplier struct {
 	version  string
 	selected string
 	block    chan struct{}
+	release  chan struct{}
 	cleanup  time.Duration
+	applyErr error
 }
 
-func (f *fakeApplier) PlatformSupported() bool   { return true }
-func (f *fakeApplier) ValidateTarget(bool) error { return nil }
+func (f *fakeApplier) PlatformSupported() bool { return true }
+func (f *fakeApplier) SetInstallIdentity(operation.Operation) {
+}
+func (f *fakeApplier) ValidateTarget(bool, operation.Operation) error { return nil }
+func (f *fakeApplier) ExpectedPin() string {
+	return "df4b65147d7ddd74dd449f9067aabbca5aef0ec7"
+}
 func (f *fakeApplier) ManagedInstallDir() string { return f.dir }
 func (f *fakeApplier) ExpectedVersion() string   { return f.version }
 func (f *fakeApplier) ContainsManagedPath(path string) bool {
@@ -198,13 +229,17 @@ func (f *fakeApplier) Apply(ctx context.Context, _ string, report func(operation
 	}
 	if f.block != nil {
 		close(f.block)
+		if f.release != nil {
+			<-f.release
+			return f.applyErr
+		}
 		<-ctx.Done()
 		if f.cleanup > 0 {
 			time.Sleep(f.cleanup)
 		}
 		return ctx.Err()
 	}
-	return nil
+	return f.applyErr
 }
 
 type fakeCompleter struct {

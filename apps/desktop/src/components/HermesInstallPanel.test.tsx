@@ -6,6 +6,25 @@ import { HermesInstallPanel } from "./HermesInstallPanel";
 const noop = () => undefined;
 
 describe("HermesInstallPanel", () => {
+  it("hides the start control when a new install cannot begin", () => {
+    render(
+      <HermesInstallPanel
+        copy={messages["en-US"]}
+        windowsHost
+        canStart={false}
+        confirmOpen={false}
+        busy={false}
+        operation={null}
+        onOpenConfirm={noop}
+        onCloseConfirm={noop}
+        onConfirm={noop}
+        onCancel={noop}
+        onRetry={noop}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Install Hermes" })).not.toBeInTheDocument();
+  });
+
   it("requires explicit confirmation before starting install", () => {
     const onConfirm = vi.fn();
     const onOpen = vi.fn();

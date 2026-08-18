@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,7 +25,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := emptyDB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, emptyDir, 3)
+	assertMigrationCount(t, emptyDir, 6)
 
 	phase2Dir := t.TempDir()
 	applyNamedMigration(t, ctx, phase2Dir, "001_initial.sql")
@@ -35,7 +37,51 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := phase2DB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, phase2Dir, 3)
+	assertMigrationCount(t, phase2Dir, 6)
+}
+
+func TestSimultaneousSameKeyCreateReturnsDuplicateIdempotency(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDatabase(t)
+	defer db.Close()
+	now := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
+
+	const workers = 8
+	errs := make([]error, workers)
+	var started sync.WaitGroup
+	started.Add(workers)
+	begin := make(chan struct{})
+	for i := 0; i < workers; i++ {
+		go func(i int) {
+			defer started.Done()
+			<-begin
+			op := newTestOperation("op_race_"+strconv.Itoa(i), "same-persistent-key", operation.StatusPending, now)
+			errs[i] = db.CreateOperation(ctx, op)
+		}(i)
+	}
+	close(begin)
+	started.Wait()
+
+	success := 0
+	duplicates := 0
+	for _, err := range errs {
+		if err == nil {
+			success++
+			continue
+		}
+		if errors.Is(err, ErrDuplicateIdempotency) || errors.Is(err, ErrActiveInstallExists) {
+			duplicates++
+			continue
+		}
+		t.Fatalf("unexpected create error = %v", err)
+	}
+	if success != 1 || duplicates != workers-1 {
+		t.Fatalf("success=%d duplicates=%d, want 1/%d", success, duplicates, workers-1)
+	}
+	got, ok, err := db.GetOperationByIdempotencyKey(ctx, "same-persistent-key")
+	if err != nil || !ok || got.IdempotencyKey != "same-persistent-key" {
+		t.Fatalf("GetOperationByIdempotencyKey() = %#v ok=%v err=%v", got, ok, err)
+	}
 }
 
 func TestOperationIdempotencyAndOneActiveInstall(t *testing.T) {
@@ -44,8 +90,13 @@ func TestOperationIdempotencyAndOneActiveInstall(t *testing.T) {
 	defer db.Close()
 	now := time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
 	first := newTestOperation("op_1", "key-1", operation.StatusPending, now)
+	first.SourcePin = "df4b65147d7ddd74dd449f9067aabbca5aef0ec7"
 	if err := db.CreateOperation(ctx, first); err != nil {
 		t.Fatal(err)
+	}
+	loaded, err := db.GetOperation(ctx, first.ID)
+	if err != nil || loaded.SourcePin != first.SourcePin {
+		t.Fatalf("source pin = %#v, %v", loaded, err)
 	}
 	if err := db.CreateOperation(ctx, newTestOperation("op_3", "key-2", operation.StatusPending, now)); !errors.Is(err, ErrActiveInstallExists) {
 		t.Fatalf("second active install error = %v", err)

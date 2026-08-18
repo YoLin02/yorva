@@ -114,6 +114,9 @@ error_message      TEXT
 retryable          INTEGER
 idempotency_key    TEXT
 correlation_id     TEXT
+source_pin         TEXT  # Hermes install pin recorded at create; empty or mismatched pin never authorizes retry
+ownership_nonce    TEXT  # unused by generation install retry; never returned by HTTP
+transaction_id     TEXT  # one-way projection of InstallTransaction id; not an activation source
 created_at         ... NOT NULL
 started_at         ...
 completed_at       ...
@@ -134,6 +137,10 @@ If idempotency is used locally:
 ```text
 UNIQUE(idempotency_key) WHERE idempotency_key IS NOT NULL
 ```
+
+`transaction_id` is a one-way projection of the filesystem InstallTransaction. Recovery and retry authority is the transaction record and `active.json`, not this column. `ownership_nonce` is not generated for generation installs and must not authorize retry. HTTP Operation responses still omit nonce and secret material.
+
+Generation install state lives in `control/transactions/txn_*.json` and `control/active.json`. Automatic GC follows D4 retention and never deletes unknown directories, legacy `hermes-agent`, or official Hermes user data.
 
 Progress must be null when percentage has no meaningful interpretation. Do not invent fake percentages.
 

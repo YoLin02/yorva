@@ -6,8 +6,8 @@
 > Owner: Repository owner
 > Phase: 3 — Hermes Installation
 > Related: `AMENDMENT-003A1-embedded-hermes-source.md`, `AMENDMENT-003A2-china-dependency-distribution.md`
-> Implementation: IN_PROGRESS
-> Audit: covered by `AUDIT-003`; this status is not an audit PASS
+> Implementation: R6 REMEDIATION; AUDIT-003R7 PENDING
+> Audit: historical `AUDIT-003` through `AUDIT-003R6` are FAIL; this status is not an audit PASS
 
 ## 1. Problem
 
@@ -96,7 +96,7 @@ GET  /api/v1/runtimes/hermes/prerequisites
 POST /api/v1/runtimes/hermes/prerequisites/install
 ```
 
-`GET` is a live typed query. `POST` starts durable Operation type `hermes.prerequisites` with an Idempotency-Key. One active prerequisite Operation per Node. Desktop/SSE disconnect does not cancel.
+`GET` is a live typed query. `POST` starts durable Operation type `hermes.prerequisites` with an Idempotency-Key. The start body is the same closed empty object as Hermes install (`requestBody` required). One active prerequisite Operation per Node. Desktop/SSE disconnect does not cancel.
 
 Component states:
 
@@ -121,7 +121,7 @@ RUNTIME_HERMES_NODE_DEPS_TIMEOUT
 
 ## 5. Desktop
 
-The Runtime page shows Node/npm health whenever discovery has completed, including `SUPPORTED`. Install Hermes remains the existing `NOT_INSTALLED` flow. Prerequisite buttons: install/reinstall Node+npm; retry dependencies; cancel a running Operation. Identical launcher aliases must not present an ambiguity selector.
+The Runtime page shows Node/npm health whenever discovery has completed, including `SUPPORTED`. Starting a new Hermes install remains the `NOT_INSTALLED` confirmation flow; an already-running type/target-validated `runtime.install` stays visible under partial discovery and is never replaced by a prerequisite Operation. Prerequisite buttons: install/reinstall Node+npm; retry dependencies; cancel a running Operation. Identical launcher aliases must not present an ambiguity selector.
 
 ## 6. Non-goals
 

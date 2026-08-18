@@ -6,7 +6,7 @@
 > Owner: Repository owner
 > Phase: 3 — Hermes Installation
 > Phase Spec: `docs/phases/PHASE-003-hermes-installation.md`
-> Implementation: IN_PROGRESS
+> Implementation: R6 REMEDIATION; AUDIT-003R7 PENDING
 > Audit: covered by `AUDIT-003` unless governance later requires a named amendment audit section
 > Gate: this status is not an audit PASS
 > Previous baseline: `phase-002-hermes-discovery-baseline-r1` → `5b89d22ed5e7ae3f4374a26f0fcda54bdabc6bf9`
@@ -357,21 +357,21 @@ The official script is not patched. URLs are not rewritten. A success result is 
 
 After materialization, YORVA continues to invoke the verified official `install.ps1` with the existing closed argv, including `-Commit df4b65147d7ddd74dd449f9067aabbca5aef0ec7`, `-InstallDir` and `-HermesHome`.
 
-Unchanged required stages:
+Remaining official stages after materialization (superseded for Node by Amendment 003A3):
 
 ```text
 uv
 python
 git
-node            (skip-with-warning still allowed)
 system-packages
 venv
 dependencies
-node-deps       (skip-with-warning still allowed)
 path
 config-templates
 bootstrap-marker
 ```
+
+Official `node` and `node-deps` stages are still verified in the official manifest, then never spawned. Amendment 003A3 replaces them with YORVA-managed Node `22.23.1` and npm `12.0.2` under `%LOCALAPPDATA%\hermes\node`.
 
 Inspection of the pinned script shows `Install-Venv` and `Install-Dependencies` operate on `$InstallDir` files (`pyproject.toml`, `uv.lock`, `venv`) and do not require a git remote. `Write-BootstrapMarker` prefers the explicit `-Commit` flag YORVA already supplies.
 

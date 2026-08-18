@@ -6,6 +6,7 @@ import { formatInstallDiagnostic, type InstallRequestError } from "../installDia
 export function HermesInstallPanel({
   copy,
   windowsHost,
+  canStart = true,
   confirmOpen,
   busy,
   operation,
@@ -19,6 +20,7 @@ export function HermesInstallPanel({
 }: {
   copy: AppMessages;
   windowsHost: boolean;
+  canStart?: boolean;
   confirmOpen: boolean;
   busy: boolean;
   operation: Operation | null;
@@ -94,6 +96,9 @@ export function HermesInstallPanel({
         </div>
       </section>
     );
+  }
+  if (!canStart) {
+    return null;
   }
   return (
     <button type="button" className="primary-action" onClick={onOpenConfirm} disabled={busy}>

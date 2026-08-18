@@ -69,10 +69,13 @@ Exit criteria:
 
 ## Phase 2 — Hermes Discovery & Compatibility
 
-Status: **COMPLETE / FROZEN**
+Status: **COMPLETE / FROZEN** (baseline `phase-002-hermes-discovery-baseline-r1` unchanged)
 Gate: **PASS** (`AUDIT-002R1-hermes-discovery.md`); amendment 002A1 **ACCEPTED** (`AUDIT-002A1-hermes-discovery.md` — `PASS`)
 Spec: `docs/phases/PHASE-002-hermes-discovery.md`
-Amendment: `docs/phases/amendments/AMENDMENT-002A1-hermes-windows-command-resolution.md`
+Amendments:
+- `AMENDMENT-002A1-hermes-windows-command-resolution.md` — ACCEPTED / FROZEN into r1
+- `AMENDMENT-002A2-hermes-launcher-alias-normalization.md` — ACCEPTED
+- `AMENDMENT-002A3-active-generation-discovery.md` — ACCEPTED FOR IMPLEMENTATION (Owner 2026-08-18; not a Phase 2 re-freeze)
 Historical baseline: `phase-002-hermes-discovery-baseline` → `a67de04e900bc3ddce99cd76501eec13586082ed` (immutable)
 Current baseline: `phase-002-hermes-discovery-baseline-r1`
 Amendment implementation commit: `dbcb54da4bc4bffcff51888426848246a1900ea6`
@@ -104,14 +107,21 @@ Phase 2 must not install/download Hermes, modify PATH/Python, or begin Profile/l
 
 ## Phase 3 — Hermes Installation
 
-Status: **AUDIT**
+Status: **COMPLETE / FROZEN**
+Gate: **PASS** (`AUDIT-003R9-hermes-installation.md`)
+Baseline: `phase-003-hermes-installation-baseline`
+Audit-accepted implementation commit: `721325181892d0fd8534f9f7d287fe05d9603bb0`
+Exact-commit CI: GitHub Actions run `32131548538` — SUCCESS
+Exact-commit MSI: GitHub Actions run `32131548340` — SUCCESS
 Spec: `docs/phases/PHASE-003-hermes-installation.md`
 Amendments:
 - `AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED
 - `AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED
 - `AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED
-Implementation branch: `fix/phase3-managed-node-prerequisites`
-Audit: `AUDIT-003` — **FAIL**; remediations applied; `AUDIT-003R1` required
+- `AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED
+Architecture: `docs/phases/PHASE-003-generation-installation-architecture.md` — Owner-approved 2026-08-18
+ADR: `ADR-0006-generation-install-transaction.md` — Accepted
+Audit: `AUDIT-003`–`R7` — **FAIL** (immutable); `AUDIT-003R8` — **PASS WITH CONDITIONS**; `AUDIT-003R9` — **PASS**
 
 Goal: install a supported official Hermes Runtime without requiring terminal use.
 
@@ -136,6 +146,9 @@ Hermes not installed
 The detailed Phase 3 Spec was prepared after Phase 2 amendment 002A1 passed independent audit and `phase-002-hermes-discovery-baseline-r1` was frozen. The Repository Owner approved the Spec on 2026-08-17 and authorized implementation in automatic batch-gate mode on 2026-08-17.
 
 ## Phase 4 — Instance/Profile management
+
+Status: **READY** (specification only; implementation not authorized)
+Spec: `docs/phases/PHASE-004-instance-profile.md`
 
 Goal: manage multiple Hermes-backed YORVA instances.
 

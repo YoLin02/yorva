@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -107,6 +108,10 @@ func startHermesPrerequisites(installs RuntimeInstallService) http.Handler {
 			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_IDEMPOTENCY_KEY", Message: "A valid Idempotency-Key header is required.", Retryable: false})
 			return
 		}
+		if err := decodeClosedEmptyObject(r); err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The install request must be a closed JSON object.", Retryable: false})
+			return
+		}
 		result, err := installs.StartPrerequisites(r.Context(), key)
 		if err != nil {
 			writeInstallError(w, err)
@@ -138,23 +143,9 @@ func startHermesInstall(installs RuntimeInstallService) http.Handler {
 			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_IDEMPOTENCY_KEY", Message: "A valid Idempotency-Key header is required.", Retryable: false})
 			return
 		}
-		if r.Body != nil {
-			defer r.Body.Close()
-			decoder := json.NewDecoder(r.Body)
-			decoder.DisallowUnknownFields()
-			var body map[string]any
-			if err := decoder.Decode(&body); err != nil {
-				if errors.Is(err, io.EOF) {
-					body = map[string]any{}
-				} else {
-					writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The install request must be a closed JSON object.", Retryable: false})
-					return
-				}
-			}
-			if len(body) != 0 {
-				writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The install request must not include version, path, URL or command fields.", Retryable: false})
-				return
-			}
+		if err := decodeClosedEmptyObject(r); err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The install request must be a closed JSON object.", Retryable: false})
+			return
 		}
 		result, err := installs.Start(r.Context(), "hermes", key)
 		if err != nil {
@@ -279,6 +270,9 @@ func writeInstallError(w http.ResponseWriter, err error) {
 		if rejected.Code == yorvaruntime.ErrorRuntimeInstallPlatformUnsupported {
 			status = http.StatusBadRequest
 		}
+		if rejected.Code == yorvaruntime.ErrorRuntimeInstallNotReady {
+			status = http.StatusServiceUnavailable
+		}
 		details := map[string]any{}
 		if rejected.ActiveID != "" {
 			details["operationId"] = rejected.ActiveID
@@ -300,6 +294,35 @@ func writeInstallError(w http.ResponseWriter, err error) {
 		return
 	}
 	writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "The Runtime installation request failed.", Retryable: true})
+}
+
+const maxInstallRequestBytes = 4096
+
+func decodeClosedEmptyObject(r *http.Request) error {
+	if r.Body == nil {
+		return io.EOF
+	}
+	defer r.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(r.Body, maxInstallRequestBytes+1))
+	if err != nil {
+		return err
+	}
+	if len(payload) == 0 || len(payload) > maxInstallRequestBytes {
+		return io.ErrUnexpectedEOF
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	var body map[string]any
+	if err := decoder.Decode(&body); err != nil {
+		return err
+	}
+	if body == nil || len(body) != 0 {
+		return errors.New("closed empty object required")
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("trailing json")
+	}
+	return nil
 }
 
 func visibleASCII(value string) bool {

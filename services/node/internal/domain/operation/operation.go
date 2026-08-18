@@ -64,6 +64,9 @@ type Operation struct {
 	Retryable      bool
 	IdempotencyKey string
 	CorrelationID  string
+	SourcePin      string
+	OwnershipNonce string
+	TransactionID  string
 	CreatedAt      time.Time
 	StartedAt      *time.Time
 	CompletedAt    *time.Time
@@ -86,4 +89,17 @@ func ValidTransition(from, to Status) bool {
 	default:
 		return false
 	}
+}
+
+// ValidProjectionRepair allows InstallTransaction / active.json to correct a
+// wrongly terminal Operation. Forward-only worker transitions stay in ValidTransition.
+func ValidProjectionRepair(from, to Status) bool {
+	if from == to || !IsTerminal(from) {
+		return false
+	}
+	return to == StatusSucceeded || to == StatusRunning
+}
+
+func ValidStatusChange(from, to Status) bool {
+	return from == to || ValidTransition(from, to) || ValidProjectionRepair(from, to)
 }

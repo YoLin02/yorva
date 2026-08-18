@@ -16,17 +16,20 @@ import (
 )
 
 func TestNpmVersionSupported(t *testing.T) {
-	if npmVersionSupported("10.9.8") {
-		t.Fatal("npm 10.9.8 must be unsupported")
+	if npmVersionSupported("10.9.8") || npmVersionSupported("12.0.0") || npmVersionSupported("12.1.0") {
+		t.Fatal("npm versions other than 12.0.2 must be unsupported")
 	}
-	if !npmVersionSupported("12.0.2") {
+	if !npmVersionSupported("12.0.2") || !npmVersionSupported("v12.0.2") {
 		t.Fatal("npm 12.0.2 must be supported")
 	}
 }
 
 func TestNodeVersionSupported(t *testing.T) {
-	if !nodeVersionSupported("22.23.1") || nodeVersionSupported("20.0.0") {
-		t.Fatal("node version policy mismatch")
+	if !nodeVersionSupported("22.23.1") || !nodeVersionSupported("v22.23.1") {
+		t.Fatal("node 22.23.1 must be supported")
+	}
+	if nodeVersionSupported("20.0.0") || nodeVersionSupported("22.22.0") || nodeVersionSupported("22.24.0") {
+		t.Fatal("node versions other than 22.23.1 must be unsupported")
 	}
 }
 

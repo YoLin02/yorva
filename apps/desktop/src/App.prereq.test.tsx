@@ -13,6 +13,8 @@ const clientMocks = vi.hoisted(() => ({
   getOperation: vi.fn(),
   getOperationLog: vi.fn(),
   cancelOperation: vi.fn(),
+  listOperations: vi.fn(),
+  startHermesInstall: vi.fn(),
 }));
 
 vi.mock("./api/session", () => ({
@@ -31,6 +33,8 @@ vi.mock("./api/client", async () => {
       getOperation: clientMocks.getOperation,
       getOperationLog: clientMocks.getOperationLog,
       cancelOperation: clientMocks.cancelOperation,
+      listOperations: clientMocks.listOperations,
+      startHermesInstall: clientMocks.startHermesInstall,
     }),
   };
 });
@@ -79,9 +83,11 @@ describe("App Hermes prerequisite start", () => {
       activeOperationId: null,
     });
     clientMocks.startHermesPrerequisites.mockReset();
+    clientMocks.startHermesInstall.mockReset();
     clientMocks.getOperation.mockReset();
     clientMocks.getOperationLog.mockReset().mockResolvedValue({ operationId: "op_prereq", correlationId: "cor", text: "" });
     clientMocks.cancelOperation.mockReset();
+    clientMocks.listOperations.mockReset().mockResolvedValue({ operations: [] });
   });
 
   it("surfaces a rejected Node install request and retries with a new key", async () => {
@@ -178,7 +184,7 @@ describe("App Hermes prerequisite start", () => {
     expect(await screen.findByText(/Installing Node\.js/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     expect(screen.getByText(/cannot run at the same time/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Install Hermes" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Install Hermes" })).toBeDisabled();
   });
 
   it("attaches to an in-progress Operation instead of leaving the click dead", async () => {
@@ -215,5 +221,39 @@ describe("App Hermes prerequisite start", () => {
     expect(await screen.findByText(/Installing Node\.js/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not treat a running Hermes install as a Node prerequisite", async () => {
+    clientMocks.startHermesPrerequisites.mockRejectedValue(
+      new YorvaApiError({
+        code: "RUNTIME_INSTALL_IN_PROGRESS",
+        message: "The Runtime installation request was rejected.",
+        retryable: true,
+        details: { operationId: "op_install" },
+      }),
+    );
+    clientMocks.getOperation.mockResolvedValue({
+      id: "op_install",
+      type: "runtime.install",
+      targetType: "runtime-kind",
+      targetId: "hermes",
+      status: "RUNNING",
+      stage: "install.repository",
+      progress: null,
+      message: "",
+      errorCode: null,
+      retryable: true,
+      correlationId: "cor_install",
+      createdAt: "2026-08-17T02:00:00Z",
+      startedAt: "2026-08-17T02:00:01Z",
+      completedAt: null,
+      updatedAt: "2026-08-17T02:00:01Z",
+    });
+
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Install or reinstall Node.js / npm" }));
+    expect(await screen.findByText("Installing Hermes")).toBeInTheDocument();
+    expect(screen.queryByText(/Installing Node\.js/)).not.toBeInTheDocument();
   });
 });
