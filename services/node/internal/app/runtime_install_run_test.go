@@ -186,6 +186,7 @@ type fakeApplier struct {
 
 func (f *fakeApplier) PlatformSupported() bool   { return true }
 func (f *fakeApplier) ValidateTarget(bool) error { return nil }
+func (f *fakeApplier) ExpectedPin() string       { return "df4b65147d7ddd74dd449f9067aabbca5aef0ec7" }
 func (f *fakeApplier) ManagedInstallDir() string { return f.dir }
 func (f *fakeApplier) ExpectedVersion() string   { return f.version }
 func (f *fakeApplier) ContainsManagedPath(path string) bool {

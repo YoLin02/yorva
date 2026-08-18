@@ -1,22 +1,22 @@
 # YORVA Phase 3 — Hermes Installation
 
-> Status: READY — OWNER APPROVED
+> Status: AUDIT / R1 REMEDIATION
 > Owner: Repository owner
 > Previous phase: Phase 2 — Hermes Discovery & Compatibility
 > Previous baseline: `phase-002-hermes-discovery-baseline-r1`
 > Previous baseline commit: `5b89d22ed5e7ae3f4374a26f0fcda54bdabc6bf9`
 > Previous gate: `AUDIT-002A1-hermes-discovery.md` — PASS
-> Implementation: AUDIT
+> Implementation: AUDIT / R1 REMEDIATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED FOR IMPLEMENTATION
-> Phase 3 audit: `AUDIT-003` — FAIL; remediations applied; `AUDIT-003R1` required in a fresh review context
+> Phase 3 audit: `AUDIT-003` — FAIL (historical); `AUDIT-003R1` — FAIL (historical); `AUDIT-003R2` — PENDING
 > Target platform: Windows user-scope installation
 > Target Hermes release: `v2026.8.16` / package `0.20.2`
 > Spec review date: 2026-08-17
 > Owner approval date: 2026-08-17
 
-The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Feature work is frozen except for `AUDIT-003` remediations.
+The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Feature work is frozen except for `AUDIT-003R1` remediations. This document does not declare Phase 3 COMPLETE, FROZEN, PASS or ACCEPTED.
 
 ## 1. Objective
 
@@ -47,7 +47,7 @@ Phase 3 installs Hermes. It does not configure a Hermes profile, credentials, mo
 - [x] Repository Owner approved this Phase 3 Specification on 2026-08-17.
 - [x] Repository Owner authorizes Phase 3 implementation.
 
-Implementation authorization was granted. The remaining gate is independent re-audit `AUDIT-003R1`.
+Implementation authorization was granted. The remaining gate is independent re-audit `AUDIT-003R2`. Historical `AUDIT-003` and `AUDIT-003R1` reports remain FAIL.
 
 ## 3. User-Visible Success Flow
 
@@ -448,7 +448,8 @@ The installation is long-running, but every unit is bounded.
 - source download: 30-second connect/header timeout, 120-second overall deadline, 512-KiB body limit;
 - protocol/manifest probes: 30 seconds each;
 - required prerequisite stages (`uv`, `python`, `git`): 10 minutes each;
-- optional stages (`node`, `node-deps`, `system-packages`): 45 seconds, then skip so a missing Node.js / nodejs.org download cannot block Hermes CLI installation;
+- official `node` and `node-deps` stages are never spawned (`AMENDMENT-003A3`); YORVA-managed Node/npm use a 15-minute dependency timeout;
+- official `system-packages` remains a 45-second skippable official stage;
 - repository: 10 minutes;
 - virtual environment: 10 minutes;
 - Python dependencies: 30 minutes;
@@ -492,7 +493,7 @@ HERMES_* except the fixed HERMES_HOME
 
 Tests must use sentinel secrets to prove they do not reach the child or logs. Environment handling may not break standard Windows certificate/proxy behavior; any credential-bearing proxy value must be treated as secret and never logged.
 
-Emit one structured application log per Operation transition and stage outcome. Desktop/daemon persist those records as JSON lines in `{dataDir}/logs/install.ndjson` (Windows: `%APPDATA%\com.yorva.desktop.dev\logs\install.ndjson`) and still mirror them to stderr. Owner-authorized temporary diagnostics also append bounded installer/git stdout and stderr plus remote probe details, and Desktop polls `GET /api/v1/operations/{id}/log` to show them live. Tighten this surface after the current install-debug cycle. Each record includes only:
+Emit one structured application log per Operation transition and stage outcome. Desktop/daemon persist those records as JSON lines in `{dataDir}/logs/install.ndjson` (Windows: `%APPDATA%\com.yorva.desktop.dev\logs\install.ndjson`) and still mirror them to stderr. Desktop polls `GET /api/v1/operations/{id}/log` to show the same structured lines. Each record includes only:
 
 - operation/correlation ID;
 - Runtime kind;
@@ -637,25 +638,25 @@ Exact-commit CI must pass all Web/API, Go/Node including race, and Windows nativ
 
 ## 21. Exit Criteria
 
-All must be true before Phase 3 implementation can be declared complete and enter audit:
+Implementation-candidate checks for `AUDIT-003R2`. These do not constitute an audit PASS:
 
-- [ ] Owner-approved Spec is unchanged or formally amended.
-- [ ] Installation is Windows user-scope and available only from valid preflight state.
-- [ ] Source is the exact immutable reviewed commit and digest.
-- [ ] Protocol and full manifest verify before mutation.
-- [ ] Official `node` and `node-deps` are verified then skipped; YORVA-owned managed Node/npm replace them. Four excluded capabilities never execute.
-- [ ] No HTTP or Desktop input controls command, URL, version, path or environment.
-- [ ] Installation is a durable, idempotent, cancellable Operation.
-- [ ] Process tree is contained before resume and fully cleaned on every terminal path.
-- [ ] Host mutations and privilege boundary are shown before explicit confirmation.
-- [ ] No profile, credential, model, channel, gateway, lifecycle, upgrade or Phase 4 behavior exists.
-- [ ] Post-check reuses Phase 2 and verifies supported `0.20.2` under the managed root.
-- [ ] Accepted installation metadata is persisted only after authoritative success.
-- [ ] English and Simplified Chinese Desktop states are complete.
-- [ ] Migrations, protocol, OpenAPI, generated types and governing docs agree.
+- [x] Owner-approved Spec is unchanged or formally amended.
+- [x] Installation is Windows user-scope and available only from valid preflight state.
+- [x] Source is the exact immutable reviewed commit and digest.
+- [x] Protocol and full manifest verify before mutation.
+- [x] Official `node` and `node-deps` are verified then skipped; YORVA-owned managed Node/npm replace them. Four excluded capabilities never execute.
+- [x] No HTTP or Desktop input controls command, URL, version, path or environment.
+- [x] Installation is a durable, idempotent, cancellable Operation.
+- [x] Process tree is contained before resume and fully cleaned on every terminal path.
+- [x] Host mutations and privilege boundary are shown before explicit confirmation.
+- [x] No profile, credential, model, channel, gateway, lifecycle, upgrade or Phase 4 behavior exists.
+- [x] Post-check reuses Phase 2 and verifies supported `0.20.2` under the managed root.
+- [x] Accepted installation metadata is persisted only after authoritative success.
+- [x] English and Simplified Chinese Desktop states are complete.
+- [x] Migrations, protocol, OpenAPI, generated types and governing docs agree.
 - [ ] Focused and full verification matrices pass or exact environmental blockers are recorded.
 - [ ] Exact-commit CI passes.
-- [ ] Implementation stops with `AUDIT-003 = PENDING`.
+- [ ] Independent `AUDIT-003R2` is PENDING. Historical `AUDIT-003` and `AUDIT-003R1` remain FAIL.
 
 Phase 3 is not accepted, merged, frozen or tagged by satisfying implementation criteria. Those actions require an independent audit Gate `PASS` and a separate governance task.
 
@@ -701,7 +702,7 @@ Any Critical, High, Medium or blocking Low finding produces Gate `FAIL` under `A
 6. **Windows-only delivery leaves other platforms unsupported.** This is the deliberate smallest complete Phase 3 scope accepted with the Owner-approved Specification.
 7. **GitHub may be unreachable on some networks.** Mitigation (Amendment 003A1): bounded official commit-archive download, then one verified MSI-bundled official archive. Residual risk: remaining official stages still need network for uv/Python/Node/PyPI/npm; this is not a full offline installer.
 
-No unresolved architecture or security blocker was found during Specification review. The Owner approved the Windows-only, fixed-version and no-automatic-elevation boundaries. Separate authorization to begin implementation remains pending.
+No unresolved architecture or security blocker was found during Specification review. The Owner approved the Windows-only, fixed-version and no-automatic-elevation boundaries. Implementation authorization was granted on 2026-08-17. Independent audit remains pending.
 
 ## 24. Contract and Documentation Changes During Implementation
 
@@ -747,25 +748,28 @@ API/data contracts:    PASS
 Testing/auditability:  PASS
 Phase 4 leakage:       NONE FOUND
 Owner approval:        PASS — 2026-08-17
-Implementation auth:   PENDING
+Implementation auth:   GRANTED — 2026-08-17
 ```
 
 ## 26. Completion Evidence
 
-To be completed by the implementation agent before independent audit:
+Remediation candidate for independent `AUDIT-003R2`. This is not an audit PASS.
 
 ```text
 Owner approval: 2026-08-17 explicit implementation authorization
-Implementation branch: phase/003-hermes-installation
-Implementation commit: pending exact-commit after verification
-Exact-commit CI run: pending
-Batch results: 1–7 implemented in automatic batch-gate mode
-Focused tests: Go domain/app/persistence/hermes/httpapi and Desktop install confirmation tests
-Full verification: pending remaining matrix after commit
+Implementation branch: fix/phase3-audit-r1-remediation
+Implementation commit: recorded on the remediation branch after verification
+Exact-commit CI run: PENDING
+MSI CI run: PENDING
+Batch results: AUDIT-003R1 remediations implemented in automatic batch-gate mode
+Focused tests: Desktop recovery, same-key idempotency, Operation SSE, marker/pin ownership, MSI inspector negatives, structured logs, exact Node/npm pins
+Full verification: recorded in the remediation completion report
 Windows lifecycle evidence: reused Phase 2 suspended Job Object runner with 1 MiB install output bound
 Real isolated install smoke (if run): not run; requires disposable VM and explicit authorization
 Known environmental blockers: local go test -race remains gcc-blocked; exact-commit CI race is mandatory
 Changed files: see implementation commit
 Residual risks: official installer has no upstream checksum; YORVA-reviewed digest only
-AUDIT-003 status: PENDING
+AUDIT-003 status: FAIL (historical)
+AUDIT-003R1 status: FAIL (historical)
+AUDIT-003R2 status: PENDING
 ```

@@ -163,6 +163,32 @@ func TestRuntimeInstallLogsRejectedPreflight(t *testing.T) {
 	}
 }
 
+func TestRetryEligibleForPinRejectsStaleOperation(t *testing.T) {
+	latest := operation.Operation{
+		ID:        "op_stale",
+		Type:      operation.TypeRuntimeInstall,
+		Status:    operation.StatusFailed,
+		Retryable: true,
+		SourcePin: "cccccccccccccccccccccccccccccccccccccccc",
+	}
+	if !RetryEligible(latest) {
+		t.Fatal("retryable history should remain retryable without a pin check")
+	}
+	if RetryEligibleForPin(latest, "df4b65147d7ddd74dd449f9067aabbca5aef0ec7") {
+		t.Fatal("stale operation pin was treated as retry-eligible")
+	}
+	latest.SourcePin = "df4b65147d7ddd74dd449f9067aabbca5aef0ec7"
+	if !RetryEligibleForPin(latest, "df4b65147d7ddd74dd449f9067aabbca5aef0ec7") {
+		t.Fatal("matching operation pin was rejected")
+	}
+}
+
+func TestOperationDeadlineIsSixtyMinutes(t *testing.T) {
+	if operationDeadline != 60*time.Minute {
+		t.Fatalf("operationDeadline = %s", operationDeadline)
+	}
+}
+
 func TestValidateIdempotencyKey(t *testing.T) {
 	if err := ValidateIdempotencyKey(""); err == nil {
 		t.Fatal("empty key unexpectedly valid")
@@ -195,9 +221,11 @@ func (s staticDiscoverer) Detect(context.Context) (yorvaruntime.Discovery, error
 }
 
 type memoryOperationStore struct {
-	mu    sync.Mutex
-	byID  map[string]operation.Operation
-	byKey map[string]string
+	mu           sync.Mutex
+	byID         map[string]operation.Operation
+	byKey        map[string]string
+	beforeCreate func()
+	afterLookup  func()
 }
 
 func newMemoryOperationStore() *memoryOperationStore {
@@ -210,8 +238,13 @@ func newMemoryOperationStore() *memoryOperationStore {
 func (s *memoryOperationStore) CreateOperation(_ context.Context, value operation.Operation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.beforeCreate != nil {
+		s.mu.Unlock()
+		s.beforeCreate()
+		s.mu.Lock()
+	}
 	if _, exists := s.byKey[value.IdempotencyKey]; exists {
-		return errors.New("duplicate idempotency key")
+		return sqlite.ErrDuplicateIdempotency
 	}
 	for _, current := range s.byID {
 		if current.TargetID == value.TargetID && !operation.IsTerminal(current.Status) && hermesHostMutation(current.Type) && hermesHostMutation(value.Type) {
@@ -235,12 +268,19 @@ func (s *memoryOperationStore) GetOperation(_ context.Context, id string) (opera
 
 func (s *memoryOperationStore) GetOperationByIdempotencyKey(_ context.Context, key string) (operation.Operation, bool, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	id, ok := s.byKey[key]
+	var value operation.Operation
+	if ok {
+		value = s.byID[id]
+	}
+	s.mu.Unlock()
+	if s.afterLookup != nil {
+		s.afterLookup()
+	}
 	if !ok {
 		return operation.Operation{}, false, nil
 	}
-	return s.byID[id], true, nil
+	return value, true, nil
 }
 
 func (s *memoryOperationStore) ActiveRuntimeInstall(_ context.Context, runtimeKind string) (operation.Operation, bool, error) {

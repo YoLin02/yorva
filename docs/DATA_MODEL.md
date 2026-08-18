@@ -114,6 +114,7 @@ error_message      TEXT
 retryable          INTEGER
 idempotency_key    TEXT
 correlation_id     TEXT
+source_pin         TEXT  # Hermes install pin recorded at create; empty for other types
 created_at         ... NOT NULL
 started_at         ...
 completed_at       ...

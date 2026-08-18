@@ -81,8 +81,12 @@ func (h *HostInstaller) CanonicalPublicLauncher() string {
 	return filepath.Join(h.installDir(), "bin", "hermes.exe")
 }
 
+func (h *HostInstaller) ExpectedPin() string {
+	return officialCommit
+}
+
 func (h *HostInstaller) ValidateTarget(retry bool) error {
-	return validateInstallTarget(h.home(), h.installDir(), retry)
+	return validateInstallTarget(h.home(), h.installDir(), retry, officialCommit)
 }
 
 func (h *HostInstaller) Apply(ctx context.Context, operationID string, report func(operation.Stage, string)) error {
@@ -201,10 +205,10 @@ func (h *HostInstaller) resolveArchive(ctx context.Context, workDir string) (str
 		return downloaded, sourceOriginOfficial, nil
 	}
 	if !isTransportArchiveError(err) {
-		h.debug("source.archive.integrity", "error", err.Error())
+		h.debug("source.archive.integrity", archiveLogFields(err, sourceOriginOfficial)...)
 		return "", "", err
 	}
-	h.debug("source.archive.official_unavailable", "error", err.Error())
+	h.debug("source.archive.official_unavailable", archiveLogFields(err, sourceOriginOfficial)...)
 	if h.embeddedSourcePath == "" {
 		return "", "", err
 	}
@@ -257,7 +261,7 @@ func (h *HostInstaller) materializeRepository(ctx context.Context, archivePath, 
 		_ = os.RemoveAll(staging)
 		return err
 	}
-	if err := placeMaterializedTree(staging, installDir); err != nil {
+	if err := replaceOwnedTree(ctx, staging, installDir, officialCommit); err != nil {
 		_ = os.RemoveAll(staging)
 		return err
 	}
@@ -385,6 +389,32 @@ func installStageName(stage string) operation.Stage {
 		return operation.StageInstallBootstrapMarker
 	default:
 		return operation.Stage(stage)
+	}
+}
+
+func archiveLogFields(err error, sourceKind string) []any {
+	code := installErrorCode(err)
+	return []any{
+		"errorCode", string(code),
+		"category", archiveErrorCategory(code),
+		"retryable", isTransportArchiveError(err),
+		"timeout", code == yorvaruntime.ErrorRuntimeInstallTimeout,
+		"cancelled", errors.Is(err, context.Canceled),
+		"integrityMismatch", code == yorvaruntime.ErrorRuntimeInstallIntegrityFailed,
+		"sourceKind", sourceKind,
+	}
+}
+
+func archiveErrorCategory(code yorvaruntime.ErrorCode) string {
+	switch code {
+	case yorvaruntime.ErrorRuntimeInstallIntegrityFailed:
+		return "integrity"
+	case yorvaruntime.ErrorRuntimeInstallTimeout:
+		return "timeout"
+	case yorvaruntime.ErrorRuntimeInstallSourceUnavailable:
+		return "transport"
+	default:
+		return "source"
 	}
 }
 

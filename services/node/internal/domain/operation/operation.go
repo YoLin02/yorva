@@ -64,6 +64,7 @@ type Operation struct {
 	Retryable      bool
 	IdempotencyKey string
 	CorrelationID  string
+	SourcePin      string
 	CreatedAt      time.Time
 	StartedAt      *time.Time
 	CompletedAt    *time.Time

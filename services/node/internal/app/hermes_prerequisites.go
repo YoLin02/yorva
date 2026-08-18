@@ -10,16 +10,16 @@ import (
 )
 
 type PrerequisiteSnapshot struct {
-	NodeState        string
-	NodeVersion      string
-	NodeCode         yorvaruntime.ErrorCode
-	NPMState         string
-	NPMVersion       string
-	NPMCode          yorvaruntime.ErrorCode
-	DepsState        string
-	DepsCode         yorvaruntime.ErrorCode
-	Retryable        bool
-	CheckedAt        time.Time
+	NodeState         string
+	NodeVersion       string
+	NodeCode          yorvaruntime.ErrorCode
+	NPMState          string
+	NPMVersion        string
+	NPMCode           yorvaruntime.ErrorCode
+	DepsState         string
+	DepsCode          yorvaruntime.ErrorCode
+	Retryable         bool
+	CheckedAt         time.Time
 	ActiveOperationID string
 }
 
@@ -82,10 +82,10 @@ func (s *RuntimeInstall) StartPrerequisites(ctx context.Context, idempotencyKey 
 	if existing, ok, err := s.store.GetOperationByIdempotencyKey(ctx, idempotencyKey); err != nil {
 		return InstallStartResult{}, err
 	} else if ok {
-		return InstallStartResult{Operation: existing}, nil
+		return s.replayIdempotent(existing, operation.TypeHermesPrerequisites, "hermes")
 	}
 	if err := s.rejectActiveHermesMutation(ctx, "hermes"); err != nil {
-		return InstallStartResult{}, err
+		return s.replayIfCurrentKey(ctx, idempotencyKey, operation.TypeHermesPrerequisites, "hermes", err)
 	}
 	now := s.now()
 	id, err := s.newID()
@@ -108,8 +108,8 @@ func (s *RuntimeInstall) StartPrerequisites(ctx context.Context, idempotencyKey 
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
-	if err := s.store.CreateOperation(ctx, created); err != nil {
-		return InstallStartResult{}, s.normalizeCreateConflict(ctx, "hermes", err)
+	if err := s.persistCreate(ctx, created); err != nil {
+		return s.recoverCreate(ctx, created, err)
 	}
 	if s.prereq != nil {
 		workerCtx := s.bindWorker(context.Background(), created.ID)
@@ -132,14 +132,14 @@ func (s *RuntimeInstall) executePrerequisites(ctx context.Context, started opera
 		next.Retryable = retryable
 		next.CompletedAt = &now
 		next.UpdatedAt = now
-		_ = s.store.UpdateOperation(context.Background(), latest, next)
+		_ = s.persistUpdate(context.Background(), latest, next)
 	}
 	now := s.now()
 	running := started
 	running.Status = operation.StatusRunning
 	running.StartedAt = &now
 	running.UpdatedAt = now
-	if err := s.store.UpdateOperation(ctx, started, running); err != nil {
+	if err := s.persistUpdate(ctx, started, running); err != nil {
 		return
 	}
 	current := running
@@ -147,7 +147,7 @@ func (s *RuntimeInstall) executePrerequisites(ctx context.Context, started opera
 		updated := current
 		updated.Stage = stage
 		updated.UpdatedAt = s.now()
-		if err := s.store.UpdateOperation(context.Background(), current, updated); err == nil {
+		if err := s.persistUpdate(context.Background(), current, updated); err == nil {
 			current = updated
 		}
 	}
@@ -172,7 +172,7 @@ func (s *RuntimeInstall) executePrerequisites(ctx context.Context, started opera
 			next.Retryable = true
 			next.CompletedAt = &now
 			next.UpdatedAt = now
-			_ = s.store.UpdateOperation(context.Background(), latest, next)
+			_ = s.persistUpdate(context.Background(), latest, next)
 			return
 		}
 		code := installErrorCodeOr(err, yorvaruntime.ErrorHermesNodeDepsFailed)
@@ -184,5 +184,5 @@ func (s *RuntimeInstall) executePrerequisites(ctx context.Context, started opera
 	succeeded.Status = operation.StatusSucceeded
 	succeeded.CompletedAt = &now
 	succeeded.UpdatedAt = now
-	_ = s.store.UpdateOperation(context.Background(), current, succeeded)
+	_ = s.persistUpdate(context.Background(), current, succeeded)
 }

@@ -23,6 +23,8 @@ func (h *NodeHost) installDependencies(ctx context.Context) error {
 	if strings.EqualFold(filepath.Ext(cli), ".ps1") {
 		return installError(yorvaruntime.ErrorHermesNPMUnsupported, errors.New("refusing npm.ps1"))
 	}
+	stamp := filepath.Join(installDir, nodeDepsStampName)
+	_ = os.Remove(stamp)
 	args := []string{cli, "ci", "--workspaces=false", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--progress=false"}
 	result := h.run(ctx, installInvocation{Executable: node, Args: args, Dir: installDir}, nodeDepsTimeout)
 	if result.timedOut {
@@ -41,7 +43,7 @@ func (h *NodeHost) installDependencies(ctx context.Context) error {
 	if err != nil {
 		return installError(yorvaruntime.ErrorHermesNodeDepsFailed, err)
 	}
-	if err := os.WriteFile(filepath.Join(installDir, nodeDepsStampName), []byte(digest+"\n"), 0o600); err != nil {
+	if err := os.WriteFile(stamp, []byte(digest+"\n"), 0o600); err != nil {
 		return installError(yorvaruntime.ErrorHermesNodeDepsFailed, err)
 	}
 	return nil

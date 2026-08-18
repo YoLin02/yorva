@@ -47,6 +47,7 @@ const (
 	ErrorRuntimeInstallCancelled           ErrorCode = "RUNTIME_INSTALL_CANCELLED"
 	ErrorOperationInterrupted              ErrorCode = "OPERATION_INTERRUPTED"
 	ErrorOperationNotCancellable           ErrorCode = "OPERATION_NOT_CANCELLABLE"
+	ErrorIdempotencyKeyConflict            ErrorCode = "IDEMPOTENCY_KEY_CONFLICT"
 
 	ErrorHermesNodeMissing                 ErrorCode = "RUNTIME_HERMES_NODE_MISSING"
 	ErrorHermesNodeUnsupported             ErrorCode = "RUNTIME_HERMES_NODE_UNSUPPORTED"

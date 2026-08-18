@@ -18,6 +18,7 @@ type Event struct {
 type Broker struct {
 	mu          sync.Mutex
 	nextID      uint64
+	nextEvent   uint64
 	subscribers map[uint64]chan Event
 }
 
@@ -54,8 +55,18 @@ func (s *Subscription) Close() {
 }
 
 func (b *Broker) Publish(event Event) {
+	if b == nil {
+		return
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if event.ID == "" {
+		b.nextEvent++
+		event.ID = formatEventID(b.nextEvent)
+	}
+	if event.OccurredAt.IsZero() {
+		event.OccurredAt = time.Now().UTC()
+	}
 	for _, subscriber := range b.subscribers {
 		select {
 		case subscriber <- event:

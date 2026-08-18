@@ -72,6 +72,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:sidecar
       - run: pwsh -NoProfile -File scripts/windows-lifecycle-smoke.ps1
+      - run: pwsh -NoProfile -File scripts/inspect-yorva-msi.tests.ps1
       - run: cargo fmt --check
         working-directory: apps/desktop/src-tauri
       - run: cargo fetch --locked

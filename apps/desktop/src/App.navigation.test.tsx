@@ -5,7 +5,7 @@ import { App } from "./App";
 import { localeStorageKey } from "./i18n";
 
 const sessionMocks = vi.hoisted(() => ({ getDaemonSession: vi.fn() }));
-const clientMocks = vi.hoisted(() => ({ getNode: vi.fn(), detectHermes: vi.fn(), getHermesPrerequisites: vi.fn() }));
+const clientMocks = vi.hoisted(() => ({ getNode: vi.fn(), detectHermes: vi.fn(), getHermesPrerequisites: vi.fn(), listOperations: vi.fn() }));
 
 vi.mock("./api/session", () => ({
   getDaemonSession: sessionMocks.getDaemonSession,
@@ -15,7 +15,7 @@ vi.mock("./api/client", async () => {
   const actual = await vi.importActual<typeof import("./api/client")>("./api/client");
   return {
     ...actual,
-    createDaemonClient: () => ({ getNode: clientMocks.getNode, detectHermes: clientMocks.detectHermes, getHermesPrerequisites: clientMocks.getHermesPrerequisites }),
+    createDaemonClient: () => ({ getNode: clientMocks.getNode, detectHermes: clientMocks.detectHermes, getHermesPrerequisites: clientMocks.getHermesPrerequisites, listOperations: clientMocks.listOperations }),
   };
 });
 vi.mock("./hooks/useEventStreamStatus", () => ({ useEventStreamStatus: () => "connected" }));
@@ -52,6 +52,7 @@ describe("App Desktop navigation and locale", () => {
     sessionMocks.getDaemonSession.mockReset().mockResolvedValue(session);
     clientMocks.getNode.mockReset().mockResolvedValue(node);
     clientMocks.detectHermes.mockReset().mockResolvedValue(discovery);
+    clientMocks.listOperations.mockReset().mockResolvedValue({ operations: [] });
     clientMocks.getHermesPrerequisites.mockReset().mockResolvedValue({
       node: { state: "READY", version: "22.23.1", errorCode: null, retryable: false },
       npm: { state: "READY", version: "12.0.2", errorCode: null, retryable: false },

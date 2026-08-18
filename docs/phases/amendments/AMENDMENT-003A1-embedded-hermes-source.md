@@ -6,7 +6,7 @@
 > Owner: Repository owner
 > Phase: 3 — Hermes Installation
 > Phase Spec: `docs/phases/PHASE-003-hermes-installation.md`
-> Implementation: IN_PROGRESS
+> Implementation: R1 REMEDIATION COMPLETE; AUDIT-003R2 PENDING
 > Audit: covered by `AUDIT-003` unless governance later requires a named amendment audit section
 > Gate: this status is not an audit PASS
 > Previous baseline: `phase-002-hermes-discovery-baseline-r1` → `5b89d22ed5e7ae3f4374a26f0fcda54bdabc6bf9`

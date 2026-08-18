@@ -90,12 +90,13 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	discovery := app.NewRuntimeDiscovery(registry, logger)
 	host := hermes.NewHostInstaller(message.DataDir).WithLogger(logger).WithEmbeddedSource(message.HermesEmbeddedSourcePath)
 	nodeHost := hermes.NewNodeHost(message.DataDir, message.HermesNodeArchivePath, message.HermesNpmArchivePath)
-	installs := app.NewRuntimeInstall(discovery, database).WithLogger(logger).WithHost(host, database, localNode.ID).WithPrerequisite(app.HermesPrerequisiteHost{Host: nodeHost})
+	broker := events.NewBroker()
+	installs := app.NewRuntimeInstall(discovery, database).WithLogger(logger).WithHost(host, database, localNode.ID).WithPrerequisite(app.HermesPrerequisiteHost{Host: nodeHost}).WithEvents(broker)
 	if _, err := installs.InterruptStale(ctx); err != nil {
 		logger.Warn("failed to interrupt stale install operations", "error", err)
 	}
 	server := &http.Server{
-		Handler:           httpapi.NewHandler(message.Token, localNode, events.NewBroker(), discovery, installs, message.DataDir),
+		Handler:           httpapi.NewHandler(message.Token, localNode, broker, discovery, installs, message.DataDir),
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       30 * time.Second,

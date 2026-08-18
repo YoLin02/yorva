@@ -11,6 +11,7 @@ const clientMocks = vi.hoisted(() => ({
   getNode: vi.fn(),
   detectHermes: vi.fn(),
   getHermesPrerequisites: vi.fn(),
+  listOperations: vi.fn(),
 }));
 
 vi.mock("./api/session", () => ({
@@ -29,6 +30,7 @@ vi.mock("./api/client", async () => {
       getNode: clientMocks.getNode,
       detectHermes: clientMocks.detectHermes,
       getHermesPrerequisites: clientMocks.getHermesPrerequisites,
+      listOperations: clientMocks.listOperations,
     }),
   };
 });
@@ -74,6 +76,7 @@ describe("App daemon startup", () => {
     clientMocks.getNode.mockReset();
     clientMocks.getNode.mockResolvedValue(node);
     clientMocks.detectHermes.mockReset();
+    clientMocks.listOperations.mockReset().mockResolvedValue({ operations: [] });
     clientMocks.getHermesPrerequisites.mockReset().mockResolvedValue({
       node: { state: "MISSING", version: "", errorCode: "RUNTIME_HERMES_NODE_MISSING", retryable: true },
       npm: { state: "MISSING", version: "", errorCode: "RUNTIME_HERMES_NPM_MISSING", retryable: true },

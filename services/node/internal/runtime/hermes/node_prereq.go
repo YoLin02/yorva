@@ -123,11 +123,15 @@ func (h *NodeHost) probeVersion(executable string, args []string) (string, error
 }
 
 func nodeVersionSupported(version string) bool {
-	return compareLooseVersion(version, officialNodeMinVersion) >= 0
+	return normalizeManagedVersion(version) == officialNodeVersion
 }
 
 func npmVersionSupported(version string) bool {
-	return compareLooseVersion(version, officialNpmMinVersion) >= 0
+	return normalizeManagedVersion(version) == officialNpmVersion
+}
+
+func normalizeManagedVersion(version string) string {
+	return strings.TrimPrefix(strings.TrimSpace(version), "v")
 }
 
 func compareLooseVersion(got, min string) int {

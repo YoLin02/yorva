@@ -62,3 +62,46 @@ foreach ($item in $artifacts) {
     }
     Write-Host "prepared $($item.Name)"
 }
+
+$nodeZip = Join-Path $resourceDir "node-v22.23.1-win-x64.zip"
+$npmTgz = Join-Path $resourceDir "npm-12.0.2.tgz"
+if ((Test-Path -LiteralPath $nodeZip) -and (Test-Path -LiteralPath $npmTgz)) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $nodeLicense = Join-Path $resourceDir "NODE-LICENSE"
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($nodeZip)
+    try {
+        $entry = $zip.Entries | Where-Object { $_.FullName -eq "node-v22.23.1-win-x64/LICENSE" } | Select-Object -First 1
+        if (-not $entry) {
+            throw "Node archive is missing LICENSE"
+        }
+        if (Test-Path -LiteralPath $nodeLicense) {
+            Remove-Item -LiteralPath $nodeLicense -Force
+        }
+        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $nodeLicense, $true)
+    } finally {
+        $zip.Dispose()
+    }
+    $nodeHash = (Get-FileHash -Algorithm SHA256 -Path $nodeLicense).Hash
+    if ((Get-Item -LiteralPath $nodeLicense).Length -ne 148217 -or $nodeHash -ne "8CC9BB466B19FC7E7CC99D03E9DF1132021FDA8B01EEA2624C58BB372DBEF576") {
+        throw "extracted NODE-LICENSE failed size/SHA-256 verification"
+    }
+    Write-Host "verified NODE-LICENSE 148217 $nodeHash"
+
+    $tmp = Join-Path $cacheDir "npm-license"
+    if (Test-Path -LiteralPath $tmp) {
+        Remove-Item -LiteralPath $tmp -Recurse -Force
+    }
+    New-Item -ItemType Directory -Path $tmp | Out-Null
+    & tar.exe -xf $npmTgz -C $tmp package/LICENSE
+    if ($LASTEXITCODE -ne 0) {
+        throw "failed to extract npm LICENSE"
+    }
+    $npmLicense = Join-Path $resourceDir "NPM-LICENSE"
+    Copy-Item -LiteralPath (Join-Path $tmp "package\LICENSE") -Destination $npmLicense -Force
+    Remove-Item -LiteralPath $tmp -Recurse -Force
+    $npmHash = (Get-FileHash -Algorithm SHA256 -Path $npmLicense).Hash
+    if ((Get-Item -LiteralPath $npmLicense).Length -ne 9742 -or $npmHash -ne "7610D223851F421D315DF5E77974F1C68A04B97E02060E5BBBCF13D95E3CA257") {
+        throw "extracted NPM-LICENSE failed size/SHA-256 verification"
+    }
+    Write-Host "verified NPM-LICENSE 9742 $npmHash"
+}

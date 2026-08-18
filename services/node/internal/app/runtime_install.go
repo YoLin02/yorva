@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	"github.com/YoLin02/yorva/services/node/internal/events"
+	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -59,6 +61,7 @@ type RuntimeInstall struct {
 	mu              sync.Mutex
 	allowNonWindows bool
 	logger          *slog.Logger
+	events          *events.Broker
 }
 
 type InstallStartResult struct {
@@ -93,6 +96,11 @@ func (s *RuntimeInstall) WithLogger(logger *slog.Logger) *RuntimeInstall {
 	return s
 }
 
+func (s *RuntimeInstall) WithEvents(broker *events.Broker) *RuntimeInstall {
+	s.events = broker
+	return s
+}
+
 func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idempotencyKey string) (InstallStartResult, error) {
 	if err := ValidateIdempotencyKey(idempotencyKey); err != nil {
 		return InstallStartResult{}, err
@@ -100,11 +108,11 @@ func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idem
 	if existing, ok, err := s.store.GetOperationByIdempotencyKey(ctx, idempotencyKey); err != nil {
 		return InstallStartResult{}, err
 	} else if ok {
-		return InstallStartResult{Operation: existing}, nil
+		return s.replayIdempotent(existing, operation.TypeRuntimeInstall, string(kind))
 	}
 
 	if err := s.rejectActiveHermesMutation(ctx, string(kind)); err != nil {
-		return InstallStartResult{}, err
+		return s.replayIfCurrentKey(ctx, idempotencyKey, operation.TypeRuntimeInstall, string(kind), err)
 	}
 
 	discovery, err := s.discovery.Detect(ctx, kind)
@@ -155,8 +163,11 @@ func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idem
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
-	if err := s.store.CreateOperation(ctx, created); err != nil {
-		return InstallStartResult{}, s.normalizeCreateConflict(ctx, string(kind), err)
+	if s.applier != nil {
+		created.SourcePin = s.applier.ExpectedPin()
+	}
+	if err := s.persistCreate(ctx, created); err != nil {
+		return s.recoverCreate(ctx, created, err)
 	}
 	s.logInstall("created", created)
 	if s.applier != nil {
@@ -215,7 +226,7 @@ func (s *RuntimeInstall) Cancel(ctx context.Context, id string) (operation.Opera
 	next.Retryable = true
 	next.CompletedAt = &now
 	next.UpdatedAt = now
-	if err := s.store.UpdateOperation(ctx, current, next); err != nil {
+	if err := s.persistUpdate(ctx, current, next); err != nil {
 		latest, getErr := s.store.GetOperation(ctx, id)
 		if getErr == nil && latest.Status == operation.StatusCancelled {
 			s.logInstall("cancelled", latest)
@@ -256,8 +267,51 @@ func (s *RuntimeInstall) normalizeCreateConflict(ctx context.Context, runtimeKin
 	return err
 }
 
+func (s *RuntimeInstall) replayIdempotent(existing operation.Operation, wantType operation.Type, targetID string) (InstallStartResult, error) {
+	if existing.Type != wantType || existing.TargetType != operation.TargetRuntimeKind || existing.TargetID != targetID {
+		return InstallStartResult{}, InstallRejection{Code: yorvaruntime.ErrorIdempotencyKeyConflict, Retryable: false}
+	}
+	return InstallStartResult{Operation: existing}, nil
+}
+
+func (s *RuntimeInstall) replayIfCurrentKey(ctx context.Context, key string, wantType operation.Type, targetID string, err error) (InstallStartResult, error) {
+	var rejected InstallRejection
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallInProgress {
+		return InstallStartResult{}, err
+	}
+	existing, ok, getErr := s.store.GetOperationByIdempotencyKey(ctx, key)
+	if getErr != nil {
+		return InstallStartResult{}, getErr
+	}
+	if ok {
+		return s.replayIdempotent(existing, wantType, targetID)
+	}
+	return InstallStartResult{}, err
+}
+
+func (s *RuntimeInstall) recoverCreate(ctx context.Context, intended operation.Operation, err error) (InstallStartResult, error) {
+	existing, ok, getErr := s.store.GetOperationByIdempotencyKey(ctx, intended.IdempotencyKey)
+	if getErr != nil {
+		return InstallStartResult{}, getErr
+	}
+	if ok {
+		return s.replayIdempotent(existing, intended.Type, intended.TargetID)
+	}
+	if errors.Is(err, sqlite.ErrDuplicateIdempotency) {
+		return InstallStartResult{}, InstallRejection{Code: yorvaruntime.ErrorIdempotencyKeyConflict, Retryable: false}
+	}
+	return InstallStartResult{}, s.normalizeCreateConflict(ctx, intended.TargetID, err)
+}
+
 func (s *RuntimeInstall) InterruptStale(ctx context.Context) ([]operation.Operation, error) {
-	return s.store.InterruptActiveInstalls(ctx, s.now())
+	interrupted, err := s.store.InterruptActiveInstalls(ctx, s.now())
+	if err != nil {
+		return nil, err
+	}
+	for _, current := range interrupted {
+		s.emitOperation(operation.Operation{}, current, false)
+	}
+	return interrupted, nil
 }
 
 type PreflightDecision struct {
@@ -287,13 +341,23 @@ func DecideInstallPreflight(discovery yorvaruntime.Discovery, latest operation.O
 }
 
 func RetryEligible(latest operation.Operation) bool {
+	return RetryEligibleForPin(latest, "")
+}
+
+func RetryEligibleForPin(latest operation.Operation, expectedPin string) bool {
 	if latest.ID == "" || latest.Type != operation.TypeRuntimeInstall {
 		return false
 	}
 	if latest.Status != operation.StatusFailed && latest.Status != operation.StatusCancelled {
 		return false
 	}
-	return latest.Retryable
+	if !latest.Retryable {
+		return false
+	}
+	if expectedPin != "" && latest.SourcePin != "" && latest.SourcePin != expectedPin {
+		return false
+	}
+	return true
 }
 
 func (s *RuntimeInstall) logInstall(event string, op operation.Operation) {

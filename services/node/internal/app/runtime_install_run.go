@@ -25,6 +25,7 @@ type installWorker struct {
 type HostApplier interface {
 	PlatformSupported() bool
 	ValidateTarget(retry bool) error
+	ExpectedPin() string
 	Apply(ctx context.Context, operationID string, report func(operation.Stage, string)) error
 	ManagedInstallDir() string
 	ExpectedVersion() string
@@ -98,7 +99,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		next.Retryable = retryable
 		next.CompletedAt = &now
 		next.UpdatedAt = now
-		_ = s.store.UpdateOperation(context.Background(), latest, next)
+		_ = s.persistUpdate(context.Background(), latest, next)
 		s.logInstall("failed", next)
 	}
 	if s.applier == nil {
@@ -109,7 +110,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		return
 	}
 	previous, _, _ := s.store.PreviousRuntimeInstall(ctx, started.TargetID, started.ID)
-	if err := s.applier.ValidateTarget(RetryEligible(previous)); err != nil {
+	if err := s.applier.ValidateTarget(RetryEligibleForPin(previous, s.applier.ExpectedPin())); err != nil {
 		fail(installErrorCodeOr(err, yorvaruntime.ErrorRuntimeInstallTargetOccupied), false)
 		return
 	}
@@ -118,7 +119,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 	running.Status = operation.StatusRunning
 	running.StartedAt = &now
 	running.UpdatedAt = now
-	if err := s.store.UpdateOperation(ctx, current, running); err != nil {
+	if err := s.persistUpdate(ctx, current, running); err != nil {
 		return
 	}
 	current = running
@@ -129,7 +130,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 			updated.Message = warning
 		}
 		updated.UpdatedAt = s.now()
-		if err := s.store.UpdateOperation(context.Background(), current, updated); err == nil {
+		if err := s.persistUpdate(context.Background(), current, updated); err == nil {
 			current = updated
 			s.logInstall("stage", current)
 		}
@@ -151,7 +152,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 			next.Retryable = true
 			next.CompletedAt = &now
 			next.UpdatedAt = now
-			_ = s.store.UpdateOperation(context.Background(), latest, next)
+			_ = s.persistUpdate(context.Background(), latest, next)
 			s.logInstall("cancelled", next)
 			return
 		}
@@ -171,7 +172,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 	succeeded.CompletedAt = &now
 	succeeded.UpdatedAt = now
 	if s.completer == nil {
-		_ = s.store.UpdateOperation(context.Background(), current, succeeded)
+		_ = s.persistUpdate(context.Background(), current, succeeded)
 		s.logInstall("succeeded", succeeded)
 		return
 	}
@@ -195,6 +196,7 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		fail(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, true)
 		return
 	}
+	s.emitOperation(current, succeeded, false)
 	s.logInstall("succeeded", succeeded)
 }
 

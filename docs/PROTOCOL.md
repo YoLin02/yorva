@@ -300,7 +300,21 @@ operation.started
 operation.progress
 operation.completed
 operation.failed
+operation.cancelled
 ```
+
+Operation events are published only after the corresponding Operation row is successfully committed. The `data` object is closed and redacted:
+
+```text
+operationId
+type
+status
+stage
+errorCode
+correlationId
+```
+
+It must not include installer stdout/stderr, raw errors, URLs, filesystem paths, environment values or secrets. Resource `GET /api/v1/operations/{operationId}` remains the source of truth. After SSE disconnect or reconnect, Desktop recovers current state with GET (or the bounded Operation list), not by replaying a missed event buffer.
 
 Events are notifications, not the sole source of truth. After reconnect, Desktop refreshes relevant resources.
 
