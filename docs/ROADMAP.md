@@ -107,18 +107,21 @@ Phase 2 must not install/download Hermes, modify PATH/Python, or begin Profile/l
 
 ## Phase 3 — Hermes Installation
 
-Status: **AUDIT / ACCEPTED PENDING FREEZE CONDITIONS**
+Status: **COMPLETE / FROZEN**
+Gate: **PASS** (`AUDIT-003R9-hermes-installation.md`)
+Baseline: `phase-003-hermes-installation-baseline`
+Audit-accepted implementation commit: `721325181892d0fd8534f9f7d287fe05d9603bb0`
+Exact-commit CI: GitHub Actions run `32131548538` — SUCCESS
+Exact-commit MSI: GitHub Actions run `32131548340` — SUCCESS
 Spec: `docs/phases/PHASE-003-hermes-installation.md`
 Amendments:
 - `AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED
 - `AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED
 - `AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED
-- `AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED FOR IMPLEMENTATION (batch-gated; not Phase 3 PASS)
+- `AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED
 Architecture: `docs/phases/PHASE-003-generation-installation-architecture.md` — Owner-approved 2026-08-18
 ADR: `ADR-0006-generation-install-transaction.md` — Accepted
-Implementation branch: `fix/phase3-audit-r6-remediation`
-Source-accepted commit: `7825319ddf217e229b715a4d53838ed4476dfa06`
-Audit: `AUDIT-003`–`R7` — **FAIL**; `AUDIT-003R8` — **PASS WITH CONDITIONS** (freeze pending exact-commit CI/MSI)
+Audit: `AUDIT-003`–`R7` — **FAIL** (immutable); `AUDIT-003R8` — **PASS WITH CONDITIONS**; `AUDIT-003R9` — **PASS**
 
 Goal: install a supported official Hermes Runtime without requiring terminal use.
 
@@ -144,7 +147,7 @@ The detailed Phase 3 Spec was prepared after Phase 2 amendment 002A1 passed inde
 
 ## Phase 4 — Instance/Profile management
 
-Status: **DRAFT / NOT AUTHORIZED** (blocked on Phase 3 freeze)
+Status: **READY** (specification only; implementation not authorized)
 Spec: `docs/phases/PHASE-004-instance-profile.md`
 
 Goal: manage multiple Hermes-backed YORVA instances.

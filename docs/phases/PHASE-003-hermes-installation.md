@@ -1,23 +1,26 @@
 # YORVA Phase 3 — Hermes Installation
 
-> Status: AUDIT / ACCEPTED PENDING FREEZE CONDITIONS
+> Status: COMPLETE / FROZEN
 > Owner: Repository owner
 > Previous phase: Phase 2 — Hermes Discovery & Compatibility
 > Previous baseline: `phase-002-hermes-discovery-baseline-r1`
 > Previous baseline commit: `5b89d22ed5e7ae3f4374a26f0fcda54bdabc6bf9`
 > Previous gate: `AUDIT-002A1-hermes-discovery.md` — PASS
-> Implementation: AUDIT / ACCEPTED PENDING FREEZE CONDITIONS
-> Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
-> Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
-> Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED FOR IMPLEMENTATION
-> Amendment: `docs/phases/amendments/AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED FOR IMPLEMENTATION (batch-gated; not PASS)
-> Phase 3 audit: `AUDIT-003`–`R7` — FAIL; `AUDIT-003R8` — PASS WITH CONDITIONS (source `7825319`; freeze pending exact-commit CI)
+> Implementation: COMPLETE / FROZEN
+> Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED
+> Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED
+> Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED
+> Amendment: `docs/phases/amendments/AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED
+> Phase 3 audit: `AUDIT-003`–`R7` — FAIL (immutable); `AUDIT-003R8` — PASS WITH CONDITIONS; `AUDIT-003R9` — PASS
+> Audit-accepted implementation commit: `721325181892d0fd8534f9f7d287fe05d9603bb0`
+> Exact-commit CI: GitHub Actions run `32131548538` — SUCCESS
+> Exact-commit MSI: GitHub Actions run `32131548340` — SUCCESS
 > Target platform: Windows user-scope installation
 > Target Hermes release: `v2026.8.16` / package `0.20.2`
 > Spec review date: 2026-08-17
 > Owner approval date: 2026-08-17
 
-The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. `AUDIT-003R8` accepted source commit `7825319ddf217e229b715a4d53838ed4476dfa06` with freeze conditions. This document does not declare Phase 3 COMPLETE, FROZEN, or unlocked for Phase 4 implementation.
+The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Independent `AUDIT-003R9` returned `PASS` on `721325181892d0fd8534f9f7d287fe05d9603bb0`. Historical `AUDIT-003` through `AUDIT-003R7` remain FAIL. Phase 4 implementation is not authorized by this freeze.
 
 ## 1. Objective
 

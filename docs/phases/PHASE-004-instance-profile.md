@@ -1,12 +1,13 @@
 # YORVA Phase 4 — Instance / Profile Management
 
-> Status: DRAFT  
+> Status: READY  
 > Owner: Repository owner  
 > Previous phase: Phase 3 — Hermes Installation  
-> Previous baseline: not yet frozen (`AUDIT-003`–`R7` FAIL; `AUDIT-003R8` PENDING)  
-> This document is planning only. It does **not** authorize implementation, merge, or Phase 4 code.
+> Previous baseline: `phase-003-hermes-installation-baseline`  
+> Previous gate: `AUDIT-003R9-hermes-installation.md` — PASS  
+> This document is the Phase 4 Specification only. It does **not** authorize implementation.
 
-Phase 4 implementation must not begin until Phase 3 is independently audited `PASS` or accepted `PASS WITH CONDITIONS`, frozen, and tagged. `ROADMAP.md` does not authorize this phase by itself.
+Phase 4 implementation must not begin until the Repository Owner separately authorizes it. `ROADMAP.md` does not authorize implementation by itself.
 
 ## 1. Objective
 
@@ -25,13 +26,13 @@ An Instance is a logical independently manageable Runtime unit. For V0.1 it maps
 
 ## 2. Entry Criteria
 
-- [ ] Phase 3 independent audit is `PASS` or accepted `PASS WITH CONDITIONS`.
-- [ ] Phase 3 is `COMPLETE / FROZEN` with a `phase-003-*` tag on `main`.
-- [ ] `control/active.json` is the sole activation pointer; leftover `hermes-agent` is not adopted.
-- [ ] Phase 2 discovery still verifies the active generation after install.
+- [x] Phase 3 independent audit is `PASS` (`AUDIT-003R9`).
+- [x] Phase 3 is `COMPLETE / FROZEN` with tag `phase-003-hermes-installation-baseline`.
+- [x] `control/active.json` is the sole activation pointer; leftover `hermes-agent` is not adopted.
+- [x] Phase 2 discovery still verifies the active generation after install.
 - [ ] Repository Owner approves this Specification and separately authorizes implementation.
 
-Until every box is checked, this document stays `DRAFT`.
+Until the last box is checked, implementation must not begin.
 
 ## 3. User-visible success flow
 
