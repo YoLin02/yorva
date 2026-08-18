@@ -188,8 +188,8 @@ func TestDirSyncFailure(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := failing.SaveTransaction(update); err == nil {
-			t.Fatal("post-replace dir-sync failure succeeded")
+		if err := failing.SaveTransaction(update); err != nil {
+			t.Fatalf("complete new record must be treated as persisted: %v", err)
 		}
 		loaded, err := base.LoadTransaction(created.ID)
 		if err != nil {

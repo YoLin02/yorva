@@ -229,7 +229,13 @@ func (m *Manager) createFreshStaging(txnID string) (string, error) {
 }
 
 func (m *Manager) persist(txn *InstallTransaction) error {
+	expected := txn.Revision
 	if err := m.store.SaveTransaction(*txn); err != nil {
+		loaded, loadErr := m.store.LoadTransaction(txn.ID)
+		if loadErr == nil && loaded.ID == txn.ID && loaded.Revision > expected {
+			*txn = loaded
+			return nil
+		}
 		return err
 	}
 	loaded, err := m.store.LoadTransaction(txn.ID)
@@ -241,6 +247,15 @@ func (m *Manager) persist(txn *InstallTransaction) error {
 }
 
 func (m *Manager) fail(txn InstallTransaction, code string) (InstallTransaction, error) {
+	if rec, err := m.store.LoadActive(); err == nil && rec.GenerationID == txn.GenerationID {
+		txn.State = StateActivating
+		txn.ErrorCode = ""
+		txn.UpdatedAt = m.now()
+		if err := m.persist(&txn); err != nil {
+			return txn, err
+		}
+		return txn, errors.New(code)
+	}
 	txn.State = StateFailed
 	txn.ErrorCode = code
 	txn.UpdatedAt = m.now()

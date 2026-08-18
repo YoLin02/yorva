@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"time"
 )
 
 // Store persists transaction records and the active pointer under a managed root.
@@ -86,6 +87,42 @@ func (s *Store) ListTransactionViews() ([]TransactionView, bool, error) {
 		return nil, false, err
 	}
 	return s.inspectTransactions()
+}
+
+func (s *Store) HasNonterminal() bool {
+	views, _, err := s.inspectTransactions()
+	if err != nil {
+		return true
+	}
+	for _, view := range views {
+		if view.Valid && view.State.Nonterminal() {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Store) FailFailableNonterminals(now time.Time) error {
+	views, _, err := s.inspectTransactions()
+	if err != nil {
+		return err
+	}
+	for _, view := range views {
+		if !view.Valid || (view.State != StateCreated && view.State != StateBuilding) {
+			continue
+		}
+		txn, err := s.LoadTransaction(view.ID)
+		if err != nil {
+			return err
+		}
+		txn.State = StateFailed
+		txn.ErrorCode = CodeInterrupted
+		txn.UpdatedAt = now
+		if err := s.SaveTransaction(txn); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) inspectTransactions() ([]TransactionView, bool, error) {

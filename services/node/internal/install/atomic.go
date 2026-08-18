@@ -132,21 +132,26 @@ func writeAtomicRecord(ops atomicOps, dest string, payload []byte) (err error) {
 	if err = ops.hook(stepAfterReplace); err != nil {
 		return err
 	}
+	var syncErr error
 	if ops.SyncDir != nil {
-		if err = ops.SyncDir(dir); err != nil {
-			return err
-		}
+		syncErr = ops.SyncDir(dir)
 	}
 	if err = ops.hook(stepAfterFinalDirSync); err != nil {
 		return err
 	}
 	got, readErr := ops.ReadFile(dest)
 	if readErr != nil {
+		if syncErr != nil {
+			return syncErr
+		}
 		return readErr
 	}
 	if !bytes.Equal(got, payload) {
 		return ErrAtomicReadback
 	}
+	// Architecture §15.5: a complete readable new record is the recovery
+	// truth even if the final directory-sync call failed.
+	_ = syncErr
 	return ops.hook(stepAfterReadback)
 }
 

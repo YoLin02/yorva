@@ -47,6 +47,7 @@ const (
 	ActionGCStaging           Action = "GC_STAGING"
 	ActionDiagnoseRetain      Action = "DIAGNOSE_RETAIN"
 	ActionBlockUnsafe         Action = "BLOCK_UNSAFE"
+	ActionFailFailableExtras  Action = "FAIL_FAILABLE_EXTRAS"
 )
 
 const (

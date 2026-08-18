@@ -292,10 +292,18 @@ func TestDecideRecoveryMatrix(t *testing.T) {
 			want: RecoveryDecision{Gate: GateBlockedUnsafe, Action: ActionBlockUnsafe, ErrorCode: CodeBlockedUnsafe},
 		},
 		{
-			name: "two nonterminal",
+			name: "two failable nonterminal recover each once",
 			obs: Observation{Transactions: []TransactionView{
 				txn(StateBuilding),
 				{Valid: true, ID: "txn_other", State: StateCreated, GenerationID: genB},
+			}},
+			want: RecoveryDecision{Gate: GateReconciling, Action: ActionFailFailableExtras, ErrorCode: CodeInterrupted},
+		},
+		{
+			name: "two sealed nonterminal still blocked",
+			obs: Observation{Transactions: []TransactionView{
+				txn(StateSealed),
+				{Valid: true, ID: "txn_other", State: StatePublished, GenerationID: genB},
 			}},
 			want: RecoveryDecision{Gate: GateBlockedUnsafe, Action: ActionBlockUnsafe, ErrorCode: CodeBlockedUnsafe},
 		},

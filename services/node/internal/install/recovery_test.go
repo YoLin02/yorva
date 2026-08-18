@@ -131,6 +131,70 @@ func TestRecoverDuplicateSealedBlocksAndDoesNotPublishTwice(t *testing.T) {
 	}
 }
 
+func TestRecoverFailsFailableExtrasThenReady(t *testing.T) {
+	store := mustStore(t)
+	first := mustCreated(t)
+	if err := store.SaveTransaction(first); err != nil {
+		t.Fatal(err)
+	}
+	second, err := NewCreatedTransaction("hermes", "op_extra", "pin", "0.20.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveTransaction(second); err != nil {
+		t.Fatal(err)
+	}
+	gate := NewGateHolder()
+	if _, err := RecoverWith(context.Background(), store.layout.Root, gate, newMemEnv().store()); err != nil {
+		t.Fatal(err)
+	}
+	if gate.Get() != GateReady {
+		t.Fatalf("gate %s", gate.Get())
+	}
+	for _, id := range []string{first.ID, second.ID} {
+		loaded, err := store.LoadTransaction(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.State != StateFailed {
+			t.Fatalf("%s state %#v", id, loaded)
+		}
+	}
+}
+
+func TestRecoverFailedActiveIncompleteEnvRollsForward(t *testing.T) {
+	store := mustStore(t)
+	mem := newMemEnv()
+	mgr := NewManager(store, fakeBuild, nil).withEnv(mem.store())
+	txn := mustPublish(t, mgr)
+	loaded, err := store.LoadTransaction(txn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded.State = StateFailed
+	loaded.ErrorCode = CodeInterrupted
+	if err := store.SaveTransaction(loaded); err != nil {
+		t.Fatal(err)
+	}
+	if !store.ReadActive().Valid {
+		t.Fatal("expected active pointer")
+	}
+	gate := NewGateHolder()
+	if _, err := RecoverWith(context.Background(), store.layout.Root, gate, mem.store()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadTransaction(txn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.State != StateCommitted && got.State != StateActivating {
+		t.Fatalf("state %#v", got)
+	}
+	if gate.Get() != GateReady && gate.Get() != GateReconciling {
+		t.Fatalf("gate %s", gate.Get())
+	}
+}
+
 func TestRecoverD2IsNoopOrForward(t *testing.T) {
 	store := mustStore(t)
 	mem := newMemEnv()

@@ -35,7 +35,14 @@ func Execute(ctx context.Context, store *Store, mgr *Manager, obs Observation, d
 		return invokeOnPrimary(store, obs, func(txn InstallTransaction) error {
 			return mgr.activate(&txn)
 		})
+	case ActionFailFailableExtras:
+		return failFailableExtras(store, obs)
 	case ActionReconcileEnv:
+		if d.NextState != "" {
+			if err := persistPrimaryState(store, obs, d); err != nil {
+				return err
+			}
+		}
 		return invokeOnPrimary(store, obs, func(txn InstallTransaction) error {
 			_, err := mgr.ReconcileEnvironment(ctx, txn)
 			return err
@@ -108,6 +115,18 @@ func persistActivating(store *Store, obs Observation) error {
 	txn.Step = "activating"
 	txn.UpdatedAt = now
 	return store.SaveTransaction(txn)
+}
+
+func failFailableExtras(store *Store, obs Observation) error {
+	for _, view := range obs.Transactions {
+		if !view.Valid || (view.State != StateCreated && view.State != StateBuilding) {
+			continue
+		}
+		if err := persistTxnState(store, view.ID, StateFailed, CodeInterrupted); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func invokeOnPrimary(store *Store, obs Observation, fn func(InstallTransaction) error) error {

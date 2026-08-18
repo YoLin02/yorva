@@ -8,7 +8,7 @@
 > Historical baseline: `phase-002-hermes-discovery-baseline-r1` (immutable; not moved)  
 > Related: `AMENDMENT-002A1`, `AMENDMENT-002A2`, `AMENDMENT-003A4`, `ADR-0006`  
 > Design: `docs/phases/PHASE-003-generation-installation-architecture.md`  
-> Implementation: NOT STARTED; batch-gated with Phase 3 generation work  
+> Implementation: LANDED with Phase 3 generation batches; leftover `hermes-agent` on PATH is ignored when `active.json` is valid  
 > Audit: later independent review; this status is not an audit PASS  
 > Gate: this amendment is not Phase 2 COMPLETE / FROZEN / ACCEPTED as a new baseline
 

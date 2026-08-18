@@ -417,6 +417,53 @@ func TestApplyEnvFailureAfterActivateDoesNotFailOperation(t *testing.T) {
 	}
 }
 
+func TestRetryFailsLeftoverBuildingTransaction(t *testing.T) {
+	root := t.TempDir()
+	store := newMemoryOperationStore()
+	service := newOrchestratedInstall(store, []yorvaruntime.Discovery{
+		{State: yorvaruntime.DiscoveryNotInstalled},
+	}, &fakeApplier{dir: `C:\h\bin\hermes.exe`, version: "0.20.2", applyErr: errors.New("boom")}, &fakeCompleter{store: store}).WithManagedRoot(root)
+	first, err := service.Start(context.Background(), "hermes", "retry-leftover-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForStatus(t, service, first.Operation.ID, operation.StatusFailed)
+	istore, err := install.NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	txn, err := istore.LoadTransaction(first.Operation.TransactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	txn.State = install.StateBuilding
+	txn.ErrorCode = ""
+	if err := istore.SaveTransaction(txn); err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.Start(context.Background(), "hermes", "retry-leftover-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Operation.TransactionID == first.Operation.TransactionID {
+		t.Fatal("retry reused leftover transaction")
+	}
+	stale, err := istore.LoadTransaction(first.Operation.TransactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stale.State != install.StateFailed {
+		t.Fatalf("leftover %#v", stale)
+	}
+	fresh, err := istore.LoadTransaction(second.Operation.TransactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !fresh.State.Nonterminal() {
+		t.Fatalf("new txn should be in-flight %#v", fresh)
+	}
+}
+
 func TestExecuteDoesNotConsultPreviousInstallOwner(t *testing.T) {
 	store := newMemoryOperationStore()
 	previous := operation.Operation{

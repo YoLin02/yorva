@@ -21,6 +21,9 @@ func DecideRecovery(obs Observation) RecoveryDecision {
 		}
 	}
 	if len(nonterminal) > 1 {
+		if hasFailableNonterminal(nonterminal) {
+			return RecoveryDecision{Gate: GateReconciling, Action: ActionFailFailableExtras, ErrorCode: CodeInterrupted}
+		}
 		return blocked("multiple nonterminal transactions")
 	}
 	if len(nonterminal) == 0 {
@@ -221,6 +224,15 @@ func pointerUnrelatedToHistory(obs Observation, valid []TransactionView) bool {
 		}
 	}
 	return len(valid) > 0
+}
+
+func hasFailableNonterminal(txns []TransactionView) bool {
+	for _, txn := range txns {
+		if txn.State == StateCreated || txn.State == StateBuilding {
+			return true
+		}
+	}
+	return false
 }
 
 func failTxn(code string, action Action) RecoveryDecision {

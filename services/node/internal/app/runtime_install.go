@@ -142,6 +142,12 @@ func (s *RuntimeInstall) persistCreatedTransaction(op operation.Operation) (inst
 	if err != nil {
 		return install.InstallTransaction{}, err
 	}
+	if err := store.FailFailableNonterminals(s.now()); err != nil {
+		return install.InstallTransaction{}, err
+	}
+	if store.HasNonterminal() {
+		return install.InstallTransaction{}, InstallRejection{Code: yorvaruntime.ErrorRuntimeInstallNotReady, Retryable: true}
+	}
 	version := ""
 	if s.applier != nil {
 		version = s.applier.ExpectedVersion()

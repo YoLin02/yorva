@@ -6,7 +6,7 @@
 > Owner: Repository owner  
 > Phase: 3 — Hermes Installation  
 > Related: `ADR-0006`, `AMENDMENT-002A3`, `PHASE-003-generation-installation-architecture.md`  
-> Implementation: NOT STARTED; batch-gated (see `PHASE-003-generation-implementation-batches.md`)  
+> Implementation: BATCHES 0–8 LANDED; R7 HIGH/MEDIUM remediation in progress; `AUDIT-003R7` FAIL; `AUDIT-003R8` PENDING  
 > Audit: historical `AUDIT-003` through `AUDIT-003R6` remain FAIL; `AUDIT-003R7` PENDING  
 > Gate: this amendment is not Phase 3 PASS / COMPLETE / FROZEN / ACCEPTED
 
