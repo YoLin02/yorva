@@ -15,7 +15,9 @@ type promotionEngine struct {
 	rename          func(oldpath, newpath string) error
 	afterPrepared   func()
 	afterValidate   func()
+	afterOldRenamed func()
 	afterQuarantine func()
+	afterNewRenamed func()
 	afterPromoted   func()
 	lookup          func(string) (ownershipIdentity, bool)
 }
@@ -161,6 +163,9 @@ func promoteCandidate(ctx context.Context, eng promotionEngine, home, candidate,
 		if err := eng.rename(dest, quarantine); err != nil {
 			return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
 		}
+		if eng.afterOldRenamed != nil {
+			eng.afterOldRenamed()
+		}
 		journal.State = promoOldQuarantined
 		if err := writePromotionJournal(eng.ops, home, identity.Nonce, journal); err != nil {
 			_ = eng.rename(quarantine, dest)
@@ -176,6 +181,9 @@ func promoteCandidate(ctx context.Context, eng promotionEngine, home, candidate,
 			_ = eng.rename(quarantine, dest)
 		}
 		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
+	}
+	if eng.afterNewRenamed != nil {
+		eng.afterNewRenamed()
 	}
 	journal.State = promoNewPromoted
 	if err := writePromotionJournal(eng.ops, home, identity.Nonce, journal); err != nil {
@@ -217,25 +225,9 @@ func recoverPromotions(home string, eng promotionEngine) error {
 func recoverOnePromotion(home string, journal promotionJournal, identity ownershipIdentity, eng promotionEngine) error {
 	switch journal.State {
 	case promoPrepared:
-		if _, err := os.Lstat(journal.Target); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		if journal.Candidate != "" && candidateOwnedBy(journal.Candidate, identity, journal.CandidateManifest) {
-			if journal.PreviousManifest == "" || liveStillPrevious(journal.Target, journal, identity) {
-				_ = os.RemoveAll(journal.Candidate)
-			}
-		}
-		return nil
+		return recoverPrepared(home, journal, identity, eng)
 	case promoOldQuarantined:
-		if _, err := os.Lstat(journal.Target); os.IsNotExist(err) {
-			if err := restoreQuarantine(journal, identity); err != nil {
-				return err
-			}
-		}
-		if candidateOwnedBy(journal.Candidate, identity, journal.CandidateManifest) {
-			_ = os.RemoveAll(journal.Candidate)
-		}
-		return nil
+		return recoverOldQuarantined(home, journal, identity, eng)
 	case promoNewPromoted:
 		if err := requireCurrentOwnedTree(journal.Target, identity); err != nil {
 			return err
@@ -247,6 +239,53 @@ func recoverOnePromotion(home string, journal promotionJournal, identity ownersh
 	default:
 		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
 	}
+}
+
+func recoverPrepared(home string, journal promotionJournal, identity ownershipIdentity, eng promotionEngine) error {
+	_, destErr := os.Lstat(journal.Target)
+	if destErr != nil && !os.IsNotExist(destErr) {
+		return destErr
+	}
+	if os.IsNotExist(destErr) {
+		if journal.Quarantine == "" {
+			return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+		}
+		return restoreQuarantine(journal, identity)
+	}
+	if liveStillPrevious(journal.Target, journal, identity) {
+		if candidateOwnedBy(journal.Candidate, identity, journal.CandidateManifest) {
+			_ = os.RemoveAll(journal.Candidate)
+		}
+		return nil
+	}
+	if destMatchesCandidate(journal, identity) {
+		journal.State = promoCommitted
+		return writePromotionJournal(eng.ops, home, identity.Nonce, journal)
+	}
+	return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+}
+
+func recoverOldQuarantined(home string, journal promotionJournal, identity ownershipIdentity, eng promotionEngine) error {
+	_, destErr := os.Lstat(journal.Target)
+	if os.IsNotExist(destErr) {
+		return restoreQuarantine(journal, identity)
+	}
+	if destErr != nil {
+		return destErr
+	}
+	if destMatchesCandidate(journal, identity) {
+		journal.State = promoCommitted
+		return writePromotionJournal(eng.ops, home, identity.Nonce, journal)
+	}
+	return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+}
+
+func destMatchesCandidate(journal promotionJournal, identity ownershipIdentity) bool {
+	if err := requireCurrentOwnedTree(journal.Target, identity); err != nil {
+		return false
+	}
+	digest, err := inventoryDigest(journal.Target)
+	return err == nil && digest == journal.CandidateManifest
 }
 
 func liveStillPrevious(target string, journal promotionJournal, identity ownershipIdentity) bool {

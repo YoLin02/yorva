@@ -35,6 +35,7 @@ type HostInstaller struct {
 	promote            promotionEngine
 	afterStage         func(stage, dir string)
 	lookupIdentity     func(string) (ownershipIdentity, bool)
+	applyPathEnv       func(home, binDir string) error
 }
 
 func NewHostInstaller(stateRoot string) *HostInstaller {
@@ -265,12 +266,19 @@ func (h *HostInstaller) Apply(ctx context.Context, operationID string, report fu
 			return err
 		}
 	}
+	if err := h.materializeAuthenticatedLaunchers(candidate, identity); err != nil {
+		return err
+	}
 	if err := promoteCandidate(ctx, h.promoteOrDefault(), home, candidate, installDir, identity, h.previousOp); err != nil {
 		return err
 	}
 	promoted = true
-	if err := h.runStage(ctx, powershell, script.Path, "path", home, installDir); err != nil {
-		return err
+	applyEnv := h.applyPathEnv
+	if applyEnv == nil {
+		applyEnv = applyUserPathPostcondition
+	}
+	if err := applyEnv(home, filepath.Join(installDir, "bin")); err != nil {
+		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
 	}
 	if err := h.verifyPublicLauncher(ctx); err != nil {
 		return err
@@ -440,17 +448,59 @@ func (h *HostInstaller) runCandidateStage(ctx context.Context, powershell, scrip
 		before = snap
 	}
 	err := h.runStage(ctx, powershell, script, stage, home, candidate)
+	produced, _, walkErr := walkInventory(candidate)
+	if walkErr != nil && err == nil {
+		return walkErr
+	}
 	if h.afterStage != nil {
 		h.afterStage(stage, candidate)
 	}
-	if before != nil {
-		if deltaErr := applyAuthenticatedStageDelta(h.promoteOrDefault().ops, candidate, identity, stage, before); deltaErr != nil {
+	if before != nil && produced != nil {
+		if deltaErr := applyAuthenticatedStageDelta(h.promoteOrDefault().ops, candidate, identity, stage, before, produced); deltaErr != nil {
 			if err == nil {
 				return deltaErr
 			}
 		}
 	}
 	return err
+}
+
+func (h *HostInstaller) materializeAuthenticatedLaunchers(candidate string, identity ownershipIdentity) error {
+	before, err := snapshotOwnedInventory(candidate, identity)
+	if err != nil {
+		return err
+	}
+	if err := materializePublicLaunchers(candidate); err != nil {
+		return err
+	}
+	produced, _, err := walkInventory(candidate)
+	if err != nil {
+		return err
+	}
+	if h.afterStage != nil {
+		h.afterStage("path", candidate)
+	}
+	return applyAuthenticatedStageDelta(h.promoteOrDefault().ops, candidate, identity, "path", before, produced)
+}
+
+func materializePublicLaunchers(root string) error {
+	bin := filepath.Join(root, "bin")
+	if err := os.MkdirAll(bin, 0o700); err != nil {
+		return err
+	}
+	if err := rejectReparsePoint(bin); err != nil {
+		return err
+	}
+	for _, name := range []string{"hermes.exe", "hermes-acp.exe"} {
+		src := filepath.Join(root, "venv", "Scripts", name)
+		if !isRegularFile(src) {
+			continue
+		}
+		if err := copyRegularFile(src, filepath.Join(bin, name)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *HostInstaller) runStage(ctx context.Context, powershell, script, stage, home, installDir string) error {

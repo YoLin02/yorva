@@ -39,3 +39,30 @@ func osExpandLocalAppData(value string) string {
 func osGetenvLocalAppData() string {
 	return strings.TrimSpace(os.Getenv("LOCALAPPDATA"))
 }
+
+func applyUserPathPostcondition(home, binDir string) error {
+	key, err := registry.OpenKey(registry.CURRENT_USER, `Environment`, registry.QUERY_VALUE|registry.SET_VALUE)
+	if err != nil {
+		return err
+	}
+	defer key.Close()
+	if home != "" {
+		current, _, _ := key.GetStringValue("HERMES_HOME")
+		if filepath.Clean(current) != filepath.Clean(home) {
+			if err := key.SetStringValue("HERMES_HOME", home); err != nil {
+				return err
+			}
+		}
+	}
+	if userPathContainsDir(binDir) {
+		return nil
+	}
+	value, _, err := key.GetStringValue("Path")
+	if err != nil && err != registry.ErrNotExist {
+		return err
+	}
+	if strings.TrimSpace(value) == "" {
+		return key.SetStringValue("Path", binDir)
+	}
+	return key.SetStringValue("Path", binDir+string(filepath.ListSeparator)+value)
+}

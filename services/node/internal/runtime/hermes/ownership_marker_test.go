@@ -41,6 +41,9 @@ func TestWriteOwnershipRecordIsAtomicAndPreservesOldProof(t *testing.T) {
 		{name: "atomic replace failure", ops: withAtomicOverride(func(ops *atomicFileOps) {
 			ops.Replace = func(string, string) error { return fail }
 		})},
+		{name: "directory sync before replace", ops: withAtomicOverride(func(ops *atomicFileOps) {
+			ops.SyncDir = func(string) error { return fail }
+		})},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

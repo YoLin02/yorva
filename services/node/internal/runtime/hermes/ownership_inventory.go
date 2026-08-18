@@ -91,15 +91,67 @@ func (d inventoryDelta) empty() bool {
 	return len(d.Added) == 0 && len(d.Changed) == 0 && len(d.Removed) == 0
 }
 
+var allowedVenvExecutables = map[string]struct{}{
+	"venv/scripts/python.exe":     {},
+	"venv/scripts/pythonw.exe":    {},
+	"venv/scripts/python3.exe":    {},
+	"venv/scripts/pip.exe":        {},
+	"venv/scripts/pip3.exe":       {},
+	"venv/scripts/uv.exe":         {},
+	"venv/scripts/hermes.exe":     {},
+	"venv/scripts/hermes-acp.exe": {},
+	"venv/scripts/activate.bat":   {},
+	"venv/scripts/activate.ps1":   {},
+	"venv/scripts/deactivate.bat": {},
+	"bin/hermes.exe":              {},
+	"bin/hermes-acp.exe":          {},
+}
+
+func isSensitiveExecutable(rel string) bool {
+	ext := strings.ToLower(filepath.Ext(rel))
+	switch ext {
+	case ".exe", ".dll", ".cmd", ".bat", ".ps1", ".com", ".scr", ".msi":
+		return true
+	default:
+		return false
+	}
+}
+
 func stageAllowsPath(stage, rel string) bool {
+	slash := strings.ToLower(filepath.ToSlash(rel))
 	switch stage {
 	case "venv":
-		return rel == "venv.pending-backup" || strings.HasPrefix(rel, "venv/")
+		if slash == "venv.pending-backup" {
+			return true
+		}
+		if !strings.HasPrefix(slash, "venv/") {
+			return false
+		}
+		if isSensitiveExecutable(slash) {
+			_, ok := allowedVenvExecutables[slash]
+			return ok
+		}
+		return true
 	case "dependencies":
-		return strings.HasPrefix(rel, "venv/") || strings.HasPrefix(rel, ".venv/")
+		if strings.HasPrefix(slash, ".venv/") {
+			if isSensitiveExecutable(slash) {
+				return false
+			}
+			return true
+		}
+		if !strings.HasPrefix(slash, "venv/") {
+			return false
+		}
+		if isSensitiveExecutable(slash) {
+			_, ok := allowedVenvExecutables[slash]
+			return ok
+		}
+		return true
+	case "path":
+		return slash == "bin/hermes.exe" || slash == "bin/hermes-acp.exe"
 	case "bootstrap-marker":
-		return rel == ".hermes-bootstrap-complete"
-	case "config-templates", "path", "uv", "python", "git", "system-packages":
+		return slash == ".hermes-bootstrap-complete"
+	case "config-templates", "uv", "python", "git", "system-packages":
 		return false
 	default:
 		return false

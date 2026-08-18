@@ -333,6 +333,135 @@ func TestRecoverEachPromotionState(t *testing.T) {
 	})
 }
 
+func TestRecoverPreparedAfterOldRenameBeforeJournal(t *testing.T) {
+	home := t.TempDir()
+	dest := filepath.Join(home, "hermes-agent")
+	if err := os.MkdirAll(dest, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dest, "old.txt"), []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeOwnershipRecord(dest, testIdentity("op_1", dest)); err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := createCandidateDir(home, "op_2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(candidate, "new.txt"), []byte("new"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeOwnershipRecord(candidate, testIdentity("op_2", dest)); err != nil {
+		t.Fatal(err)
+	}
+	eng := newPromotionEngine()
+	eng.afterOldRenamed = func() {
+		panic("crash after old rename")
+	}
+	func() {
+		defer func() { _ = recover() }()
+		_ = promoteCandidate(context.Background(), eng, home, candidate, dest, testIdentity("op_2", dest), testPrevious("op_1"))
+	}()
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		t.Fatal("expected dest missing after interrupted first rename")
+	}
+	lookup := func(id string) (ownershipIdentity, bool) {
+		if id == "op_2" {
+			return testIdentity("op_2", dest), true
+		}
+		if id == "op_1" {
+			return testIdentity("op_1", dest), true
+		}
+		return ownershipIdentity{}, false
+	}
+	rec := newPromotionEngine()
+	rec.lookup = lookup
+	if err := recoverPromotions(home, rec); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(filepath.Join(dest, "old.txt")); err != nil || string(got) != "old" {
+		t.Fatalf("canonical dest not restored: %q %v", got, err)
+	}
+}
+
+func TestRecoverOldQuarantinedAfterNewRenameBeforeJournal(t *testing.T) {
+	home := t.TempDir()
+	dest := filepath.Join(home, "hermes-agent")
+	if err := os.MkdirAll(dest, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dest, "old.txt"), []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeOwnershipRecord(dest, testIdentity("op_1", dest)); err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := createCandidateDir(home, "op_2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(candidate, "new.txt"), []byte("new"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeOwnershipRecord(candidate, testIdentity("op_2", dest)); err != nil {
+		t.Fatal(err)
+	}
+	eng := newPromotionEngine()
+	eng.afterNewRenamed = func() {
+		panic("crash after new rename")
+	}
+	func() {
+		defer func() { _ = recover() }()
+		_ = promoteCandidate(context.Background(), eng, home, candidate, dest, testIdentity("op_2", dest), testPrevious("op_1"))
+	}()
+	rec := newPromotionEngine()
+	rec.lookup = func(id string) (ownershipIdentity, bool) {
+		if id == "op_2" {
+			return testIdentity("op_2", dest), true
+		}
+		return ownershipIdentity{}, false
+	}
+	if err := recoverPromotions(home, rec); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(filepath.Join(dest, "new.txt")); err != nil || string(got) != "new" {
+		t.Fatalf("new dest not kept: %q %v", got, err)
+	}
+	journal, err := readPromotionJournal(promotionJournalPath(home, "op_2"))
+	if err != nil || journal.State != promoCommitted {
+		t.Fatalf("journal = %#v %v", journal, err)
+	}
+}
+
+func TestVenvPrefixRejectsForeignExecutable(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "owned.txt"), []byte("payload"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	identity := testIdentity("op_exe", root)
+	if err := writeOwnershipRecord(root, identity); err != nil {
+		t.Fatal(err)
+	}
+	before, err := snapshotOwnedInventory(root, identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "venv"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "venv", "evil.exe"), []byte("MZ"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	produced, _, err := walkInventory(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if installErrorCode(applyAuthenticatedStageDelta(defaultAtomicFileOps(), root, identity, "venv", before, produced)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
+		t.Fatal("venv/evil.exe was authenticated")
+	}
+}
+
 func TestPromoteMissingPreviousFailsClosed(t *testing.T) {
 	home := t.TempDir()
 	dest := filepath.Join(home, "occupied")

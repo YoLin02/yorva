@@ -22,12 +22,16 @@ func snapshotOwnedInventory(root string, identity ownershipIdentity) (fileInvent
 	return inv, nil
 }
 
-func applyAuthenticatedStageDelta(ops atomicFileOps, root string, identity ownershipIdentity, stage string, before fileInventory) error {
-	after, _, err := walkInventory(root)
+func applyAuthenticatedStageDelta(ops atomicFileOps, root string, identity ownershipIdentity, stage string, before, produced fileInventory) error {
+	current, currentDigest, err := walkInventory(root)
 	if err != nil {
 		return err
 	}
-	delta := diffInventory(before, after)
+	if currentDigest != digestInventory(produced) {
+		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+	}
+	_ = current
+	delta := diffInventory(before, produced)
 	if !acceptStageDelta(stage, delta) {
 		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
 	}

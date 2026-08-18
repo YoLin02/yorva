@@ -29,7 +29,11 @@ func TestStageDeltaRejectsForeignInsertModifyDelete(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(root, "foreign.txt"), []byte("no"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if installErrorCode(applyAuthenticatedStageDelta(defaultAtomicFileOps(), root, identity, "venv", before)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
+		produced, _, err := walkInventory(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if installErrorCode(applyAuthenticatedStageDelta(defaultAtomicFileOps(), root, identity, "venv", before, produced)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
 			t.Fatal("foreign insert was signed")
 		}
 		record, err := readOwnershipRecord(root)
@@ -49,7 +53,11 @@ func TestStageDeltaRejectsForeignInsertModifyDelete(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(root, "owned.txt"), []byte("changed"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if installErrorCode(applyAuthenticatedStageDelta(defaultAtomicFileOps(), root, identity, "venv", before)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
+		produced, _, err := walkInventory(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if installErrorCode(applyAuthenticatedStageDelta(defaultAtomicFileOps(), root, identity, "venv", before, produced)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
 			t.Fatal("foreign modify was signed")
 		}
 		if got, err := os.ReadFile(filepath.Join(root, "owned.txt")); err != nil || string(got) != "changed" {
@@ -64,7 +72,11 @@ func TestStageDeltaRejectsForeignInsertModifyDelete(t *testing.T) {
 		if err := os.Remove(filepath.Join(root, "owned.txt")); err != nil {
 			t.Fatal(err)
 		}
-		if installErrorCode(applyAuthenticatedStageDelta(defaultAtomicFileOps(), root, identity, "venv", before)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
+		produced, _, err := walkInventory(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if installErrorCode(applyAuthenticatedStageDelta(defaultAtomicFileOps(), root, identity, "venv", before, produced)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
 			t.Fatal("foreign delete was signed")
 		}
 		if err := os.WriteFile(filepath.Join(root, "owned.txt"), []byte("payload"), 0o600); err != nil {
@@ -79,7 +91,11 @@ func TestStageDeltaRejectsForeignInsertModifyDelete(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(root, "venv", "pyvenv.cfg"), []byte("ok"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := applyAuthenticatedStageDelta(defaultAtomicFileOps(), root, identity, "venv", before); err != nil {
+		produced, _, err := walkInventory(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := applyAuthenticatedStageDelta(defaultAtomicFileOps(), root, identity, "venv", before, produced); err != nil {
 			t.Fatal(err)
 		}
 		if err := requireCurrentOwnedTree(root, identity); err != nil {
@@ -95,7 +111,8 @@ func TestCandidateStageRejectsForeignChangeDuringStage(t *testing.T) {
 	env := newRetryInstallEnv(t)
 	env.installer.afterStage = func(stage, dir string) {
 		if stage == "venv" {
-			_ = os.WriteFile(filepath.Join(dir, "foreign.txt"), []byte("no"), 0o600)
+			_ = os.MkdirAll(filepath.Join(dir, "venv", "Scripts"), 0o700)
+			_ = os.WriteFile(filepath.Join(dir, "venv", "Scripts", "hermes.exe"), []byte("foreign-exe"), 0o700)
 		}
 	}
 	env.installer.SetInstallIdentity(env.opA)

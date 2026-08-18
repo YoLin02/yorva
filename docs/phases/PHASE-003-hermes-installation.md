@@ -1,22 +1,22 @@
 # YORVA Phase 3 — Hermes Installation
 
-> Status: AUDIT / R5 REMEDIATION
+> Status: AUDIT / R6 REMEDIATION
 > Owner: Repository owner
 > Previous phase: Phase 2 — Hermes Discovery & Compatibility
 > Previous baseline: `phase-002-hermes-discovery-baseline-r1`
 > Previous baseline commit: `5b89d22ed5e7ae3f4374a26f0fcda54bdabc6bf9`
 > Previous gate: `AUDIT-002A1-hermes-discovery.md` — PASS
-> Implementation: AUDIT / R5 REMEDIATION
+> Implementation: AUDIT / R6 REMEDIATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED FOR IMPLEMENTATION
-> Phase 3 audit: `AUDIT-003` — FAIL; `AUDIT-003R1` — FAIL; `AUDIT-003R2` — FAIL; `AUDIT-003R3` — FAIL; `AUDIT-003R4` — FAIL; `AUDIT-003R5` — FAIL; `AUDIT-003R6` — PENDING
+> Phase 3 audit: `AUDIT-003` — FAIL; `AUDIT-003R1` — FAIL; `AUDIT-003R2` — FAIL; `AUDIT-003R3` — FAIL; `AUDIT-003R4` — FAIL; `AUDIT-003R5` — FAIL; `AUDIT-003R6` — FAIL; `AUDIT-003R7` — PENDING
 > Target platform: Windows user-scope installation
 > Target Hermes release: `v2026.8.16` / package `0.20.2`
 > Spec review date: 2026-08-17
 > Owner approval date: 2026-08-17
 
-The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Feature work is frozen except for `AUDIT-003R5` remediations. This document does not declare Phase 3 COMPLETE, FROZEN, PASS or ACCEPTED.
+The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Feature work is frozen except for `AUDIT-003R6` remediations. This document does not declare Phase 3 COMPLETE, FROZEN, PASS or ACCEPTED.
 
 ## 1. Objective
 
@@ -47,7 +47,7 @@ Phase 3 installs Hermes. It does not configure a Hermes profile, credentials, mo
 - [x] Repository Owner approved this Phase 3 Specification on 2026-08-17.
 - [x] Repository Owner authorizes Phase 3 implementation.
 
-Implementation authorization was granted. The remaining gate is independent re-audit `AUDIT-003R6`. Historical `AUDIT-003` through `AUDIT-003R5` reports remain FAIL.
+Implementation authorization was granted. The remaining gate is independent re-audit `AUDIT-003R7`. Historical `AUDIT-003` through `AUDIT-003R6` reports remain FAIL.
 
 ## 3. User-Visible Success Flow
 
@@ -306,7 +306,7 @@ Recovery is narrow:
 - the expected target must remain canonically contained under the fixed Hermes home and contain no reparse-point escape;
 - any successful install after that attempt, foreign installation evidence, changed origin, user-selected path or unrecognized content disables automatic retry;
 - retry uses the same pinned script and repeats approved stages from the beginning because the official stages are designed to be idempotent;
-- ownership is an Operation-private candidate tree plus a durable promotion journal (`PREPARED` → `OLD_QUARANTINED` → `NEW_PROMOTED` → `COMMITTED`). Official stages that mutate the install tree run against the candidate. `path` and `HERMES_HOME` are postconditions outside the directory manifest;
+- ownership is an Operation-private candidate tree plus a durable promotion journal (`PREPARED` → `OLD_QUARANTINED` → `NEW_PROMOTED` → `COMMITTED`). Official stages that mutate the install tree run against the candidate. Public launchers `bin/hermes.exe` and `bin/hermes-acp.exe` are copied from the authenticated `venv/Scripts` copies and signed before promotion. User `PATH` and `HERMES_HOME` are separate registry postconditions and are not directory-manifest entries;
 - a stage may change only its allowed candidate paths; any extra insert, modify or delete leaves the previous marker intact, does not delete uncertain data, and fails closed;
 - the live tree and its proof stay immutable until final validation and journaled promotion; the old tree is moved to quarantine and is never automatically deleted;
 - ownership markers are written through a same-directory exclusive temp file, flush/close, re-verify and atomic replace; a failed write keeps the previous complete marker;
@@ -653,7 +653,7 @@ Exact-commit CI must pass all Web/API, Go/Node including race, and Windows nativ
 
 ## 21. Exit Criteria
 
-Implementation-candidate checks for `AUDIT-003R6`. These do not constitute an audit PASS:
+Implementation-candidate checks for `AUDIT-003R7`. These do not constitute an audit PASS:
 
 - [x] Owner-approved Spec is unchanged or formally amended.
 - [x] Installation is Windows user-scope and available only from valid preflight state.
@@ -671,7 +671,7 @@ Implementation-candidate checks for `AUDIT-003R6`. These do not constitute an au
 - [x] Migrations, protocol, OpenAPI, generated types and governing docs agree.
 - [ ] Focused and full verification matrices pass or exact environmental blockers are recorded.
 - [ ] Exact-commit CI passes.
-- [ ] Independent `AUDIT-003R6` is PENDING. Historical `AUDIT-003` through `AUDIT-003R5` remain FAIL.
+- [ ] Independent `AUDIT-003R7` is PENDING. Historical `AUDIT-003` through `AUDIT-003R6` remain FAIL.
 
 Phase 3 is not accepted, merged, frozen or tagged by satisfying implementation criteria. Those actions require an independent audit Gate `PASS` and a separate governance task.
 
@@ -768,7 +768,7 @@ Implementation auth:   GRANTED — 2026-08-17
 
 ## 26. Completion Evidence
 
-R5 remediation evidence. This is not an audit PASS.
+R6 remediation evidence. This is not an audit PASS.
 
 ```text
 Owner approval: 2026-08-17 explicit implementation authorization
@@ -779,11 +779,17 @@ R4/R5 MSI CI: https://github.com/YoLin02/yorva/actions/runs/32100135323 PASS
 R4/R5 MSI artifact digest: sha256:b0034433b881042a13418bbbd217b348a42f1a609230298323d3b0d323009830
 R4 gate: FAIL (see AUDIT-003R4)
 R5 gate: FAIL (see AUDIT-003R5)
-R5 remediation branch: fix/phase3-audit-r5-remediation
-R5 remediation payload: the implementation commit on that branch after this evidence update
-R6 audit candidate HEAD: locked and recorded by independent AUDIT-003R6
-R6 exact-commit CI / MSI: locked and recorded by AUDIT-003R6; do not invent run IDs here
-Focused tests: candidate-tree stages, allowed delta only, atomic marker, journaled promotion, quarantine retention, crash recovery
+R6 audited branch: fix/phase3-audit-r5-remediation
+R6 audited commit: b79ad3c5ba4024a12aec61d615096260d40ead4b
+R6 exact-commit CI: https://github.com/YoLin02/yorva/actions/runs/32108290020 PASS
+R6 MSI CI: https://github.com/YoLin02/yorva/actions/runs/32108290027 PASS
+R6 MSI artifact digest: sha256:3402c9ae7dcbeb604b36d1734898cb704e451f9fb8f0cc04aff90bc5d0505de6
+R6 gate: FAIL (see AUDIT-003R6)
+R6 remediation branch: fix/phase3-audit-r6-remediation
+R6 remediation payload: the implementation commit on that branch after this evidence update
+R7 audit candidate HEAD: locked and recorded by independent AUDIT-003R7
+R7 exact-commit CI / MSI: locked and recorded by AUDIT-003R7; do not invent run IDs here
+Focused tests: bin launchers signed before promotion, venv executable allowlist, post-stage mutation rejected, PREPARED dest-missing restore, SyncDir fail-closed
 Windows lifecycle evidence: reused Phase 2 suspended Job Object runner with 1 MiB install output bound
 Known environmental blockers: local go test -race remains gcc-blocked; exact-commit CI race is mandatory
 Residual risks: official installer has no upstream checksum; YORVA-reviewed digest only
@@ -793,5 +799,6 @@ AUDIT-003R2 status: FAIL
 AUDIT-003R3 status: FAIL
 AUDIT-003R4 status: FAIL
 AUDIT-003R5 status: FAIL
-AUDIT-003R6 status: PENDING
+AUDIT-003R6 status: FAIL
+AUDIT-003R7 status: PENDING
 ```

@@ -83,6 +83,9 @@ func TestOwnershipHandoffRetrySequence(t *testing.T) {
 		if err := verifyRecordIdentity(record, env.identityB()); err != nil {
 			t.Fatalf("B ownership identity: %v", err)
 		}
+		if err := requireCurrentOwnedTree(env.installDir, env.identityB()); err != nil {
+			t.Fatalf("B inventory after path/bin materialization: %v", err)
+		}
 		if _, err := os.Stat(filepath.Join(env.installDir, "pyproject.toml")); err != nil {
 			t.Fatal("repository replacement missing")
 		}
@@ -246,6 +249,7 @@ func newRetryInstallEnv(t *testing.T) *retryInstallEnv {
 		return archive, sourceOriginBundled, nil
 	}
 	installer.userPath = func(string) bool { return true }
+	installer.applyPathEnv = func(string, string) error { return nil }
 	installer.run = func(_ context.Context, invocation installInvocation, _ time.Duration) commandResult {
 		joined := strings.Join(invocation.Args, " ")
 		if strings.Contains(joined, "-Stage") && strings.Contains(joined, "repository") {
@@ -274,6 +278,12 @@ func newRetryInstallEnv(t *testing.T) *retryInstallEnv {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(filepath.Join(stageDir, name), []byte(stage), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(filepath.Join(stageDir, "venv", "Scripts"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(stageDir, "venv", "Scripts", "hermes.exe"), []byte("mz-hermes"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}

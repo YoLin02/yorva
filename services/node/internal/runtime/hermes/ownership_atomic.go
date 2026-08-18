@@ -76,11 +76,19 @@ func writeAtomicRegularFile(ops atomicFileOps, dest string, payload []byte) (err
 	if err = rejectReparsePoint(tmp); err != nil {
 		return err
 	}
+	dir := filepath.Dir(dest)
+	if ops.SyncDir != nil {
+		if err = ops.SyncDir(dir); err != nil {
+			return err
+		}
+	}
 	if err = ops.Replace(tmp, dest); err != nil {
 		return err
 	}
 	if ops.SyncDir != nil {
-		_ = ops.SyncDir(filepath.Dir(dest))
+		if err = ops.SyncDir(dir); err != nil {
+			return err
+		}
 	}
 	return nil
 }

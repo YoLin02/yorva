@@ -10,6 +10,7 @@ on:
       - fix/phase3-audit-r2-remediation
       - fix/phase3-audit-r3-remediation
       - fix/phase3-audit-r5-remediation
+      - fix/phase3-audit-r6-remediation
 
 permissions:
   contents: read

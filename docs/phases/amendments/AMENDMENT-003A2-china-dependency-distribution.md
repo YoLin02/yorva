@@ -3,8 +3,8 @@
 > Status: ACCEPTED FOR IMPLEMENTATION
 > Phase: Phase 3 — Hermes Installation
 > Owner approval date: 2026-08-17
-> Implementation: R1 REMEDIATION COMPLETE; AUDIT-003R2 PENDING
-> Audit: historical `AUDIT-003` and `AUDIT-003R1` are FAIL; this status is not an audit PASS
+> Implementation: R6 REMEDIATION; AUDIT-003R7 PENDING
+> Audit: historical `AUDIT-003` through `AUDIT-003R6` are FAIL; this status is not an audit PASS
 
 ## 1. Problem
 
