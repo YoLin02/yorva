@@ -27,6 +27,8 @@ type HostInstaller struct {
 	shell              func() (string, error)
 	logger             *slog.Logger
 	operationID        string
+	currentOp          operation.Operation
+	previousOp         operation.Operation
 	acquireArchive     func(context.Context, string) (string, string, error)
 	verifyArchive      func(string) error
 	userPath           func(string) bool
@@ -81,16 +83,56 @@ func (h *HostInstaller) CanonicalPublicLauncher() string {
 	return filepath.Join(h.installDir(), "bin", "hermes.exe")
 }
 
+func (h *HostInstaller) installIdentity(installDir string) ownershipIdentity {
+	target := installDir
+	if abs, err := filepath.Abs(installDir); err == nil {
+		target = abs
+	}
+	kind := h.currentOp.TargetID
+	if kind == "" {
+		kind = "hermes"
+	}
+	return ownershipIdentity{
+		OperationID: h.currentOp.ID,
+		RuntimeKind: kind,
+		Target:      target,
+		SourcePin:   firstNonEmpty(h.currentOp.SourcePin, officialCommit),
+		Nonce:       h.currentOp.OwnershipNonce,
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func (h *HostInstaller) ExpectedPin() string {
 	return officialCommit
 }
 
-func (h *HostInstaller) ValidateTarget(retry bool) error {
-	return validateInstallTarget(h.home(), h.installDir(), retry, officialCommit)
+func (h *HostInstaller) SetInstallIdentity(op operation.Operation) {
+	h.currentOp = op
+	h.operationID = op.ID
+}
+
+func (h *HostInstaller) ValidateTarget(retry bool, previous operation.Operation) error {
+	h.previousOp = previous
+	return validateInstallTarget(h.home(), h.installDir(), retry, previous, officialCommit)
 }
 
 func (h *HostInstaller) Apply(ctx context.Context, operationID string, report func(operation.Stage, string)) error {
-	h.operationID = operationID
+	if h.currentOp.ID == "" {
+		h.SetInstallIdentity(operation.Operation{
+			ID:             operationID,
+			TargetID:       "hermes",
+			SourcePin:      officialCommit,
+			OwnershipNonce: "own_apply_" + operationID,
+		})
+	}
 	if !h.PlatformSupported() {
 		return installError(yorvaruntime.ErrorRuntimeInstallPlatformUnsupported, errPlatform)
 	}
@@ -127,7 +169,7 @@ func (h *HostInstaller) Apply(ctx context.Context, operationID string, report fu
 	}
 	home := h.home()
 	installDir := h.installDir()
-	if err := writeYorvaPartialMarker(installDir, officialCommit); err != nil {
+	if err := writeOwnershipRecord(installDir, h.installIdentity(installDir)); err != nil {
 		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
 	}
 	if report != nil {
@@ -261,7 +303,7 @@ func (h *HostInstaller) materializeRepository(ctx context.Context, archivePath, 
 		_ = os.RemoveAll(staging)
 		return err
 	}
-	if err := replaceOwnedTree(ctx, staging, installDir, officialCommit); err != nil {
+	if err := replaceOwnedTree(ctx, staging, installDir, h.installIdentity(installDir), h.previousOp); err != nil {
 		_ = os.RemoveAll(staging)
 		return err
 	}

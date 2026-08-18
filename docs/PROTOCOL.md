@@ -147,7 +147,7 @@ GET /api/v1/health
 POST /api/v1/runtimes/{runtimeKind}/detect
 ```
 
-Phase 2 implements authenticated, read-only discovery for the registered `hermes` kind. Phase 3 adds one authenticated installation Operation. The install request accepts no version, URL, path, command or environment fields and requires an `Idempotency-Key`. Completed negative discovery outcomes remain HTTP `200` typed results.
+Phase 2 implements authenticated, read-only discovery for the registered `hermes` kind. Phase 3 adds one authenticated installation Operation. The install request accepts no version, URL, path, command or environment fields and requires an `Idempotency-Key`. Both Hermes install and Hermes prerequisite start share the same closed empty-object request body. Completed negative discovery outcomes remain HTTP `200` typed results.
 
 ### Instances
 
@@ -215,7 +215,7 @@ QR/login flows return an Operation. QR payloads/events must have short validity 
 POST /api/v1/runtimes/hermes/install
 ```
 
-Phase 3 starts one durable `runtime.install` Operation for Windows user-scope Hermes `0.20.2`. The request body is a closed empty object. Amendment 003A1 may set `message` to a stable source-warning key such as `HERMES_SOURCE_BUNDLED_USED`. That field never contains a filesystem path, mirror URL or installer transcript.
+Phase 3 starts one durable `runtime.install` Operation for Windows user-scope Hermes `0.20.2`. Amendment 003A1 may set `message` to a stable source-warning key such as `HERMES_SOURCE_BUNDLED_USED`. That field never contains a filesystem path, mirror URL or installer transcript.
 
 Hermes Node.js health is a separate live query and Operation:
 
@@ -223,6 +223,14 @@ Hermes Node.js health is a separate live query and Operation:
 GET  /api/v1/runtimes/hermes/prerequisites
 POST /api/v1/runtimes/hermes/prerequisites/install
 ```
+
+`POST /api/v1/runtimes/hermes/install` and `POST /api/v1/runtimes/hermes/prerequisites/install` share one bounded empty-object decoder. OpenAPI `requestBody.required` is `true` and the schema is a closed object with no properties:
+
+- accept exactly `{}`;
+- reject unknown fields, arrays, strings, numbers, booleans and `null`;
+- reject a missing body, multiple JSON values, trailing JSON after `{}`, trailing garbage and oversized bodies;
+- return a stable protocol error (`INVALID_REQUEST`); never return a raw decoder message;
+- still require a valid `Idempotency-Key` before mutation.
 
 ### Operations
 

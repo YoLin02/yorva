@@ -45,12 +45,12 @@ func (d *Database) CreateOperation(ctx context.Context, value operation.Operatio
 	_, err := d.db.ExecContext(ctx, `
         INSERT INTO operations(
             id, operation_type, target_type, target_id, status, stage, progress, message,
-            error_code, error_message, retryable, idempotency_key, correlation_id, source_pin,
+            error_code, error_message, retryable, idempotency_key, correlation_id, source_pin, ownership_nonce,
             created_at, started_at, completed_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, value.ID, string(value.Type), string(value.TargetType), value.TargetID, string(value.Status),
 		string(value.Stage), value.Message, string(value.ErrorCode), value.ErrorMessage,
-		boolToInt(value.Retryable), value.IdempotencyKey, value.CorrelationID, value.SourcePin,
+		boolToInt(value.Retryable), value.IdempotencyKey, value.CorrelationID, value.SourcePin, value.OwnershipNonce,
 		formatTime(value.CreatedAt), formatOptionalTime(value.StartedAt),
 		formatOptionalTime(value.CompletedAt), formatTime(value.UpdatedAt))
 	if err != nil {
@@ -255,7 +255,7 @@ func (d *Database) InterruptActiveInstalls(ctx context.Context, now time.Time) (
 
 const operationSelect = `
     SELECT id, operation_type, target_type, target_id, status, stage, progress, message,
-           error_code, error_message, retryable, idempotency_key, correlation_id, source_pin,
+           error_code, error_message, retryable, idempotency_key, correlation_id, source_pin, ownership_nonce,
            created_at, started_at, completed_at, updated_at
     FROM operations
 `
@@ -274,7 +274,7 @@ func scanOperation(row operationRow) (operation.Operation, error) {
 	if err := row.Scan(
 		&value.ID, &value.Type, &targetType, &value.TargetID, &value.Status, &stage, &progress,
 		&value.Message, &errorCode, &value.ErrorMessage, &retryable, &value.IdempotencyKey,
-		&value.CorrelationID, &value.SourcePin, &createdAt, &startedAt, &completedAt, &updatedAt,
+		&value.CorrelationID, &value.SourcePin, &value.OwnershipNonce, &createdAt, &startedAt, &completedAt, &updatedAt,
 	); err != nil {
 		return operation.Operation{}, err
 	}

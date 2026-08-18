@@ -62,6 +62,7 @@ type RuntimeInstall struct {
 	allowNonWindows bool
 	logger          *slog.Logger
 	events          *events.Broker
+	deadline        time.Duration
 }
 
 type InstallStartResult struct {
@@ -98,6 +99,13 @@ func (s *RuntimeInstall) WithLogger(logger *slog.Logger) *RuntimeInstall {
 
 func (s *RuntimeInstall) WithEvents(broker *events.Broker) *RuntimeInstall {
 	s.events = broker
+	return s
+}
+
+func (s *RuntimeInstall) WithDeadline(deadline time.Duration) *RuntimeInstall {
+	if deadline > 0 {
+		s.deadline = deadline
+	}
 	return s
 }
 
@@ -165,6 +173,11 @@ func (s *RuntimeInstall) Start(ctx context.Context, kind yorvaruntime.Kind, idem
 	}
 	if s.applier != nil {
 		created.SourcePin = s.applier.ExpectedPin()
+		nonce, nonceErr := newOwnershipNonce()
+		if nonceErr != nil {
+			return InstallStartResult{}, nonceErr
+		}
+		created.OwnershipNonce = nonce
 	}
 	if err := s.persistCreate(ctx, created); err != nil {
 		return s.recoverCreate(ctx, created, err)
@@ -341,20 +354,20 @@ func DecideInstallPreflight(discovery yorvaruntime.Discovery, latest operation.O
 }
 
 func RetryEligible(latest operation.Operation) bool {
-	return RetryEligibleForPin(latest, "")
-}
-
-func RetryEligibleForPin(latest operation.Operation, expectedPin string) bool {
 	if latest.ID == "" || latest.Type != operation.TypeRuntimeInstall {
 		return false
 	}
 	if latest.Status != operation.StatusFailed && latest.Status != operation.StatusCancelled {
 		return false
 	}
-	if !latest.Retryable {
+	return latest.Retryable
+}
+
+func RetryEligibleForPin(latest operation.Operation, expectedPin string) bool {
+	if !RetryEligible(latest) {
 		return false
 	}
-	if expectedPin != "" && latest.SourcePin != "" && latest.SourcePin != expectedPin {
+	if expectedPin == "" || latest.SourcePin == "" || latest.OwnershipNonce == "" || latest.SourcePin != expectedPin {
 		return false
 	}
 	return true
@@ -404,4 +417,12 @@ func newCorrelationID() (string, error) {
 		return "", err
 	}
 	return "cor_" + base64.RawURLEncoding.EncodeToString(random), nil
+}
+
+func newOwnershipNonce() (string, error) {
+	random := make([]byte, 18)
+	if _, err := rand.Read(random); err != nil {
+		return "", err
+	}
+	return "own_" + base64.RawURLEncoding.EncodeToString(random), nil
 }

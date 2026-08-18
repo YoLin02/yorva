@@ -65,6 +65,7 @@ type Operation struct {
 	IdempotencyKey string
 	CorrelationID  string
 	SourcePin      string
+	OwnershipNonce string
 	CreatedAt      time.Time
 	StartedAt      *time.Time
 	CompletedAt    *time.Time

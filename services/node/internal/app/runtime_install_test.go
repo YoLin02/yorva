@@ -178,8 +178,16 @@ func TestRetryEligibleForPinRejectsStaleOperation(t *testing.T) {
 		t.Fatal("stale operation pin was treated as retry-eligible")
 	}
 	latest.SourcePin = "df4b65147d7ddd74dd449f9067aabbca5aef0ec7"
+	if RetryEligibleForPin(latest, "df4b65147d7ddd74dd449f9067aabbca5aef0ec7") {
+		t.Fatal("empty ownership nonce was treated as retry-eligible")
+	}
+	latest.OwnershipNonce = "own_test"
 	if !RetryEligibleForPin(latest, "df4b65147d7ddd74dd449f9067aabbca5aef0ec7") {
 		t.Fatal("matching operation pin was rejected")
+	}
+	latest.SourcePin = ""
+	if RetryEligibleForPin(latest, "df4b65147d7ddd74dd449f9067aabbca5aef0ec7") {
+		t.Fatal("empty durable source pin was treated as retry-eligible")
 	}
 }
 

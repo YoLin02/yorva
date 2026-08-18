@@ -1,22 +1,22 @@
 # YORVA Phase 3 — Hermes Installation
 
-> Status: AUDIT / R1 REMEDIATION
+> Status: AUDIT / R2 REMEDIATION
 > Owner: Repository owner
 > Previous phase: Phase 2 — Hermes Discovery & Compatibility
 > Previous baseline: `phase-002-hermes-discovery-baseline-r1`
 > Previous baseline commit: `5b89d22ed5e7ae3f4374a26f0fcda54bdabc6bf9`
 > Previous gate: `AUDIT-002A1-hermes-discovery.md` — PASS
-> Implementation: AUDIT / R1 REMEDIATION
+> Implementation: AUDIT / R2 REMEDIATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED FOR IMPLEMENTATION
-> Phase 3 audit: `AUDIT-003` — FAIL (historical); `AUDIT-003R1` — FAIL (historical); `AUDIT-003R2` — PENDING
+> Phase 3 audit: `AUDIT-003` — FAIL; `AUDIT-003R1` — FAIL; `AUDIT-003R2` — FAIL; `AUDIT-003R3` — PENDING
 > Target platform: Windows user-scope installation
 > Target Hermes release: `v2026.8.16` / package `0.20.2`
 > Spec review date: 2026-08-17
 > Owner approval date: 2026-08-17
 
-The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Feature work is frozen except for `AUDIT-003R1` remediations. This document does not declare Phase 3 COMPLETE, FROZEN, PASS or ACCEPTED.
+The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Feature work is frozen except for `AUDIT-003R2` remediations. This document does not declare Phase 3 COMPLETE, FROZEN, PASS or ACCEPTED.
 
 ## 1. Objective
 
@@ -47,12 +47,12 @@ Phase 3 installs Hermes. It does not configure a Hermes profile, credentials, mo
 - [x] Repository Owner approved this Phase 3 Specification on 2026-08-17.
 - [x] Repository Owner authorizes Phase 3 implementation.
 
-Implementation authorization was granted. The remaining gate is independent re-audit `AUDIT-003R2`. Historical `AUDIT-003` and `AUDIT-003R1` reports remain FAIL.
+Implementation authorization was granted. The remaining gate is independent re-audit `AUDIT-003R3`. Historical `AUDIT-003`, `AUDIT-003R1` and `AUDIT-003R2` reports remain FAIL.
 
 ## 3. User-Visible Success Flow
 
 1. Desktop refreshes Phase 2 discovery immediately before offering installation.
-2. Installation is enabled only for `NOT_INSTALLED` on supported Windows hosts.
+2. Starting a new installation is enabled only for `NOT_INSTALLED` on supported Windows hosts. Discovery does not hide an already-running, type/target-validated `runtime.install` Operation.
 3. Desktop presents a bilingual confirmation surface containing:
    - official source and exact Hermes version;
    - fixed user-scope destination;
@@ -67,7 +67,7 @@ Implementation authorization was granted. The remaining gate is independent re-a
 8. Success requires `SUPPORTED`, version `0.20.2`, and a selected command contained by the official managed installation root.
 9. Desktop refreshes discovery and shows the installed version and command path.
 
-Desktop closing does not implicitly cancel an installation. On reopening, Desktop queries the durable Operation resource and resumes displaying its current state.
+Desktop closing does not implicitly cancel an installation. On reopening, Desktop lists durable Operations and follows a type/target-validated active `runtime.install` independently of discovery. A partial host (including `BROKEN_EXECUTABLE`, `MALFORMED_VERSION` or `UNSUPPORTED`) still shows Operation status, stage, safe diagnostics and Cancel. Terminal history is never restored as active. A `hermes.prerequisites` Operation is never rendered as Hermes install. When the followed Operation reaches a terminal status, Desktop refreshes discovery and shows the Phase 2 success card if the result is `SUPPORTED`.
 
 ## 4. In Scope
 
@@ -299,10 +299,14 @@ Immediately before creating a new Operation, and again after acquiring the insta
 Recovery is narrow:
 
 - a retry is eligible only when the durable local Operation history proves YORVA previously started the same pinned Phase 3 install at the same fixed target and ended `FAILED`, `CANCELLED` or `OPERATION_INTERRUPTED`;
-- the expected target must remain canonically contained under the fixed Hermes home, contain no reparse-point escape and show either the reviewed official repository identity or an incomplete directory created during the recorded attempt;
+- retry requires all of: non-empty durable `source_pin` equal to the expected pinned commit; non-empty durable `ownership_nonce`; a versioned filesystem ownership record whose HMAC, operation ID, runtime kind, canonical target and pin match that durable row; and a current partial-tree inventory digest that still matches the recorded manifest;
+- an empty, migrated or mismatched `source_pin` or nonce fails closed and never authorizes retry;
+- the marker is not public commit text. It is a versioned JSON ownership record containing schema version, operation ID, runtime kind, canonical target, source pin, identity and inventory digest, authenticated with HMAC-SHA256 over the durable nonce;
+- extra executables, foreign files, changed owned files, missing owned files, malformed or copied markers, wrong operation IDs, target mismatches, reparse points/symlinks and manifest mismatches all reject automatic replacement;
+- the expected target must remain canonically contained under the fixed Hermes home and contain no reparse-point escape;
 - any successful install after that attempt, foreign installation evidence, changed origin, user-selected path or unrecognized content disables automatic retry;
 - retry uses the same pinned script and repeats approved stages from the beginning because the official stages are designed to be idempotent;
-- YORVA never deletes an unknown directory and never performs an uninstall or rollback;
+- YORVA never deletes an unknown directory, never infers whole-tree ownership from marker presence alone, and never performs an uninstall or rollback;
 - if official recovery moves an invalid YORVA-owned checkout aside, the Operation records only a safe warning and destination category, never raw user paths.
 
 After cancellation or failure, Desktop explains whether Retry is safe. When it is not safe, Desktop provides a correlation ID and non-destructive guidance; it does not offer “force install.”
@@ -546,7 +550,7 @@ Required states:
 - interrupted with safe Retry eligibility;
 - succeeded, followed by the Phase 2 supported discovery card;
 - install unavailable on non-Windows;
-- blocked by supported/unsupported/broken/malformed/ambiguous state.
+- blocked by supported/unsupported/broken/malformed/ambiguous state when no type/target-validated active `runtime.install` exists.
 
 Requirements:
 
@@ -557,8 +561,9 @@ Requirements:
 - disabling/double-click protection is backed by server idempotency, not UI state alone;
 - progress uses stage names, not fake percentage precision;
 - raw console output, stack traces and secret-bearing data are never rendered;
-- Cancel remains available only while cancellation is safe;
+- Cancel remains available only while cancellation is safe, including after Desktop reload while a validated `runtime.install` is still active;
 - Retry appears only when the application marks the prior attempt retry-eligible;
+- discovery gates only the new-install confirmation; an active validated Operation remains visible under partial discovery;
 - success must refresh query state instead of duplicating discovery into a client store.
 
 ## 19. Testing Strategy
@@ -571,6 +576,9 @@ Implementation must add regression tests at the owning layers. Network-dependent
 | same idempotency key repeated | same Operation returned, one worker | application + HTTP |
 | second key while active | typed in-progress conflict with active ID | application + persistence |
 | empty/invalid idempotency key | request rejected before mutation | HTTP/OpenAPI |
+| closed empty-object body (both start endpoints) | `{}` accepted; unknown/non-object/null/double/trailing/missing/oversized rejected with stable protocol error | HTTP |
+| Desktop reload + active install + BROKEN/MALFORMED discovery | status, stage, diagnostics and Cancel remain visible | React tests |
+| terminal or wrong type/target Operation | not restored as active Hermes install | React tests |
 | non-Windows host | stable unsupported result, no process | application/adapter |
 | foreign occupied target | fail without deleting/moving data | adapter integration |
 | exact script bytes | accepted | source verifier |
@@ -589,7 +597,10 @@ Implementation must add regression tests at the owning layers. Network-dependent
 | immediate descendant spawn | no pre-assignment escape | real Windows process test |
 | normal parent exit with descendant | descendant cannot survive reported completion | real Windows process test |
 | daemon restart with active row | `OPERATION_INTERRUPTED`, safe retry policy applied | persistence/startup |
-| cancellation/failure retry | same pin, safe target, idempotent stages | application/adapter |
+| cancellation/failure retry | non-empty exact pin+nonce+ownership record, safe target, idempotent stages | application/adapter |
+| empty/wrong pin, copied marker, foreign/changed/missing file | retry rejected; uncertain trees never deleted | adapter |
+| ZIP/tarball entry-count, member-size, total-size, prefix, traversal, symlink | extract rejected; dest cleaned | adapter |
+| whole-Operation deadline | context cancelled, process tree killed, temp cleaned, `RUNTIME_INSTALL_TIMEOUT` | application |
 | post-check supported 0.20.2 at managed root | installation upsert + SUCCEEDED atomically | integration |
 | post-check wrong version/path/ambiguous/broken | no accepted installation, FAILED | integration |
 | empty DB and Phase 2 DB migrations | deterministic schema and constraints | migration |
@@ -638,7 +649,7 @@ Exact-commit CI must pass all Web/API, Go/Node including race, and Windows nativ
 
 ## 21. Exit Criteria
 
-Implementation-candidate checks for `AUDIT-003R2`. These do not constitute an audit PASS:
+Implementation-candidate checks for `AUDIT-003R3`. These do not constitute an audit PASS:
 
 - [x] Owner-approved Spec is unchanged or formally amended.
 - [x] Installation is Windows user-scope and available only from valid preflight state.
@@ -656,7 +667,7 @@ Implementation-candidate checks for `AUDIT-003R2`. These do not constitute an au
 - [x] Migrations, protocol, OpenAPI, generated types and governing docs agree.
 - [ ] Focused and full verification matrices pass or exact environmental blockers are recorded.
 - [ ] Exact-commit CI passes.
-- [ ] Independent `AUDIT-003R2` is PENDING. Historical `AUDIT-003` and `AUDIT-003R1` remain FAIL.
+- [ ] Independent `AUDIT-003R3` is PENDING. Historical `AUDIT-003`, `AUDIT-003R1` and `AUDIT-003R2` remain FAIL.
 
 Phase 3 is not accepted, merged, frozen or tagged by satisfying implementation criteria. Those actions require an independent audit Gate `PASS` and a separate governance task.
 
@@ -753,23 +764,27 @@ Implementation auth:   GRANTED — 2026-08-17
 
 ## 26. Completion Evidence
 
-Remediation candidate for independent `AUDIT-003R2`. This is not an audit PASS.
+R2 remediation evidence. This is not an audit PASS.
 
 ```text
 Owner approval: 2026-08-17 explicit implementation authorization
-Implementation branch: fix/phase3-audit-r1-remediation
-Implementation commit: 2f1e4989664bacedc1d6c88095633632a085f71d
-Exact-commit CI run: PENDING
-MSI CI run: PENDING
-Batch results: AUDIT-003R1 remediations implemented in automatic batch-gate mode
-Focused tests: Desktop recovery, same-key idempotency, Operation SSE, marker/pin ownership, MSI inspector negatives, structured logs, exact Node/npm pins
-Full verification: recorded in the remediation completion report
+R2 audited branch: fix/phase3-audit-r1-remediation
+R2 audited commit: 13d3739e0f6379aee1253abecdd4c44c59d1c31b
+R2 exact-commit CI: https://github.com/YoLin02/yorva/actions/runs/32091058398 PASS
+R2 MSI CI: https://github.com/YoLin02/yorva/actions/runs/32091058406 PASS
+R2 MSI artifact digest: sha256:bfe700125513fa7ca732d7209cbd840576d17ec6f881266917202b97650e811e
+R2 gate: FAIL (see AUDIT-003R2)
+R2 remediation branch: fix/phase3-audit-r2-remediation
+R2 remediation payload: the implementation commit on that branch after this evidence update
+R3 audit candidate HEAD: locked and recorded by independent AUDIT-003R3
+R3 exact-commit CI / MSI: locked and recorded by AUDIT-003R3; do not invent run IDs here
+Batch results: AUDIT-003R2 remediations implemented in automatic batch-gate mode
+Focused tests: partial-discovery recovery, versioned ownership, archive bound execution, injected Operation deadline, closed empty-object HTTP
 Windows lifecycle evidence: reused Phase 2 suspended Job Object runner with 1 MiB install output bound
-Real isolated install smoke (if run): not run; requires disposable VM and explicit authorization
 Known environmental blockers: local go test -race remains gcc-blocked; exact-commit CI race is mandatory
-Changed files: see implementation commit
 Residual risks: official installer has no upstream checksum; YORVA-reviewed digest only
-AUDIT-003 status: FAIL (historical)
-AUDIT-003R1 status: FAIL (historical)
-AUDIT-003R2 status: PENDING
+AUDIT-003 status: FAIL
+AUDIT-003R1 status: FAIL
+AUDIT-003R2 status: FAIL
+AUDIT-003R3 status: PENDING
 ```

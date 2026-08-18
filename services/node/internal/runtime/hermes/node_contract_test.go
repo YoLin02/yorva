@@ -45,9 +45,9 @@ func TestExactNpmTarMaterialization(t *testing.T) {
 func TestExtractPrefixedZipRejectsLimitsAndCancel(t *testing.T) {
 	t.Run("root prefix", func(t *testing.T) {
 		archive := writeZip(t, map[string]string{"other-root/node.exe": "x"})
-		dest := t.TempDir()
-		if err := extractPrefixedZip(context.Background(), archive, dest, officialNodeZipRoot); err != nil {
-			t.Fatal(err)
+		dest := filepath.Join(t.TempDir(), "out")
+		if err := extractPrefixedZip(context.Background(), archive, dest, officialNodeZipRoot); err == nil {
+			t.Fatal("wrong prefix returned no error")
 		}
 		if _, err := os.Stat(filepath.Join(dest, "node.exe")); err == nil {
 			t.Fatal("wrong prefix extracted")

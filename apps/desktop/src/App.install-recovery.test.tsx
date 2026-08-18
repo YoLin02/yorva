@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { YorvaApiError } from "./api/client";
@@ -71,6 +71,27 @@ function operation(partial: Partial<Operation> & Pick<Operation, "id" | "type" |
   };
 }
 
+function discovery(state: "NOT_INSTALLED" | "BROKEN_EXECUTABLE" | "MALFORMED_VERSION" | "SUPPORTED") {
+  const errorCode =
+    state === "NOT_INSTALLED"
+      ? "RUNTIME_NOT_INSTALLED"
+      : state === "BROKEN_EXECUTABLE"
+        ? "RUNTIME_EXECUTABLE_BROKEN"
+        : state === "MALFORMED_VERSION"
+          ? "RUNTIME_VERSION_MALFORMED"
+          : null;
+  return {
+    runtimeKind: "hermes",
+    state,
+    errorCode,
+    selected: state === "SUPPORTED" ? { path: "C:\\Users\\a\\AppData\\Local\\hermes\\hermes-agent\\bin\\hermes.exe", version: "0.20.2", state, errorCode: null } : null,
+    candidates: [],
+    warnings: [],
+    detectedAt: "2026-08-14T00:00:00Z",
+    supportedRange: ">=0.19.0 <0.21.0",
+  };
+}
+
 function renderApp() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   return render(
@@ -84,16 +105,7 @@ describe("App Hermes install recovery", () => {
   beforeEach(() => {
     sessionMocks.getDaemonSession.mockReset().mockResolvedValue(session);
     clientMocks.getNode.mockReset().mockResolvedValue(node);
-    clientMocks.detectHermes.mockReset().mockResolvedValue({
-      runtimeKind: "hermes",
-      state: "NOT_INSTALLED",
-      errorCode: "RUNTIME_NOT_INSTALLED",
-      selected: null,
-      candidates: [],
-      warnings: [],
-      detectedAt: "2026-08-14T00:00:00Z",
-      supportedRange: ">=0.19.0 <0.21.0",
-    });
+    clientMocks.detectHermes.mockReset().mockResolvedValue(discovery("NOT_INSTALLED"));
     clientMocks.getHermesPrerequisites.mockReset().mockResolvedValue({
       node: { state: "READY", version: "22.23.1", errorCode: null, retryable: false },
       npm: { state: "READY", version: "12.0.2", errorCode: null, retryable: false },
@@ -203,5 +215,79 @@ describe("App Hermes install recovery", () => {
     expect(await screen.findByText("Installation failed")).toBeInTheDocument();
     expect(screen.getAllByText(/RUNTIME_INSTALL_IN_PROGRESS/).length).toBeGreaterThan(0);
     expect(screen.queryByText("Installing Hermes")).not.toBeInTheDocument();
+  });
+
+  it("reloads a running install when discovery is BROKEN_EXECUTABLE", async () => {
+    const live = operation({ id: "op_install", type: "runtime.install", status: "RUNNING" });
+    clientMocks.detectHermes.mockResolvedValue(discovery("BROKEN_EXECUTABLE"));
+    clientMocks.listOperations.mockResolvedValue({ operations: [live] });
+    clientMocks.getOperation.mockResolvedValue(live);
+
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
+    expect(await screen.findByText("Installing Hermes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel installation" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Install Hermes" })).not.toBeInTheDocument();
+  });
+
+  it("reloads a running install when discovery is MALFORMED_VERSION", async () => {
+    const live = operation({ id: "op_install", type: "runtime.install", status: "RUNNING" });
+    clientMocks.detectHermes.mockResolvedValue(discovery("MALFORMED_VERSION"));
+    clientMocks.listOperations.mockResolvedValue({ operations: [live] });
+    clientMocks.getOperation.mockResolvedValue(live);
+
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
+    expect(await screen.findByText("Installing Hermes")).toBeInTheDocument();
+    expect(screen.getAllByText(/install\.repository/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Install Hermes" })).not.toBeInTheDocument();
+  });
+
+  it("cancels a recovered install while discovery is still partial", async () => {
+    const live = operation({ id: "op_install", type: "runtime.install", status: "RUNNING" });
+    clientMocks.detectHermes.mockResolvedValue(discovery("BROKEN_EXECUTABLE"));
+    clientMocks.listOperations.mockResolvedValue({ operations: [live] });
+    clientMocks.getOperation.mockResolvedValue(live);
+    clientMocks.cancelOperation.mockResolvedValue({ ...live, status: "CANCELLED" });
+
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
+    expect(await screen.findByText("Installing Hermes")).toBeInTheDocument();
+    clientMocks.getOperation.mockResolvedValue({ ...live, status: "CANCELLED", errorCode: "RUNTIME_INSTALL_CANCELLED" });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel installation" }));
+    expect(await screen.findByText("Installation cancelled")).toBeInTheDocument();
+    expect(clientMocks.cancelOperation).toHaveBeenCalledWith("op_install");
+    expect(screen.queryByRole("button", { name: "Install Hermes" })).not.toBeInTheDocument();
+  });
+
+  it("refreshes discovery to SUPPORTED after a recovered install succeeds", async () => {
+    const live = operation({ id: "op_install", type: "runtime.install", status: "RUNNING" });
+    clientMocks.detectHermes.mockResolvedValue(discovery("BROKEN_EXECUTABLE"));
+    clientMocks.listOperations.mockResolvedValue({ operations: [live] });
+    clientMocks.getOperation.mockResolvedValue(live);
+
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
+    expect(await screen.findByText("Installing Hermes")).toBeInTheDocument();
+
+    clientMocks.detectHermes.mockResolvedValue(discovery("SUPPORTED"));
+    clientMocks.getOperation.mockResolvedValue({ ...live, status: "SUCCEEDED", completedAt: "2026-08-17T02:10:00Z" });
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    await waitFor(() => {
+      expect(screen.getAllByText("Hermes ready").length).toBeGreaterThan(0);
+      expect(screen.queryByText("Installing Hermes")).not.toBeInTheDocument();
+    }, { timeout: 3000 });
+  });
+
+  it("does not offer a new install while an active install is already shown", async () => {
+    const live = operation({ id: "op_install", type: "runtime.install", status: "PENDING" });
+    clientMocks.listOperations.mockResolvedValue({ operations: [live] });
+    clientMocks.getOperation.mockResolvedValue(live);
+
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
+    expect(await screen.findByText("Installing Hermes")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Install Hermes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Install" })).not.toBeInTheDocument();
   });
 });

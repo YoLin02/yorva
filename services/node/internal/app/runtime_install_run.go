@@ -24,7 +24,8 @@ type installWorker struct {
 
 type HostApplier interface {
 	PlatformSupported() bool
-	ValidateTarget(retry bool) error
+	SetInstallIdentity(operation.Operation)
+	ValidateTarget(retry bool, previous operation.Operation) error
 	ExpectedPin() string
 	Apply(ctx context.Context, operationID string, report func(operation.Stage, string)) error
 	ManagedInstallDir() string
@@ -46,7 +47,11 @@ func (s *RuntimeInstall) WithHost(applier HostApplier, completer InstallComplete
 }
 
 func (s *RuntimeInstall) bindWorker(parent context.Context, id string) context.Context {
-	ctx, cancel := context.WithTimeout(parent, operationDeadline)
+	timeout := operationDeadline
+	if s.deadline > 0 {
+		timeout = s.deadline
+	}
+	ctx, cancel := context.WithTimeout(parent, timeout)
 	done := make(chan struct{})
 	s.mu.Lock()
 	if s.workers == nil {
@@ -110,7 +115,8 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		return
 	}
 	previous, _, _ := s.store.PreviousRuntimeInstall(ctx, started.TargetID, started.ID)
-	if err := s.applier.ValidateTarget(RetryEligibleForPin(previous, s.applier.ExpectedPin())); err != nil {
+	s.applier.SetInstallIdentity(started)
+	if err := s.applier.ValidateTarget(RetryEligibleForPin(previous, s.applier.ExpectedPin()), previous); err != nil {
 		fail(installErrorCodeOr(err, yorvaruntime.ErrorRuntimeInstallTargetOccupied), false)
 		return
 	}

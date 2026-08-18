@@ -47,6 +47,14 @@ func verifySizedDigest(path string, size int64, digest string) error {
 }
 
 func extractPrefixedZip(ctx context.Context, archivePath, dest, prefix string) error {
+	err := extractPrefixedZipInto(ctx, archivePath, dest, prefix)
+	if err != nil {
+		_ = os.RemoveAll(dest)
+	}
+	return err
+}
+
+func extractPrefixedZipInto(ctx context.Context, archivePath, dest, prefix string) error {
 	reader, err := zip.OpenReader(archivePath)
 	if err != nil {
 		return err
@@ -56,6 +64,7 @@ func extractPrefixedZip(ctx context.Context, archivePath, dest, prefix string) e
 		return errors.New("zip entry count exceeded")
 	}
 	var uncompressed int64
+	matched := 0
 	for _, file := range reader.File {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -75,6 +84,7 @@ func extractPrefixedZip(ctx context.Context, archivePath, dest, prefix string) e
 		if rel == name || rel == "" {
 			continue
 		}
+		matched++
 		target := filepath.Join(dest, filepath.FromSlash(rel))
 		if !pathWithin(dest, target) {
 			return errors.New("zip member escaped destination")
@@ -91,6 +101,9 @@ func extractPrefixedZip(ctx context.Context, archivePath, dest, prefix string) e
 		if err := writeZipFile(file, target); err != nil {
 			return err
 		}
+	}
+	if matched == 0 {
+		return errors.New("archive root prefix mismatch")
 	}
 	return nil
 }
@@ -114,6 +127,14 @@ func writeZipFile(file *zip.File, target string) error {
 }
 
 func extractNpmTarball(ctx context.Context, archivePath, dest string) error {
+	err := extractNpmTarballInto(ctx, archivePath, dest)
+	if err != nil {
+		_ = os.RemoveAll(dest)
+	}
+	return err
+}
+
+func extractNpmTarballInto(ctx context.Context, archivePath, dest string) error {
 	file, err := os.Open(archivePath)
 	if err != nil {
 		return err
@@ -127,6 +148,7 @@ func extractNpmTarball(ctx context.Context, archivePath, dest string) error {
 	reader := tar.NewReader(gz)
 	var entries int
 	var uncompressed int64
+	matched := 0
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -157,6 +179,7 @@ func extractNpmTarball(ctx context.Context, archivePath, dest string) error {
 		if rel == name || rel == "" {
 			continue
 		}
+		matched++
 		target := filepath.Join(dest, filepath.FromSlash(rel))
 		if !pathWithin(dest, target) {
 			return errors.New("tar member escaped destination")
@@ -185,6 +208,9 @@ func extractNpmTarball(ctx context.Context, archivePath, dest string) error {
 		if closeErr != nil {
 			return closeErr
 		}
+	}
+	if matched == 0 {
+		return errors.New("archive root prefix mismatch")
 	}
 	return nil
 }

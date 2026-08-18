@@ -7,6 +7,7 @@ on:
       - main
       - fix/phase3-managed-node-prerequisites
       - fix/phase3-audit-r1-remediation
+      - fix/phase3-audit-r2-remediation
 
 permissions:
   contents: read

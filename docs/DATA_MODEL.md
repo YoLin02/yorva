@@ -114,7 +114,8 @@ error_message      TEXT
 retryable          INTEGER
 idempotency_key    TEXT
 correlation_id     TEXT
-source_pin         TEXT  # Hermes install pin recorded at create; empty for other types
+source_pin         TEXT  # Hermes install pin recorded at create; empty or mismatched pin never authorizes retry
+ownership_nonce    TEXT  # secret HMAC key for the filesystem ownership record; never returned by HTTP
 created_at         ... NOT NULL
 started_at         ...
 completed_at       ...
@@ -135,6 +136,8 @@ If idempotency is used locally:
 ```text
 UNIQUE(idempotency_key) WHERE idempotency_key IS NOT NULL
 ```
+
+`ownership_nonce` is generated at Operation create and never appears in HTTP Operation responses. The on-disk `.yorva-phase3-install` file is a versioned HMAC-authenticated ownership record, not a public commit marker. Retry requires the durable non-empty `source_pin` and nonce to match that record and the current partial-tree inventory digest. Empty migrated pins do not authorize retry.
 
 Progress must be null when percentage has no meaningful interpretation. Do not invent fake percentages.
 

@@ -68,7 +68,10 @@ export function App() {
     },
     refreshFollowedOperations,
   );
-  const discoveryKey = ["runtime-discovery", "hermes", sessionQuery.data?.baseUrl] as const;
+  const discoveryKey = useMemo(
+    () => ["runtime-discovery", "hermes", sessionQuery.data?.baseUrl] as const,
+    [sessionQuery.data?.baseUrl],
+  );
   const discoveryQuery = useQuery({
     queryKey: discoveryKey,
     queryFn: ({ signal }) => client!.detectHermes(signal),
@@ -269,6 +272,7 @@ export function App() {
   }, [prereqOperationQuery.data?.status, prerequisitesQuery]);
   const cancelInstall = async () => {
     if (!client || !followedInstallId || installBusy) return;
+    setActiveOperationId(followedInstallId);
     setInstallBusy(true);
     try {
       await client.cancelOperation(followedInstallId);
@@ -278,10 +282,11 @@ export function App() {
     }
   };
   useEffect(() => {
-    if (operationQuery.data?.status === "SUCCEEDED" && discoveryQuery.data?.state !== "SUPPORTED") {
-      void discoveryQuery.refetch();
+    const status = operationQuery.data?.status;
+    if (status === "SUCCEEDED" || status === "FAILED" || status === "CANCELLED") {
+      void queryClient.invalidateQueries({ queryKey: discoveryKey });
     }
-  }, [operationQuery.data?.status, discoveryQuery.data?.state, discoveryQuery]);
+  }, [operationQuery.data?.id, operationQuery.data?.status, queryClient, discoveryKey]);
 
   let discoveryState: HermesDiscoveryViewState;
   if (discoveryCancelled) {
@@ -310,6 +315,7 @@ export function App() {
     const prereqOperation = prereqOperationQuery.data && isHermesPrerequisite(prereqOperationQuery.data) ? prereqOperationQuery.data : null;
     const installBlocking = Boolean(installOperation && (installOperation.status === "PENDING" || installOperation.status === "RUNNING"));
     const prereqBlocking = Boolean(prereqOperation && (prereqOperation.status === "PENDING" || prereqOperation.status === "RUNNING"));
+    const showInstallPanel = notInstalled || followedInstallId !== null || installRequestError !== null;
     content = (
       <div>
         <HermesDiscoveryView state={discoveryState} copy={copy} locale={locale} />
@@ -328,16 +334,18 @@ export function App() {
             onCancel={() => { void cancelPrereq(); }}
           />
         )}
-        {notInstalled && (
+        {showInstallPanel && (
           <HermesInstallPanel
             copy={copy}
             windowsHost={windowsHost}
-            confirmOpen={confirmInstall && !prereqBlocking}
+            canStart={notInstalled}
+            confirmOpen={confirmInstall && notInstalled && !prereqBlocking}
             busy={installBusy || prereqBlocking}
             operation={installOperation}
             liveLog={operationLogQuery.data?.text ?? ""}
             requestError={installRequestError}
             onOpenConfirm={() => {
+              if (!notInstalled || installBlocking) return;
               setInstallRequestError(null);
               setConfirmInstall(true);
             }}
