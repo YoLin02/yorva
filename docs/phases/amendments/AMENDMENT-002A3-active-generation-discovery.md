@@ -57,13 +57,24 @@ If and only if the pointer is **fully valid** (section 4), discovery:
 3. does **not** add the legacy `hermes-agent` launchers as competing `--version` candidates;
 4. may still apply amendment 002A1 fallback **only inside that same generation root** when both generation launchers (`bin\hermes.exe` and `venv\Scripts\hermes.exe`) are absent.
 
-If `active.json` is missing, unreadable, schema-invalid, contains an absolute or escaping path, names an unknown id format, or fails seal/containment checks:
+If `active.json` is **missing**:
 
 ```text
 do not guess;
 do not scan generations/ for the newest directory;
 fall through to the existing frozen Phase 2 enumeration (PATH + hermes-agent).
 ```
+
+If `active.json` is **present but INVALID** (unreadable, schema-invalid, absolute/escaping path, unknown id, reparse, or seal/containment failure):
+
+```text
+do not guess;
+do not scan generations/ for the newest directory;
+do not treat INVALID as MISSING;
+fall through to the existing frozen Phase 2 enumeration for read-only Detect only.
+```
+
+Phase 3 install recovery treats `INVALID` as `BLOCKED_UNSAFE`. Detect remains read-only and still must not invent a newest-generation winner.
 
 `AMBIGUOUS` remains reserved for two or more independent Runtimes. A valid `active.json` plus a leftover legacy tree is **not** ambiguous: the pointer wins, the legacy tree is ignored for selection.
 

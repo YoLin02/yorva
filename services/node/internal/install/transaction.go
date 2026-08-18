@@ -24,6 +24,7 @@ type InstallTransaction struct {
 	GenerationRelativePath string           `json:"generationRelativePath"`
 	ManifestSHA256         string           `json:"manifestSha256"`
 	SealSHA256             string           `json:"sealSha256"`
+	ActiveBeforeKind       string           `json:"activeBeforeKind"`
 	ActiveBeforeGeneration string           `json:"activeBeforeGeneration"`
 	ActiveBeforeDigest     string           `json:"activeBeforeDigest"`
 	ErrorCode              string           `json:"errorCode"`
@@ -67,13 +68,15 @@ func NewCreatedTransaction(runtimeKind, operationID, sourcePin, expectedVersion 
 
 func (t InstallTransaction) View() TransactionView {
 	return TransactionView{
-		Valid:         true,
-		ID:            t.ID,
-		State:         t.State,
-		GenerationID:  t.GenerationID,
-		ActiveBefore:  t.ActiveBeforeGeneration,
-		StagingRel:    t.StagingRelativePath,
-		GenerationRel: t.GenerationRelativePath,
+		Valid:              true,
+		ID:                 t.ID,
+		State:              t.State,
+		GenerationID:       t.GenerationID,
+		ActiveBefore:       t.ActiveBeforeGeneration,
+		ActiveBeforeDigest: t.ActiveBeforeDigest,
+		ActiveBeforeKind:   t.ActiveBeforeKind,
+		StagingRel:         t.StagingRelativePath,
+		GenerationRel:      t.GenerationRelativePath,
 	}
 }
 
@@ -105,12 +108,28 @@ func validateTransaction(t InstallTransaction) error {
 	if t.SealSHA256 != "" && !validSHA256Hex(t.SealSHA256) {
 		return ErrInvalidRecord
 	}
-	if t.ActiveBeforeGeneration != "" {
+	switch t.ActiveBeforeKind {
+	case "":
+		if t.ActiveBeforeGeneration != "" {
+			if err := ParseGenerationID(t.ActiveBeforeGeneration); err != nil {
+				return err
+			}
+		}
+		if t.ActiveBeforeDigest != "" && !validSHA256Hex(t.ActiveBeforeDigest) {
+			return ErrInvalidRecord
+		}
+	case ActiveBeforeAbsent:
+		if t.ActiveBeforeGeneration != "" || t.ActiveBeforeDigest != "" {
+			return ErrInvalidRecord
+		}
+	case ActiveBeforeValid:
 		if err := ParseGenerationID(t.ActiveBeforeGeneration); err != nil {
 			return err
 		}
-	}
-	if t.ActiveBeforeDigest != "" && !validSHA256Hex(t.ActiveBeforeDigest) {
+		if !validSHA256Hex(t.ActiveBeforeDigest) {
+			return ErrInvalidRecord
+		}
+	default:
 		return ErrInvalidRecord
 	}
 	if t.CreatedAt.IsZero() || t.UpdatedAt.IsZero() {

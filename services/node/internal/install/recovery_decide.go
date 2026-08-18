@@ -4,6 +4,9 @@ package install
 // active.json bytes. It never reads SQLite Operations, PATH as activation,
 // or "newest generation" as a pointer.
 func DecideRecovery(obs Observation) RecoveryDecision {
+	if obs.Active.Invalid() {
+		return blocked("invalid active pointer")
+	}
 	if obs.ReservedIDCollision {
 		return blocked("reserved identifier collision")
 	}
@@ -46,7 +49,7 @@ func decideTerminalWorld(obs Observation, valid []TransactionView) RecoveryDecis
 		if action, ok := leftoverStaging(obs); ok {
 			return RecoveryDecision{Gate: GateReady, Action: action}
 		}
-		if !obs.Environment.Complete() && obs.Active.Valid {
+		if !obs.Environment.Complete() && obs.Active.IsValid() {
 			return RecoveryDecision{Gate: GateReady, Action: ActionReconcileEnv}
 		}
 		return RecoveryDecision{Gate: GateReady, Action: ActionNone}
@@ -138,10 +141,10 @@ func decidePublished(obs Observation, txn TransactionView) RecoveryDecision {
 	if activeNames(obs, txn.GenerationID) {
 		return RecoveryDecision{Gate: GateReconciling, NextState: StateActivating, Action: ActionReconcileEnv}
 	}
-	if activeIsPredecessorOrNone(obs, txn) {
+	if expectedPredecessorOrAbsent(obs, txn) {
 		return RecoveryDecision{Gate: GateReconciling, NextState: StateActivating, Action: ActionPersistActivating}
 	}
-	if obs.Active.Valid {
+	if obs.Active.IsValid() {
 		return blocked("published generation but active.json names an unrelated generation")
 	}
 	return failClosed(CodeInconsistent)
@@ -151,7 +154,7 @@ func decideActivating(obs Observation, txn TransactionView) RecoveryDecision {
 	if !obs.Generation.Present || !obs.Generation.Sealed || !obs.Generation.LineageMatch {
 		return failClosed(CodeInconsistent)
 	}
-	if obs.Active.Valid && !activeNames(obs, txn.GenerationID) && !activeIsPredecessorOrNone(obs, txn) {
+	if obs.Active.IsValid() && !activeNames(obs, txn.GenerationID) && !expectedPredecessorOrAbsent(obs, txn) {
 		return blocked("activating while active.json names an unrelated generation")
 	}
 	if activeNames(obs, txn.GenerationID) {
@@ -160,7 +163,7 @@ func decideActivating(obs Observation, txn TransactionView) RecoveryDecision {
 		}
 		return RecoveryDecision{Gate: GateReconciling, Action: ActionReconcileEnv}
 	}
-	if activeIsPredecessorOrNone(obs, txn) {
+	if expectedPredecessorOrAbsent(obs, txn) {
 		return RecoveryDecision{Gate: GateReconciling, Action: ActionActivate}
 	}
 	return failClosed(CodeInconsistent)
@@ -180,25 +183,39 @@ func leftoverStaging(obs Observation) (Action, bool) {
 }
 
 func activeNames(obs Observation, generationID string) bool {
-	return obs.Active.Valid && generationID != "" && obs.Active.GenerationID == generationID
+	return obs.Active.IsValid() && generationID != "" && obs.Active.GenerationID == generationID
 }
 
-func activeIsPredecessorOrNone(obs Observation, txn TransactionView) bool {
-	if !obs.Active.Present || !obs.Active.Valid {
-		return true
-	}
-	if obs.Active.GenerationID == txn.GenerationID {
+func expectedPredecessorOrAbsent(obs Observation, txn TransactionView) bool {
+	if obs.Active.Invalid() {
 		return false
 	}
-	if txn.ActiveBefore != "" {
-		return obs.Active.GenerationID == txn.ActiveBefore
+	kind := txn.ActiveBeforeKind
+	if kind == "" && txn.ActiveBefore == "" {
+		kind = ActiveBeforeAbsent
 	}
-	return true
+	if kind == "" && txn.ActiveBefore != "" {
+		kind = ActiveBeforeValid
+	}
+	switch kind {
+	case ActiveBeforeAbsent:
+		return obs.Active.Missing()
+	case ActiveBeforeValid:
+		if !obs.Active.IsValid() || obs.Active.GenerationID != txn.ActiveBefore {
+			return false
+		}
+		if txn.ActiveBeforeDigest != "" && obs.Active.SealSHA256 != txn.ActiveBeforeDigest {
+			return false
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 func committedActive(obs Observation, valid []TransactionView) (TransactionView, bool) {
 	for _, txn := range valid {
-		if txn.State == StateCommitted && obs.Active.Valid && obs.Active.GenerationID == txn.GenerationID {
+		if txn.State == StateCommitted && obs.Active.IsValid() && obs.Active.GenerationID == txn.GenerationID {
 			return txn, true
 		}
 	}
@@ -207,7 +224,7 @@ func committedActive(obs Observation, valid []TransactionView) (TransactionView,
 
 func failedButActive(obs Observation, valid []TransactionView) (TransactionView, bool) {
 	for _, txn := range valid {
-		if txn.State == StateFailed && obs.Active.Valid && obs.Active.GenerationID == txn.GenerationID {
+		if txn.State == StateFailed && obs.Active.IsValid() && obs.Active.GenerationID == txn.GenerationID {
 			return txn, true
 		}
 	}
@@ -215,7 +232,7 @@ func failedButActive(obs Observation, valid []TransactionView) (TransactionView,
 }
 
 func pointerUnrelatedToHistory(obs Observation, valid []TransactionView) bool {
-	if !obs.Active.Valid {
+	if !obs.Active.IsValid() {
 		return false
 	}
 	for _, txn := range valid {

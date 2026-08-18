@@ -106,9 +106,8 @@ func persistActivating(store *Store, obs Observation) error {
 	if err != nil {
 		return err
 	}
-	if rec, err := store.LoadActive(); err == nil && rec.GenerationID != txn.GenerationID {
-		txn.ActiveBeforeGeneration = rec.GenerationID
-		txn.ActiveBeforeDigest = rec.SealSHA256
+	if err := snapshotActiveBefore(&txn, obs.Active); err != nil {
+		return err
 	}
 	now := time.Now().UTC()
 	txn.State = StateActivating

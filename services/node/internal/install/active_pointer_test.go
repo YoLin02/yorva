@@ -1,7 +1,9 @@
 package install
 
 import (
+	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -9,15 +11,16 @@ import (
 
 func TestActivePointerRoundTrip(t *testing.T) {
 	store := mustStore(t)
-	if got := store.ReadActive(); got.Present || got.Valid {
+	if got := store.ReadActive(); !got.Missing() || got.Present || got.Valid {
 		t.Fatalf("missing pointer: %#v", got)
 	}
 	rec := validActive(t)
+	mustMaterializePointerGeneration(t, store, &rec)
 	if err := store.WriteActive(rec); err != nil {
 		t.Fatal(err)
 	}
 	got := store.ReadActive()
-	if !got.Valid || got.GenerationID != rec.GenerationID {
+	if !got.IsValid() || got.GenerationID != rec.GenerationID {
 		t.Fatalf("read %#v", got)
 	}
 	loaded, err := store.LoadActive()
@@ -57,7 +60,7 @@ func TestActivePointerMalformedIsNotNewest(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := store.ReadActive()
-	if !got.Present || got.Valid || got.GenerationID != "" {
+	if !got.Invalid() || got.Valid || got.GenerationID != "" {
 		t.Fatalf("malformed treated as valid: %#v", got)
 	}
 }
@@ -66,10 +69,12 @@ func TestActivePointerPostReplaceReadback(t *testing.T) {
 	root := t.TempDir()
 	store := mustStoreAt(t, root)
 	first := validActive(t)
+	mustMaterializePointerGeneration(t, store, &first)
 	if err := store.WriteActive(first); err != nil {
 		t.Fatal(err)
 	}
 	second := validActive(t)
+	mustMaterializePointerGeneration(t, store, &second)
 	failing := mustStoreWithHook(t, root, failAt(stepAfterReplace))
 	if err := failing.WriteActive(second); err == nil {
 		t.Fatal("injected failure succeeded")
@@ -78,6 +83,48 @@ func TestActivePointerPostReplaceReadback(t *testing.T) {
 	if !got.Valid || got.GenerationID != second.GenerationID {
 		t.Fatalf("complete new pointer not recovered: %#v", got)
 	}
+}
+
+func mustMaterializePointerGeneration(t *testing.T, store *Store, rec *ActiveRecord) {
+	t.Helper()
+	genAbs, err := store.layout.GenerationPath(rec.GenerationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(genAbs, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manifestBytes, err := json.Marshal(ManifestFile{Schema: manifestSchema})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestBytes = append(manifestBytes, '\n')
+	genRec := GenerationRecord{
+		Schema:                 generationSchema,
+		LineageID:              strings.Repeat("11", 16),
+		TransactionID:          rec.TransactionID,
+		GenerationID:           rec.GenerationID,
+		RuntimeKind:            rec.RuntimeKind,
+		SourcePin:              rec.SourcePin,
+		ExpectedVersion:        rec.Version,
+		GenerationRelativePath: rec.GenerationRelativePath,
+		ManifestSHA256:         sha256Hex(manifestBytes),
+		CreatedAt:              rec.ActivatedAt,
+		SealedAt:               rec.ActivatedAt,
+	}
+	genBytes, err := json.Marshal(genRec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	genBytes = append(genBytes, '\n')
+	if err := os.WriteFile(filepath.Join(genAbs, fileManifest), manifestBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(genAbs, fileGeneration), genBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rec.ManifestSHA256 = sha256Hex(manifestBytes)
+	rec.SealSHA256 = sha256Hex(genBytes)
 }
 
 func validActive(t *testing.T) ActiveRecord {

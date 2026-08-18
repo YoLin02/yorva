@@ -142,6 +142,9 @@ func (s *RuntimeInstall) persistCreatedTransaction(op operation.Operation) (inst
 	if err != nil {
 		return install.InstallTransaction{}, err
 	}
+	if store.ReadActive().Invalid() {
+		return install.InstallTransaction{}, InstallRejection{Code: yorvaruntime.ErrorRuntimeInstallBlockedUnsafe, Retryable: false}
+	}
 	if err := store.FailFailableNonterminals(s.now()); err != nil {
 		return install.InstallTransaction{}, err
 	}
@@ -307,6 +310,14 @@ func (s *RuntimeInstall) filesystemOwnsOperation(op operation.Operation) bool {
 }
 
 func (s *RuntimeInstall) rejectInstallGate() error {
+	if s.managedRoot != "" {
+		if store, err := install.NewStore(s.managedRoot); err == nil && store.ReadActive().Invalid() {
+			if s.gate != nil {
+				s.gate.Set(install.GateBlockedUnsafe)
+			}
+			return InstallRejection{Code: yorvaruntime.ErrorRuntimeInstallBlockedUnsafe, Retryable: false}
+		}
+	}
 	switch s.gate.Get() {
 	case install.GateReady, "":
 		return nil

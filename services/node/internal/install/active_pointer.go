@@ -26,9 +26,16 @@ type ActiveRecord struct {
 
 func (r ActiveRecord) Observation() ActivePointer {
 	if err := validateActiveRecord(r); err != nil {
-		return ActivePointer{Present: true, Valid: false}
+		return ActivePointer{Class: ActiveInvalid, Present: true}
 	}
-	return ActivePointer{Present: true, Valid: true, GenerationID: r.GenerationID}
+	return ActivePointer{
+		Class:          ActiveValid,
+		Present:        true,
+		Valid:          true,
+		GenerationID:   r.GenerationID,
+		SealSHA256:     r.SealSHA256,
+		ManifestSHA256: r.ManifestSHA256,
+	}
 }
 
 func (s *Store) WriteActive(rec ActiveRecord) error {
@@ -78,12 +85,23 @@ func (s *Store) LoadActive() (ActiveRecord, error) {
 func (s *Store) ReadActive() ActivePointer {
 	rec, err := s.LoadActive()
 	if errors.Is(err, ErrNotFound) {
-		return ActivePointer{}
+		return ActivePointer{Class: ActiveMissing}
 	}
 	if err != nil {
-		return ActivePointer{Present: true, Valid: false}
+		return ActivePointer{Class: ActiveInvalid, Present: true}
 	}
-	return rec.Observation()
+	genAbs, err := s.layout.GenerationPath(rec.GenerationID)
+	if err != nil {
+		return ActivePointer{Class: ActiveInvalid, Present: true}
+	}
+	if err := VerifyPublishedGeneration(genAbs, rec.GenerationID, rec.ManifestSHA256, rec.SealSHA256); err != nil {
+		return ActivePointer{Class: ActiveInvalid, Present: true}
+	}
+	got := rec.Observation()
+	if !got.IsValid() {
+		return ActivePointer{Class: ActiveInvalid, Present: true}
+	}
+	return got
 }
 
 func validateActiveRecord(r ActiveRecord) error {

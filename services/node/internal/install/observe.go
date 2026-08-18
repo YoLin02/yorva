@@ -58,7 +58,7 @@ func primaryTxn(views []TransactionView, active ActivePointer) TransactionView {
 	if len(nonterminal) == 1 {
 		return nonterminal[0]
 	}
-	if active.Valid {
+	if active.IsValid() {
 		for _, view := range views {
 			if view.Valid && view.GenerationID == active.GenerationID {
 				return view

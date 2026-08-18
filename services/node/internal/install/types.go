@@ -67,6 +67,8 @@ type TransactionView struct {
 	State                TransactionState
 	GenerationID         string
 	ActiveBefore         string
+	ActiveBeforeDigest   string
+	ActiveBeforeKind     string
 	StagingRel           string
 	GenerationRel        string
 }
@@ -80,11 +82,50 @@ type TreeObservation struct {
 	LineageID    string
 }
 
-// ActivePointer is the observed control/active.json. Missing/invalid is not "newest generation".
+// ActiveClass is the observed state of control/active.json.
+// MISSING and INVALID are not interchangeable: only MISSING may be first-activated.
+type ActiveClass string
+
+const (
+	ActiveMissing ActiveClass = "MISSING"
+	ActiveValid   ActiveClass = "VALID"
+	ActiveInvalid ActiveClass = "INVALID"
+)
+
+const (
+	ActiveBeforeAbsent = "ABSENT"
+	ActiveBeforeValid  = "VALID"
+)
+
+// ActivePointer is the observed control/active.json. Missing is not invalid.
 type ActivePointer struct {
-	Present      bool
-	Valid        bool
-	GenerationID string
+	Class          ActiveClass
+	Present        bool
+	Valid          bool
+	GenerationID   string
+	SealSHA256     string
+	ManifestSHA256 string
+}
+
+func (p ActivePointer) Missing() bool {
+	if p.Class != "" {
+		return p.Class == ActiveMissing
+	}
+	return !p.Present && !p.Valid
+}
+
+func (p ActivePointer) Invalid() bool {
+	if p.Class != "" {
+		return p.Class == ActiveInvalid
+	}
+	return p.Present && !p.Valid
+}
+
+func (p ActivePointer) IsValid() bool {
+	if p.Class != "" {
+		return p.Class == ActiveValid
+	}
+	return p.Valid
 }
 
 // EnvironmentObservation is derived-state input, never an activation source.

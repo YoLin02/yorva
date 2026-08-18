@@ -22,6 +22,8 @@ CREATED → BUILDING → SEALED → PUBLISHED → ACTIVATING → COMMITTED
 
 `FAILED` is allowed only while `control/active.json` does not name this transaction's generation.
 
+`active.json` is observed as `MISSING`, `VALID`, or `INVALID`. Those classes are not interchangeable. `INVALID` is `BLOCKED_UNSAFE` and never treated as a first-install vacancy. First activation requires observed `MISSING` plus an `ActiveBefore=ABSENT` snapshot. Later activation is a compare-and-swap against `VALID(generationId + digest)`.
+
 Authorities are non-overlapping:
 
 | Concern | Sole authority |

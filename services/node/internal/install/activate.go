@@ -18,41 +18,21 @@ func (m *Manager) activate(txn *InstallTransaction) error {
 	}
 
 	pointer := m.store.ReadActive()
-	current, currentErr := m.store.LoadActive()
-	hasCurrent := currentErr == nil
-
-	if pointer.Valid && pointer.GenerationID == txn.GenerationID {
-		if txn.State != StateActivating {
-			now := m.now()
-			txn.State = StateActivating
-			txn.Step = "activating"
-			txn.UpdatedAt = now
-			if txn.ActivatedAt == nil {
-				txn.ActivatedAt = &now
-			}
-			if err := m.persist(txn); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if pointer.Valid && txn.ActiveBeforeGeneration != "" && pointer.GenerationID != txn.ActiveBeforeGeneration {
+	if pointer.Invalid() {
 		return fmt.Errorf("%w: %s", ErrBlockedUnsafe, CodeBlockedUnsafe)
+	}
+	if pointerNamesTxn(pointer, *txn) {
+		return m.markActivating(txn)
 	}
 
 	if txn.State == StatePublished {
 		if err := m.failpoint(FailBeforeActivatingPersist); err != nil {
 			return err
 		}
-		if hasCurrent {
-			txn.ActiveBeforeGeneration = current.GenerationID
-			txn.ActiveBeforeDigest = current.SealSHA256
+		if err := snapshotActiveBefore(txn, pointer); err != nil {
+			return err
 		}
-		now := m.now()
-		txn.State = StateActivating
-		txn.Step = "activating"
-		txn.UpdatedAt = now
-		if err := m.persist(txn); err != nil {
+		if err := m.markActivating(txn); err != nil {
 			return err
 		}
 		if err := m.failpoint(FailAfterActivatingPersist); err != nil {
@@ -61,8 +41,14 @@ func (m *Manager) activate(txn *InstallTransaction) error {
 	}
 
 	pointer = m.store.ReadActive()
-	if pointer.Valid && pointer.GenerationID != txn.GenerationID && pointer.GenerationID != txn.ActiveBeforeGeneration {
+	if pointer.Invalid() {
 		return fmt.Errorf("%w: %s", ErrBlockedUnsafe, CodeBlockedUnsafe)
+	}
+	if pointerNamesTxn(pointer, *txn) {
+		return nil
+	}
+	if err := casAllowsActivate(*txn, pointer); err != nil {
+		return err
 	}
 
 	if err := m.failpoint(FailDuringActiveWrite); err != nil {
@@ -90,8 +76,8 @@ func (m *Manager) activate(txn *InstallTransaction) error {
 	if err := m.failpoint(FailAfterActiveWrite); err != nil {
 		return err
 	}
-	got, err := m.store.LoadActive()
-	if err != nil || got.GenerationID != txn.GenerationID {
+	got := m.store.ReadActive()
+	if !pointerNamesTxn(got, *txn) {
 		return ErrInvalidRecord
 	}
 	if err := VerifySealedTree(destAbs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256); err != nil {
@@ -105,4 +91,76 @@ func (m *Manager) activate(txn *InstallTransaction) error {
 		}
 	}
 	return nil
+}
+
+func (m *Manager) markActivating(txn *InstallTransaction) error {
+	if txn.State == StateActivating && txn.ActivatedAt != nil {
+		return nil
+	}
+	now := m.now()
+	txn.State = StateActivating
+	txn.Step = "activating"
+	txn.UpdatedAt = now
+	if txn.ActivatedAt == nil {
+		txn.ActivatedAt = &now
+	}
+	return m.persist(txn)
+}
+
+func snapshotActiveBefore(txn *InstallTransaction, pointer ActivePointer) error {
+	if pointer.Invalid() {
+		return fmt.Errorf("%w: %s", ErrBlockedUnsafe, CodeBlockedUnsafe)
+	}
+	if pointer.Missing() {
+		txn.ActiveBeforeKind = ActiveBeforeAbsent
+		txn.ActiveBeforeGeneration = ""
+		txn.ActiveBeforeDigest = ""
+		return nil
+	}
+	if !pointer.IsValid() {
+		return fmt.Errorf("%w: %s", ErrBlockedUnsafe, CodeBlockedUnsafe)
+	}
+	txn.ActiveBeforeKind = ActiveBeforeValid
+	txn.ActiveBeforeGeneration = pointer.GenerationID
+	txn.ActiveBeforeDigest = pointer.SealSHA256
+	return nil
+}
+
+func pointerNamesTxn(pointer ActivePointer, txn InstallTransaction) bool {
+	return pointer.IsValid() &&
+		pointer.GenerationID == txn.GenerationID &&
+		pointer.SealSHA256 == txn.SealSHA256
+}
+
+func casAllowsActivate(txn InstallTransaction, pointer ActivePointer) error {
+	if pointer.Invalid() {
+		return fmt.Errorf("%w: %s", ErrBlockedUnsafe, CodeBlockedUnsafe)
+	}
+	if pointerNamesTxn(pointer, txn) {
+		return nil
+	}
+	kind := txn.ActiveBeforeKind
+	if kind == "" && txn.ActiveBeforeGeneration == "" {
+		kind = ActiveBeforeAbsent
+	}
+	if kind == "" && txn.ActiveBeforeGeneration != "" {
+		kind = ActiveBeforeValid
+	}
+	switch kind {
+	case ActiveBeforeAbsent:
+		if !pointer.Missing() {
+			return fmt.Errorf("%w: %s", ErrBlockedUnsafe, CodeBlockedUnsafe)
+		}
+		return nil
+	case ActiveBeforeValid:
+		if !pointer.IsValid() || pointer.GenerationID != txn.ActiveBeforeGeneration {
+			return fmt.Errorf("%w: %s", ErrBlockedUnsafe, CodeBlockedUnsafe)
+		}
+		if txn.ActiveBeforeDigest != "" && pointer.SealSHA256 != txn.ActiveBeforeDigest {
+			return fmt.Errorf("%w: %s", ErrBlockedUnsafe, CodeBlockedUnsafe)
+		}
+		return nil
+	default:
+		return fmt.Errorf("%w: %s", ErrBlockedUnsafe, CodeBlockedUnsafe)
+	}
 }

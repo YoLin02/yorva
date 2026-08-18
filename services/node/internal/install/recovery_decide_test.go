@@ -46,7 +46,7 @@ func TestDecideRecoveryMatrix(t *testing.T) {
 		{
 			name: "none + absent + malformed pointer",
 			obs:  Observation{Active: malformed},
-			want: RecoveryDecision{Gate: GateReady, Action: ActionNone},
+			want: RecoveryDecision{Gate: GateBlockedUnsafe, Action: ActionBlockUnsafe, ErrorCode: CodeBlockedUnsafe},
 		},
 		{
 			name: "none + generations exist + no active never auto-activates",
@@ -176,9 +176,39 @@ func TestDecideRecoveryMatrix(t *testing.T) {
 			want: RecoveryDecision{Gate: GateBlockedUnsafe, Action: ActionBlockUnsafe, ErrorCode: CodeBlockedUnsafe},
 		},
 		{
-			name: "PUBLISHED missing pointer treated as none",
-			obs:  Observation{Transactions: []TransactionView{txn(StatePublished)}, Generation: sealed, Active: missing},
+			name: "PUBLISHED missing pointer first install",
+			obs: Observation{
+				Transactions: []TransactionView{{
+					Valid: true, ID: txnA, State: StatePublished, GenerationID: genA,
+					ActiveBeforeKind: ActiveBeforeAbsent,
+					StagingRel:       "staging/" + txnA, GenerationRel: "generations/" + genA,
+				}},
+				Generation: sealed,
+				Active:     missing,
+			},
 			want: RecoveryDecision{Gate: GateReconciling, NextState: StateActivating, Action: ActionPersistActivating},
+		},
+		{
+			name: "PUBLISHED missing pointer after recorded predecessor",
+			obs:  Observation{Transactions: []TransactionView{txn(StatePublished)}, Generation: sealed, Active: missing},
+			want: RecoveryDecision{Gate: GateBlockedUnsafe, Action: ActionBlockUnsafe, ErrorCode: CodeInconsistent},
+		},
+		{
+			name: "PUBLISHED predecessor digest mismatch",
+			obs: Observation{
+				Transactions: []TransactionView{{
+					Valid: true, ID: txnA, State: StatePublished, GenerationID: genA,
+					ActiveBefore: genB, ActiveBeforeDigest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					ActiveBeforeKind: ActiveBeforeValid,
+					StagingRel:       "staging/" + txnA, GenerationRel: "generations/" + genA,
+				}},
+				Generation: sealed,
+				Active: ActivePointer{
+					Class: ActiveValid, Present: true, Valid: true, GenerationID: genB,
+					SealSHA256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				},
+			},
+			want: RecoveryDecision{Gate: GateBlockedUnsafe, Action: ActionBlockUnsafe, ErrorCode: CodeBlockedUnsafe},
 		},
 		{
 			name: "ACTIVATING complete pointer",

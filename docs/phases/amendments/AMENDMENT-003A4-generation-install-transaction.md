@@ -39,7 +39,7 @@ CREATED → BUILDING → SEALED → PUBLISHED → ACTIVATING → COMMITTED
 FAILED only while this generation is not active
 ```
 
-`control/active.json` is the sole current-generation pointer. Environment is derived. SQLite Operation is a projection. Retry always starts a new transaction and new staging/generation ids.
+`control/active.json` is the sole current-generation pointer. Observed classes are `MISSING`, `VALID`, and `INVALID`. `INVALID` immediately sets the install gate to `BLOCKED_UNSAFE`: no new install/prerequisite transaction, no overwrite of `active.json`, no newest-generation scan, and no PATH/Operation/directory inference. First activation is allowed only when the pointer is observed `MISSING` and the transaction records `ActiveBefore=ABSENT`. Subsequent activation is a compare-and-swap against the recorded `VALID(generationId + digest)` snapshot. Recovery is idempotent. Environment is derived. SQLite Operation is a projection. Retry always starts a new transaction and new staging/generation ids.
 
 Official installer is invoked with:
 

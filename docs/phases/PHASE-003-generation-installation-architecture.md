@@ -263,16 +263,37 @@ Retry always allocates a new `txn_id`, new staging path and new `gen_id`. It nev
 }
 ```
 
+Observed classes of `control/active.json` are not interchangeable:
+
+| Class | Meaning | New install / overwrite |
+| --- | --- | --- |
+| `MISSING` | the file is absent | first activation allowed |
+| `VALID` | regular file, schema/id/path valid, named generation seal matches | replace only by exact CAS |
+| `INVALID` | present but unreadable, schema-invalid, escaping, reparse, or seal/containment fails | `BLOCKED_UNSAFE`; never overwrite |
+
 Rules:
 
-- persist `ACTIVATING` (with `ActiveBefore*`) **before** replacing the pointer;
+- persist `ACTIVATING` with an explicit `ActiveBefore` snapshot **before** replacing the pointer;
+- `ActiveBefore` is either `ABSENT` or `VALID(generationId + seal digest)`;
 - accept only a relative path `generations/gen_<closed-id>` contained in the managed root;
 - validate published generation + seal before replace;
 - same atomic writer as the transaction record;
 - read back pointer and re-validate seal;
-- missing or corrupt `active.json` means “no YORVA-managed active generation”, never “pick newest `generations/*`”;
+- `MISSING` is the only first-install observation; `INVALID` is not “no managed generation”;
+- never pick newest `generations/*`, PATH, Operation, or directory presence as activation;
 - activation never renames, junctions or deletes the predecessor generation;
 - no SQLite `active_generation` column, no `current` directory, no `hermes-agent` swap.
+
+Activation CAS:
+
+```text
+INVALID                         → BLOCKED_UNSAFE
+already this generation + seal  → roll forward
+MISSING and expected ABSENT     → first activate
+VALID and expected predecessor
+  id + digest match             → replace
+otherwise                       → BLOCKED_UNSAFE
+```
 
 ---
 
@@ -391,7 +412,8 @@ Acquire install.lock
 | Txn | Staging | Generation | Active pointer | Decision |
 | --- | --- | --- | --- | --- |
 | none | unknown/legacy/extra dir | any | any | never delete; diagnose; block mutation only if a reserved id collides |
-| none | absent | absent | missing/malformed | READY; no managed generation |
+| none | absent | absent | MISSING | READY; no managed generation |
+| any | any | any | INVALID | `BLOCKED_UNSAFE`; do not create, overwrite, or infer |
 | none | absent | valid gens, none active | missing | READY; do not auto-activate newest |
 | CREATED | absent | absent | pred/none | `FAILED`; no FS mutation |
 | CREATED | present (empty or not) | absent | pred/none | if staging id matches txn: move to `failed/` if non-empty proven YORVA, else remove empty staging; `FAILED` |
@@ -759,6 +781,17 @@ D5 cases:
 D1–D5 were approved on 2026-08-18 and are locked at the top of this document and in `ADR-0006`. Amendment ids: Phase 2 = `002A3` (002A2 is already launcher-alias normalization). Implementation remains batch-gated.
 
 A new implicit activation source, `HERMES_HOME` relocation, or launcher binary would reopen governance.
+
+### Phase 3 deferred (Owner-accepted only if independent audit keeps them Medium/Low)
+
+These items are **not** in this HIGH remediation. If any is raised to Critical/High, stop.
+
+| ID | Item |
+| --- | --- |
+| `P3-DEFERRED-001` | Shared `HERMES_HOME` non-generation side effects (`uv` / `python` / `git` / templates) |
+| `P3-DEFERRED-002` | Legacy PATH ownership proof (which `hermes-agent\bin` YORVA itself wrote) |
+| `P3-DEFERRED-003` | Transaction history retention policy beyond D4 |
+| `P3-DEFERRED-004` | Document numbering and non-safety governance wording |
 
 ---
 

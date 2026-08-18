@@ -712,6 +712,13 @@ Any Critical, High, Medium or blocking Low finding produces Gate `FAIL` under `A
 6. **Windows-only delivery leaves other platforms unsupported.** This is the deliberate smallest complete Phase 3 scope accepted with the Owner-approved Specification.
 7. **GitHub may be unreachable on some networks.** Mitigation (Amendment 003A1): bounded official commit-archive download, then one verified MSI-bundled official archive. Residual risk: remaining official stages still need network for uv/Python/Node/PyPI/npm; this is not a full offline installer.
 
+Owner-deferred (not this HIGH remediation; stop if any is raised to Critical/High):
+
+- `P3-DEFERRED-001` shared `HERMES_HOME` non-generation side effects;
+- `P3-DEFERRED-002` leftover PATH ownership proof;
+- `P3-DEFERRED-003` transaction history retention beyond D4;
+- `P3-DEFERRED-004` document numbering and non-safety governance wording.
+
 No unresolved architecture or security blocker was found during Specification review. The Owner approved the Windows-only, fixed-version and no-automatic-elevation boundaries. Implementation authorization was granted on 2026-08-17. Independent audit remains pending.
 
 ## 24. Contract and Documentation Changes During Implementation

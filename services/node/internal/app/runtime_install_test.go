@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -115,6 +116,41 @@ func TestRuntimeInstallRejectsWhenGateNotReady(t *testing.T) {
 	_, err = service.Start(context.Background(), "hermes", "install-reconciling")
 	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallNotReady || !rejected.Retryable {
 		t.Fatalf("reconciling Start() = %v", err)
+	}
+}
+
+func TestRuntimeInstallRejectsInvalidActivePointer(t *testing.T) {
+	root := t.TempDir()
+	store, err := install.NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Layout().EnsureControl(); err != nil {
+		t.Fatal(err)
+	}
+	path := store.Layout().ActivePath()
+	original := []byte("{")
+	if err := os.WriteFile(path, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service := newTestRuntimeInstall(newMemoryOperationStore(), yorvaruntime.Discovery{State: yorvaruntime.DiscoveryNotInstalled}).WithManagedRoot(root)
+	service.WithInstallGate(install.NewGateHolder())
+	service.gate.Set(install.GateReady)
+	_, err = service.Start(context.Background(), "hermes", "install-invalid-pointer")
+	var rejected InstallRejection
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallBlockedUnsafe || rejected.Retryable {
+		t.Fatalf("invalid pointer Start() = %v", err)
+	}
+	_, err = service.StartPrerequisites(context.Background(), "prereq-invalid-pointer")
+	if !errors.As(err, &rejected) || rejected.Code != yorvaruntime.ErrorRuntimeInstallBlockedUnsafe {
+		t.Fatalf("invalid pointer prerequisites = %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(original) {
+		t.Fatalf("start rewrote invalid pointer: %q", got)
 	}
 }
 
