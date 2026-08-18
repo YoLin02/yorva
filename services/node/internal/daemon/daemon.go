@@ -22,6 +22,7 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/bootstrap"
 	"github.com/YoLin02/yorva/services/node/internal/buildinfo"
 	"github.com/YoLin02/yorva/services/node/internal/domain/node"
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	"github.com/YoLin02/yorva/services/node/internal/events"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
@@ -89,6 +90,16 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	defer cancelRequests()
 	discovery := app.NewRuntimeDiscovery(registry, logger)
 	host := hermes.NewHostInstaller(message.DataDir).WithLogger(logger).WithEmbeddedSource(message.HermesEmbeddedSourcePath)
+	host.WithOperationLookup(func(id string) (operation.Operation, bool) {
+		op, err := database.GetOperation(context.Background(), id)
+		if err != nil {
+			return operation.Operation{}, false
+		}
+		return op, true
+	})
+	if err := host.RecoverPromotions(); err != nil {
+		logger.Warn("failed to recover interrupted install promotion", "error", err)
+	}
 	nodeHost := hermes.NewNodeHost(message.DataDir, message.HermesNodeArchivePath, message.HermesNpmArchivePath)
 	broker := events.NewBroker()
 	installs := app.NewRuntimeInstall(discovery, database).WithLogger(logger).WithHost(host, database, localNode.ID).WithPrerequisite(app.HermesPrerequisiteHost{Host: nodeHost}).WithEvents(broker)

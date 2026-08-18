@@ -96,7 +96,11 @@ func TestApplyMaterializesSourceWithoutOfficialRepositoryStage(t *testing.T) {
 		}
 		stage := stageFromArgs(invocation.Args)
 		if stage == "path" {
-			launcher := filepath.Join(installDir, "bin", "hermes.exe")
+			stageDir := installDirFromArgs(invocation.Args)
+			if stageDir == "" {
+				stageDir = installDir
+			}
+			launcher := filepath.Join(stageDir, "bin", "hermes.exe")
 			if err := os.MkdirAll(filepath.Dir(launcher), 0o700); err != nil {
 				t.Fatal(err)
 			}
@@ -140,6 +144,15 @@ func writeOfficialSizedStub(t *testing.T, payload []byte) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func installDirFromArgs(args []string) string {
+	for i, arg := range args {
+		if arg == "-InstallDir" && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
 }
 
 func stageFromArgs(args []string) string {

@@ -61,24 +61,27 @@ func TestOwnershipHandoffRetrySequence(t *testing.T) {
 		if err := env.installer.Apply(context.Background(), env.opA.ID, nil); err == nil {
 			t.Fatal("expected operation A to fail after venv")
 		}
-		if _, err := os.Stat(filepath.Join(env.installDir, "venv.ok")); err != nil {
-			t.Fatal("venv mutation missing")
-		}
-		if err := requireCurrentOwnedTree(env.installDir, env.identityA()); err != nil {
-			t.Fatalf("A inventory not refreshed after mutating failure: %v", err)
+		if _, err := os.Stat(env.installDir); !os.IsNotExist(err) {
+			if _, err := os.Stat(filepath.Join(env.installDir, "venv.ok")); err == nil {
+				t.Fatal("failed operation mutated the live tree")
+			}
 		}
 
 		env.failStage = ""
 		env.mutateOn = "venv"
 		env.installer.SetInstallIdentity(env.opB)
 		if err := env.installer.ValidateTarget(true, env.opA); err != nil {
-			t.Fatalf("B preflight on unchanged tree: %v", err)
+			t.Fatalf("B preflight: %v", err)
 		}
 		if err := env.installer.Apply(context.Background(), env.opB.ID, nil); err != nil {
 			t.Fatalf("operation B retry: %v", err)
 		}
-		if err := requireCurrentOwnedTree(env.installDir, env.identityB()); err != nil {
-			t.Fatalf("B ownership after successful handoff: %v", err)
+		record, err := readOwnershipRecord(env.installDir)
+		if err != nil {
+			t.Fatalf("B ownership record: %v", err)
+		}
+		if err := verifyRecordIdentity(record, env.identityB()); err != nil {
+			t.Fatalf("B ownership identity: %v", err)
 		}
 		if _, err := os.Stat(filepath.Join(env.installDir, "pyproject.toml")); err != nil {
 			t.Fatal("repository replacement missing")
@@ -101,6 +104,15 @@ func TestOwnershipHandoffRetrySequence(t *testing.T) {
 		env.mutateOn = "venv"
 		if err := env.installer.Apply(context.Background(), env.opA.ID, nil); err == nil {
 			t.Fatal("expected operation A failure")
+		}
+		if err := os.MkdirAll(env.installDir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(env.installDir, "owned.txt"), []byte("a"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := writeOwnershipRecord(env.installDir, env.identityA()); err != nil {
+			t.Fatal(err)
 		}
 		if err := os.WriteFile(filepath.Join(env.installDir, "stale.exe"), []byte("MZ"), 0o700); err != nil {
 			t.Fatal(err)
@@ -166,57 +178,10 @@ func TestOwnershipHandoffRetrySequence(t *testing.T) {
 		if err := env.installer.Apply(context.Background(), env.opA.ID, nil); err == nil {
 			t.Fatal("expected timed-out dependencies stage")
 		}
-		if _, err := os.Stat(filepath.Join(env.installDir, "deps.partial")); err != nil {
-			t.Fatal("timed-out stage mutation missing")
-		}
-		if err := requireCurrentOwnedTree(env.installDir, env.identityA()); err != nil {
-			t.Fatalf("inventory not refreshed on timeout: %v", err)
+		if _, err := os.Stat(filepath.Join(env.installDir, "deps.partial")); err == nil {
+			t.Fatal("timed-out mutation leaked onto the live tree")
 		}
 	})
-}
-
-func TestRefreshOwnedInventoryRejectsForeignAndCopiedRecords(t *testing.T) {
-	root := t.TempDir()
-	target := filepath.Join(root, "hermes-agent")
-	if err := os.MkdirAll(target, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(target, "owned.txt"), []byte("payload"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	identity := testIdentity("op_1", target)
-	if err := writeOwnershipRecord(target, identity); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(target, "owned.txt"), []byte("yorva-stage"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := refreshOwnedInventory(target, identity); err != nil {
-		t.Fatalf("refresh after owned mutation: %v", err)
-	}
-	if err := requireCurrentOwnedTree(target, identity); err != nil {
-		t.Fatalf("refreshed inventory: %v", err)
-	}
-
-	copied := filepath.Join(root, "copied")
-	if err := os.MkdirAll(copied, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	payload, err := os.ReadFile(filepath.Join(target, yorvaPartialMarker))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(copied, yorvaPartialMarker), payload, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if installErrorCode(refreshOwnedInventory(copied, identity)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
-		t.Fatal("copied marker refresh accepted")
-	}
-
-	foreign := testIdentity("op_other", target)
-	if installErrorCode(refreshOwnedInventory(target, foreign)) != yorvaruntime.ErrorRuntimeInstallTargetOccupied {
-		t.Fatal("wrong operation refresh accepted")
-	}
 }
 
 type retryInstallEnv struct {
@@ -296,15 +261,19 @@ func newRetryInstallEnv(t *testing.T) *retryInstallEnv {
 			return commandResult{stdout: string(manifest) + "\n"}
 		}
 		stage := stageFromArgs(invocation.Args)
+		stageDir := installDirFromArgs(invocation.Args)
+		if stageDir == "" {
+			stageDir = installDir
+		}
 		if env.mutateOn != "" && stage == env.mutateOn {
-			name := "venv.ok"
+			name := filepath.Join("venv", "created.txt")
 			if stage == "dependencies" {
-				name = "deps.partial"
+				name = filepath.Join("venv", "deps.partial")
 			}
-			if err := os.MkdirAll(installDir, 0o700); err != nil {
+			if err := os.MkdirAll(filepath.Join(stageDir, filepath.Dir(name)), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(installDir, name), []byte(stage), 0o600); err != nil {
+			if err := os.WriteFile(filepath.Join(stageDir, name), []byte(stage), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -315,7 +284,7 @@ func newRetryInstallEnv(t *testing.T) *retryInstallEnv {
 			return commandResult{stdout: `{"stage":"` + stage + `","ok":false,"skipped":false}` + "\n", exitCode: 1, err: errPlatform}
 		}
 		if stage == "path" {
-			launcher := filepath.Join(installDir, "bin", "hermes.exe")
+			launcher := filepath.Join(stageDir, "bin", "hermes.exe")
 			if err := os.MkdirAll(filepath.Dir(launcher), 0o700); err != nil {
 				t.Fatal(err)
 			}

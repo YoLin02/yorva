@@ -8,10 +8,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
@@ -73,6 +71,10 @@ func validateInstallTarget(home, installDir string, retry bool, previous operati
 	}
 	if !info.IsDir() || isReparsePoint(info) || info.Mode()&os.ModeSymlink != 0 {
 		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
+	}
+	entries, readErr := os.ReadDir(canonicalTarget)
+	if readErr == nil && len(entries) == 0 {
+		return nil
 	}
 	if !retry {
 		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
@@ -146,45 +148,6 @@ func readOwnershipRecord(root string) (ownershipRecord, error) {
 	return record, nil
 }
 
-func writeOwnershipRecord(root string, identity ownershipIdentity) error {
-	if err := os.MkdirAll(root, 0o700); err != nil {
-		return err
-	}
-	if err := rejectReparsePoint(root); err != nil {
-		return err
-	}
-	canonical, err := filepath.Abs(root)
-	if err != nil {
-		return err
-	}
-	if identity.Target == "" {
-		identity.Target = canonical
-	}
-	digest, err := inventoryDigest(root)
-	if err != nil {
-		return err
-	}
-	publicID, err := randomHex(12)
-	if err != nil {
-		return err
-	}
-	record := ownershipRecord{
-		Schema:      ownershipSchemaVersion,
-		OperationID: identity.OperationID,
-		RuntimeKind: identity.RuntimeKind,
-		Target:      identity.Target,
-		SourcePin:   identity.SourcePin,
-		Identity:    publicID,
-		Manifest:    digest,
-	}
-	record.MAC = ownershipMAC(identity.Nonce, record)
-	payload, err := json.Marshal(record)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(root, yorvaPartialMarker), payload, 0o600)
-}
-
 func requireCurrentOwnedTree(root string, identity ownershipIdentity) error {
 	if identity.OperationID == "" || identity.Nonce == "" || identity.SourcePin == "" {
 		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
@@ -195,43 +158,6 @@ func requireCurrentOwnedTree(root string, identity ownershipIdentity) error {
 		SourcePin:      identity.SourcePin,
 		OwnershipNonce: identity.Nonce,
 	}, identity.SourcePin)
-}
-
-func refreshOwnedInventory(root string, identity ownershipIdentity) error {
-	if identity.OperationID == "" || identity.Nonce == "" || identity.SourcePin == "" {
-		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
-	}
-	info, err := os.Lstat(root)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, err)
-	}
-	if !info.IsDir() || isReparsePoint(info) || info.Mode()&os.ModeSymlink != 0 {
-		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
-	}
-	if err := rejectReparsePoint(root); err != nil {
-		return err
-	}
-	record, err := readOwnershipRecord(root)
-	if err != nil {
-		return err
-	}
-	canonical, err := filepath.Abs(root)
-	if err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, err)
-	}
-	if record.Schema != ownershipSchemaVersion || record.OperationID != identity.OperationID || record.RuntimeKind != identity.RuntimeKind {
-		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
-	}
-	if record.SourcePin != identity.SourcePin || !sameCanonicalPath(record.Target, canonical) {
-		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
-	}
-	if !hmac.Equal([]byte(strings.ToLower(record.MAC)), []byte(ownershipMAC(identity.Nonce, record))) {
-		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
-	}
-	return writeOwnershipRecord(root, identity)
 }
 
 func ownershipMAC(nonce string, record ownershipRecord) string {
@@ -249,41 +175,8 @@ func ownershipMAC(nonce string, record ownershipRecord) string {
 }
 
 func inventoryDigest(root string) (string, error) {
-	var lines []string
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if err := rejectReparsePoint(path); err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		if entry.Name() == yorvaPartialMarker {
-			return nil
-		}
-		info, err := entry.Info()
-		if err != nil || !info.Mode().IsRegular() {
-			return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
-		}
-		relative, relErr := filepath.Rel(root, path)
-		if relErr != nil {
-			return relErr
-		}
-		sum, err := fileSHA256(path)
-		if err != nil {
-			return err
-		}
-		lines = append(lines, filepath.ToSlash(relative)+"\x00"+sum)
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-	sort.Strings(lines)
-	digest := sha256.Sum256([]byte(strings.Join(lines, "\n")))
-	return hex.EncodeToString(digest[:]), nil
+	_, digest, err := walkInventory(root)
+	return digest, err
 }
 
 func sameCanonicalPath(left, right string) bool {
@@ -293,89 +186,6 @@ func sameCanonicalPath(left, right string) bool {
 		return false
 	}
 	return filepath.Clean(a) == filepath.Clean(b)
-}
-
-func replaceOwnedTree(ctx context.Context, staging, installDir string, identity ownershipIdentity, previous operation.Operation) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := rejectReparsePoint(staging); err != nil {
-		return err
-	}
-	parent, err := filepath.Abs(filepath.Dir(installDir))
-	if err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	if err := os.MkdirAll(parent, 0o700); err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	if err := rejectReparsePoint(parent); err != nil {
-		return err
-	}
-	tmp, err := uniqueSibling(parent, "hermes-agent.yorva-new-")
-	if err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	if err := os.Mkdir(tmp, 0o700); err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	replaced := false
-	defer func() {
-		if !replaced {
-			_ = os.RemoveAll(tmp)
-		}
-	}()
-	if err := copyOwnedTree(ctx, staging, tmp); err != nil {
-		return err
-	}
-	identity.Target = filepath.Clean(installDir)
-	if abs, absErr := filepath.Abs(installDir); absErr == nil {
-		identity.Target = abs
-	}
-	if err := writeOwnershipRecord(tmp, identity); err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-
-	info, err := os.Lstat(installDir)
-	if os.IsNotExist(err) {
-		if err := os.Rename(tmp, installDir); err != nil {
-			return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-		}
-		replaced = true
-		return nil
-	}
-	if err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	if !info.IsDir() || isReparsePoint(info) || info.Mode()&os.ModeSymlink != 0 {
-		return installError(yorvaruntime.ErrorRuntimeInstallTargetOccupied, errReparsePoint)
-	}
-	proof := previous
-	if proof.ID == "" {
-		proof = operation.Operation{
-			ID:             identity.OperationID,
-			TargetID:       identity.RuntimeKind,
-			SourcePin:      identity.SourcePin,
-			OwnershipNonce: identity.Nonce,
-		}
-	}
-	if err := ownedPartialIdentity(installDir, proof, identity.SourcePin); err != nil {
-		return err
-	}
-	backup, err := uniqueSibling(parent, "hermes-agent.yorva-old-")
-	if err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	if err := os.Rename(installDir, backup); err != nil {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	if err := os.Rename(tmp, installDir); err != nil {
-		_ = os.Rename(backup, installDir)
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
-	}
-	replaced = true
-	_ = os.RemoveAll(backup)
-	return nil
 }
 
 func copyOwnedTree(ctx context.Context, staging, dest string) error {

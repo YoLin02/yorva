@@ -32,6 +32,9 @@ type HostInstaller struct {
 	acquireArchive     func(context.Context, string) (string, string, error)
 	verifyArchive      func(string) error
 	userPath           func(string) bool
+	promote            promotionEngine
+	afterStage         func(stage, dir string)
+	lookupIdentity     func(string) (ownershipIdentity, bool)
 }
 
 func NewHostInstaller(stateRoot string) *HostInstaller {
@@ -43,7 +46,41 @@ func NewHostInstaller(stateRoot string) *HostInstaller {
 		home:       officialHermesHome,
 		installDir: officialInstallDir,
 		shell:      trustedPowerShell,
+		promote:    newPromotionEngine(),
 	}
+}
+
+func (h *HostInstaller) WithOperationLookup(fn func(string) (operation.Operation, bool)) *HostInstaller {
+	if fn == nil {
+		return h
+	}
+	h.lookupIdentity = func(id string) (ownershipIdentity, bool) {
+		op, ok := fn(id)
+		if !ok || op.ID == "" {
+			return ownershipIdentity{}, false
+		}
+		kind := op.TargetID
+		if kind == "" {
+			kind = "hermes"
+		}
+		return ownershipIdentity{
+			OperationID: op.ID,
+			RuntimeKind: kind,
+			Target:      h.installDir(),
+			SourcePin:   firstNonEmpty(op.SourcePin, officialCommit),
+			Nonce:       op.OwnershipNonce,
+		}, true
+	}
+	return h
+}
+
+func (h *HostInstaller) RecoverPromotions() error {
+	eng := h.promote
+	if eng.rename == nil {
+		eng = newPromotionEngine()
+	}
+	eng.lookup = h.lookupIdentity
+	return recoverPromotions(h.home(), eng)
 }
 
 func (h *HostInstaller) WithLogger(logger *slog.Logger) *HostInstaller {
@@ -169,20 +206,34 @@ func (h *HostInstaller) Apply(ctx context.Context, operationID string, report fu
 	}
 	home := h.home()
 	installDir := h.installDir()
+	parent := filepath.Dir(installDir)
+	candidate, err := createCandidateDir(parent, operationID)
+	if err != nil {
+		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
+	}
+	promoted := false
+	defer func() {
+		if !promoted {
+			_ = os.RemoveAll(candidate)
+		}
+	}()
 	if report != nil {
 		report(operation.StageProtocolVerify, "")
 	}
-	if err := h.probe(ctx, powershell, script.Path, "ProtocolVersion", home, installDir, 30*time.Second, parseProtocolOutput); err != nil {
+	if err := h.probe(ctx, powershell, script.Path, "ProtocolVersion", home, candidate, 30*time.Second, parseProtocolOutput); err != nil {
 		return err
 	}
-	if err := h.probe(ctx, powershell, script.Path, "Manifest", home, installDir, 30*time.Second, parseAndValidateManifest); err != nil {
+	if err := h.probe(ctx, powershell, script.Path, "Manifest", home, candidate, 30*time.Second, parseAndValidateManifest); err != nil {
 		return err
 	}
 	if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
 		return err
 	}
-	handedOff := false
 	identity := h.installIdentity(installDir)
+	identity.Target = installDir
+	if abs, absErr := filepath.Abs(installDir); absErr == nil {
+		identity.Target = abs
+	}
 	for _, stage := range approvedInstallStages() {
 		if report != nil {
 			note := ""
@@ -198,19 +249,28 @@ func (h *HostInstaller) Apply(ctx context.Context, operationID string, report fu
 			h.debug("installer.stage.skipped", "stage", stage, "reason", "yorva-managed-prerequisite")
 			continue
 		}
+		if stage == "path" {
+			continue
+		}
 		if stage == "repository" {
-			if err := h.materializeRepository(ctx, archivePath, origin, workDir, installDir); err != nil {
+			if err := h.materializeCandidate(ctx, archivePath, origin, workDir, candidate, identity); err != nil {
 				return err
 			}
-			handedOff = true
 			if report != nil && origin == sourceOriginBundled {
 				report(operation.StageInstallRepository, warningSourcePrepared)
 			}
 			continue
 		}
-		if err := h.runOwnedStage(ctx, powershell, script.Path, stage, home, installDir, identity, handedOff); err != nil {
+		if err := h.runCandidateStage(ctx, powershell, script.Path, stage, home, candidate, identity); err != nil {
 			return err
 		}
+	}
+	if err := promoteCandidate(ctx, h.promoteOrDefault(), home, candidate, installDir, identity, h.previousOp); err != nil {
+		return err
+	}
+	promoted = true
+	if err := h.runStage(ctx, powershell, script.Path, "path", home, installDir); err != nil {
+		return err
 	}
 	if err := h.verifyPublicLauncher(ctx); err != nil {
 		return err
@@ -279,14 +339,14 @@ func (h *HostInstaller) obtainScript(ctx context.Context, archivePath, workDir s
 	return fetchedScript{Directory: workDir, Path: scriptPath, SHA256: fetched.SHA256, Size: fetched.Size}, nil
 }
 
-func (h *HostInstaller) materializeRepository(ctx context.Context, archivePath, origin, workDir, installDir string) error {
+func (h *HostInstaller) materializeCandidate(ctx context.Context, archivePath, origin, workDir, candidate string, identity ownershipIdentity) error {
 	if origin == sourceOriginBundled {
 		h.debug("source.materialize", "warning", warningBundledUsed)
 	}
 	if err := requireExtractBudget(workDir, h.archive.diskFree); err != nil {
 		return err
 	}
-	if err := requireExtractBudget(installDir, h.archive.diskFree); err != nil {
+	if err := requireExtractBudget(candidate, h.archive.diskFree); err != nil {
 		return err
 	}
 	staging := filepath.Join(workDir, "staging")
@@ -303,13 +363,29 @@ func (h *HostInstaller) materializeRepository(ctx context.Context, archivePath, 
 		_ = os.RemoveAll(staging)
 		return err
 	}
-	if err := replaceOwnedTree(ctx, staging, installDir, h.installIdentity(installDir), h.previousOp); err != nil {
+	if err := copyOwnedTree(ctx, staging, candidate); err != nil {
 		_ = os.RemoveAll(staging)
 		return err
 	}
 	_ = os.RemoveAll(staging)
+	if err := writeOwnershipRecordWith(h.promoteOrDefault().ops, candidate, identity); err != nil {
+		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, err)
+	}
 	h.debug("source.materialize", "warning", warningSourcePrepared, "origin", origin)
 	return nil
+}
+
+func (h *HostInstaller) promoteOrDefault() promotionEngine {
+	if h.promote.rename == nil && h.promote.ops.CreateExclusive == nil {
+		return newPromotionEngine()
+	}
+	if h.promote.ops.CreateExclusive == nil {
+		h.promote.ops = defaultAtomicFileOps()
+	}
+	if h.promote.rename == nil {
+		h.promote.rename = os.Rename
+	}
+	return h.promote
 }
 
 func (h *HostInstaller) checkArchive(path string) error {
@@ -347,24 +423,31 @@ func parseProtocolOutput(output string) error {
 
 func stageMutatesInstallTree(stage string) bool {
 	switch stage {
-	case "venv", "dependencies", "path", "config-templates", "bootstrap-marker":
+	case "venv", "dependencies", "config-templates", "bootstrap-marker":
 		return true
 	default:
 		return false
 	}
 }
 
-func (h *HostInstaller) runOwnedStage(ctx context.Context, powershell, script, stage, home, installDir string, identity ownershipIdentity, handedOff bool) error {
-	mutates := handedOff && stageMutatesInstallTree(stage)
-	if mutates {
-		if err := requireCurrentOwnedTree(installDir, identity); err != nil {
+func (h *HostInstaller) runCandidateStage(ctx context.Context, powershell, script, stage, home, candidate string, identity ownershipIdentity) error {
+	var before fileInventory
+	if stageMutatesInstallTree(stage) {
+		snap, err := snapshotOwnedInventory(candidate, identity)
+		if err != nil {
 			return err
 		}
+		before = snap
 	}
-	err := h.runStage(ctx, powershell, script, stage, home, installDir)
-	if mutates {
-		if refreshErr := refreshOwnedInventory(installDir, identity); refreshErr != nil && err == nil {
-			return refreshErr
+	err := h.runStage(ctx, powershell, script, stage, home, candidate)
+	if h.afterStage != nil {
+		h.afterStage(stage, candidate)
+	}
+	if before != nil {
+		if deltaErr := applyAuthenticatedStageDelta(h.promoteOrDefault().ops, candidate, identity, stage, before); deltaErr != nil {
+			if err == nil {
+				return deltaErr
+			}
 		}
 	}
 	return err
