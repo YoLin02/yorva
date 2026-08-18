@@ -1,23 +1,23 @@
 # YORVA Phase 3 — Hermes Installation
 
-> Status: AUDIT / GENERATION INTEGRITY REMEDIATION
+> Status: AUDIT / ACCEPTED PENDING FREEZE CONDITIONS
 > Owner: Repository owner
 > Previous phase: Phase 2 — Hermes Discovery & Compatibility
 > Previous baseline: `phase-002-hermes-discovery-baseline-r1`
 > Previous baseline commit: `5b89d22ed5e7ae3f4374a26f0fcda54bdabc6bf9`
 > Previous gate: `AUDIT-002A1-hermes-discovery.md` — PASS
-> Implementation: AUDIT / GENERATION INTEGRITY REMEDIATION
+> Implementation: AUDIT / ACCEPTED PENDING FREEZE CONDITIONS
 > Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED FOR IMPLEMENTATION (batch-gated; not PASS)
-> Phase 3 audit: `AUDIT-003` — FAIL; `AUDIT-003R1` — FAIL; `AUDIT-003R2` — FAIL; `AUDIT-003R3` — FAIL; `AUDIT-003R4` — FAIL; `AUDIT-003R5` — FAIL; `AUDIT-003R6` — FAIL; `AUDIT-003R7` — PENDING
+> Phase 3 audit: `AUDIT-003`–`R7` — FAIL; `AUDIT-003R8` — PASS WITH CONDITIONS (source `7825319`; freeze pending exact-commit CI)
 > Target platform: Windows user-scope installation
 > Target Hermes release: `v2026.8.16` / package `0.20.2`
 > Spec review date: 2026-08-17
 > Owner approval date: 2026-08-17
 
-The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Feature work is frozen except for generation-install remediations required to close `AUDIT-003R6` and enter `AUDIT-003R7`. This document does not declare Phase 3 COMPLETE, FROZEN, PASS or ACCEPTED.
+The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. `AUDIT-003R8` accepted source commit `7825319ddf217e229b715a4d53838ed4476dfa06` with freeze conditions. This document does not declare Phase 3 COMPLETE, FROZEN, or unlocked for Phase 4 implementation.
 
 ## 1. Objective
 
@@ -48,7 +48,7 @@ Phase 3 installs Hermes. It does not configure a Hermes profile, credentials, mo
 - [x] Repository Owner approved this Phase 3 Specification on 2026-08-17.
 - [x] Repository Owner authorizes Phase 3 implementation.
 
-Implementation authorization was granted. The remaining gate is independent re-audit `AUDIT-003R7`. Historical `AUDIT-003` through `AUDIT-003R6` reports remain FAIL.
+Implementation authorization was granted. Independent `AUDIT-003R8` accepted the source tree `7825319ddf217e229b715a4d53838ed4476dfa06` with conditions. Historical `AUDIT-003` through `AUDIT-003R7` reports remain FAIL. Merge, freeze and tag remain unauthorized until exact-commit CI/MSI for that SHA is observed.
 
 ## 3. User-Visible Success Flow
 

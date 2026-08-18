@@ -107,7 +107,7 @@ Phase 2 must not install/download Hermes, modify PATH/Python, or begin Profile/l
 
 ## Phase 3 — Hermes Installation
 
-Status: **AUDIT / GENERATION INTEGRITY REMEDIATION**
+Status: **AUDIT / ACCEPTED PENDING FREEZE CONDITIONS**
 Spec: `docs/phases/PHASE-003-hermes-installation.md`
 Amendments:
 - `AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED
@@ -116,8 +116,9 @@ Amendments:
 - `AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED FOR IMPLEMENTATION (batch-gated; not Phase 3 PASS)
 Architecture: `docs/phases/PHASE-003-generation-installation-architecture.md` — Owner-approved 2026-08-18
 ADR: `ADR-0006-generation-install-transaction.md` — Accepted
-Implementation branch: `fix/phase3-audit-r6-remediation` (generation batches 0–8; dual-state-machine and persist-ahead remediations landed)
-Audit: `AUDIT-003` — **FAIL**; `AUDIT-003R1`–`R7` — **FAIL**; `AUDIT-003R8` — **PENDING**
+Implementation branch: `fix/phase3-audit-r6-remediation`
+Source-accepted commit: `7825319ddf217e229b715a4d53838ed4476dfa06`
+Audit: `AUDIT-003`–`R7` — **FAIL**; `AUDIT-003R8` — **PASS WITH CONDITIONS** (freeze pending exact-commit CI/MSI)
 
 Goal: install a supported official Hermes Runtime without requiring terminal use.
 
