@@ -32,27 +32,38 @@ function Read-MsiFileTable([string]$msi) {
     $installer = New-Object -ComObject WindowsInstaller.Installer
     $database = $installer.GetType().InvokeMember("OpenDatabase", "InvokeMethod", $null, $installer, @((Resolve-Path $msi).Path, 0))
     $view = $database.GetType().InvokeMember("OpenView", "InvokeMethod", $null, $database, @("SELECT FileName, FileSize FROM File"))
-    $view.GetType().InvokeMember("Execute", "InvokeMethod", $null, $view, $null)
-    $rows = @()
+    $null = $view.GetType().InvokeMember("Execute", "InvokeMethod", $null, $view, $null)
+    $rows = New-Object System.Collections.Generic.List[object]
     while ($true) {
         $record = $view.GetType().InvokeMember("Fetch", "InvokeMethod", $null, $view, $null)
         if ($null -eq $record) {
             break
         }
-        $raw = $record.GetType().InvokeMember("StringData", "GetProperty", $null, $record, 1)
-        $size = [int64]$record.GetType().InvokeMember("IntegerData", "GetProperty", $null, $record, 2)
-        $rows += [pscustomobject]@{ RawName = $raw; Name = (Get-MsiLongFileName $raw); Size = $size }
+        $raw = [string]$record.GetType().InvokeMember("StringData", "GetProperty", $null, $record, 1)
+        $sizeText = [string]$record.GetType().InvokeMember("StringData", "GetProperty", $null, $record, 2)
+        if (-not $sizeText) {
+            $sizeText = [string]$record.GetType().InvokeMember("IntegerData", "GetProperty", $null, $record, 2)
+        }
+        $name = Get-MsiLongFileName $raw
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            throw "MSI File table row has an empty decoded name (raw='$raw')"
+        }
+        $rows.Add([pscustomobject]@{ RawName = $raw; Name = $name; Size = [int64]$sizeText })
     }
-    return $rows
+    return ,$rows.ToArray()
 }
 
 function Assert-ExactMsiIdentities($rows, $catalog) {
     $grouped = @{}
-    foreach ($row in $rows) {
-        if (-not $grouped.ContainsKey($row.Name)) {
-            $grouped[$row.Name] = @()
+    foreach ($row in @($rows)) {
+        $name = [string]$row.Name
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            throw "MSI File table row has an empty name"
         }
-        $grouped[$row.Name] += $row
+        if (-not $grouped.ContainsKey($name)) {
+            $grouped[$name] = @()
+        }
+        $grouped[$name] += $row
     }
     foreach ($item in $catalog) {
         if (-not $grouped.ContainsKey($item.Name)) {
@@ -113,7 +124,7 @@ function Assert-ExtractedPayloads([string]$root, $catalog) {
 
 function Invoke-MsiAdministrativeExtract([string]$msi, [string]$target) {
     New-Item -ItemType Directory -Force -Path $target | Out-Null
-    $process = Start-Process -FilePath "$env:SystemRoot\System32\msiexec.exe" -ArgumentList @("/a", $msi, "TARGETDIR=$target", "/qn") -Wait -PassThru -NoNewWindow
+    $process = Start-Process -FilePath "$env:SystemRoot\System32\msiexec.exe" -ArgumentList @("/a", "`"$msi`"", "TARGETDIR=`"$target`"", "/qn") -Wait -PassThru -NoNewWindow
     if ($null -eq $process -or $process.ExitCode -ne 0) {
         $code = if ($null -eq $process) { "null" } else { $process.ExitCode }
         throw "msiexec administrative extract failed with exit $code"
