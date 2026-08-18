@@ -36,3 +36,15 @@ func TestIsTerminal(t *testing.T) {
 		t.Fatal("completed statuses must be terminal")
 	}
 }
+
+func TestValidProjectionRepair(t *testing.T) {
+	if !ValidProjectionRepair(StatusFailed, StatusSucceeded) || !ValidProjectionRepair(StatusCancelled, StatusRunning) {
+		t.Fatal("filesystem authority must be able to repair a wrongly terminal Operation")
+	}
+	if ValidProjectionRepair(StatusRunning, StatusSucceeded) || ValidProjectionRepair(StatusFailed, StatusPending) {
+		t.Fatal("projection repair must not replace ordinary transitions or reopen as PENDING")
+	}
+	if !ValidStatusChange(StatusFailed, StatusSucceeded) || ValidStatusChange(StatusSucceeded, StatusFailed) {
+		t.Fatal("ValidStatusChange must allow repair and still forbid rolling success back to failed")
+	}
+}

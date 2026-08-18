@@ -130,6 +130,14 @@ func (s *RuntimeInstall) persistCreatedTransaction(op operation.Operation) (inst
 	if s.managedRoot == "" || op.Type != operation.TypeRuntimeInstall {
 		return install.InstallTransaction{}, nil
 	}
+	lock, err := install.AcquireLock(s.managedRoot)
+	if err != nil {
+		if errors.Is(err, install.ErrLockBusy) {
+			return install.InstallTransaction{}, InstallRejection{Code: yorvaruntime.ErrorRuntimeInstallNotReady, Retryable: true}
+		}
+		return install.InstallTransaction{}, err
+	}
+	defer lock.Release()
 	store, err := install.NewStore(s.managedRoot)
 	if err != nil {
 		return install.InstallTransaction{}, err
@@ -209,7 +217,10 @@ func (s *RuntimeInstall) projectOperation(ctx context.Context, op operation.Oper
 	next := op
 	next.Stage = StageFromTransaction(txn)
 	now := s.now()
-	if txn.State == install.StateCommitted && !operation.IsTerminal(op.Status) {
+	if txn.State == install.StateCommitted {
+		if op.Status == operation.StatusSucceeded && op.Stage == operation.StageCleanup {
+			return op, nil
+		}
 		if op.Status == operation.StatusPending {
 			next.Status = operation.StatusRunning
 			next.StartedAt = &now
@@ -224,7 +235,24 @@ func (s *RuntimeInstall) projectOperation(ctx context.Context, op operation.Oper
 		next = op
 		next.Status = operation.StatusSucceeded
 		next.Stage = operation.StageCleanup
+		next.ErrorCode = ""
+		next.Retryable = false
 		next.CompletedAt = &now
+		next.UpdatedAt = now
+		if next.StartedAt == nil {
+			next.StartedAt = &now
+		}
+		_ = s.persistUpdate(ctx, op, next)
+		return next, nil
+	}
+	if txn.State == install.StateActivating {
+		if op.Status == operation.StatusRunning && next.Stage == op.Stage {
+			return op, nil
+		}
+		next.Status = operation.StatusRunning
+		next.ErrorCode = ""
+		next.Retryable = false
+		next.CompletedAt = nil
 		next.UpdatedAt = now
 		if next.StartedAt == nil {
 			next.StartedAt = &now
@@ -258,10 +286,18 @@ func (s *RuntimeInstall) projectOpenInstalls(ctx context.Context) {
 		return
 	}
 	for _, op := range ops {
-		if op.Type == operation.TypeRuntimeInstall && !operation.IsTerminal(op.Status) {
+		if op.Type == operation.TypeRuntimeInstall {
 			_, _ = s.projectOperation(ctx, op)
 		}
 	}
+}
+
+func (s *RuntimeInstall) filesystemOwnsOperation(op operation.Operation) bool {
+	txn, ok := s.loadLinkedTransaction(op)
+	if !ok {
+		return false
+	}
+	return txn.State == install.StateActivating || txn.State == install.StateCommitted
 }
 
 func (s *RuntimeInstall) rejectInstallGate() error {
@@ -383,6 +419,9 @@ func (s *RuntimeInstall) Cancel(ctx context.Context, id string) (operation.Opera
 	if err != nil {
 		return operation.Operation{}, err
 	}
+	if s.filesystemOwnsOperation(current) {
+		return s.projectOperation(ctx, current)
+	}
 	if operation.IsTerminal(current.Status) {
 		return operation.Operation{}, InstallRejection{
 			Code:      yorvaruntime.ErrorOperationNotCancellable,
@@ -498,12 +537,35 @@ func (s *RuntimeInstall) recoverCreate(ctx context.Context, intended operation.O
 
 func (s *RuntimeInstall) InterruptStale(ctx context.Context) ([]operation.Operation, error) {
 	s.projectOpenInstalls(ctx)
-	interrupted, err := s.store.InterruptActiveInstalls(ctx, s.now())
+	active, err := s.store.ListOperations(ctx, string(operation.TargetRuntimeKind), "", 50)
 	if err != nil {
 		return nil, err
 	}
-	for _, current := range interrupted {
-		s.emitOperation(operation.Operation{}, current, false)
+	var interrupted []operation.Operation
+	now := s.now()
+	for _, current := range active {
+		if current.Type != operation.TypeRuntimeInstall && current.Type != operation.TypeHermesPrerequisites {
+			continue
+		}
+		if operation.IsTerminal(current.Status) {
+			continue
+		}
+		if current.Type == operation.TypeRuntimeInstall && s.filesystemOwnsOperation(current) {
+			continue
+		}
+		next := current
+		completed := now.UTC()
+		next.Status = operation.StatusFailed
+		next.ErrorCode = yorvaruntime.ErrorOperationInterrupted
+		next.ErrorMessage = ""
+		next.Retryable = true
+		next.CompletedAt = &completed
+		next.UpdatedAt = completed
+		if err := s.persistUpdate(ctx, current, next); err != nil {
+			return interrupted, err
+		}
+		interrupted = append(interrupted, next)
+		s.emitOperation(operation.Operation{}, next, false)
 	}
 	return interrupted, nil
 }

@@ -60,12 +60,12 @@ Public launchers are copied into staging `bin\` **before** Seal. Official `-Stag
 
 ## 5. Document updates required during implementation
 
-- [ ] `PHASE-003-hermes-installation.md` recovery/ownership sections replaced by this amendment (historical FAIL audits untouched)
-- [ ] `DATA_MODEL.md` — drop Operation-as-owner; document txn/active.json; `ownership_nonce` no longer authorizes retry
-- [ ] `SECURITY.md` — generation seal / deletion / env derive
-- [ ] `PROTOCOL.md` / OpenAPI — Operation remains; may add `transactionId` projection field if needed without a second resource
-- [ ] `ROADMAP.md` — status only
-- [ ] `RUNTIME.md` — install capability still one Operation
+- [x] `PHASE-003-hermes-installation.md` recovery/ownership sections replaced by this amendment (historical FAIL audits untouched)
+- [x] `DATA_MODEL.md` — drop Operation-as-owner; document txn/active.json; `ownership_nonce` no longer authorizes retry
+- [x] `SECURITY.md` — generation seal / deletion / env derive
+- [x] `PROTOCOL.md` / OpenAPI — Operation remains; may add `transactionId` projection field if needed without a second resource
+- [x] `ROADMAP.md` — status only
+- [x] `RUNTIME.md` — install capability still one Operation
 
 ## 6. Acceptance (implementation, not this writing)
 

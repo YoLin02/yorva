@@ -186,7 +186,7 @@ func (d *Database) UpdateOperation(ctx context.Context, current, next operation.
 	if current.ID != next.ID {
 		return errors.New("operation identity cannot change")
 	}
-	if current.Status != next.Status && !operation.ValidTransition(current.Status, next.Status) {
+	if current.Status != next.Status && !operation.ValidStatusChange(current.Status, next.Status) {
 		return ErrInvalidStatusTransition
 	}
 	if next.Progress != nil {

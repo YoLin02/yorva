@@ -155,7 +155,7 @@ func TestReconcileCommittedRepairsDriftWithoutNewTxn(t *testing.T) {
 	}
 }
 
-func TestReconcileAfterCommitRemovesProvenLegacyBin(t *testing.T) {
+func TestReconcileAfterCommitKeepsUserHermesAgentBin(t *testing.T) {
 	store := mustStore(t)
 	mem := newMemEnv()
 	legacy := filepath.Join(store.layout.Root, "hermes-agent", "bin")
@@ -165,8 +165,8 @@ func TestReconcileAfterCommitRemovesProvenLegacyBin(t *testing.T) {
 	if _, err := mgr.ReconcileEnvironment(context.Background(), txn); err != nil {
 		t.Fatal(err)
 	}
-	if slices.Contains(mem.path, legacy) {
-		t.Fatalf("legacy managed bin remained after commit: %#v", mem.path)
+	if !slices.Contains(mem.path, legacy) {
+		t.Fatalf("user-authored hermes-agent PATH was removed: %#v", mem.path)
 	}
 	if !slices.Contains(mem.path, `D:\tools\hermes\bin`) {
 		t.Fatal("user hermes path removed")

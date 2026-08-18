@@ -86,7 +86,7 @@ func observeTree(abs string, txn InstallTransaction) TreeObservation {
 		obs.LineageMatch = rec.GenerationID == txn.GenerationID
 	}
 	if txn.ManifestSHA256 != "" && txn.SealSHA256 != "" &&
-		VerifyPublishedGeneration(abs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256) == nil {
+		VerifySealedTree(abs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256) == nil {
 		obs.Sealed = true
 		obs.LineageMatch = true
 		obs.LineageID = txn.GenerationID

@@ -63,6 +63,45 @@ func TestActivePointerSelectsGenerationAndIgnoresLegacy(t *testing.T) {
 	}
 }
 
+func TestActivePointerIgnoresLeftoverHermesAgentOnPATH(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("002A3 is a Windows discovery extension")
+	}
+	local := t.TempDir()
+	t.Setenv("LOCALAPPDATA", local)
+	bin, _, legacy := writeGenerationWorld(t, local, true)
+	t.Setenv("PATH", filepath.Dir(legacy))
+
+	finder := newCandidateFinder()
+	got := finder.find()
+	paths := invocationPaths(got.commands)
+	if !containsPath(t, paths, bin) {
+		t.Fatalf("generation launcher missing: %#v", paths)
+	}
+	if containsPath(t, paths, legacy) {
+		t.Fatalf("leftover hermes-agent on PATH competed: %#v", paths)
+	}
+
+	detector := &Detector{
+		finder: finder,
+		run: func(context.Context, commandInvocation) commandResult {
+			return commandResult{stdout: "Hermes Agent v0.20.2\n"}
+		},
+		now:            time.Now,
+		overallTimeout: time.Second,
+	}
+	discovery, err := detector.Detect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if discovery.State == yorvaruntime.DiscoveryAmbiguous {
+		t.Fatalf("leftover hermes-agent on PATH became AMBIGUOUS: %#v", discovery)
+	}
+	if discovery.Selected == nil || discovery.Selected.Path != canonicalPath(t, bin) {
+		t.Fatalf("selected %#v want %s", discovery.Selected, bin)
+	}
+}
+
 func TestInvalidActivePointerFallsThroughToFrozenEnumeration(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("002A3 is a Windows discovery extension")

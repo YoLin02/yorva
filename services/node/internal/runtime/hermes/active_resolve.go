@@ -8,8 +8,9 @@ import (
 )
 
 type activeGeneration struct {
-	officialPaths     []string
-	installationRoots []string
+	officialPaths      []string
+	installationRoots  []string
+	ignorePathPrefixes []string
 }
 
 func resolveActiveGeneration(localAppData string) (activeGeneration, bool) {
@@ -38,7 +39,8 @@ func resolveActiveGeneration(localAppData string) (activeGeneration, bool) {
 		return activeGeneration{}, false
 	}
 	return activeGeneration{
-		officialPaths:     []string{bin, venv},
-		installationRoots: []string{genAbs},
+		officialPaths:      []string{bin, venv},
+		installationRoots:  []string{genAbs},
+		ignorePathPrefixes: []string{filepath.Join(root, "hermes-agent")},
 	}, true
 }

@@ -205,6 +205,7 @@ type fakeApplier struct {
 	version  string
 	selected string
 	block    chan struct{}
+	release  chan struct{}
 	cleanup  time.Duration
 	applyErr error
 }
@@ -228,6 +229,10 @@ func (f *fakeApplier) Apply(ctx context.Context, _ string, report func(operation
 	}
 	if f.block != nil {
 		close(f.block)
+		if f.release != nil {
+			<-f.release
+			return f.applyErr
+		}
 		<-ctx.Done()
 		if f.cleanup > 0 {
 			time.Sleep(f.cleanup)

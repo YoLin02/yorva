@@ -90,3 +90,16 @@ func ValidTransition(from, to Status) bool {
 		return false
 	}
 }
+
+// ValidProjectionRepair allows InstallTransaction / active.json to correct a
+// wrongly terminal Operation. Forward-only worker transitions stay in ValidTransition.
+func ValidProjectionRepair(from, to Status) bool {
+	if from == to || !IsTerminal(from) {
+		return false
+	}
+	return to == StatusSucceeded || to == StatusRunning
+}
+
+func ValidStatusChange(from, to Status) bool {
+	return from == to || ValidTransition(from, to) || ValidProjectionRepair(from, to)
+}

@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-const hermesAgentBinRel = "hermes-agent/bin"
-
 // ObservedEnvironment is HKCU\Environment as seen by reconcile. It is not an activation source.
 type ObservedEnvironment struct {
 	HermesHome  string
@@ -121,7 +119,6 @@ func (s *Store) HasCommitted() bool {
 
 func (s *Store) RemovableBins(activeGen string) []string {
 	var bins []string
-	bins = append(bins, filepath.Join(s.layout.Root, filepath.FromSlash(hermesAgentBinRel)))
 	entries, err := os.ReadDir(s.layout.GenerationsRoot())
 	if err != nil {
 		return bins
@@ -140,7 +137,7 @@ func PolicyFromActive(store *Store, rec ActiveRecord, allowStale bool) (Environm
 	if err != nil {
 		return EnvironmentPolicy{}, err
 	}
-	if err := VerifyPublishedGeneration(genAbs, rec.GenerationID, rec.ManifestSHA256, rec.SealSHA256); err != nil {
+	if err := VerifySealedTree(genAbs, rec.GenerationID, rec.ManifestSHA256, rec.SealSHA256); err != nil {
 		return EnvironmentPolicy{}, err
 	}
 	return EnvironmentPolicy{

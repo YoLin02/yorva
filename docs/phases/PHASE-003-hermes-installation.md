@@ -1,12 +1,12 @@
 # YORVA Phase 3 — Hermes Installation
 
-> Status: AUDIT / R6 REMEDIATION
+> Status: AUDIT / GENERATION INTEGRITY REMEDIATION
 > Owner: Repository owner
 > Previous phase: Phase 2 — Hermes Discovery & Compatibility
 > Previous baseline: `phase-002-hermes-discovery-baseline-r1`
 > Previous baseline commit: `5b89d22ed5e7ae3f4374a26f0fcda54bdabc6bf9`
 > Previous gate: `AUDIT-002A1-hermes-discovery.md` — PASS
-> Implementation: AUDIT / R6 REMEDIATION
+> Implementation: AUDIT / GENERATION INTEGRITY REMEDIATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A1-embedded-hermes-source.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED FOR IMPLEMENTATION
 > Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED FOR IMPLEMENTATION
@@ -17,7 +17,7 @@
 > Spec review date: 2026-08-17
 > Owner approval date: 2026-08-17
 
-The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Feature work is frozen except for `AUDIT-003R6` remediations. This document does not declare Phase 3 COMPLETE, FROZEN, PASS or ACCEPTED.
+The Repository Owner approved this Specification on 2026-08-17 and later authorized implementation. Feature work is frozen except for generation-install remediations required to close `AUDIT-003R6` and enter `AUDIT-003R7`. This document does not declare Phase 3 COMPLETE, FROZEN, PASS or ACCEPTED.
 
 ## 1. Objective
 
@@ -58,7 +58,7 @@ Implementation authorization was granted. The remaining gate is independent re-a
    - official source and exact Hermes version;
    - fixed user-scope destination;
    - expected downloads and host changes;
-   - the fact that user `PATH` and `HERMES_HOME` are updated by the official installer;
+   - the fact that user `PATH` and `HERMES_HOME` are reconciled by YORVA from `control/active.json` after activation;
    - the fact that no model, API key, profile or channel is configured;
    - Cancel and Install actions.
 4. Explicit confirmation sends one typed install request with an idempotency key.
@@ -297,22 +297,16 @@ Immediately before creating a new Operation, and again after acquiring the insta
 | `TIMED_OUT` | reject as retryable preflight failure |
 | cancelled/error | do not mutate the host |
 
-Recovery is narrow:
+Recovery and retry follow Amendment `003A4` / `ADR-0006` (generation install transaction). Historical `AUDIT-003`–`R6` ownership/journal text is superseded and is not the implemented contract:
 
-- a retry is eligible only when the durable local Operation history proves YORVA previously started the same pinned Phase 3 install at the same fixed target and ended `FAILED`, `CANCELLED` or `OPERATION_INTERRUPTED`;
-- retry requires all of: non-empty durable `source_pin` equal to the expected pinned commit; non-empty durable `ownership_nonce`; a versioned filesystem ownership record whose HMAC, operation ID, runtime kind, canonical target and pin match that durable row; and a current partial-tree inventory digest that still matches the recorded manifest;
-- an empty, migrated or mismatched `source_pin` or nonce fails closed and never authorizes retry;
-- the marker is not public commit text. It is a versioned JSON ownership record containing schema version, operation ID, runtime kind, canonical target, source pin, identity and inventory digest, authenticated with HMAC-SHA256 over the durable nonce;
-- extra executables, foreign files, changed owned files, missing owned files, malformed or copied markers, wrong operation IDs, target mismatches, reparse points/symlinks and manifest mismatches all reject automatic replacement;
-- the expected target must remain canonically contained under the fixed Hermes home and contain no reparse-point escape;
-- any successful install after that attempt, foreign installation evidence, changed origin, user-selected path or unrecognized content disables automatic retry;
-- retry uses the same pinned script and repeats approved stages from the beginning because the official stages are designed to be idempotent;
-- ownership is an Operation-private candidate tree plus a durable promotion journal (`PREPARED` → `OLD_QUARANTINED` → `NEW_PROMOTED` → `COMMITTED`). Official stages that mutate the install tree run against the candidate. Public launchers `bin/hermes.exe` and `bin/hermes-acp.exe` are copied from the authenticated `venv/Scripts` copies and signed before promotion. User `PATH` and `HERMES_HOME` are separate registry postconditions and are not directory-manifest entries;
-- a stage may change only its allowed candidate paths; any extra insert, modify or delete leaves the previous marker intact, does not delete uncertain data, and fails closed;
-- the live tree and its proof stay immutable until final validation and journaled promotion; the old tree is moved to quarantine and is never automatically deleted;
-- ownership markers are written through a same-directory exclusive temp file, flush/close, re-verify and atomic replace; a failed write keeps the previous complete marker;
-- YORVA never deletes an unknown directory, never infers whole-tree ownership from marker presence alone, and never performs an uninstall or rollback;
-- if official recovery moves an invalid YORVA-owned checkout aside, the Operation records only a safe warning and destination category, never raw user paths.
+- in-flight intent and recovery authority is `control/transactions/txn_*.json`; `control/active.json` is the sole current-generation pointer; SQLite Operation is a one-way projection;
+- retry always allocates a new transaction id, staging path and generation id. It never resumes a previous staging tree and never consults `ownership_nonce` or `PreviousRuntimeInstall` for directory ownership;
+- official stages that mutate the install tree run against a fresh `staging/txn_*` InstallDir. Public launchers `bin/hermes.exe` and `bin/hermes-acp.exe` are copied from `venv/Scripts` into staging **before** Seal. Official `-Stage path` is not used to mutate a sealed tree;
+- Seal writes `manifest.json` and `generation.json`, then a second full walk must match the manifest. Publish and activate re-walk that manifest; insert, modify or delete after Seal fails closed and never writes `active.json`;
+- user `PATH` and `HERMES_HOME` are derived from a valid `active.json` after activation. They are not directory-manifest entries;
+- leftover `%LOCALAPPDATA%\hermes\hermes-agent` is never adopted, junctioned or deleted. After a valid `active.json`, discovery selects the generation launcher and does not treat leftover `hermes-agent` (on disk or on `PATH`) as `AMBIGUOUS`;
+- unknown directories and official Hermes user data are never automatically deleted;
+- daemon startup recovers under `install.lock` and admits new install/prerequisite mutations only when the install gate is `READY`.
 
 After cancellation or failure, Desktop explains whether Retry is safe. When it is not safe, Desktop provides a correlation ID and non-destructive guidance; it does not offer “force install.”
 

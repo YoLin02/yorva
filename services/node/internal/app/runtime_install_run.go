@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -94,7 +95,14 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 	current := started
 	fail := func(code yorvaruntime.ErrorCode, retryable bool) {
 		latest, err := s.store.GetOperation(context.Background(), started.ID)
-		if err != nil || operation.IsTerminal(latest.Status) {
+		if err != nil {
+			return
+		}
+		if s.filesystemOwnsOperation(latest) {
+			_, _ = s.projectOperation(context.Background(), latest)
+			return
+		}
+		if operation.IsTerminal(latest.Status) {
 			return
 		}
 		now := s.now()
@@ -141,12 +149,16 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 		}
 	}
 	if err := s.applier.Apply(ctx, started.ID, report); err != nil {
+		latest, getErr := s.store.GetOperation(context.Background(), started.ID)
+		if getErr == nil && s.filesystemOwnsOperation(latest) {
+			_, _ = s.projectOperation(context.Background(), latest)
+			return
+		}
 		if errors.Is(err, context.DeadlineExceeded) {
 			fail(yorvaruntime.ErrorRuntimeInstallTimeout, true)
 			return
 		}
 		if errors.Is(err, context.Canceled) {
-			latest, getErr := s.store.GetOperation(context.Background(), started.ID)
 			if getErr != nil || operation.IsTerminal(latest.Status) {
 				return
 			}
@@ -170,6 +182,11 @@ func (s *RuntimeInstall) execute(ctx context.Context, started operation.Operatio
 	report(operation.StagePostcheckDiscovery, "")
 	discovery, err := s.discovery.Detect(ctx, yorvaruntime.Kind(started.TargetID))
 	if err != nil || !postcheckAccepted(discovery, s.applier) {
+		latest, getErr := s.store.GetOperation(context.Background(), started.ID)
+		if getErr == nil && s.filesystemOwnsOperation(latest) {
+			_, _ = s.projectOperation(context.Background(), latest)
+			return
+		}
 		fail(yorvaruntime.ErrorRuntimeInstallPostcheckFailed, true)
 		return
 	}
@@ -216,10 +233,25 @@ func postcheckAccepted(discovery yorvaruntime.Discovery, applier HostApplier) bo
 		return false
 	}
 	launcher := applier.CanonicalPublicLauncher()
-	if launcher == "" || discovery.Selected.Path != launcher {
+	if launcher == "" || !sameInstallPath(discovery.Selected.Path, launcher) {
 		return false
 	}
 	return applier.ContainsManagedPath(discovery.Selected.Path)
+}
+
+func sameInstallPath(left, right string) bool {
+	if filepath.Clean(left) == filepath.Clean(right) {
+		return true
+	}
+	absLeft, errLeft := filepath.Abs(left)
+	absRight, errRight := filepath.Abs(right)
+	if errLeft != nil || errRight != nil {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(filepath.Clean(absLeft), filepath.Clean(absRight))
+	}
+	return filepath.Clean(absLeft) == filepath.Clean(absRight)
 }
 
 func installErrorCodeOr(err error, fallback yorvaruntime.ErrorCode) yorvaruntime.ErrorCode {

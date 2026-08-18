@@ -744,7 +744,7 @@ D5 cases:
 
 5. **Windows durability.** `MoveFileEx(... MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)` plus `FlushFileBuffers` on a directory handle opened with `GENERIC_READ|GENERIC_WRITE` and `FILE_FLAG_BACKUP_SEMANTICS`. After replace, a readable complete new record is the recovery truth even if a later dir-sync error was returned to the caller.
 
-6. **Publish/activate observation.** Publish complete ⇔ generation path exists, both seal files validate, second walk matches, staging absent (or empty leftover). Activate complete ⇔ `active.json` reads back with matching generation id and seal. In-progress write ⇔ missing/partial/unreadable record or seal mismatch.
+6. **Publish/activate observation.** Publish complete ⇔ generation path exists, both seal files validate, **second walk matches the stored manifest**, staging absent (or empty leftover). Activate complete ⇔ `active.json` reads back with matching generation id and seal **after the same sealed-tree walk**. Metadata-only hash checks (`VerifyPublishedGeneration`) are sufficient for read-only discovery pointer validity (002A3). In-progress write ⇔ missing/partial/unreadable record or seal mismatch.
 
 7. **Legacy coexistence.** Never delete/adopt `hermes-agent`. After valid `active.json`, amended discovery selects only the generation launcher so both trees cannot become `AMBIGUOUS`.
 

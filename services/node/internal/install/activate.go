@@ -13,7 +13,7 @@ func (m *Manager) activate(txn *InstallTransaction) error {
 	if err != nil {
 		return err
 	}
-	if err := VerifyPublishedGeneration(destAbs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256); err != nil {
+	if err := VerifySealedTree(destAbs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256); err != nil {
 		return err
 	}
 
@@ -94,7 +94,7 @@ func (m *Manager) activate(txn *InstallTransaction) error {
 	if err != nil || got.GenerationID != txn.GenerationID {
 		return ErrInvalidRecord
 	}
-	if err := VerifyPublishedGeneration(destAbs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256); err != nil {
+	if err := VerifySealedTree(destAbs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256); err != nil {
 		return err
 	}
 	if txn.ActivatedAt == nil {

@@ -58,7 +58,7 @@ func (m *Manager) publish(txn *InstallTransaction) error {
 			return err
 		}
 	}
-	if err := VerifyPublishedGeneration(destAbs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256); err != nil {
+	if err := VerifySealedTree(destAbs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256); err != nil {
 		return err
 	}
 	now := m.now()
@@ -82,7 +82,7 @@ func observePublishedTree(abs string, txn InstallTransaction) (present, empty, s
 	}
 	present = true
 	empty, _ = dirEmpty(abs)
-	sealed = VerifyPublishedGeneration(abs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256) == nil
+	sealed = VerifySealedTree(abs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256) == nil
 	return present, empty, sealed
 }
 

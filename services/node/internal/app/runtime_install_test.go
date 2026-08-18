@@ -422,7 +422,7 @@ func (s *memoryOperationStore) UpdateOperation(_ context.Context, current, next 
 	if !ok || stored.Status != current.Status {
 		return errors.New("operation update conflict")
 	}
-	if stored.Status != next.Status && !operation.ValidTransition(stored.Status, next.Status) {
+	if stored.Status != next.Status && !operation.ValidStatusChange(stored.Status, next.Status) {
 		return errors.New("invalid transition")
 	}
 	s.byID[next.ID] = next

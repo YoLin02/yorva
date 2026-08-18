@@ -98,7 +98,7 @@ func (d *Database) CompleteInstallSuccess(ctx context.Context, current, next ope
 		return fmt.Errorf("begin install success transaction: %w", err)
 	}
 	defer tx.Rollback()
-	if current.Status != next.Status && !operation.ValidTransition(current.Status, next.Status) {
+	if current.Status != next.Status && !operation.ValidStatusChange(current.Status, next.Status) {
 		return ErrInvalidStatusTransition
 	}
 	result, err := tx.ExecContext(ctx, `

@@ -40,11 +40,12 @@ func TestApplyGenerationCommitsWithoutLiveRename(t *testing.T) {
 	if !isRegularFile(filepath.Join(gen, "bin", "hermes.exe")) {
 		t.Fatal("generation launcher missing")
 	}
-	if env.installer.CanonicalPublicLauncher() != filepath.Join(gen, "bin", "hermes.exe") {
-		// Canonical may be cleaned; compare after clean
-		if filepath.Clean(env.installer.CanonicalPublicLauncher()) != filepath.Clean(filepath.Join(gen, "bin", "hermes.exe")) {
-			t.Fatalf("canonical launcher %s", env.installer.CanonicalPublicLauncher())
-		}
+	want, ok := canonicalRegularWithin(gen, filepath.Join(gen, "bin", "hermes.exe"))
+	if !ok {
+		t.Fatal("generation launcher is not a regular contained file")
+	}
+	if env.installer.CanonicalPublicLauncher() != want {
+		t.Fatalf("canonical launcher %s want %s", env.installer.CanonicalPublicLauncher(), want)
 	}
 }
 

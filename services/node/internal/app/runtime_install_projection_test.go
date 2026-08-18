@@ -278,6 +278,145 @@ func TestFailAfterCommittedLeavesOperationRunningUntilGet(t *testing.T) {
 	}
 }
 
+func TestGetRepairsFailedOperationWhenTransactionCommitted(t *testing.T) {
+	root := t.TempDir()
+	istore, err := install.NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	txn, err := install.NewCreatedTransaction("hermes", "op_repair", "pin", "0.20.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := istore.SaveTransaction(txn); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := istore.LoadTransaction(txn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded.State = install.StateCommitted
+	if err := istore.SaveTransaction(loaded); err != nil {
+		t.Fatal(err)
+	}
+	store := newMemoryOperationStore()
+	now := time.Now().UTC()
+	op := operation.Operation{
+		ID:             "op_repair",
+		Type:           operation.TypeRuntimeInstall,
+		TargetType:     operation.TargetRuntimeKind,
+		TargetID:       "hermes",
+		Status:         operation.StatusFailed,
+		ErrorCode:      yorvaruntime.ErrorRuntimeInstallPostcheckFailed,
+		Retryable:      true,
+		IdempotencyKey: "repair",
+		TransactionID:  txn.ID,
+		CreatedAt:      now,
+		StartedAt:      &now,
+		CompletedAt:    &now,
+		UpdatedAt:      now,
+	}
+	if err := store.CreateOperation(context.Background(), op); err != nil {
+		t.Fatal(err)
+	}
+	service := NewRuntimeInstall(nil, store).WithManagedRoot(root)
+	got, err := service.Get(context.Background(), op.ID)
+	if err != nil || got.Status != operation.StatusSucceeded {
+		t.Fatalf("repaired %#v %v", got, err)
+	}
+}
+
+func TestInterruptStaleLeavesActivatingOperationRunning(t *testing.T) {
+	root := t.TempDir()
+	istore, err := install.NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	txn, err := install.NewCreatedTransaction("hermes", "op_act", "pin", "0.20.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := istore.SaveTransaction(txn); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := istore.LoadTransaction(txn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded.State = install.StateActivating
+	if err := istore.SaveTransaction(loaded); err != nil {
+		t.Fatal(err)
+	}
+	store := newMemoryOperationStore()
+	now := time.Now().UTC()
+	op := operation.Operation{
+		ID:             "op_act",
+		Type:           operation.TypeRuntimeInstall,
+		TargetType:     operation.TargetRuntimeKind,
+		TargetID:       "hermes",
+		Status:         operation.StatusRunning,
+		IdempotencyKey: "act",
+		TransactionID:  txn.ID,
+		CreatedAt:      now,
+		StartedAt:      &now,
+		UpdatedAt:      now,
+	}
+	if err := store.CreateOperation(context.Background(), op); err != nil {
+		t.Fatal(err)
+	}
+	service := NewRuntimeInstall(nil, store).WithManagedRoot(root)
+	interrupted, err := service.InterruptStale(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(interrupted) != 0 {
+		t.Fatalf("activating txn was interrupted: %#v", interrupted)
+	}
+	got, err := store.GetOperation(context.Background(), op.ID)
+	if err != nil || got.Status != operation.StatusRunning {
+		t.Fatalf("activating op %#v %v", got, err)
+	}
+}
+
+func TestApplyEnvFailureAfterActivateDoesNotFailOperation(t *testing.T) {
+	root := t.TempDir()
+	store := newMemoryOperationStore()
+	startedApply := make(chan struct{})
+	release := make(chan struct{})
+	applier := &fakeApplier{
+		dir:      `C:\h\bin\hermes.exe`,
+		version:  "0.20.2",
+		applyErr: errors.New("registry closed"),
+		block:    startedApply,
+		release:  release,
+	}
+	service := newOrchestratedInstall(store, []yorvaruntime.Discovery{
+		{State: yorvaruntime.DiscoveryNotInstalled},
+	}, applier, &fakeCompleter{store: store}).WithManagedRoot(root)
+	started, err := service.Start(context.Background(), "hermes", "env-after-activate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-startedApply
+	istore, err := install.NewStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	txn, err := istore.LoadTransaction(started.Operation.TransactionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	txn.State = install.StateActivating
+	if err := istore.SaveTransaction(txn); err != nil {
+		t.Fatal(err)
+	}
+	close(release)
+	got := waitForStatus(t, service, started.Operation.ID, operation.StatusRunning)
+	if got.ErrorCode != "" {
+		t.Fatalf("activating install was failed: %#v", got)
+	}
+}
+
 func TestExecuteDoesNotConsultPreviousInstallOwner(t *testing.T) {
 	store := newMemoryOperationStore()
 	previous := operation.Operation{

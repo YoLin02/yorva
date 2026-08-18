@@ -107,7 +107,14 @@ func (h *HostInstaller) activeGenerationLauncher() (string, bool) {
 	if !isRegularFile(launcher) {
 		return "", false
 	}
-	return launcher, true
+	if canonical, ok := canonicalRegularWithin(genAbs, launcher); ok {
+		return canonical, true
+	}
+	absolute, err := filepath.Abs(launcher)
+	if err != nil {
+		return filepath.Clean(launcher), true
+	}
+	return filepath.Clean(absolute), true
 }
 
 func validateGenerationHome(home string) error {
