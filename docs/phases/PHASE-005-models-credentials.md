@@ -9,7 +9,8 @@
 > Owner decisions D1-D6 and ADR-0007: **APPROVED** 2026-08-19
 > Implementation branch: `codex/phase5-models-credentials`
 > Execution authorization: Batches 1-5, audit, CI, merge/freeze/tag and Windows release build
-> Batch 1: in progress
+> Batch 1: complete
+> Batch 2: in progress
 
 This document and its Chinese mirror define one contract. The Owner reviews the Chinese version. On 2026-08-19 the Owner approved D1-D6, ADR-0007, the synchronized governance update, the actual Phase 4 baseline and both specifications as `READY`. The initial Batch 1 qualification correctly stopped after proving that the pinned official CLI leaks secrets through argv and that the Web/TUI setters require a long-running service. The Owner then approved the narrow compatibility fallback in D3 and one continuous authorization through Batches 1-5, audit, CI, merge/freeze/tag and the Windows release build. That historical STOP evidence remains part of the qualification record.
 
