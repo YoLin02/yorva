@@ -9,13 +9,13 @@
 > Chinese Owner-review source: `PHASE-004-instance-profile.zh-CN.md`
 > Implementation authorization: **GRANTED** 2026-08-19
 > Owner decisions D1–D4: **APPROVED** 2026-08-19
-> Feature branch: `codex/phase4-instance-profile`
+> Feature branch: `fix/phase4-profile-delete-timeout`
 > Implementation: COMPLETE / FROZEN
-> Phase 4 audit: `AUDIT-004` — FAIL (immutable); `AUDIT-004R1` — PASS WITH CONDITIONS (dirty tree); `AUDIT-004R2` — PASS WITH CONDITIONS
-> Audit-accepted implementation commit: `8397dd4785a98a750f866ee191c0ca9026efe96e`
-> Exact-commit CI: GitHub Actions run `32226244512` — SUCCESS
+> Phase 4 audit: `AUDIT-004` — FAIL (immutable); `AUDIT-004R1`/`R2` — PASS WITH CONDITIONS (historical); `AUDIT-004R3` — PASS WITH CONDITIONS
+> Audit-accepted implementation commit: `35b268425a023f20c655bbfbd697f7a80c3e60a9`
+> Exact-commit CI: GitHub Actions run `32234908416` — SUCCESS
 
-This document and its Chinese mirror define the same contract. The Owner reviews the Chinese version. Independent `AUDIT-004R2` returned `PASS WITH CONDITIONS` on `8397dd4785a98a750f866ee191c0ca9026efe96e`. Historical `AUDIT-004` remains FAIL. Owner accepted the remaining Medium/Low conditions and authorized merge/freeze. Phase 5 implementation is not authorized by this freeze.
+This document and its Chinese mirror define the same contract. The 2026-08-19 freeze was withdrawn to fix delete timeout and tombstone delete UX, then independently re-audited. `AUDIT-004R3` returned `PASS WITH CONDITIONS` on `35b268425a023f20c655bbfbd697f7a80c3e60a9`. Historical `AUDIT-004` remains FAIL. Owner accepted the remaining Medium/Low conditions and authorized re-freeze. Phase 5 implementation is not authorized by this freeze.
 
 ## 1. Objective
 
@@ -438,7 +438,7 @@ Real Hermes Profile smoke uses an isolated account/VM with disposable data. Neve
 - [x] Full verification and exact-commit CI pass.
 - [x] Independent `AUDIT-004R2-instance-profile.md` reaches Owner-accepted `PASS WITH CONDITIONS`.
 
-Phase 4 is `COMPLETE / FROZEN` on audit-accepted commit `8397dd4785a98a750f866ee191c0ca9026efe96e`. Do not begin Phase 5 from this freeze. Remaining Owner-accepted conditions are recorded in `AUDIT-004R2`.
+Phase 4 is `COMPLETE / FROZEN` on audit-accepted commit `35b268425a023f20c655bbfbd697f7a80c3e60a9`. Do not begin Phase 5 from this freeze. Remaining Owner-accepted conditions are recorded in `AUDIT-004R3`.
 
 ## 22. Audit Requirements
 
@@ -462,8 +462,8 @@ This directive does not itself authorize implementation.
 ## 24. Completion Evidence
 
 ```text
-Implementation commit: 8397dd4785a98a750f866ee191c0ca9026efe96e
-Branch: codex/phase4-instance-profile
+Implementation commit: 35b268425a023f20c655bbfbd697f7a80c3e60a9
+Branch: fix/phase4-profile-delete-timeout
 Batch results:
   READY docs 60b23f4 PASS
   Batch 1 618d5ca PASS
@@ -473,6 +473,8 @@ Batch results:
   Batch 5 65d4ddf PASS
   Batch 6 verification+handoff fe15203 PASS
   High remediations 8397dd4 PASS
+  Delete timeout 8672af5 PASS
+  Delete modal / tombstone UX 35b2684 PASS
 Verification matrix:
   pnpm install --frozen-lockfile PASS
   pnpm audit --audit-level low PASS
@@ -500,7 +502,7 @@ Verification matrix:
   tauri build --no-bundle PASS
   MSI packaging NOT RUN (no packaging input change)
   Real Hermes delete smoke NOT RUN (requires isolated disposable account/VM)
-Exact-commit CI: GitHub Actions run 32226244512 SUCCESS on 8397dd4
+Exact-commit CI: GitHub Actions run 32234908416 SUCCESS on 35b2684
   Web and API contract SUCCESS
   Go Node including go test -race SUCCESS
   Windows Desktop native shell SUCCESS
@@ -512,6 +514,7 @@ Known non-blocking risks / Owner-accepted conditions:
   MEDIUM-004-002 create worker still persists timeout as INSTANCE_QUERY_FAILED
   LOW-004R1-001 RecoverStale persist failure is warn-and-continue
 AUDIT-004: FAIL (historical, 10a2509)
-AUDIT-004R1: PASS WITH CONDITIONS (dirty tree now 8397dd4)
-AUDIT-004R2: PASS WITH CONDITIONS
+AUDIT-004R1: PASS WITH CONDITIONS (historical)
+AUDIT-004R2: PASS WITH CONDITIONS (historical withdrawn freeze)
+AUDIT-004R3: PASS WITH CONDITIONS
 ```

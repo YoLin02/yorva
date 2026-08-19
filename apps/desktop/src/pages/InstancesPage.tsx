@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { formatDateTime } from "../formatDateTime";
 import type { Instance, InstanceList, Operation } from "../api/types";
 import type { AppMessages, Locale } from "../i18n";
@@ -153,58 +154,145 @@ export function InstancesPage({
           <p className="page-copy">{copy.instances.lifecycleUnavailable}</p>
 
           {deleteTarget && !deleteTarget.protected && !deleteTarget.default ? (
-            <div className="card instance-card" role="dialog" aria-labelledby="delete-instance-title">
-              <h2 id="delete-instance-title" className="instance-card-title">
-                {copy.instances.deleteTitle}
-              </h2>
-              <p className="page-copy">{copy.instances.deleteWarning}</p>
-              <label className="instance-create-label" htmlFor="delete-confirm">
-                {copy.instances.deleteConfirmLabel}
-              </label>
-              <input
-                id="delete-confirm"
-                className="instance-create-input"
-                value={deleteConfirmation}
-                onChange={(event) => onDeleteConfirmationChange(event.target.value)}
-                autoComplete="off"
-                spellCheck={false}
-                disabled={deleteBusy}
-              />
-              <div className="instance-toolbar">
-                <Button
-                  type="button"
-                  variant="danger"
-                  disabled={deleteBusy || deleteConfirmation !== deleteTarget.name}
-                  onClick={onDelete}
-                >
-                  {copy.instances.deleteAction}
-                </Button>
-                {deleteOperation?.status === "PENDING" ? (
-                  <Button type="button" onClick={onCancelDelete} disabled={deleteBusy}>
-                    {copy.instances.cancelDelete}
-                  </Button>
-                ) : (
-                  <Button type="button" onClick={() => onDeleteTargetChange(null)} disabled={deleteBusy}>
-                    {copy.hermes.install.back}
-                  </Button>
-                )}
-              </div>
-              {deleteOperation ? (
-                <p className="page-copy" role="status">
-                  {deleteOperation.status === "PENDING"
-                    ? copy.instances.deletePending
-                    : deleteOperation.status === "RUNNING"
-                      ? copy.instances.deleteRunning
-                      : deleteOperation.status === "SUCCEEDED"
-                        ? copy.instances.deleteSucceeded
-                        : copy.instances.deleteFailed}
-                </p>
-              ) : null}
-            </div>
+            <DeleteConfirmDialog
+              target={deleteTarget}
+              confirmation={deleteConfirmation}
+              busy={deleteBusy}
+              operation={deleteOperation}
+              copy={copy}
+              onConfirmationChange={onDeleteConfirmationChange}
+              onConfirm={onDelete}
+              onCancelOperation={onCancelDelete}
+              onDismiss={() => onDeleteTargetChange(null)}
+            />
           ) : null}
         </>
       )}
     </section>
+  );
+}
+
+function DeleteConfirmDialog({
+  target,
+  confirmation,
+  busy,
+  operation,
+  copy,
+  onConfirmationChange,
+  onConfirm,
+  onCancelOperation,
+  onDismiss,
+}: {
+  target: Instance;
+  confirmation: string;
+  busy: boolean;
+  operation: Operation | null;
+  copy: AppMessages;
+  onConfirmationChange: (value: string) => void;
+  onConfirm: () => void;
+  onCancelOperation: () => void;
+  onDismiss: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const status = operation?.status;
+  const locked = busy || status === "RUNNING";
+  const canCancelOperation = status === "PENDING";
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (locked) {
+        return;
+      }
+      if (canCancelOperation) {
+        onCancelOperation();
+        return;
+      }
+      onDismiss();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canCancelOperation, locked, onCancelOperation, onDismiss]);
+
+  return (
+    <div
+      className="instance-modal-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !locked) {
+          if (canCancelOperation) {
+            onCancelOperation();
+            return;
+          }
+          onDismiss();
+        }
+      }}
+    >
+      <div
+        className="instance-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-instance-title"
+        aria-describedby="delete-instance-warning"
+      >
+        <h2 id="delete-instance-title" className="instance-modal-title">
+          {copy.instances.deleteTitle}
+        </h2>
+        <p className="instance-modal-name">{target.name}</p>
+        <p id="delete-instance-warning" className="page-copy">
+          {copy.instances.deleteWarning}
+        </p>
+        <label className="instance-create-label" htmlFor="delete-confirm">
+          {copy.instances.deleteConfirmLabel}
+        </label>
+        <input
+          ref={inputRef}
+          id="delete-confirm"
+          className="instance-create-input"
+          value={confirmation}
+          onChange={(event) => onConfirmationChange(event.target.value)}
+          autoComplete="off"
+          spellCheck={false}
+          disabled={locked}
+        />
+        <div className="instance-modal-actions">
+          <Button
+            type="button"
+            variant="danger"
+            disabled={locked || confirmation !== target.name}
+            onClick={onConfirm}
+          >
+            {copy.instances.deleteAction}
+          </Button>
+          {canCancelOperation ? (
+            <Button type="button" onClick={onCancelOperation} disabled={busy}>
+              {copy.instances.cancelDelete}
+            </Button>
+          ) : (
+            <Button type="button" onClick={onDismiss} disabled={locked}>
+              {copy.instances.dismissDelete}
+            </Button>
+          )}
+        </div>
+        {operation ? (
+          <p className="page-copy" role="status">
+            {operation.status === "PENDING"
+              ? copy.instances.deletePending
+              : operation.status === "RUNNING"
+                ? copy.instances.deleteRunning
+                : operation.status === "SUCCEEDED"
+                  ? copy.instances.deleteSucceeded
+                  : copy.instances.deleteFailed}
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -238,7 +326,7 @@ function InstanceRow({
           {copy.instances.lastSynced}: {formatDateTime(item.lastSyncedAt, locale)}
         </p>
       ) : null}
-      {!item.default && !item.protected ? (
+      {!item.default && !item.protected && item.availability === "AVAILABLE" ? (
         <Button type="button" variant="danger" onClick={onDelete}>
           {copy.instances.deleteAction}
         </Button>

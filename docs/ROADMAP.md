@@ -148,14 +148,14 @@ The detailed Phase 3 Spec was prepared after Phase 2 amendment 002A1 passed inde
 ## Phase 4 — Instance/Profile management
 
 Status: **COMPLETE / FROZEN**
-Gate: **PASS WITH CONDITIONS** (`AUDIT-004R2-instance-profile.md`)
+Gate: **PASS WITH CONDITIONS** (`AUDIT-004R3-instance-profile.md`)
 Baseline: `phase-004-instance-profile-baseline`
-Audit-accepted implementation commit: `8397dd4785a98a750f866ee191c0ca9026efe96e`
-Exact-commit CI: GitHub Actions run `32226244512` — SUCCESS
+Audit-accepted implementation commit: `35b268425a023f20c655bbfbd697f7a80c3e60a9`
+Exact-commit CI: GitHub Actions run `32234908416` — SUCCESS
 Specs: `docs/phases/PHASE-004-instance-profile.zh-CN.md` (Owner review) and `docs/phases/PHASE-004-instance-profile.md` (Agent execution mirror) — **FROZEN**
 Start commit: `d04b1fdc298f643f84d0c84a245595baae2e8994`
-Branch: `codex/phase4-instance-profile`
-Audit: `AUDIT-004` — **FAIL** (immutable); `AUDIT-004R1` — **PASS WITH CONDITIONS**; `AUDIT-004R2` — **PASS WITH CONDITIONS**
+Branch: `fix/phase4-profile-delete-timeout`
+Audit: `AUDIT-004` — **FAIL** (immutable); `AUDIT-004R1`/`R2` — **PASS WITH CONDITIONS** (historical); `AUDIT-004R3` — **PASS WITH CONDITIONS**
 
 Goal: manage multiple Hermes-backed YORVA instances.
 
@@ -174,6 +174,11 @@ Exit criteria:
 - YORVA recovers if profiles are changed outside YORVA.
 
 ## Phase 5 — Models and credentials
+
+Status: **DRAFT — OWNER REVIEW REQUIRED**
+Specs: `docs/phases/PHASE-005-models-credentials.zh-CN.md` (Owner review) and `docs/phases/PHASE-005-models-credentials.md` (Agent execution mirror)
+Target baseline: `phase-004-instance-profile-baseline`
+Implementation: **NOT AUTHORIZED**
 
 Goal: make model configuration safe and simple.
 

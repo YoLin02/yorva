@@ -9,13 +9,13 @@
 > 英文 Agent 执行镜像：`PHASE-004-instance-profile.md`
 > 实现授权：**已授予** 2026-08-19
 > Owner 决策 D1–D4：**已批准** 2026-08-19
-> 功能分支：`codex/phase4-instance-profile`
+> 功能分支：`fix/phase4-profile-delete-timeout`
 > 实现：COMPLETE / FROZEN
-> Phase 4 审计：`AUDIT-004` — FAIL（不可变）；`AUDIT-004R1` — PASS WITH CONDITIONS（脏工作区）；`AUDIT-004R2` — PASS WITH CONDITIONS
-> 审计接受的实现 commit：`8397dd4785a98a750f866ee191c0ca9026efe96e`
-> Exact-commit CI：GitHub Actions run `32226244512` — SUCCESS
+> Phase 4 审计：`AUDIT-004` — FAIL（不可变）；`AUDIT-004R1`/`R2` — PASS WITH CONDITIONS（历史）；`AUDIT-004R3` — PASS WITH CONDITIONS
+> 审计接受的实现 commit：`35b268425a023f20c655bbfbd697f7a80c3e60a9`
+> Exact-commit CI：GitHub Actions run `32234908416` — SUCCESS
 
-本文件与英文镜像定义同一合同。Owner 审核中文版本。独立 `AUDIT-004R2` 对 `8397dd4785a98a750f866ee191c0ca9026efe96e` 给出 `PASS WITH CONDITIONS`。历史 `AUDIT-004` 保持 FAIL。Owner 已接受剩余 Medium/Low 条件并授权合并/冻结。本冻结不授权 Phase 5 实现。
+本文件与英文镜像定义同一合同。2026-08-19 的冻结曾撤销以修复删除超时与缺失行删除按钮，随后独立复审。`AUDIT-004R3` 对 `35b268425a023f20c655bbfbd697f7a80c3e60a9` 给出 `PASS WITH CONDITIONS`。历史 `AUDIT-004` 保持 FAIL。Owner 已接受剩余 Medium/Low 条件并授权重新冻结。本冻结不授权 Phase 5 实现。
 
 ## 1. 目标
 
@@ -438,7 +438,7 @@ SQLite 是缓存。缓存 row 不能授权 Hermes mutation、删除或文件访�
 - [x] 完整验证与 exact-commit CI 通过。
 - [x] 独立 `AUDIT-004R2-instance-profile.md` 达到 Owner 接受的 `PASS WITH CONDITIONS`。
 
-Phase 4 已在审计接受的 commit `8397dd4785a98a750f866ee191c0ca9026efe96e` 上 `COMPLETE / FROZEN`。不得从本次冻结开始 Phase 5。剩余 Owner 接受的条件记录在 `AUDIT-004R2`。
+Phase 4 已在审计接受的 commit `35b268425a023f20c655bbfbd697f7a80c3e60a9` 上 `COMPLETE / FROZEN`。不得从本次冻结开始 Phase 5。剩余 Owner 接受的条件记录在 `AUDIT-004R3`。
 
 ## 22. 审计要求
 
@@ -462,8 +462,8 @@ Phase 4 已在审计接受的 commit `8397dd4785a98a750f866ee191c0ca9026efe96e` 
 ## 24. 完成证据
 
 ```text
-Implementation commit: 8397dd4785a98a750f866ee191c0ca9026efe96e
-Branch: codex/phase4-instance-profile
+Implementation commit: 35b268425a023f20c655bbfbd697f7a80c3e60a9
+Branch: fix/phase4-profile-delete-timeout
 Batch results:
   READY docs 60b23f4 PASS
   Batch 1 618d5ca PASS
@@ -473,6 +473,8 @@ Batch results:
   Batch 5 65d4ddf PASS
   Batch 6 verification+handoff fe15203 PASS
   High remediations 8397dd4 PASS
+  Delete timeout 8672af5 PASS
+  Delete modal / tombstone UX 35b2684 PASS
 Verification matrix:
   pnpm install --frozen-lockfile PASS
   pnpm audit --audit-level low PASS
@@ -500,7 +502,7 @@ Verification matrix:
   tauri build --no-bundle PASS
   MSI packaging 未跑（packaging input 未变）
   真实 Hermes delete smoke 未跑（需要隔离可丢弃账号/VM）
-Exact-commit CI: GitHub Actions run 32226244512 SUCCESS on 8397dd4
+Exact-commit CI: GitHub Actions run 32234908416 SUCCESS on 35b2684
   Web and API contract SUCCESS
   Go Node including go test -race SUCCESS
   Windows Desktop native shell SUCCESS
@@ -512,6 +514,7 @@ Known non-blocking risks / Owner 接受的条件:
   MEDIUM-004-002 create worker 仍把超时写成 INSTANCE_QUERY_FAILED
   LOW-004R1-001 RecoverStale 持久化失败仍是 warn-and-continue
 AUDIT-004: FAIL（历史，10a2509）
-AUDIT-004R1: PASS WITH CONDITIONS（脏工作区现为 8397dd4）
-AUDIT-004R2: PASS WITH CONDITIONS
+AUDIT-004R1: PASS WITH CONDITIONS（历史）
+AUDIT-004R2: PASS WITH CONDITIONS（历史已撤销冻结）
+AUDIT-004R3: PASS WITH CONDITIONS
 ```

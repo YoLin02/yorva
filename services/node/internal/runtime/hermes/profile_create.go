@@ -39,7 +39,7 @@ func createProfileWith(ctx context.Context, executable, name string, run func(co
 }
 
 func runProfileCreateCommand(ctx context.Context, executable, home, name string) commandResult {
-	runner := newCommandRunner()
+	runner := newProfileMutationRunner()
 	runner.environment = func() []string { return profileCommandEnvironment(home) }
 	return runner.run(ctx, commandInvocation{
 		path:       executable,
