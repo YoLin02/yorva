@@ -102,7 +102,7 @@ services/node/
     ├── operation/      # async operation engine
     ├── persistence/    # SQLite repositories/migrations
     ├── runtime/        # runtime registry/contracts
-    ├── secrets/        # SecretStore abstraction
+    ├── secrets/        # SecretStore for YORVA-owned secrets
     ├── node/           # local node identity/health
     └── logging/
 ```
@@ -164,6 +164,8 @@ It absorbs:
 The adapter returns normalized YORVA results and stable error codes.
 
 Do not expose raw CLI stdout as an application contract.
+
+For the Windows consumer MVP, ADR-0007 classifies Hermes Profile model credentials as Runtime-native state. Hermes is their sole persistence authority, and the adapter may mutate them only through a pinned, qualified official surface. YORVA does not keep a `SecretStore` or SQLite duplicate and does not access Hermes `.env` files directly. The YORVA `SecretStore` boundary remains for YORVA-owned secrets and later explicitly designed credential types.
 
 ## 9. Hermes integration order
 
@@ -258,12 +260,14 @@ SQLite stores:
 - normalized instance inventory cache/metadata;
 - operations;
 - channel binding metadata;
-- secret references, never secret plaintext;
+- references for YORVA-owned secrets, never secret plaintext;
 - backups metadata;
 - application settings;
 - audit-relevant management events.
 
 Hermes remains authoritative for Hermes-owned state.
+
+Under ADR-0007, Hermes Profile model credentials are Hermes-owned state and do not create `secret_refs` rows. Only safe configured/status metadata may cross the adapter boundary.
 
 YORVA must be able to reconcile its local inventory from the Runtime after state drift.
 
