@@ -218,7 +218,7 @@ UNIQUE(scope_type, scope_id, secret_name)
 
 `provider_ref` must not itself contain the secret.
 
-ADR-0007 classifies Hermes Profile model provider credentials as Runtime-native state for the Windows consumer MVP. Those credentials do not create `secret_refs` rows and are not copied into any other SQLite table. Hermes remains their sole authority; YORVA stores only safe status/projection metadata where the Phase contract explicitly requires it.
+ADR-0007 classifies Hermes Profile model provider credentials as Runtime-native state for the Windows consumer MVP. Those credentials do not create `secret_refs` rows and are not copied into any other SQLite table. Hermes remains their sole authority, including when the Hermes adapter uses the approved pinned Profile credential compatibility writer; YORVA stores only safe status/projection metadata where the Phase contract explicitly requires it.
 
 ## 11. `backups`
 

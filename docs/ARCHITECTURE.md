@@ -165,7 +165,7 @@ The adapter returns normalized YORVA results and stable error codes.
 
 Do not expose raw CLI stdout as an application contract.
 
-For the Windows consumer MVP, ADR-0007 classifies Hermes Profile model credentials as Runtime-native state. Hermes is their sole persistence authority, and the adapter may mutate them only through a pinned, qualified official surface. YORVA does not keep a `SecretStore` or SQLite duplicate and does not access Hermes `.env` files directly. The YORVA `SecretStore` boundary remains for YORVA-owned secrets and later explicitly designed credential types.
+For the Windows consumer MVP, ADR-0007 classifies Hermes Profile model credentials as Runtime-native state. Hermes is their sole persistence authority. The adapter prefers a pinned, qualified official surface; because Hermes `0.20.2` has no safe offline non-interactive credential setter, ADR-0007 also authorizes one version-fixed, Profile-scoped, Provider-allowlisted compatibility writer for the canonical Hermes Profile `.env`. This writer is Hermes-owned adapter code, never a path/env/file API, and uses bounded optimistic conflict detection plus atomic replacement. YORVA does not keep a `SecretStore` or SQLite duplicate. The YORVA `SecretStore` boundary remains for YORVA-owned secrets and later explicitly designed credential types.
 
 ## 9. Hermes integration order
 

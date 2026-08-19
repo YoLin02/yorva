@@ -147,6 +147,8 @@ type CredentialManager interface {
 }
 ```
 
+ADR-0007 authorizes a Hermes `0.20.2`-specific credential compatibility fallback because its safe offline official setter is absent. The fallback is confined to the Hermes adapter and canonical Profile `.env`: `nativeID` selects the Profile, a compiled Provider allowlist selects the exact credential key, and no caller supplies paths or env names. It preserves unknown entries, changes one key, enforces a size bound, uses same-directory atomic replacement/read-back and returns a stable conflict when the observed source changes before replacement. It is not a generic Runtime file/config editor.
+
 ### Channels
 
 ```go

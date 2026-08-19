@@ -113,7 +113,7 @@ instance/channel credential
 future cloud refresh/session credential
 ```
 
-ADR-0007 defines one narrow exception for the Windows consumer MVP: Hermes Profile model provider credentials remain solely in Hermes' official Profile credential store. YORVA may mutate them only through a pinned, qualified official Hermes surface. YORVA does not keep a `SecretStore`, SQLite or `secret_refs` duplicate and does not directly read or write Hermes `.env` files. This is an explicit at-rest tradeoff and is not a general plaintext fallback.
+ADR-0007 defines one narrow exception for the Windows consumer MVP: Hermes Profile model provider credentials remain solely in Hermes' official Profile credential store. YORVA prefers a pinned, qualified official Hermes surface. For Hermes `0.20.2`, whose offline non-interactive CLI exposes the key in argv, only the Hermes adapter may instead use the ADR-approved version-fixed, Profile-scoped, Provider-allowlisted canonical `.env` compatibility writer. No caller supplies a path or env name; the writer is bounded, preserves unrelated entries, uses same-directory atomic replacement and fails closed on observed external modification. YORVA keeps no `SecretStore`, SQLite or `secret_refs` duplicate. This is an explicit at-rest tradeoff, not a general plaintext fallback.
 
 Rules:
 
@@ -124,7 +124,7 @@ Rules:
 - delete actually removes provider-backed material where possible;
 - backup does not include secrets unless a future explicit encrypted-secret export feature is designed.
 
-For Runtime-native credentials, Profile isolation and exact native targeting are mandatory. Secret material must not enter argv, URLs, logs, events, Operations, diagnostics, Desktop storage, Windows user/system environment variables or ambient child environments. If the qualified official surface cannot satisfy those rules, the integration stops.
+For Runtime-native credentials, Profile isolation and exact native targeting are mandatory. Secret material must not enter argv, URLs, logs, events, Operations, diagnostics, Desktop storage, Windows user/system environment variables or ambient child environments. The official surface or approved compatibility writer must satisfy those rules; otherwise the integration stops.
 
 ## 8. Secret redaction
 

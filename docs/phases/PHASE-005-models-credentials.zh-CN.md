@@ -1,6 +1,6 @@
 # YORVA Phase 5 — 模型与凭据
 
-> 状态：READY — 已授权 Batch 1
+> 状态：IN_PROGRESS — 已授权 Batch 1-5
 > 语言：中文 Owner 审核源
 > Owner：仓库 Owner
 > Owner 指定的设计快照：`089a58005edc8f8f6a72b4fb44276be7c322eb1d`
@@ -8,10 +8,10 @@
 > 英文执行镜像：`PHASE-005-models-credentials.md`
 > Owner 决策 D1–D6 与 ADR-0007：**已批准** 2026-08-19
 > 实现分支：`codex/phase5-models-credentials`
-> 执行授权：仅 Batch 1；在其 Gate 后停止
-> Batch 1：已授权，未开始
+> 执行授权：Batch 1-5、审计、CI、合并/冻结/tag 与 Windows release build
+> Batch 1：进行中
 
-本文档与英文镜像共同定义同一份合同。Owner 审核中文版。2026-08-19，Owner 已批准 D1–D6、ADR-0007、同步治理变更、真实 Phase 4 基线，并批准中英文 Spec 标记为 `READY`。现授权 Batch 1；后续 Batch 仍须在 Batch 1 Gate 后单独授权。
+本文档与英文镜像共同定义同一份合同。Owner 审核中文版。2026-08-19，Owner 已批准 D1–D6、ADR-0007、同步治理变更、真实 Phase 4 基线，并批准中英文 Spec 标记为 `READY`。首次 Batch 1 资格检查在确认 pinned 官方 CLI 通过 argv 泄露秘密且 Web/TUI setter 需要常驻服务后正确 STOP。随后 Owner 批准 D3 中的狭窄 compatibility fallback，并一次性授权 Batch 1-5、审计、CI、合并/冻结/tag 与 Windows release build 连续执行。该历史 STOP 证据继续保留在资格记录中。
 
 ## 1. 目标
 
@@ -23,7 +23,7 @@ AVAILABLE Instance
 → 选择 Provider 预设
 → 选择推荐模型或输入模型 ID
 → 输入 API Key
-→ 通过经过资格验证的 Hermes Profile 官方接口保存
+→ 通过经过资格验证的 Hermes Profile credential surface 保存
 → 用户明确发起连接测试
 → 展示安全结果
 ```
@@ -76,13 +76,14 @@ Phase 5 不得建立第二套导航、i18n、process runner、Runtime registry�
 1. D1–D6 在 Phase 5 仍为 `DRAFT` 时获批，不需要 Phase Amendment。
 2. ADR-0007 已获 Owner 批准，并定义 Runtime-native credential authority、静态存储权衡、Profile 隔离及其与未来 `SecretStore` 的关系。
 3. `SECURITY.md`、`DATA_MODEL.md`、`ARCHITECTURE.md` 与 `ROADMAP.md` 已同步 ADR-0007。
-4. 后续若实质修改 D2，必须建立 Phase 5 Amendment，并在需要时建立 superseding ADR。
+4. 首次 Batch 1 资格 STOP 被保留。2026-08-19，Owner 修订 D3/ADR-0007，批准下述狭窄 Hermes-native credential compatibility writer。
+5. 后续若实质修改该 authority，必须建立 Phase 5 Amendment，并在需要时建立 superseding ADR。
 
 ## 4. 需要 Owner 决策
 
 - [x] **D1 — 中国市场优先的 ProviderPreset catalog。** 产品候选为 DeepSeek、Qwen/Alibaba DashScope、Kimi/Moonshot、MiniMax、GLM/Zhipu、OpenRouter、OpenAI 与 Anthropic。这是产品方向，不代表 pinned Hermes 已支持全部候选。Batch 1 必须核验准确的 Hermes provider ID、credential mechanism/name、config key、中国/区域 endpoint 行为及推荐 model ID。不支持的候选从可选 MVP catalog 移除，或以不可选的“不支持”状态展示；YORVA 不实现其协议。
-- [x] **D2 — MVP 使用 Hermes-native credential persistence。** 在第 3 节 ADR 获批的前提下，Hermes Profile 官方凭据存储是唯一真相源。YORVA 仅使用经验证的 Hermes `0.20.2` 官方接口设置/替换/删除 Profile 凭据；不为这些模型 Key 实现 SecretStore 或 `secret_refs`，不保留副本，也不直接读写/追加/解析 `.env`。SQLite、日志、事件、Operation、HTTP response、diagnostics、argv 与 Desktop storage 均不得包含秘密。
-- [x] **D3 — 官方安全接口。** 优先采用 pinned Hermes `0.20.2` 文档化、非交互式的 Profile/config/credential 接口。秘密不得进入 argv。如果唯一官方 setter 将 API Key 作为命令行参数，或 status/delete 必须读取原始 `.env`，则停止。不得导入 Hermes Python module 或自行编写 `.env` writer。狭窄的直接 writer 必须经后续 Amendment/ADR 批准。
+- [x] **D2 — MVP 使用 Hermes-native credential persistence。** 在第 3 节 ADR 获批的前提下，Hermes Profile 官方凭据存储是唯一真相源。YORVA 不为这些模型 Key 实现 SecretStore 或 `secret_refs`，也不保留副本。SQLite、日志、事件、Operation、HTTP response、diagnostics、argv 与 Desktop storage 均不得包含秘密。
+- [x] **D3 — 官方接口优先，已批准狭窄 compatibility fallback。** 优先采用 pinned Hermes `0.20.2` 文档化、非交互式的 Profile/config/credential 接口。资格检查已证明 offline 官方 setter 要求 secret argv，而安全 JSON setter 需要常驻服务。因此只允许 Hermes adapter 使用 version-fixed、Profile-scoped、Provider-allowlisted writer 更新准确的 canonical Profile `.env`。调用方不能提供 path 或 env key。Writer 必须有界、保留未知项、只修改一个 allowlisted key、使用同目录 atomic replace/read-back，并在观察到外部修改时 fail closed。仍禁止 Hermes Python import、任意 `.env`/YAML 编辑及任何 generic file API。
 - [x] **D4 — 保存与验证分离。** 保存写入凭据和非秘密 provider/model 配置，并安全 read-back/status confirm；不发起推理请求，也不消耗 token。只有用户明确点击“测试连接”才启动受限验证。`CONFIGURED` 不等于 `VALIDATED`，两者也不会把 `AVAILABLE` 改为 `MODEL_READY`。
 - [x] **D5 — MISSING Instance 永久保留。** `MISSING` Instance 及稳定 `instanceId` 永久保留。Reconciliation 不自动删除其 Hermes 凭据。`MISSING`/`UNKNOWN` 禁止 config mutation 与 validation；只有安全官方 Profile 接口可寻址时，才允许显式删除凭据。未来清理策略须另行制定合同。
 - [x] **D6 — 五个顺序 Batch。** 按第 20 节顺序执行，focused gate 通过后才能进入下一 Batch。Spec `READY` 后，Owner 可另行授权五个 Batch 自动连续执行。任何 Batch 不得借入 Phase 6 或更晚范围。
@@ -97,7 +98,7 @@ Phase 5 不得建立第二套导航、i18n、process runner、Runtime registry�
 4. 用户选择推荐模型或输入有边界的 model ID；不提供自定义 endpoint。
 5. 用户在 password input 中输入 API Key，点击“保存配置”。
 6. Go 将 `instanceId` 解析为权威的当前 `nativeId` 和 active Hermes executable。
-7. Hermes adapter 通过经验证的官方 Profile 接口保存凭据和非秘密 provider/model 配置，仅确认安全的 status/config metadata。
+7. Hermes adapter 通过经验证的 Profile credential surface（需要时包括获批狭窄 fallback）保存凭据和非秘密 provider/model 配置，仅确认安全的 status/config metadata。
 8. 输入框被清空；UI 显示 `CONFIGURED`，但尚未执行网络验证。
 9. 用户点击“测试连接”；YORVA 通过现有 Operation/process 基础设施启动受限 `model.validate` Operation。
 10. UI 以本地时间和安全建议展示 `PASSED`、`FAILED` 或 `UNKNOWN`。
@@ -109,7 +110,7 @@ Phase 5 不得建立第二套导航、i18n、process runner、Runtime registry�
 - 对每个可选择 preset 的 pinned Hermes 资格验证；
 - 推荐 model ID 与有边界的手动 model ID 输入；
 - 安全读取、应用及 read-back Profile provider/model 配置；
-- 官方 Hermes-native Profile credential set/replace/delete/status；
+- 通过官方接口或 ADR 获批狭窄 fallback 实现 Hermes-native Profile credential set/replace/delete/status；
 - 仅 metadata 的 credential read 与显式 connection validation；
 - authenticated loopback API、OpenAPI/generated client 与稳定错误更新；
 - 仅为 validation 复用现有 Operation；
@@ -130,7 +131,7 @@ Phase 5 不得建立第二套导航、i18n、process runner、Runtime registry�
 - custom Provider、custom endpoint/base URL、proxy 或任意 auth scheme；
 - fallback chain、routing policy、quota、pricing 或完整在线 model discovery；
 - 自由编辑 YAML、`.env`、shell、command、environment variable、path 或 config key；
-- YORVA production code 直接读写/追加 `.env`；
+- 获批 Hermes adapter credential writer 之外的直接或通用 `.env` 读写/追加；
 - Windows user/system environment variable mutation；
 - chat/inference UI、Agent readiness、session、memory 或 persona editing；
 - channel、Weixin/WeCom、Skills、MCP、backup/restore、Cloud 或 telemetry；
@@ -151,7 +152,8 @@ Hermes adapter
     ↓
 现有 executable resolution + commandRunner/process containment
     ↓
-Pinned 官方 Hermes Profile config/credential/validation 接口
+Pinned Hermes Profile config/credential/validation 接口
+    └── 必要时使用 ADR-0007 canonical `.env` 狭窄 credential fallback
 ```
 
 Go 是 use-case coordination、identity resolution、ProviderPreset selection、command construction 与 result normalization 的权威。Hermes 是 Hermes Profile config/credential state 的权威。React 只渲染标准化状态，并仅在当前表单交互期间持有 password input。Rust/Tauri 不增加模型业务逻辑。
@@ -223,15 +225,15 @@ Batch 1 必须针对每个候选确认：
 3. 准确的非秘密 model/provider key 与 scalar format；
 4. 准确的 credential logical/env name 与 Profile isolation 行为；
 5. Hermes 是否内建中国/全球 endpoint 选择，且无需 custom URL；
-6. 准确的官方非交互 set/replace/delete/status 接口；
+6. 准确的官方非交互 set/replace/delete/status 接口，以及任何 fallback 的记录化理由；
 7. secret transport channel，并证明不经过 argv/output/log；
 8. 准确 read-back/status output 与严格有界 parser 要求；
 9. 禁用 tools 的安全非交互 validation；
 10. timeout、cancellation、output-limit 与 exit/error mapping。
 
-选择顺序仍为 documented official API、documented programmatic protocol、documented CLI，最后才是单独批准的狭窄 compatibility fallback。上游当前 `main` 不能证明 pinned version 行为。
+选择顺序仍为 documented official API、documented programmatic protocol、documented CLI，最后是 ADR-0007 已批准的狭窄 compatibility fallback。上游当前 `main` 不能证明 pinned version 行为。
 
-如果官方 CLI 可通过非 argv channel 将 Key 安全写入选定 Profile `.env`，YORVA 可调用该能力。如果它要求 secret argv、原始 `.env` 访问、无法安全驱动的交互终端、运行中的 gateway、Hermes Python import 或 custom Provider protocol，则该候选不受支持，或停止实现并进入治理评审。
+已完成的资格检查未发现安全的 offline 官方 credential setter。因此 fallback 只允许用于能够从 pinned Hermes 证明准确 credential key 与 canonical Profile location 的候选。若候选需要 OAuth/login、custom endpoint/provider protocol、含糊 storage、Hermes Python import 或越出该 bounded writer 的 mutation，则不受支持。
 
 ## 11. 身份、可用性与模型状态
 
@@ -283,9 +285,9 @@ ValidateModel(installation, nativeId, presetId, modelId) → typed validation re
 
 - 所选 Hermes Profile 的官方 credential store 是 model API Key 唯一真相源；
 - YORVA 不在 SecretStore、SQLite 或自有文件保存副本；
-- YORVA production code 不直接打开、解析、追加或重写 `.env`；
-- 只有通过资格验证的官方 Hermes 接口可持久化/删除 credential；
-- status 通过经验证的官方 metadata/status 接口读取，绝不返回值本身；
+- 只有 Hermes adapter 的获批 compatibility writer 可打开 canonical Profile `.env`；其他 production layer 均禁止；
+- 优先使用官方 Hermes surface；fallback 只接收 `nativeId`、allowlisted preset 与 secret value，绝不接收调用方 path/env key；
+- status 仅由资格 surface/writer 推导安全 presence metadata，绝不返回值或 secret-derived fragment；
 - credential mutation 精确限定到由 `nativeId` 选择的 Profile；
 - Profile A 的 credential 不得出现在 Profile B 的 process、status 或 validation 中；
 - replace/delete 失败须标准化；安全时可重试，YORVA 不猜测 native state；
@@ -330,7 +332,7 @@ Windows user/system environment mutation 在范围外，默认禁用。多个 Pr
 - mutation 前重新解析受支持 installation 与 `AVAILABLE` Instance；
 - 使用现有 Instance/Profile coordination source，使 Save 与 Profile delete/reconcile 冲突；不得添加独立 lock registry；
 - Save 期间不进行 network model call；
-- 仅使用准确且已验证的官方接口；
+- 仅使用准确且已验证的 surface，包括获批狭窄 fallback；
 - 返回 `CONFIGURED` 前确认安全 provider/model 与 credential-status metadata；
 - 若 native step 部分成功，返回稳定 partial/incomplete error 与安全 observed state；不自动删除旧有效 credential，也不声称 crash-safe rollback；
 - 相同 desired request 可安全重试，但不添加 generic config transaction framework。
@@ -443,7 +445,7 @@ API Key：[password input]
 6. 不向 child wholesale 继承 parent provider credential。
 7. Credential operation 只针对一个权威 Profile。
 8. 不修改 Windows global/user environment。
-9. `.env` 不暴露为 file API，也不由 YORVA production code 读取。
+9. `.env` 不暴露为 file API；只有 Hermes adapter 的获批 bounded credential writer 可检查/更新准确的 allowlisted entry。
 10. Unknown output/native state fail closed，不删除或编造 credential state。
 11. 保持现有 loopback authentication、Origin/CSP 与 no-store response protection。
 12. 现有 process-tree containment 在 success、failure、timeout 与 cancellation 后清理进程。
@@ -456,15 +458,17 @@ Redaction 是 defense in depth，覆盖代表性的中国/全球 Provider key、
 
 五个有意保持小而连续的 Batch，不增加额外 framework project。
 
-### Batch 1 — Hermes Provider/config/credential 接口资格验证
+### Batch 1 — Hermes Provider/config/credential 资格验证与 fallback
 
 - 检查 pinned Hermes `0.20.2` 对每个产品候选的实际支持；
 - 锁定受支持 ProviderPreset mapping 与推荐模型；
 - 证明 Profile selection、非秘密 config key、官方 credential set/delete/status 行为与 `.env` ownership；
+- 保留证明官方 offline credential blocker 的首次 STOP 证据；
+- 实现并测试狭窄 Profile-scoped、Provider-allowlisted credential writer，包括 status/set/replace/delete、atomic read-back、cleanup 与 optimistic conflict detection；
 - 证明 secret 不进入 argv/output，并锁定 tools-disabled validation 接口；
-- 建立 contract evidence/fixture，最终确定 error/DTO；不实现 production mutation。
+- 建立 contract evidence/fixture，最终确定 error/DTO。
 
-Gate：qualification test/evidence PASS。若没有中国 preset 通过、secret 需要 argv/direct `.env`，或 validation 无法满足第 17 节，则停止。
+Gate：qualification/fallback test 与 evidence PASS。只有没有中国 preset 能使用获批 bounded fallback，或 validation 无法满足第 17 节时才停止。
 
 ### Batch 2 — ProviderPreset 与非秘密模型配置
 
@@ -473,16 +477,16 @@ Gate：qualification test/evidence PASS。若没有中国 preset 通过、secret
 - 增加安全 provider/config GET/PATCH OpenAPI 与 generated client；
 - 接入现有 Instance identity、availability 与 coordination。
 
-Gate：adapter/application/HTTP/OpenAPI test PASS；此时尚无 credential persistence。
+Gate：adapter/application/HTTP/OpenAPI test PASS；credential HTTP lifecycle 留在 Batch 3。
 
 ### Batch 3 — Hermes-native credential lifecycle
 
-- 实现官方 Profile credential status/set/replace/delete；
+- 通过 application 与 HTTP boundary 暴露 qualified adapter Profile credential status/set/replace/delete lifecycle；
 - 实现 metadata GET 与 write-only PUT/DELETE；Credential PUT 协调完整 Save；
 - 由 Hermes truth 验证 restart recovery 与 Profile-to-Profile isolation；
 - 增加 redaction/no-argv/no-SQLite/no-browser-persistence test。
 
-Gate：credential test PASS，且没有 SecretStore duplicate 或 production `.env` file access。
+Gate：credential test PASS，且没有 SecretStore duplicate 或获批 Hermes adapter writer 之外的 `.env` access。
 
 ### Batch 4 — 显式 validation
 
@@ -553,10 +557,10 @@ Phase 5 完成要求：
 - [ ] 不修改 Windows global/user env；
 - [ ] `CONFIGURED` 与 validation result 和 `AVAILABLE` 保持分离；
 - [ ] exact candidate 的完整 local/CI verification PASS；
-- [ ] 独立审计达到 Owner 接受的 Gate；
-- [ ] Owner 授权 merge/freeze/tag。
+- [ ] 正式审计达到可接受 Gate；
+- [x] Owner 授权在审计与 CI PASS 后 merge/freeze/tag。
 
-当前状态为 `READY`，并已授权 Batch 1。本文档不授权 Batch 2 或后续工作，也不授权 merge、freeze 或 tag。
+当前状态为 `IN_PROGRESS`。Batch 1-5 及其后的审计/CI/合并/冻结/tag/Windows build 序列均已授权，但每个既定 Gate 必须在下一不可逆步骤前 PASS。
 
 ## 24. 强制停止条件
 
@@ -564,7 +568,7 @@ Phase 5 完成要求：
 
 1. Phase 4 未在预期 start baseline 上真实重新冻结；
 2. pinned Hermes 不安全支持任何中国市场候选；
-3. 官方 credential persistence 要求 secret argv 或 direct `.env` access；
+3. 获批狭窄 credential writer 无法在不泄密的前提下安全定位 canonical Profile store；
 4. 安全 metadata status/delete 或 tools-disabled validation 不可用；
 5. 需要 custom endpoint/provider protocol、OAuth/login 或 lifecycle；
 6. 看似必须建立第二套 navigation/i18n/runner/registry/Operation/date/state system；
@@ -573,4 +577,4 @@ Phase 5 完成要求：
 9. 无法保证 process cleanup、Profile isolation 或 secret non-leakage；
 10. 中英文合同分歧或仍有未决产品决策。
 
-当前 entry gate 仅对 Batch 1 获批。未经下一项适用授权，不得开始 Batch 2、修改 Phase 4、合并 `main`、创建 tag 或进入 Phase 6。
+当前 entry gate 已批准 Batch 1-5 与规定的收口序列。不得修改 Phase 4 或进入 Phase 6；在 Phase 5 审计与 exact-commit CI Gate PASS 前不得 merge/tag。

@@ -1,6 +1,6 @@
 # YORVA Phase 5 — Models and Credentials
 
-> Status: READY — Batch 1 authorized
+> Status: IN_PROGRESS — Batches 1-5 authorized
 > Language: English execution mirror for the implementation Agent
 > Owner: Repository owner
 > Owner-designated repository snapshot: `089a58005edc8f8f6a72b4fb44276be7c322eb1d`
@@ -8,10 +8,10 @@
 > Chinese Owner-review source: `PHASE-005-models-credentials.zh-CN.md`
 > Owner decisions D1-D6 and ADR-0007: **APPROVED** 2026-08-19
 > Implementation branch: `codex/phase5-models-credentials`
-> Execution authorization: Batch 1 only; stop at its Gate
-> Batch 1: authorized, not started
+> Execution authorization: Batches 1-5, audit, CI, merge/freeze/tag and Windows release build
+> Batch 1: in progress
 
-This document and its Chinese mirror define one contract. The Owner reviews the Chinese version. On 2026-08-19 the Owner approved D1-D6, ADR-0007, the synchronized governance update, the actual Phase 4 baseline and both specifications as `READY`. Batch 1 is authorized. Later batches still require a separate authorization after the Batch 1 Gate.
+This document and its Chinese mirror define one contract. The Owner reviews the Chinese version. On 2026-08-19 the Owner approved D1-D6, ADR-0007, the synchronized governance update, the actual Phase 4 baseline and both specifications as `READY`. The initial Batch 1 qualification correctly stopped after proving that the pinned official CLI leaks secrets through argv and that the Web/TUI setters require a long-running service. The Owner then approved the narrow compatibility fallback in D3 and one continuous authorization through Batches 1-5, audit, CI, merge/freeze/tag and the Windows release build. That historical STOP evidence remains part of the qualification record.
 
 ## 1. Objective
 
@@ -23,7 +23,7 @@ AVAILABLE Instance
 → choose a Provider preset
 → choose a recommended model or enter a model ID
 → enter an API key
-→ save through the qualified official Hermes Profile surface
+→ save through the qualified Hermes Profile credential surface
 → explicitly test the connection
 → show a safe result
 ```
@@ -76,13 +76,14 @@ Governance treatment completed 2026-08-19:
 1. D1-D6 were approved while Phase 5 was `DRAFT`; no Phase Amendment was required.
 2. ADR-0007 was Owner-approved and defines Runtime-native credential authority, at-rest tradeoffs, Profile isolation and the relationship to future `SecretStore` use.
 3. `SECURITY.md`, `DATA_MODEL.md`, `ARCHITECTURE.md` and `ROADMAP.md` are synchronized with ADR-0007.
-4. A later material change to D2 requires a Phase 5 Amendment and any necessary superseding ADR.
+4. The first Batch 1 qualification STOP is preserved. On 2026-08-19 the Owner amended D3/ADR-0007 to authorize the narrow Hermes-native credential compatibility writer described below.
+5. A later material change to this authority requires a Phase 5 Amendment and any necessary superseding ADR.
 
 ## 4. Owner Decisions Required
 
 - [x] **D1 — China-market-first ProviderPreset catalog.** The product candidate list is DeepSeek, Qwen/Alibaba DashScope, Kimi/Moonshot, MiniMax, GLM/Zhipu, OpenRouter, OpenAI and Anthropic. This is product direction, not a claim that pinned Hermes supports every candidate. Batch 1 must verify the exact Hermes provider ID, credential mechanism/name, config key, China/region endpoint behavior and recommended model IDs. Unsupported candidates are removed from the selectable MVP catalog or shown non-selectable as unsupported; YORVA does not implement their protocols.
-- [x] **D2 — Hermes-native credential persistence for the MVP.** Subject to the ADR in Section 3, the official Hermes Profile credential store is the single credential truth. YORVA uses only a qualified Hermes `0.20.2` official surface to set/replace/delete the Profile credential. YORVA does not implement SecretStore or `secret_refs` for these model keys, does not keep a duplicate copy, and does not directly write/append/parse `.env`. SQLite, logs, events, Operations, HTTP responses, diagnostics, argv and Desktop storage never contain the secret.
-- [x] **D3 — Official safe surface.** Prefer the pinned Hermes `0.20.2` documented, non-interactive Profile/config/credential surfaces. A secret must not enter argv. If the only official setter accepts the API key as a command-line argument, or if status/delete requires reading raw `.env`, stop. Do not import Hermes Python modules or invent an `.env` writer. A narrow direct writer requires a later approved Amendment/ADR.
+- [x] **D2 — Hermes-native credential persistence for the MVP.** Subject to the ADR in Section 3, the official Hermes Profile credential store is the single credential truth. YORVA does not implement SecretStore or `secret_refs` for these model keys and keeps no duplicate copy. SQLite, logs, events, Operations, HTTP responses, diagnostics, argv and Desktop storage never contain the secret.
+- [x] **D3 — Official surface first, narrow compatibility fallback approved.** Prefer the pinned Hermes `0.20.2` documented, non-interactive Profile/config/credential surfaces. Qualification proved that the offline official setter requires secret argv and the safe JSON setters require a long-running service. The Owner therefore authorizes only the Hermes adapter to update the exact canonical Profile `.env` with a version-fixed, Profile-scoped, Provider-allowlisted writer. Callers cannot supply paths or env keys. The writer is bounded, preserves unknown entries, changes one allowlisted key, uses same-directory atomic replacement/read-back and fails closed on observed external modification. Hermes Python imports, arbitrary `.env`/YAML editing and any generic file API remain forbidden.
 - [x] **D4 — Save and validation are separate.** Saving writes credential plus non-secret provider/model configuration and performs safe read-back/status confirmation. It never sends an inference request or spends tokens. Only **Test connection** starts an explicit bounded validation. `CONFIGURED` is not `VALIDATED`, and neither changes `AVAILABLE` to `MODEL_READY`.
 - [x] **D5 — Missing Instance retention.** A `MISSING` Instance and its stable `instanceId` remain indefinitely. Reconciliation does not automatically delete its Hermes credential. Config mutation and validation are rejected while `MISSING` or `UNKNOWN`; credential deletion is an explicit action when a safe official Profile surface can address it. A future cleanup policy requires a later contract.
 - [x] **D6 — Five sequential batches.** Execute Section 20 in order. The next batch starts only after the focused gate passes. Once the Spec is `READY`, the Owner may separately authorize automatic continuation through all five batches. No batch may borrow Phase 6 or later scope.
@@ -97,7 +98,7 @@ Rejected or changed decisions must be updated in both language versions before `
 4. User chooses a recommended model or enters a bounded model ID. There is no custom endpoint field.
 5. User enters an API key in a password field and selects **Save configuration**.
 6. Go resolves `instanceId` to the authoritative current `nativeId` and active Hermes executable.
-7. The Hermes adapter uses the qualified official Profile surface to persist the credential and non-secret provider/model configuration, then confirms only safe status/config metadata.
+7. The Hermes adapter uses the qualified Profile credential surface, including the approved narrow fallback where required, to persist the credential and non-secret provider/model configuration, then confirms only safe status/config metadata.
 8. The input is cleared. UI shows `CONFIGURED`, but no network validation has run.
 9. User selects **Test connection**. YORVA starts a bounded `model.validate` Operation through the existing Operation/process infrastructure.
 10. UI shows `PASSED`, `FAILED` or `UNKNOWN` with a local timestamp and safe guidance.
@@ -109,7 +110,7 @@ Rejected or changed decisions must be updated in both language versions before `
 - pinned Hermes qualification for every selectable preset;
 - recommended model IDs plus bounded manual model ID input;
 - safe read/apply/read-back of Profile provider/model configuration;
-- official Hermes-native Profile credential set/replace/delete/status;
+- Hermes-native Profile credential set/replace/delete/status through an official surface or the ADR-approved narrow fallback;
 - metadata-only credential reads and explicit connection validation;
 - authenticated loopback API, OpenAPI/generated client and stable error changes;
 - existing Operation integration for validation only;
@@ -130,7 +131,7 @@ Rejected or changed decisions must be updated in both language versions before `
 - custom Provider, custom endpoint/base URL, proxy or arbitrary auth scheme;
 - fallback chains, routing policies, quotas, pricing or full online model discovery;
 - free-form YAML, `.env`, shell, command, environment-variable, path or config-key editors;
-- direct `.env` read/write/append by YORVA production code;
+- direct or general `.env` read/write/append outside the approved Hermes adapter credential writer;
 - Windows user/system environment-variable mutation;
 - chat/inference UI, Agent readiness, sessions, memory or persona editing;
 - channels, Weixin/WeCom, Skills, MCP, backup/restore, Cloud or telemetry;
@@ -151,7 +152,8 @@ Hermes adapter
     ↓
 Existing executable resolution + commandRunner/process containment
     ↓
-Pinned official Hermes Profile config/credential/validation surfaces
+Pinned Hermes Profile config/credential/validation surfaces
+    └── ADR-0007 narrow canonical `.env` credential fallback where required
 ```
 
 Go is authoritative for use-case coordination, identity resolution, ProviderPreset selection, command construction and result normalization. Hermes remains authoritative for Hermes Profile config and credential state. React only renders normalized state and holds the password input during the active form interaction. Rust/Tauri gains no model business logic.
@@ -223,15 +225,15 @@ Batch 1 must establish for every candidate:
 3. exact non-secret model/provider keys and scalar formats;
 4. exact credential logical/env name and Profile isolation behavior;
 5. whether China/global endpoint selection is built into Hermes without a custom URL;
-6. exact official non-interactive set/replace/delete/status surface;
+6. exact official non-interactive set/replace/delete/status surface and the documented reason for any fallback;
 7. the secret transport channel, proving it is not argv/output/logs;
 8. exact read-back/status output and strict bounded parser requirements;
 9. safe non-interactive validation with tools disabled;
 10. timeout, cancellation, output-limit and exit/error mapping.
 
-Selection order remains documented official API, documented programmatic protocol, documented CLI, then a separately approved narrow compatibility fallback. Current upstream `main` is not evidence for the pinned version.
+Selection order remains documented official API, documented programmatic protocol, documented CLI, then the ADR-0007-approved narrow compatibility fallback. Current upstream `main` is not evidence for the pinned version.
 
-If the official CLI writes a key to the selected Profile `.env` safely through a non-argv channel, YORVA may invoke that capability. If it requires secret argv, raw `.env` access, an interactive terminal that cannot be safely driven, a running gateway, Hermes Python imports or a custom provider protocol, the candidate is unsupported or implementation stops for governance review.
+The completed qualification found no safe offline official credential setter. The fallback is therefore allowed only for candidates whose exact credential key and canonical Profile location are proven from pinned Hermes. A candidate is unsupported if it requires OAuth/login, a custom endpoint/provider protocol, ambiguous storage, Hermes Python imports or any mutation outside that bounded writer.
 
 ## 11. Identity, Availability and Model State
 
@@ -283,9 +285,9 @@ Subject to D2/ADR approval:
 
 - the selected Hermes Profile's official credential store is the sole source of truth for the model API key;
 - YORVA never stores a duplicate API key in SecretStore, SQLite or its own file;
-- YORVA production code never opens, parses, appends or rewrites `.env` directly;
-- only a qualified official Hermes surface may persist/delete credential material;
-- status is read through a qualified official metadata/status surface and never returns the value;
+- only the Hermes adapter's approved compatibility writer may open the canonical Profile `.env`; all other production layers are prohibited from doing so;
+- an official Hermes surface is preferred; the fallback accepts only `nativeId`, an allowlisted preset and a secret value, never a caller path/env key;
+- status is derived only as safe presence metadata through the qualified surface/writer and never returns the value or secret-derived fragments;
 - credential mutation is scoped to the exact Profile selected from `nativeId`;
 - Profile A's credential must not appear in Profile B's process, status or validation;
 - replace/delete failure is normalized and retryable where safe; YORVA does not guess native state;
@@ -330,7 +332,7 @@ This application use case coordinates `SetCredential` and `ApplyModelConfig` on 
 - resolve fresh supported installation and `AVAILABLE` Instance before mutation;
 - use the existing Instance/Profile coordination source so save conflicts with Profile delete/reconcile; do not add an independent lock registry;
 - perform no network model call during Save;
-- use only exact qualified official surfaces;
+- use only exact qualified surfaces, including the approved narrow fallback;
 - confirm safe provider/model and credential-status metadata before returning `CONFIGURED`;
 - if native steps partially succeed, return a stable partial/incomplete error and safe observed state; do not automatically delete a previously valid credential or claim crash-safe rollback;
 - same desired request is safely retryable, but no generic config transaction framework is added.
@@ -443,7 +445,7 @@ Allowing official Hermes Profile credential persistence does not weaken these ru
 6. Parent provider credentials are not inherited wholesale by children.
 7. Credential operations target one authoritative Profile only.
 8. No Windows global/user environment mutation occurs.
-9. `.env` is not exposed as a file API or read by production YORVA code.
+9. `.env` is not exposed as a file API; only the Hermes adapter's approved bounded credential writer may inspect/update the exact allowlisted entry.
 10. Unknown output/native state fails closed without deleting or inventing credential state.
 11. Existing loopback authentication, Origin/CSP and no-store response protections remain.
 12. Existing process-tree containment cleans up success, failure, timeout and cancellation.
@@ -456,15 +458,17 @@ Redaction remains defense in depth and covers representative Chinese/global prov
 
 Five deliberately small, sequential batches; no extra framework project.
 
-### Batch 1 — Hermes Provider/config/credential surface qualification
+### Batch 1 — Hermes Provider/config/credential qualification and fallback
 
 - inspect pinned Hermes `0.20.2` for every product candidate;
 - lock supported ProviderPreset mappings and recommended models;
 - prove Profile selection, non-secret config keys, official credential set/delete/status behavior and `.env` ownership;
+- preserve the original STOP evidence proving the official offline credential blocker;
+- implement and test the narrow Profile-scoped Provider-allowlisted credential writer, including status/set/replace/delete, atomic read-back, cleanup and optimistic conflict detection;
 - prove secret never enters argv/output and lock a tools-disabled validation surface;
-- write contract evidence/fixtures and finalize errors/DTOs; do not implement production mutation.
+- write contract evidence/fixtures and finalize errors/DTOs.
 
-Gate: qualification tests/evidence pass. Stop if no China preset qualifies, secret requires argv/direct `.env`, or validation cannot meet Section 17.
+Gate: qualification/fallback tests and evidence pass. Stop only if no China preset can use the approved bounded fallback or validation cannot meet Section 17.
 
 ### Batch 2 — ProviderPreset and non-secret model config
 
@@ -473,16 +477,16 @@ Gate: qualification tests/evidence pass. Stop if no China preset qualifies, secr
 - add safe provider/config GET/PATCH OpenAPI and generated-client surface;
 - integrate with existing Instance identity, availability and coordination.
 
-Gate: adapter/application/HTTP/OpenAPI tests pass; no credential persistence exists yet.
+Gate: adapter/application/HTTP/OpenAPI tests pass; credential HTTP lifecycle remains for Batch 3.
 
 ### Batch 3 — Hermes-native credential lifecycle
 
-- implement official Profile credential status/set/replace/delete;
+- expose the qualified adapter Profile credential status/set/replace/delete lifecycle through application and HTTP boundaries;
 - implement metadata GET and write-only PUT/DELETE; credential PUT coordinates the complete Save use case;
 - verify restart recovery from Hermes truth and Profile-to-Profile isolation;
 - add redaction/no-argv/no-SQLite/no-browser-persistence tests.
 
-Gate: credential tests pass without SecretStore duplication or production `.env` file access.
+Gate: credential tests pass without SecretStore duplication or `.env` access outside the approved Hermes adapter writer.
 
 ### Batch 4 — Explicit validation
 
@@ -553,10 +557,10 @@ Phase 5 completion requires:
 - [ ] no Windows global/user env mutation;
 - [ ] `CONFIGURED` and validation result remain separate from `AVAILABLE`;
 - [ ] full local/CI verification passes on the exact candidate;
-- [ ] independent audit reaches an Owner-accepted Gate;
-- [ ] Owner authorizes merge/freeze/tag.
+- [ ] formal audit reaches an acceptable Gate;
+- [x] Owner authorizes merge/freeze/tag after audit and CI pass.
 
-The current state is `READY`, with Batch 1 authorized. This document does not authorize Batch 2 or later work, merge, freeze or tagging.
+The current state is `IN_PROGRESS`. Batches 1-5 and the subsequent audit/CI/merge/freeze/tag/Windows-build sequence are authorized, but every stated Gate must pass before the next irreversible step.
 
 ## 24. Mandatory Stop Conditions
 
@@ -564,7 +568,7 @@ Stop and report if:
 
 1. Phase 4 is not actually re-frozen at the intended start baseline;
 2. pinned Hermes safely supports none of the China-market candidates;
-3. official credential persistence requires secret argv or direct `.env` access;
+3. the approved narrow credential writer cannot safely target the canonical Profile store without secret leakage;
 4. safe metadata status/delete or tools-disabled validation is unavailable;
 5. custom endpoint/provider protocol, OAuth/login or lifecycle is required;
 6. a second navigation/i18n/runner/registry/Operation/date/state system appears necessary;
@@ -573,4 +577,4 @@ Stop and report if:
 9. process cleanup, Profile isolation or secret non-leakage cannot be guaranteed;
 10. Chinese and English contracts diverge or a product decision remains unresolved.
 
-The entry gates are approved for Batch 1 only. Do not start Batch 2, modify Phase 4, merge `main`, create a tag or enter Phase 6 without the next applicable authorization.
+The entry gates are approved for Batches 1-5 and the stated closeout sequence. Do not modify Phase 4 or enter Phase 6; do not merge/tag until the Phase 5 audit and exact-commit CI Gate pass.
