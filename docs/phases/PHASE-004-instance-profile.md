@@ -135,7 +135,17 @@ The repository-pinned official source is Hermes `0.20.2` at commit `df4b65147d7d
 - TUI gateway JSON-RPC: list/create/describe, but no delete method;
 - no confirmed offline structured output for CLI Profile list/show.
 
-Batch 1 must re-confirm these facts against the pinned archive before production code. Selection order:
+Batch 1 re-confirmed the pinned archive on 2026-08-19. D1 remains the documented Profile CLI:
+
+- argv: `profile list`; `profile create <name> --no-alias --no-skills`; `profile delete <nativeId> --yes`;
+- create `--no-alias` skips the wrapper; `--no-skills` writes `.no-bundled-skills` and skips bundled skill seeding;
+- official name regex `[a-z0-9][a-z0-9_-]{0,63}` (1–64); reserved names `hermes`, `default`, `test`, `tmp`, `root`, `sudo`; `default` is a special alias, never created or deleted;
+- YORVA create ingress is the closed subset that also requires a leading lowercase letter and rejects reserved names including `default`;
+- `hermes profile list` has no `--json`; the 0.20.2 printer is a table (`Profile`/`Model`/`Gateway`/`Alias`/`Distribution`, active marker `◆`). The docs example that marks the active profile with `*` is stale; unknown output fails closed;
+- REST `/api/profiles` is absent from `PUBLIC_API_PATHS` and requires a running dashboard plus auth when the gate is on;
+- TUI methods are `profiles.list`, `profiles.create`, `profiles.describe`, `profiles.configure`, `profiles.set_asset`, `profiles.get_asset`. There is no delete method.
+
+Selection order:
 
 1. documented structured surface usable without adding process lifecycle or authentication scope;
 2. documented official CLI;
@@ -414,7 +424,7 @@ Real Hermes Profile smoke uses an isolated account/VM with disposable data. Neve
 ## 21. Exit Criteria
 
 - [x] Section 3 decisions are Owner-approved.
-- [ ] Official surface qualification and pinned fixtures are recorded.
+- [x] Official surface qualification and pinned fixtures are recorded.
 - [ ] Multiple Profiles reconcile as unique YORVA Instances.
 - [ ] Create and protected destructive delete work without a terminal.
 - [ ] Failed queries never become false absence.

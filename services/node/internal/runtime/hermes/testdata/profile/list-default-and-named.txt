@@ -1,0 +1,7 @@
+
+ Profile          Model                        Gateway      Alias        Distribution
+ ───────────────    ───────────────────────────    ───────────    ───────────    ────────────────────
+  default         —                            stopped      —            —
+ ◆work            anthropic/claude-sonnet-4    stopped      work         —
+  dev             —                            stopped      —            —
+

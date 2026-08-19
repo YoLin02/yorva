@@ -135,7 +135,17 @@ Rust/Tauri → Profile ownership 或 reconcile 决策
 - TUI gateway JSON-RPC：支持 list/create/describe，但没有 delete；
 - 尚未确认 CLI Profile list/show 提供离线结构化输出。
 
-Batch 1 必须在生产代码前对固定 archive 重新确认。Adapter 选择顺序：
+Batch 1 已于 2026-08-19 对固定 archive 重新确认。D1 仍是官方文档 Profile CLI：
+
+- argv：`profile list`；`profile create <name> --no-alias --no-skills`；`profile delete <nativeId> --yes`；
+- `--no-alias` 跳过 wrapper；`--no-skills` 写入 `.no-bundled-skills` 并跳过捆绑 Skills 播种；
+- 官方名称正则 `[a-z0-9][a-z0-9_-]{0,63}`（1–64）；保留名 `hermes`、`default`、`test`、`tmp`、`root`、`sudo`；`default` 是特殊别名，不可创建或删除；
+- YORVA 创建入口是封闭子集：必须以小写字母开头，并拒绝包括 `default` 在内的保留名；
+- `hermes profile list` 没有 `--json`；0.20.2 打印机是表格（`Profile`/`Model`/`Gateway`/`Alias`/`Distribution`，活动标记 `◆`）。文档示例里用 `*` 标记活动 Profile 已过时；未知输出 fail closed；
+- REST `/api/profiles` 不在 `PUBLIC_API_PATHS` 中，需要正在运行的 dashboard，且在 auth gate 开启时需要认证；
+- TUI 方法为 `profiles.list`、`profiles.create`、`profiles.describe`、`profiles.configure`、`profiles.set_asset`、`profiles.get_asset`，没有 delete。
+
+Adapter 选择顺序：
 
 1. 不扩大进程生命周期或认证范围即可使用的官方结构化接口；
 2. 官方文档 CLI；
@@ -414,7 +424,7 @@ SQLite 是缓存。缓存 row 不能授权 Hermes mutation、删除或文件访�
 ## 21. 退出条件
 
 - [x] 第 3 节决策获得 Owner 批准。
-- [ ] 官方接口资格与固定版本夹具已记录。
+- [x] 官方接口资格与固定版本夹具已记录。
 - [ ] 多个 Profiles 能对账为唯一 YORVA Instances。
 - [ ] 用户无需终端即可创建并执行受保护的破坏性删除。
 - [ ] 查询失败永远不会变成错误的缺失判断。
