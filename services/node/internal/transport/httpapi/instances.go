@@ -284,6 +284,12 @@ func instancePathKind(path string) string {
 				}
 			}
 		}
+		if strings.HasSuffix(rest, "/config") {
+			id := strings.TrimSuffix(rest, "/config")
+			if id != "" && !strings.Contains(id, "/") {
+				return "config"
+			}
+		}
 	}
 	return ""
 }

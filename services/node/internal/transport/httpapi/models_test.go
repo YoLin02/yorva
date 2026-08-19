@@ -1,0 +1,125 @@
+package httpapi
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/YoLin02/yorva/services/node/internal/app"
+	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+)
+
+type fakeModelsAPI struct {
+	fakeInstanceInventory
+	configuration app.ModelConfigurationView
+	err           error
+	patchedPreset string
+	patchedModel  string
+}
+
+func (f *fakeModelsAPI) ListModelProviderPresets(context.Context) ([]yorvaruntime.ModelProviderPreset, error) {
+	return []yorvaruntime.ModelProviderPreset{{ID: "deepseek", DisplayName: "DeepSeek", Region: yorvaruntime.ModelRegionChina, RecommendedModels: []string{"deepseek-v4-pro"}}}, f.err
+}
+
+func (f *fakeModelsAPI) GetModelConfiguration(context.Context, string) (app.ModelConfigurationView, error) {
+	return f.configuration, f.err
+}
+
+func (f *fakeModelsAPI) PatchModelConfiguration(_ context.Context, _, presetID, modelID string) (app.ModelConfigurationView, error) {
+	f.patchedPreset, f.patchedModel = presetID, modelID
+	return f.configuration, f.err
+}
+
+func TestModelHTTPContractIsAuthenticatedSafeAndClosed(t *testing.T) {
+	now := time.Date(2026, 8, 19, 18, 0, 0, 0, time.UTC)
+	models := &fakeModelsAPI{configuration: app.ModelConfigurationView{
+		ProviderPresetID: "deepseek", ModelID: "deepseek-v4-pro", State: yorvaruntime.ModelConfigurationConfigured,
+		CredentialConfigured: true, ObservedAt: now,
+	}}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+
+	unauthorized := httptest.NewRequest(http.MethodGet, "/api/v1/runtimes/hermes/model-provider-presets", nil)
+	unauthorizedResult := httptest.NewRecorder()
+	handler.ServeHTTP(unauthorizedResult, unauthorized)
+	if unauthorizedResult.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthorized status = %d", unauthorizedResult.Code)
+	}
+
+	presets := authorizedRequest(http.MethodGet, "/api/v1/runtimes/hermes/model-provider-presets", "")
+	presetsResult := httptest.NewRecorder()
+	handler.ServeHTTP(presetsResult, presets)
+	if presetsResult.Code != http.StatusOK || strings.Contains(presetsResult.Body.String(), "API_KEY") || strings.Contains(presetsResult.Body.String(), "model.provider") {
+		t.Fatalf("presets = %d %s", presetsResult.Code, presetsResult.Body.String())
+	}
+
+	get := authorizedRequest(http.MethodGet, "/api/v1/instances/inst_public/config", "")
+	getResult := httptest.NewRecorder()
+	handler.ServeHTTP(getResult, get)
+	if getResult.Code != http.StatusOK || !strings.Contains(getResult.Body.String(), `"state":"CONFIGURED"`) || !strings.Contains(getResult.Body.String(), `"validation":{"state":"NOT_RUN"`) {
+		t.Fatalf("get = %d %s", getResult.Code, getResult.Body.String())
+	}
+
+	patch := authorizedRequest(http.MethodPatch, "/api/v1/instances/inst_public/config", `{"providerPresetId":"deepseek","modelId":"deepseek-v4-pro"}`)
+	patchResult := httptest.NewRecorder()
+	handler.ServeHTTP(patchResult, patch)
+	if patchResult.Code != http.StatusOK || models.patchedPreset != "deepseek" || models.patchedModel != "deepseek-v4-pro" {
+		t.Fatalf("patch = %d %s fake=%#v", patchResult.Code, patchResult.Body.String(), models)
+	}
+
+	unknown := authorizedRequest(http.MethodPatch, "/api/v1/instances/inst_public/config", `{"providerPresetId":"deepseek","modelId":"m","extra":true}`)
+	unknownResult := httptest.NewRecorder()
+	handler.ServeHTTP(unknownResult, unknown)
+	if unknownResult.Code != http.StatusBadRequest || !strings.Contains(unknownResult.Body.String(), string(yorvaruntime.ErrorModelConfigInvalid)) {
+		t.Fatalf("unknown field = %d %s", unknownResult.Code, unknownResult.Body.String())
+	}
+}
+
+func TestModelHTTPReturnsStableObservedIncompleteError(t *testing.T) {
+	models := &fakeModelsAPI{
+		configuration: app.ModelConfigurationView{ProviderPresetID: "deepseek", ModelID: "old-model", State: yorvaruntime.ModelConfigurationConfigured, CredentialConfigured: true, ObservedAt: time.Now()},
+		err:           yorvaruntime.ErrModelConfigIncomplete,
+	}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+	req := authorizedRequest(http.MethodPatch, "/api/v1/instances/inst_public/config", `{"providerPresetId":"deepseek","modelId":"new-model"}`)
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+	if res.Code != http.StatusConflict || !strings.Contains(res.Body.String(), string(yorvaruntime.ErrorModelConfigIncomplete)) || !strings.Contains(res.Body.String(), "old-model") {
+		t.Fatalf("incomplete = %d %s", res.Code, res.Body.String())
+	}
+	var body ErrorResponse
+	if err := json.Unmarshal(res.Body.Bytes(), &body); err != nil || body.Error.Details == nil {
+		t.Fatalf("error body = %#v %v", body, err)
+	}
+
+	models.err = errors.New("private native output")
+	res = httptest.NewRecorder()
+	handler.ServeHTTP(res, authorizedRequest(http.MethodPatch, "/api/v1/instances/inst_public/config", `{"providerPresetId":"deepseek","modelId":"new-model"}`))
+	if strings.Contains(res.Body.String(), "private native output") {
+		t.Fatalf("raw error leaked: %s", res.Body.String())
+	}
+}
+
+func TestModelRoutesAdvertisePatchAndCorsPut(t *testing.T) {
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, &fakeModelsAPI{}, "")
+	options := httptest.NewRequest(http.MethodOptions, "/api/v1/instances/inst_public/config", nil)
+	options.Header.Set("Origin", "http://127.0.0.1:1420")
+	result := httptest.NewRecorder()
+	handler.ServeHTTP(result, options)
+	if result.Code != http.StatusNoContent || result.Header().Get("Allow") != "GET, PATCH, OPTIONS" || !strings.Contains(result.Header().Get("Access-Control-Allow-Methods"), "PUT") {
+		t.Fatalf("options = %d allow=%q cors=%q", result.Code, result.Header().Get("Allow"), result.Header().Get("Access-Control-Allow-Methods"))
+	}
+}
+
+func authorizedRequest(method, path, body string) *http.Request {
+	request := httptest.NewRequest(method, path, strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer "+testToken)
+	if body != "" {
+		request.Header.Set("Content-Type", "application/json")
+	}
+	return request
+}

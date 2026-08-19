@@ -13,5 +13,6 @@ func Register(registry *yorvaruntime.Registry) error {
 			Description: "Hermes Agent Runtime",
 		},
 		Discoverer: NewDetector(),
+		Models:     NewModelManager(),
 	})
 }

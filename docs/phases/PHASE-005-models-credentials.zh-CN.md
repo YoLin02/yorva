@@ -10,7 +10,8 @@
 > 实现分支：`codex/phase5-models-credentials`
 > 执行授权：Batch 1-5、审计、CI、合并/冻结/tag 与 Windows release build
 > Batch 1：已完成
-> Batch 2：进行中
+> Batch 2：已完成
+> Batch 3：进行中
 
 本文档与英文镜像共同定义同一份合同。Owner 审核中文版。2026-08-19，Owner 已批准 D1–D6、ADR-0007、同步治理变更、真实 Phase 4 基线，并批准中英文 Spec 标记为 `READY`。首次 Batch 1 资格检查在确认 pinned 官方 CLI 通过 argv 泄露秘密且 Web/TUI setter 需要常驻服务后正确 STOP。随后 Owner 批准 D3 中的狭窄 compatibility fallback，并一次性授权 Batch 1-5、审计、CI、合并/冻结/tag 与 Windows release build 连续执行。该历史 STOP 证据继续保留在资格记录中。
 

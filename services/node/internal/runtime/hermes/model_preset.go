@@ -1,26 +1,23 @@
 package hermes
 
-import "errors"
+import (
+	"errors"
+
+	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+)
 
 // Model provider mappings are qualified against Hermes 0.20.2 at
 // df4b65147d7ddd74dd449f9067aabbca5aef0ec7. The native provider and
 // credential names stay adapter-private.
 const modelSurfaceVersion = "0.20.2"
 
-type ModelRegion string
+type ModelRegion = yorvaruntime.ModelRegion
+type ModelProviderPreset = yorvaruntime.ModelProviderPreset
 
 const (
-	ModelRegionChina  ModelRegion = "CHINA"
-	ModelRegionGlobal ModelRegion = "GLOBAL"
+	ModelRegionChina  = yorvaruntime.ModelRegionChina
+	ModelRegionGlobal = yorvaruntime.ModelRegionGlobal
 )
-
-type ModelProviderPreset struct {
-	ID                string
-	DisplayName       string
-	Region            ModelRegion
-	RecommendedModels []string
-	HelpText          string
-}
 
 type modelProviderPreset struct {
 	safe              ModelProviderPreset
@@ -29,7 +26,7 @@ type modelProviderPreset struct {
 }
 
 var (
-	errModelProviderUnsupported = errors.New("hermes model provider is unsupported")
+	errModelProviderUnsupported = yorvaruntime.ErrModelProviderUnsupported
 	errModelVersionUnsupported  = errors.New("hermes model surface version is unsupported")
 )
 

@@ -71,6 +71,13 @@ const (
 	ErrorInstanceOutputUnrecognized   ErrorCode = "INSTANCE_OUTPUT_UNRECOGNIZED"
 	ErrorInstanceOperationTimedOut    ErrorCode = "INSTANCE_OPERATION_TIMED_OUT"
 	ErrorCapabilityNotSupported       ErrorCode = "CAPABILITY_NOT_SUPPORTED"
+	ErrorModelProviderUnsupported     ErrorCode = "MODEL_PROVIDER_UNSUPPORTED"
+	ErrorModelConfigInvalid           ErrorCode = "MODEL_CONFIG_INVALID"
+	ErrorModelConfigQueryFailed       ErrorCode = "MODEL_CONFIG_QUERY_FAILED"
+	ErrorModelConfigApplyFailed       ErrorCode = "MODEL_CONFIG_APPLY_FAILED"
+	ErrorModelConfigIncomplete        ErrorCode = "MODEL_CONFIG_INCOMPLETE"
+	ErrorModelCredentialRequired      ErrorCode = "MODEL_CREDENTIAL_REQUIRED"
+	ErrorInstanceConfigConflict       ErrorCode = "INSTANCE_CONFIG_CONFLICT"
 )
 
 type Candidate struct {
