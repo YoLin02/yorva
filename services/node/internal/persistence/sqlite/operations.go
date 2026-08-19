@@ -107,6 +107,26 @@ func (d *Database) ActiveInstanceMutation(ctx context.Context, installationID st
 	return value, true, nil
 }
 
+func (d *Database) ListActiveInstanceOperations(ctx context.Context) ([]operation.Operation, error) {
+	rows, err := d.db.QueryContext(ctx, operationSelect+`
+        WHERE operation_type IN (?, ?) AND status IN ('PENDING', 'RUNNING')
+        ORDER BY created_at ASC
+    `, string(operation.TypeInstanceCreate), string(operation.TypeInstanceDelete))
+	if err != nil {
+		return nil, fmt.Errorf("list active instance operations: %w", err)
+	}
+	defer rows.Close()
+	result := make([]operation.Operation, 0)
+	for rows.Next() {
+		value, err := scanOperation(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
+
 func (d *Database) ActiveHermesPrerequisite(ctx context.Context, runtimeKind string) (operation.Operation, bool, error) {
 	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
         WHERE operation_type = ? AND target_type = ? AND target_id = ? AND status IN ('PENDING', 'RUNNING')

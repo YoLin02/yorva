@@ -4,6 +4,8 @@ import type { Operation } from "./api/types";
 import {
   isHermesPrerequisite,
   isHermesRuntimeInstall,
+  isInstanceCreate,
+  isInstanceDelete,
   newestActiveOperation,
   operationIdFromConflict,
 } from "./operationRecovery";
@@ -43,6 +45,48 @@ describe("operation recovery helpers", () => {
     const install = op({ id: "op_install", type: "runtime.install", status: "RUNNING", createdAt: "2026-08-17T01:00:00Z" });
     expect(isHermesPrerequisite(install)).toBe(false);
     expect(isHermesRuntimeInstall(install)).toBe(true);
+  });
+
+  it("selects the newest active instance.create and instance.delete after restart", () => {
+    const operations = [
+      op({
+        id: "op_create_old",
+        type: "instance.create",
+        status: "RUNNING",
+        createdAt: "2026-08-19T01:00:00Z",
+        targetType: "runtime-installation",
+        targetId: "rtinst_test",
+      }),
+      op({
+        id: "op_create_new",
+        type: "instance.create",
+        status: "PENDING",
+        createdAt: "2026-08-19T02:00:00Z",
+        targetType: "runtime-installation",
+        targetId: "rtinst_test",
+      }),
+      op({
+        id: "op_create_done",
+        type: "instance.create",
+        status: "SUCCEEDED",
+        createdAt: "2026-08-19T03:00:00Z",
+        targetType: "runtime-installation",
+        targetId: "rtinst_test",
+      }),
+      op({
+        id: "op_delete",
+        type: "instance.delete",
+        status: "RUNNING",
+        createdAt: "2026-08-19T04:00:00Z",
+        targetType: "runtime-installation",
+        targetId: "rtinst_test",
+        message: "coder",
+      }),
+    ];
+    expect(newestActiveOperation(operations, isInstanceCreate)?.id).toBe("op_create_new");
+    expect(newestActiveOperation(operations, isInstanceDelete)?.id).toBe("op_delete");
+    expect(isInstanceCreate(operations[3])).toBe(false);
+    expect(isInstanceDelete(operations[3])).toBe(true);
   });
 
   it("reads only typed conflict operation identifiers", () => {

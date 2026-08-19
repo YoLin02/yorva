@@ -21,6 +21,7 @@ var (
 	ErrInstanceNotFound             = errors.New("instance not found")
 	ErrInstanceQueryFailed          = errors.New("instance query failed")
 	ErrInstanceOutputUnrecognized   = errors.New("instance output unrecognized")
+	ErrInstanceOperationTimedOut    = errors.New("instance operation timed out")
 	ErrInstanceRuntimeNotFound      = errors.New("runtime inventory target not found")
 	ErrInstanceInvalidName          = errors.New("instance name is invalid")
 	ErrInstanceAlreadyExists        = errors.New("instance already exists")
@@ -169,11 +170,7 @@ func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string)
 		Capabilities:          InstanceCapabilities{Instances: true, Lifecycle: false},
 	}
 	if queryErr != nil {
-		if errors.Is(queryErr, ErrInstanceOutputUnrecognized) {
-			result.ErrorCode = yorvaruntime.ErrorInstanceOutputUnrecognized
-		} else {
-			result.ErrorCode = yorvaruntime.ErrorInstanceQueryFailed
-		}
+		result.ErrorCode = errorCodeFrom(queryErr)
 	}
 	return result, nil
 }
@@ -270,7 +267,43 @@ func classifyProfileListError(err error) error {
 	if errors.Is(err, ErrInstanceOutputUnrecognized) {
 		return ErrInstanceOutputUnrecognized
 	}
+	if errors.Is(err, ErrInstanceOperationTimedOut) || errors.Is(err, context.DeadlineExceeded) {
+		return ErrInstanceOperationTimedOut
+	}
 	return ErrInstanceQueryFailed
+}
+
+func errorCodeFrom(err error) yorvaruntime.ErrorCode {
+	switch {
+	case err == nil:
+		return ""
+	case errors.Is(err, ErrInstanceOutputUnrecognized):
+		return yorvaruntime.ErrorInstanceOutputUnrecognized
+	case errors.Is(err, ErrInstanceOperationTimedOut), errors.Is(err, context.DeadlineExceeded):
+		return yorvaruntime.ErrorInstanceOperationTimedOut
+	default:
+		return yorvaruntime.ErrorInstanceQueryFailed
+	}
+}
+
+func instanceQueryError(code yorvaruntime.ErrorCode) error {
+	switch code {
+	case yorvaruntime.ErrorInstanceOutputUnrecognized:
+		return ErrInstanceOutputUnrecognized
+	case yorvaruntime.ErrorInstanceOperationTimedOut:
+		return ErrInstanceOperationTimedOut
+	default:
+		return ErrInstanceQueryFailed
+	}
+}
+
+func instanceAvailable(listed InstanceList, nativeID string) bool {
+	for _, item := range listed.Instances {
+		if item.Name == nativeID && item.Availability == instance.Available {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *InstanceInventory) StartCreate(ctx context.Context, runtimeID, name, idempotencyKey string) (InstallStartResult, error) {
@@ -537,11 +570,8 @@ func (s *InstanceInventory) StartDelete(ctx context.Context, instanceID, confirm
 	if listed.RuntimeInstallationID != row.RuntimeInstallationID {
 		return InstallStartResult{}, ErrInstanceNotFound
 	}
-	present := false
-	for _, item := range listed.Instances {
-		if item.InstanceID == instanceID && item.Availability == instance.Available {
-			present = true
-		}
+	if listed.Freshness != "FRESH" {
+		return InstallStartResult{}, instanceQueryError(listed.ErrorCode)
 	}
 	if active, ok, err := s.db.ActiveInstanceMutation(ctx, row.RuntimeInstallationID); err != nil {
 		return InstallStartResult{}, err
@@ -584,7 +614,7 @@ func (s *InstanceInventory) StartDelete(ctx context.Context, instanceID, confirm
 		}
 		return InstallStartResult{}, err
 	}
-	s.startDeleteWorker(op, row.RuntimeInstallationID, row.NativeID, present)
+	s.startDeleteWorker(op, row.RuntimeInstallationID, row.NativeID)
 	return InstallStartResult{Operation: op, Created: true}, nil
 }
 
@@ -620,7 +650,7 @@ func (s *InstanceInventory) CancelDelete(ctx context.Context, operationID string
 	return next, nil
 }
 
-func (s *InstanceInventory) startDeleteWorker(op operation.Operation, installationID, nativeID string, present bool) {
+func (s *InstanceInventory) startDeleteWorker(op operation.Operation, installationID, nativeID string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.mu.Lock()
 	s.workers[op.ID] = cancel
@@ -632,11 +662,11 @@ func (s *InstanceInventory) startDeleteWorker(op operation.Operation, installati
 			s.mu.Unlock()
 			cancel()
 		}()
-		s.runDelete(ctx, op, installationID, nativeID, present)
+		s.runDelete(ctx, op, installationID, nativeID)
 	}()
 }
 
-func (s *InstanceInventory) runDelete(ctx context.Context, op operation.Operation, installationID, nativeID string, present bool) {
+func (s *InstanceInventory) runDelete(ctx context.Context, op operation.Operation, installationID, nativeID string) {
 	unlock := s.lockInstallation(installationID)
 	defer unlock()
 	current, err := s.db.GetOperation(ctx, op.ID)
@@ -663,28 +693,27 @@ func (s *InstanceInventory) runDelete(ctx context.Context, op operation.Operatio
 		s.failCreate(running, yorvaruntime.ErrorRuntimeNotSupported, false)
 		return
 	}
-	_, _ = s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
-	stillPresent, presentErr := s.profilePresent(cmdCtx, installationID, nativeID)
-	if presentErr == nil && !stillPresent {
+	listed, reconErr := s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
+	if reconErr != nil {
+		s.failCreate(running, errorCodeFrom(reconErr), true)
+		return
+	}
+	if !instanceAvailable(listed, nativeID) {
 		s.succeedDelete(running)
 		return
 	}
-	if present || stillPresent {
-		if err := s.mutator.Delete(cmdCtx, discovery.Selected.Path, nativeID); err != nil && !errors.Is(err, context.Canceled) {
-			_, _ = s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
-			gone, goneErr := s.profilePresent(cmdCtx, installationID, nativeID)
-			if goneErr == nil && !gone {
-				s.succeedDelete(running)
-				return
-			}
-			s.failCreate(running, yorvaruntime.ErrorInstanceQueryFailed, true)
-			return
-		}
+	deleteErr := s.mutator.Delete(cmdCtx, discovery.Selected.Path, nativeID)
+	post, postErr := s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
+	if postErr != nil {
+		s.failCreate(running, errorCodeFrom(postErr), true)
+		return
 	}
-	_, _ = s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
-	gone, goneErr := s.profilePresent(cmdCtx, installationID, nativeID)
-	if goneErr == nil && !gone {
+	if !instanceAvailable(post, nativeID) {
 		s.succeedDelete(running)
+		return
+	}
+	if deleteErr != nil && !errors.Is(deleteErr, context.Canceled) {
+		s.failCreate(running, errorCodeFrom(deleteErr), true)
 		return
 	}
 	s.failCreate(running, yorvaruntime.ErrorInstanceQueryFailed, true)
@@ -698,4 +727,106 @@ func (s *InstanceInventory) succeedDelete(current operation.Operation) {
 	next.CompletedAt = &now
 	next.UpdatedAt = now
 	_ = s.db.UpdateOperation(context.Background(), current, next)
+}
+
+func (s *InstanceInventory) RecoverStale(ctx context.Context) ([]operation.Operation, error) {
+	if s.db == nil {
+		return nil, nil
+	}
+	ops, err := s.db.ListActiveInstanceOperations(ctx)
+	if err != nil || len(ops) == 0 {
+		return ops, err
+	}
+	recovered := make([]operation.Operation, 0, len(ops))
+	for _, op := range ops {
+		unlock := s.lockInstallation(op.TargetID)
+		current, getErr := s.db.GetOperation(ctx, op.ID)
+		if getErr != nil {
+			unlock()
+			return recovered, getErr
+		}
+		if operation.IsTerminal(current.Status) {
+			unlock()
+			continue
+		}
+		next, recErr := s.recoverOneLocked(ctx, current)
+		unlock()
+		if recErr != nil {
+			return recovered, recErr
+		}
+		recovered = append(recovered, next)
+	}
+	return recovered, nil
+}
+
+func (s *InstanceInventory) recoverOneLocked(ctx context.Context, current operation.Operation) (operation.Operation, error) {
+	listed, queryErr := s.queryAuthoritative(ctx, current.TargetID)
+	if queryErr != nil {
+		return s.persistRecoveredFail(ctx, current, errorCodeFrom(queryErr), true)
+	}
+	present := instanceAvailable(listed, current.Message)
+	switch current.Type {
+	case operation.TypeInstanceCreate:
+		if present {
+			return s.persistRecoveredSucceed(ctx, current)
+		}
+		return s.persistRecoveredFail(ctx, current, yorvaruntime.ErrorOperationInterrupted, true)
+	case operation.TypeInstanceDelete:
+		if !present {
+			return s.persistRecoveredSucceed(ctx, current)
+		}
+		return s.persistRecoveredFail(ctx, current, yorvaruntime.ErrorOperationInterrupted, true)
+	default:
+		return current, nil
+	}
+}
+
+func (s *InstanceInventory) queryAuthoritative(ctx context.Context, installationID string) (InstanceList, error) {
+	if s.discovery == nil || s.source == nil {
+		_ = s.db.MarkInstancesUnknown(ctx, installationID, s.now())
+		return InstanceList{Freshness: "UNKNOWN"}, ErrInstanceQueryFailed
+	}
+	discovery, err := s.discovery.Detect(ctx, yorvaruntime.Kind(hermesRuntimeID))
+	if err != nil || discovery.Selected == nil || discovery.Selected.Path == "" {
+		_ = s.db.MarkInstancesUnknown(ctx, installationID, s.now())
+		return InstanceList{Freshness: "UNKNOWN"}, ErrRuntimeNotSupported
+	}
+	return s.reconcileLocked(ctx, installationID, discovery.Selected.Path)
+}
+
+func (s *InstanceInventory) persistRecoveredSucceed(ctx context.Context, current operation.Operation) (operation.Operation, error) {
+	now := s.now()
+	if current.Status == operation.StatusPending {
+		running := current
+		running.Status = operation.StatusRunning
+		running.StartedAt = &now
+		running.UpdatedAt = now
+		if err := s.db.UpdateOperation(ctx, current, running); err != nil {
+			return current, err
+		}
+		current = running
+	}
+	next := current
+	next.Status = operation.StatusSucceeded
+	next.Stage = operation.StageInstanceReconcile
+	next.CompletedAt = &now
+	next.UpdatedAt = now
+	if err := s.db.UpdateOperation(ctx, current, next); err != nil {
+		return current, err
+	}
+	return next, nil
+}
+
+func (s *InstanceInventory) persistRecoveredFail(ctx context.Context, current operation.Operation, code yorvaruntime.ErrorCode, retryable bool) (operation.Operation, error) {
+	now := s.now()
+	next := current
+	next.Status = operation.StatusFailed
+	next.ErrorCode = code
+	next.Retryable = retryable
+	next.CompletedAt = &now
+	next.UpdatedAt = now
+	if err := s.db.UpdateOperation(ctx, current, next); err != nil {
+		return current, err
+	}
+	return next, nil
 }

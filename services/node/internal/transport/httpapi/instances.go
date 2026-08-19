@@ -193,6 +193,12 @@ func writeInstanceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceConflict), Message: "Another instance operation is already running.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceNotCancellable):
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorOperationNotCancellable), Message: "This instance operation can no longer be cancelled.", Retryable: false})
+	case errors.Is(err, app.ErrInstanceOutputUnrecognized):
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceOutputUnrecognized), Message: "Instance inventory output was not recognized.", Retryable: false})
+	case errors.Is(err, app.ErrInstanceOperationTimedOut):
+		writeError(w, http.StatusGatewayTimeout, ErrorBody{Code: string(yorvaruntime.ErrorInstanceOperationTimedOut), Message: "The instance operation timed out.", Retryable: true})
+	case errors.Is(err, app.ErrInstanceQueryFailed):
+		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorInstanceQueryFailed), Message: "Instance inventory could not be queried.", Retryable: true})
 	case errors.Is(err, context.Canceled):
 		return
 	default:

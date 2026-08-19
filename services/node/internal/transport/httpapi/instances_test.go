@@ -16,10 +16,11 @@ import (
 )
 
 type fakeInstanceInventory struct {
-	list    app.InstanceList
-	listErr error
-	get     app.InstanceView
-	getErr  error
+	list      app.InstanceList
+	listErr   error
+	get       app.InstanceView
+	getErr    error
+	deleteErr error
 }
 
 func (f fakeInstanceInventory) ListInstances(_ context.Context, runtimeID string) (app.InstanceList, error) {
@@ -42,6 +43,9 @@ func (f fakeInstanceInventory) CancelCreate(context.Context, string) (operation.
 }
 
 func (f fakeInstanceInventory) StartDelete(context.Context, string, string, string) (app.InstallStartResult, error) {
+	if f.deleteErr != nil {
+		return app.InstallStartResult{}, f.deleteErr
+	}
 	return app.InstallStartResult{}, app.ErrRuntimeNotSupported
 }
 
@@ -129,5 +133,18 @@ func TestListInstancesRequiresAuthAndRejectsUnknownRuntime(t *testing.T) {
 	handler.ServeHTTP(missingRes, missing)
 	if missingRes.Code != http.StatusNotFound {
 		t.Fatalf("unknown runtime = %d %s", missingRes.Code, missingRes.Body.String())
+	}
+}
+
+func TestDeleteInstanceQueryFailureIsStableError(t *testing.T) {
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, fakeInstanceInventory{deleteErr: app.ErrInstanceQueryFailed}, "")
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/instances/inst_1", strings.NewReader(`{"confirmationName":"coder"}`))
+	req.Header.Set("Authorization", "Bearer "+testToken)
+	req.Header.Set("Idempotency-Key", "del-query-fail")
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+	if res.Code != http.StatusServiceUnavailable || !strings.Contains(res.Body.String(), string(yorvaruntime.ErrorInstanceQueryFailed)) {
+		t.Fatalf("query failure delete = %d %s", res.Code, res.Body.String())
 	}
 }

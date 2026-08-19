@@ -204,6 +204,51 @@ func TestInterruptActiveInstallsAndAcceptedInstallationUniqueness(t *testing.T) 
 	}
 }
 
+func TestListActiveInstanceOperationsIgnoresInstallAndTerminalRows(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDatabase(t)
+	defer db.Close()
+	now := time.Date(2026, 8, 19, 16, 0, 0, 0, time.UTC)
+	install := newTestOperation("op_install_keep", "key-install-keep", operation.StatusPending, now)
+	if err := db.CreateOperation(ctx, install); err != nil {
+		t.Fatal(err)
+	}
+	active := operation.Operation{
+		ID:             "op_inst_active",
+		Type:           operation.TypeInstanceDelete,
+		TargetType:     operation.TargetRuntimeInstallation,
+		TargetID:       "rtinst_recover",
+		Status:         operation.StatusRunning,
+		Stage:          operation.StageInstanceDelete,
+		Message:        "coder",
+		IdempotencyKey: "key-inst-active",
+		CorrelationID:  "cor_inst_active",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if err := db.CreateOperation(ctx, active); err != nil {
+		t.Fatal(err)
+	}
+	done := active
+	done.ID = "op_inst_done"
+	done.Status = operation.StatusFailed
+	done.IdempotencyKey = "key-inst-done"
+	done.CorrelationID = "cor_inst_done"
+	done.TargetID = "rtinst_other"
+	completed := now
+	done.CompletedAt = &completed
+	if err := db.CreateOperation(ctx, done); err != nil {
+		t.Fatal(err)
+	}
+	got, err := db.ListActiveInstanceOperations(ctx)
+	if err != nil || len(got) != 1 || got[0].ID != "op_inst_active" {
+		t.Fatalf("ListActiveInstanceOperations() = %#v, %v", got, err)
+	}
+	if _, ok, err := db.ActiveInstanceMutation(ctx, "rtinst_recover"); err != nil || !ok {
+		t.Fatalf("ActiveInstanceMutation() ok=%v err=%v", ok, err)
+	}
+}
+
 func openTestDatabase(t *testing.T) *Database {
 	t.Helper()
 	db, err := Open(context.Background(), t.TempDir())

@@ -14,17 +14,18 @@ import (
 )
 
 type fakeProfileSource struct {
-	mu       sync.Mutex
-	profiles []ProfileSnapshot
-	err      error
-	calls    int
+	mu           sync.Mutex
+	profiles     []ProfileSnapshot
+	err          error
+	calls        int
+	failFromCall int
 }
 
 func (f *fakeProfileSource) List(context.Context, string) ([]ProfileSnapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
-	if f.err != nil {
+	if f.err != nil && (f.failFromCall == 0 || f.calls >= f.failFromCall) {
 		return nil, f.err
 	}
 	return append([]ProfileSnapshot(nil), f.profiles...), nil

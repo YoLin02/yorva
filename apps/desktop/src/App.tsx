@@ -11,6 +11,8 @@ import { loadLocale, messages, saveLocale, type Locale, type PageId } from "./i1
 import {
   isHermesPrerequisite,
   isHermesRuntimeInstall,
+  isInstanceCreate,
+  isInstanceDelete,
   newestActiveOperation,
   operationIdFromConflict,
 } from "./operationRecovery";
@@ -67,6 +69,9 @@ export function App() {
     void queryClient.invalidateQueries({ queryKey: ["hermes-operations"] });
     void queryClient.invalidateQueries({ queryKey: ["hermes-prerequisites"] });
     void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+    void queryClient.invalidateQueries({ queryKey: ["instance-operations"] });
+    void queryClient.invalidateQueries({ queryKey: ["instance-create"] });
+    void queryClient.invalidateQueries({ queryKey: ["instance-delete"] });
   }, [queryClient]);
   const eventStatus = useEventStreamStatus(
     client,
@@ -307,10 +312,34 @@ export function App() {
     discoveryState = { kind: "complete", discovery: discoveryQuery.data, onRetry: retryDiscovery };
   }
 
+  const hermesSupported = discoveryQuery.data?.state === "SUPPORTED";
+  const instancesQuery = useQuery({
+    queryKey: ["hermes-instances", sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.listHermesInstances(signal),
+    enabled: client !== undefined && nodeQuery.isSuccess && hermesSupported && activePage === "instances",
+    retry: false,
+  });
+  const instanceOperationsQuery = useQuery({
+    queryKey: ["instance-operations", instancesQuery.data?.runtimeInstallationId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) =>
+      client!.listOperations("runtime-installation", instancesQuery.data!.runtimeInstallationId, signal),
+    enabled: client !== undefined && Boolean(instancesQuery.data?.runtimeInstallationId),
+    retry: false,
+  });
+  const recoveredCreate = newestActiveOperation(instanceOperationsQuery.data?.operations, isInstanceCreate);
+  const recoveredDelete = newestActiveOperation(instanceOperationsQuery.data?.operations, isInstanceDelete);
+  const followedCreateId = createOperationId ?? recoveredCreate?.id ?? null;
+  const followedDeleteId = deleteOperationId ?? recoveredDelete?.id ?? null;
+  const recoveredDeleteTarget =
+    instancesQuery.data?.instances.find((item) => item.name === recoveredDelete?.message) ?? null;
+  const resolvedDeleteTarget = deleteTarget ?? recoveredDeleteTarget;
+  const resolvedDeleteConfirmation = deleteTarget
+    ? deleteConfirmation
+    : (recoveredDelete?.message ?? deleteConfirmation);
   const createOperationQuery = useQuery({
-    queryKey: ["instance-create", createOperationId, sessionQuery.data?.baseUrl],
-    queryFn: ({ signal }) => client!.getOperation(createOperationId!, signal),
-    enabled: client !== undefined && createOperationId !== null,
+    queryKey: ["instance-create", followedCreateId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getOperation(followedCreateId!, signal),
+    enabled: client !== undefined && followedCreateId !== null,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === "PENDING" || status === "RUNNING" ? 1000 : false;
@@ -329,10 +358,10 @@ export function App() {
     }
   };
   const cancelCreate = async () => {
-    if (!client || !createOperationId || createBusy) return;
+    if (!client || !followedCreateId || createBusy) return;
     setCreateBusy(true);
     try {
-      await client.cancelOperation(createOperationId);
+      await client.cancelOperation(followedCreateId);
       await createOperationQuery.refetch();
     } finally {
       setCreateBusy(false);
@@ -344,31 +373,35 @@ export function App() {
     }
   }, [createOperationQuery.data?.status, queryClient]);
   const deleteOperationQuery = useQuery({
-    queryKey: ["instance-delete", deleteOperationId, sessionQuery.data?.baseUrl],
-    queryFn: ({ signal }) => client!.getOperation(deleteOperationId!, signal),
-    enabled: client !== undefined && deleteOperationId !== null,
+    queryKey: ["instance-delete", followedDeleteId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getOperation(followedDeleteId!, signal),
+    enabled: client !== undefined && followedDeleteId !== null,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === "PENDING" || status === "RUNNING" ? 1000 : false;
     },
   });
   const startDelete = async () => {
-    if (!client || !deleteTarget || deleteBusy) return;
+    if (!client || !resolvedDeleteTarget || deleteBusy) return;
     setDeleteBusy(true);
     try {
       const key = deleteKey ?? crypto.randomUUID();
       setDeleteKey(key);
-      const operation = await client.deleteInstance(deleteTarget.instanceId, deleteConfirmation, key);
+      const operation = await client.deleteInstance(
+        resolvedDeleteTarget.instanceId,
+        resolvedDeleteConfirmation,
+        key,
+      );
       setDeleteOperationId(operation.id);
     } finally {
       setDeleteBusy(false);
     }
   };
   const cancelDelete = async () => {
-    if (!client || !deleteOperationId || deleteBusy) return;
+    if (!client || !followedDeleteId || deleteBusy) return;
     setDeleteBusy(true);
     try {
-      await client.cancelOperation(deleteOperationId);
+      await client.cancelOperation(followedDeleteId);
       await deleteOperationQuery.refetch();
     } finally {
       setDeleteBusy(false);
@@ -379,13 +412,6 @@ export function App() {
       void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
     }
   }, [deleteOperationQuery.data?.status, queryClient]);
-  const hermesSupported = discoveryQuery.data?.state === "SUPPORTED";
-  const instancesQuery = useQuery({
-    queryKey: ["hermes-instances", sessionQuery.data?.baseUrl],
-    queryFn: ({ signal }) => client!.listHermesInstances(signal),
-    enabled: client !== undefined && nodeQuery.isSuccess && hermesSupported && activePage === "instances",
-    retry: false,
-  });
 
   let content;
   if (activePage === "settings") {
@@ -488,8 +514,8 @@ export function App() {
         onCancelCreate={() => {
           void cancelCreate();
         }}
-        deleteTarget={deleteTarget}
-        deleteConfirmation={deleteConfirmation}
+        deleteTarget={resolvedDeleteTarget}
+        deleteConfirmation={resolvedDeleteConfirmation}
         deleteBusy={deleteBusy}
         deleteOperation={deleteOperationQuery.data ?? null}
         onDeleteTargetChange={(item) => {
