@@ -2,14 +2,16 @@ package hermes
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestDeleteProfileArgvRequiresYesAndRejectsDefault(t *testing.T) {
 	t.Setenv("LOCALAPPDATA", t.TempDir())
+	executable := filepath.Join(t.TempDir(), "hermes")
 	var got []string
-	err := deleteProfileWith(context.Background(), `C:\hermes\bin\hermes.exe`, "coder", func(_ context.Context, _, _, nativeID string) commandResult {
+	err := deleteProfileWith(context.Background(), executable, "coder", func(_ context.Context, _, _, nativeID string) commandResult {
 		got = profileDeleteArgs(nativeID)
 		return commandResult{}
 	})
@@ -24,7 +26,7 @@ func TestDeleteProfileArgvRequiresYesAndRejectsDefault(t *testing.T) {
 	}
 
 	called := false
-	if err := deleteProfileWith(context.Background(), `C:\hermes\bin\hermes.exe`, "default", func(context.Context, string, string, string) commandResult {
+	if err := deleteProfileWith(context.Background(), executable, "default", func(context.Context, string, string, string) commandResult {
 		called = true
 		return commandResult{}
 	}); err == nil || called {

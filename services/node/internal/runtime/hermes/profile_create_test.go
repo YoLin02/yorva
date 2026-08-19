@@ -2,17 +2,19 @@ package hermes
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestCreateProfileArgvIsNoCloneNoAliasNoSkills(t *testing.T) {
 	t.Setenv("LOCALAPPDATA", t.TempDir())
+	executable := filepath.Join(t.TempDir(), "hermes")
 	var got []string
-	err := createProfileWith(context.Background(), `C:\hermes\bin\hermes.exe`, "coder", func(_ context.Context, executable, home, name string) commandResult {
+	err := createProfileWith(context.Background(), executable, "coder", func(_ context.Context, gotExecutable, home, name string) commandResult {
 		got = profileCreateArgs(name)
-		if executable != `C:\hermes\bin\hermes.exe` || home == "" {
-			t.Fatalf("create invocation executable=%q home=%q", executable, home)
+		if gotExecutable != executable || home == "" {
+			t.Fatalf("create invocation executable=%q home=%q", gotExecutable, home)
 		}
 		return commandResult{}
 	})
@@ -32,7 +34,7 @@ func TestCreateProfileArgvIsNoCloneNoAliasNoSkills(t *testing.T) {
 
 func TestCreateProfileRejectsInvalidNameBeforeProcess(t *testing.T) {
 	called := false
-	err := createProfileWith(context.Background(), `C:\hermes\bin\hermes.exe`, "default", func(context.Context, string, string, string) commandResult {
+	err := createProfileWith(context.Background(), filepath.Join(t.TempDir(), "hermes"), "default", func(context.Context, string, string, string) commandResult {
 		called = true
 		return commandResult{}
 	})
