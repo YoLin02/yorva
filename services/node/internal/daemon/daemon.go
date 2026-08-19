@@ -107,9 +107,12 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	if _, err := installs.InterruptStale(ctx); err != nil {
 		logger.Warn("failed to interrupt stale install operations", "error", err)
 	}
-	instances := app.NewInstanceInventory(discovery, database, app.HermesProfileSource{}, localNode.ID).WithMutator(app.HermesProfileSource{})
+	instances := app.NewInstanceInventory(discovery, database, app.HermesProfileSource{}, localNode.ID).WithMutator(app.HermesProfileSource{}).WithEvents(broker)
 	if _, err := instances.RecoverStale(ctx); err != nil {
 		logger.Warn("failed to recover stale instance operations", "error", err)
+	}
+	if _, err := instances.RecoverModelValidations(ctx); err != nil {
+		logger.Warn("failed to recover stale model validation operations", "error", err)
 	}
 	server := &http.Server{
 		Handler:           httpapi.NewHandler(message.Token, localNode, broker, discovery, installs, instances, message.DataDir),

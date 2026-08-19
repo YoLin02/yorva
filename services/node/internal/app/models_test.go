@@ -19,6 +19,14 @@ type fakeModelConfigurator struct {
 	credential    yorvaruntime.ModelCredentialStatus
 	secret        []byte
 	deleted       string
+	validate      func(context.Context, string, string, string) yorvaruntime.ModelValidationResult
+}
+
+func (f *fakeModelConfigurator) ValidateModel(ctx context.Context, _ yorvaruntime.ModelInstallation, nativeID, presetID, modelID string) yorvaruntime.ModelValidationResult {
+	if f.validate != nil {
+		return f.validate(ctx, nativeID, presetID, modelID)
+	}
+	return yorvaruntime.ModelValidationResult{State: yorvaruntime.ModelValidationPassed}
 }
 
 func (f *fakeModelConfigurator) ModelCredentialStatus(_ context.Context, _ yorvaruntime.ModelInstallation, nativeID, presetID string) (yorvaruntime.ModelCredentialStatus, error) {

@@ -2,11 +2,14 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/instance"
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -18,6 +21,13 @@ type ModelConfigurationView struct {
 	State                yorvaruntime.ModelConfigurationState
 	CredentialConfigured bool
 	ObservedAt           time.Time
+	Validation           ModelValidationSummary
+}
+
+type ModelValidationSummary struct {
+	State       string
+	ErrorCode   yorvaruntime.ErrorCode
+	CompletedAt *time.Time
 }
 
 type ModelCredentialView struct {
@@ -44,7 +54,7 @@ func (s *InstanceInventory) GetModelConfiguration(ctx context.Context, instanceI
 	}
 	defer unlock()
 	config, err := models.ReadModelConfig(ctx, installation, row.NativeID)
-	return s.modelConfigurationView(config), err
+	return s.modelConfigurationView(ctx, instanceID, config, err)
 }
 
 func (s *InstanceInventory) PatchModelConfiguration(ctx context.Context, instanceID, presetID, modelID string) (ModelConfigurationView, error) {
@@ -54,7 +64,7 @@ func (s *InstanceInventory) PatchModelConfiguration(ctx context.Context, instanc
 	}
 	defer unlock()
 	config, err := models.ApplyModelConfig(ctx, installation, row.NativeID, presetID, modelID)
-	return s.modelConfigurationView(config), err
+	return s.modelConfigurationView(ctx, instanceID, config, err)
 }
 
 func (s *InstanceInventory) GetModelCredential(ctx context.Context, instanceID string) (ModelCredentialView, error) {
@@ -84,7 +94,7 @@ func (s *InstanceInventory) SaveModelCredentialConfiguration(ctx context.Context
 		return ModelConfigurationView{}, err
 	}
 	configuration, err := models.ApplyModelConfig(ctx, installation, row.NativeID, presetID, modelID)
-	return s.modelConfigurationView(configuration), err
+	return s.modelConfigurationView(ctx, instanceID, configuration, err)
 }
 
 func (s *InstanceInventory) DeleteModelCredential(ctx context.Context, instanceID string) (ModelCredentialView, error) {
@@ -152,16 +162,42 @@ func (s *InstanceInventory) resolveModelTarget(ctx context.Context, instanceID s
 	return row, bundle.Models, installation, unlock, nil
 }
 
-func (s *InstanceInventory) modelConfigurationView(config yorvaruntime.ModelConfiguration) ModelConfigurationView {
-	return ModelConfigurationView{
+func (s *InstanceInventory) modelConfigurationView(ctx context.Context, instanceID string, config yorvaruntime.ModelConfiguration, configErr error) (ModelConfigurationView, error) {
+	view := ModelConfigurationView{
 		ProviderPresetID:     config.ProviderPresetID,
 		ModelID:              config.ModelID,
 		State:                config.State,
 		CredentialConfigured: config.CredentialConfigured,
 		ObservedAt:           s.now(),
 	}
+	latest, ok, err := s.db.LatestCompletedModelValidation(ctx, instanceID)
+	if err != nil && configErr == nil {
+		return view, yorvaruntime.ErrModelConfigQueryFailed
+	}
+	if ok && latest.SourcePin == modelConfigFingerprint(config.ProviderPresetID, config.ModelID) {
+		view.Validation = modelValidationSummary(latest)
+	} else {
+		view.Validation.State = "NOT_RUN"
+	}
+	return view, configErr
+}
+
+func modelConfigFingerprint(presetID, modelID string) string {
+	sum := sha256.Sum256([]byte(presetID + "\x00" + modelID))
+	return "model-config-sha256:" + hex.EncodeToString(sum[:])
 }
 
 func (s *InstanceInventory) modelCredentialView(status yorvaruntime.ModelCredentialStatus) ModelCredentialView {
 	return ModelCredentialView{ProviderPresetID: status.ProviderPresetID, Configured: status.Configured, ObservedAt: s.now()}
+}
+
+func modelValidationSummary(value operation.Operation) ModelValidationSummary {
+	result := ModelValidationSummary{State: "UNKNOWN", ErrorCode: value.ErrorCode, CompletedAt: value.CompletedAt}
+	if value.Status == operation.StatusSucceeded {
+		result.State = "PASSED"
+		result.ErrorCode = ""
+	} else if value.Status == operation.StatusFailed && value.ErrorCode == yorvaruntime.ErrorModelValidationFailed {
+		result.State = "FAILED"
+	}
+	return result
 }

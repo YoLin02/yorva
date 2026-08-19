@@ -155,6 +155,8 @@ func newTestModelManager(t *testing.T, provider, modelID string) (*ModelManager,
 			value := state.provider
 			if args[4] == modelDefaultConfigKey {
 				value = state.modelID
+			} else if args[4] == contextEngineConfigKey {
+				value = defaultContextEngine
 			} else if args[4] != modelProviderConfigKey {
 				return commandResult{exitCode: 1, err: errors.New("unexpected key")}
 			}

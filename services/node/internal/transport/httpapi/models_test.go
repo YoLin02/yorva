@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/app"
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -22,6 +23,7 @@ type fakeModelsAPI struct {
 	patchedModel  string
 	credential    app.ModelCredentialView
 	secret        []byte
+	cancelCalled  bool
 }
 
 func (f *fakeModelsAPI) ListModelProviderPresets(context.Context) ([]yorvaruntime.ModelProviderPreset, error) {
@@ -49,6 +51,18 @@ func (f *fakeModelsAPI) SaveModelCredentialConfiguration(_ context.Context, _, p
 
 func (f *fakeModelsAPI) DeleteModelCredential(context.Context, string) (app.ModelCredentialView, error) {
 	return f.credential, f.err
+}
+
+func (f *fakeModelsAPI) StartModelValidation(_ context.Context, instanceID, key string) (app.InstallStartResult, error) {
+	return app.InstallStartResult{Created: true, Operation: operation.Operation{
+		ID: "op_validate", Type: operation.TypeModelValidate, TargetType: operation.TargetInstance, TargetID: instanceID,
+		Status: operation.StatusPending, Stage: operation.StagePreflight, IdempotencyKey: key, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}}, f.err
+}
+
+func (f *fakeModelsAPI) CancelModelValidation(context.Context, string) (operation.Operation, error) {
+	f.cancelCalled = true
+	return operation.Operation{ID: "op_validate", Type: operation.TypeModelValidate, TargetType: operation.TargetInstance, TargetID: "inst_public", Status: operation.StatusCancelled, Stage: operation.StageModelValidate, CreatedAt: time.Now(), UpdatedAt: time.Now()}, f.err
 }
 
 func TestModelHTTPContractIsAuthenticatedSafeAndClosed(t *testing.T) {
@@ -174,6 +188,54 @@ func TestModelCredentialHTTPIsMetadataOnlyWriteOnlyAndClosed(t *testing.T) {
 	handler.ServeHTTP(optionsResult, options)
 	if optionsResult.Code != http.StatusNoContent || optionsResult.Header().Get("Allow") != "GET, PUT, DELETE, OPTIONS" {
 		t.Fatalf("credential options = %d %q", optionsResult.Code, optionsResult.Header().Get("Allow"))
+	}
+}
+
+func TestModelValidationHTTPStartsExplicitOperationWithClosedBody(t *testing.T) {
+	models := &fakeModelsAPI{}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+
+	req := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_public/model-validation", `{}`)
+	req.Header.Set("Idempotency-Key", "validate-http")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+	if res.Code != http.StatusAccepted || !strings.Contains(res.Body.String(), `"type":"model.validate"`) || !strings.Contains(res.Body.String(), `"targetType":"instance"`) || !strings.Contains(res.Body.String(), `"targetId":"inst_public"`) {
+		t.Fatalf("validation start = %d %s", res.Code, res.Body.String())
+	}
+
+	unknown := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_public/model-validation", `{"prompt":"leak"}`)
+	unknown.Header.Set("Idempotency-Key", "validate-bad-body")
+	unknownResult := httptest.NewRecorder()
+	handler.ServeHTTP(unknownResult, unknown)
+	if unknownResult.Code != http.StatusBadRequest || strings.Contains(unknownResult.Body.String(), "leak") {
+		t.Fatalf("closed validation = %d %s", unknownResult.Code, unknownResult.Body.String())
+	}
+
+	missingKey := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_public/model-validation", `{}`)
+	missingResult := httptest.NewRecorder()
+	handler.ServeHTTP(missingResult, missingKey)
+	if missingResult.Code != http.StatusBadRequest || !strings.Contains(missingResult.Body.String(), "INVALID_IDEMPOTENCY_KEY") {
+		t.Fatalf("validation idempotency = %d %s", missingResult.Code, missingResult.Body.String())
+	}
+
+	options := httptest.NewRequest(http.MethodOptions, "/api/v1/instances/inst_public/model-validation", nil)
+	optionsResult := httptest.NewRecorder()
+	handler.ServeHTTP(optionsResult, options)
+	if optionsResult.Code != http.StatusNoContent || optionsResult.Header().Get("Allow") != "POST, OPTIONS" {
+		t.Fatalf("validation options = %d %q", optionsResult.Code, optionsResult.Header().Get("Allow"))
+	}
+}
+
+func TestOperationCancelDispatchesModelValidationToInstanceModelService(t *testing.T) {
+	models := &fakeModelsAPI{}
+	operationValue := operation.Operation{ID: "op_validate", Type: operation.TypeModelValidate, TargetType: operation.TargetInstance, TargetID: "inst_public", Status: operation.StatusRunning, Stage: operation.StageModelValidate, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	installs := fakeInstallService{started: app.InstallStartResult{Operation: operationValue}}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, installs, models, "")
+	req := authorizedRequest(http.MethodPost, "/api/v1/operations/op_validate/cancel", "")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+	if res.Code != http.StatusOK || !models.cancelCalled || !strings.Contains(res.Body.String(), `"status":"CANCELLED"`) {
+		t.Fatalf("cancel = %d %s called=%v", res.Code, res.Body.String(), models.cancelCalled)
 	}
 }
 

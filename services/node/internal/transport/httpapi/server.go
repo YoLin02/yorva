@@ -75,13 +75,14 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("GET /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, getModelCredential(models)))
 	mux.Handle("PUT /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, putModelCredential(models)))
 	mux.Handle("DELETE /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, deleteModelCredential(models)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/model-validation", requireBearer(token, startModelValidation(models)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/start", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("POST /api/v1/instances/{instanceId}/stop", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("POST /api/v1/instances/{instanceId}/restart", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
 	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
 	mux.Handle("GET /api/v1/operations", requireBearer(token, listOperations(installs)))
-	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs, instances)))
+	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs, instances, models)))
 	return securityHeaders(restrictOrigins(routeContract(mux)))
 }
 
@@ -166,6 +167,8 @@ func allowedMethods(path string) (string, bool) {
 		return "GET, PATCH, OPTIONS", true
 	case "model-credential":
 		return "GET, PUT, DELETE, OPTIONS", true
+	case "model-validation":
+		return "POST, OPTIONS", true
 	}
 	return "", false
 }

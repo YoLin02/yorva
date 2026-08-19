@@ -44,6 +44,19 @@ type ModelCredentialStatus struct {
 	Configured       bool
 }
 
+type ModelValidationState string
+
+const (
+	ModelValidationPassed  ModelValidationState = "PASSED"
+	ModelValidationFailed  ModelValidationState = "FAILED"
+	ModelValidationUnknown ModelValidationState = "UNKNOWN"
+)
+
+type ModelValidationResult struct {
+	State     ModelValidationState
+	ErrorCode ErrorCode
+}
+
 var (
 	ErrModelProviderUnsupported    = errors.New("model provider is unsupported")
 	ErrModelConfigInvalid          = errors.New("model configuration is invalid")
@@ -64,4 +77,5 @@ type ModelConfigurator interface {
 	ModelCredentialStatus(context.Context, ModelInstallation, string, string) (ModelCredentialStatus, error)
 	SetModelCredential(context.Context, ModelInstallation, string, string, []byte) (ModelCredentialStatus, error)
 	DeleteModelCredential(context.Context, ModelInstallation, string, string) (ModelCredentialStatus, error)
+	ValidateModel(context.Context, ModelInstallation, string, string, string) ModelValidationResult
 }

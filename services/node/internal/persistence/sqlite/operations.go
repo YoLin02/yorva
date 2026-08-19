@@ -107,6 +107,54 @@ func (d *Database) ActiveInstanceMutation(ctx context.Context, installationID st
 	return value, true, nil
 }
 
+func (d *Database) ActiveModelValidation(ctx context.Context, instanceID string) (operation.Operation, bool, error) {
+	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
+        WHERE operation_type = ? AND target_type = ? AND target_id = ? AND status IN ('PENDING', 'RUNNING')
+        ORDER BY created_at DESC LIMIT 1
+    `, string(operation.TypeModelValidate), string(operation.TargetInstance), instanceID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return operation.Operation{}, false, nil
+	}
+	if err != nil {
+		return operation.Operation{}, false, err
+	}
+	return value, true, nil
+}
+
+func (d *Database) LatestCompletedModelValidation(ctx context.Context, instanceID string) (operation.Operation, bool, error) {
+	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
+        WHERE operation_type = ? AND target_type = ? AND target_id = ? AND status IN ('SUCCEEDED', 'FAILED', 'CANCELLED')
+        ORDER BY created_at DESC LIMIT 1
+    `, string(operation.TypeModelValidate), string(operation.TargetInstance), instanceID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return operation.Operation{}, false, nil
+	}
+	if err != nil {
+		return operation.Operation{}, false, err
+	}
+	return value, true, nil
+}
+
+func (d *Database) ListActiveModelValidations(ctx context.Context) ([]operation.Operation, error) {
+	rows, err := d.db.QueryContext(ctx, operationSelect+`
+        WHERE operation_type = ? AND status IN ('PENDING', 'RUNNING')
+        ORDER BY created_at ASC
+    `, string(operation.TypeModelValidate))
+	if err != nil {
+		return nil, fmt.Errorf("list active model validations: %w", err)
+	}
+	defer rows.Close()
+	result := make([]operation.Operation, 0)
+	for rows.Next() {
+		value, err := scanOperation(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
+
 func (d *Database) ListActiveInstanceOperations(ctx context.Context) ([]operation.Operation, error) {
 	rows, err := d.db.QueryContext(ctx, operationSelect+`
         WHERE operation_type IN (?, ?) AND status IN ('PENDING', 'RUNNING')

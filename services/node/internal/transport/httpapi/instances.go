@@ -296,6 +296,12 @@ func instancePathKind(path string) string {
 				return "model-credential"
 			}
 		}
+		if strings.HasSuffix(rest, "/model-validation") {
+			id := strings.TrimSuffix(rest, "/model-validation")
+			if id != "" && !strings.Contains(id, "/") {
+				return "model-validation"
+			}
+		}
 	}
 	return ""
 }

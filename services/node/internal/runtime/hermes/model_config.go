@@ -18,17 +18,19 @@ var modelIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$`)
 type modelCommandFunc func(context.Context, string, string, []string, bool) commandResult
 
 type ModelManager struct {
-	home        func() string
-	run         modelCommandFunc
-	credentials credentialStore
+	home          func() string
+	run           modelCommandFunc
+	runValidation modelCommandFunc
+	credentials   credentialStore
 }
 
 func NewModelManager() *ModelManager {
 	root := officialHermesHome()
 	return &ModelManager{
-		home:        officialHermesHome,
-		run:         runModelConfigCommand,
-		credentials: credentialStore{root: root},
+		home:          officialHermesHome,
+		run:           runModelConfigCommand,
+		runValidation: runModelValidationCommand,
+		credentials:   credentialStore{root: root},
 	}
 }
 

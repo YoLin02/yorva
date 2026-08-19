@@ -794,6 +794,56 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/model-validation:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    post:
+      operationId: startInstanceModelValidation
+      summary: Start an explicit bounded model connection validation Operation
+      tags: [Models]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelValidationRequest"
+      responses:
+        "202":
+          description: The model.validate Operation was accepted. Model/provider output is never included.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceModelValidation
+      summary: Validate CORS access for explicit model validation
+      tags: [Models]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/instances/{instanceId}/start:
     parameters:
       - $ref: "#/components/parameters/InstanceId"
@@ -1116,7 +1166,7 @@ components:
           type: string
         type:
           type: string
-          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete]
+          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, model.validate]
         targetType:
           type: string
         targetId:
@@ -1347,6 +1397,10 @@ components:
             - type: string
               format: date-time
             - type: "null"
+    ModelValidationRequest:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
     ModelConfiguration:
       type: object
       additionalProperties: false

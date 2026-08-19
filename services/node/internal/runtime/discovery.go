@@ -81,6 +81,12 @@ const (
 	ErrorModelCredentialQueryFailed   ErrorCode = "MODEL_CREDENTIAL_QUERY_FAILED"
 	ErrorModelCredentialWriteFailed   ErrorCode = "MODEL_CREDENTIAL_WRITE_FAILED"
 	ErrorModelCredentialDeleteFailed  ErrorCode = "MODEL_CREDENTIAL_DELETE_FAILED"
+	ErrorModelValidationFailed        ErrorCode = "MODEL_VALIDATION_FAILED"
+	ErrorModelValidationTimedOut      ErrorCode = "MODEL_VALIDATION_TIMED_OUT"
+	ErrorModelValidationCancelled     ErrorCode = "MODEL_VALIDATION_CANCELLED"
+	ErrorModelValidationOutputLimit   ErrorCode = "MODEL_VALIDATION_OUTPUT_LIMIT"
+	ErrorModelValidationUnsafe        ErrorCode = "MODEL_VALIDATION_UNSAFE"
+	ErrorModelValidationUnknown       ErrorCode = "MODEL_VALIDATION_UNKNOWN"
 	ErrorInstanceConfigConflict       ErrorCode = "INSTANCE_CONFIG_CONFLICT"
 )
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/instance"
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	"github.com/YoLin02/yorva/services/node/internal/events"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes"
@@ -86,6 +87,7 @@ type InstanceInventory struct {
 	locks     map[string]*sync.Mutex
 	workers   map[string]context.CancelFunc
 	started   map[string]bool
+	events    *events.Broker
 }
 
 func NewInstanceInventory(discovery *RuntimeDiscovery, db *sqlite.Database, source ProfileSource, nodeID string) *InstanceInventory {
@@ -104,6 +106,11 @@ func NewInstanceInventory(discovery *RuntimeDiscovery, db *sqlite.Database, sour
 
 func (s *InstanceInventory) WithMutator(mutator ProfileMutator) *InstanceInventory {
 	s.mutator = mutator
+	return s
+}
+
+func (s *InstanceInventory) WithEvents(broker *events.Broker) *InstanceInventory {
+	s.events = broker
 	return s
 }
 

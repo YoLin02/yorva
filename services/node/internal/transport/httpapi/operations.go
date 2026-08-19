@@ -219,7 +219,7 @@ func getOperationLog(installs RuntimeInstallService, dataDir string) http.Handle
 	})
 }
 
-func cancelOperation(installs RuntimeInstallService, instances InstanceInventoryService) http.Handler {
+func cancelOperation(installs RuntimeInstallService, instances InstanceInventoryService, models ModelConfigurationService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if installs == nil {
 			writeError(w, http.StatusNotFound, ErrorBody{Code: "NOT_FOUND", Message: "The requested local API resource was not found."})
@@ -234,6 +234,8 @@ func cancelOperation(installs RuntimeInstallService, instances InstanceInventory
 			value, err = instances.CancelCreate(r.Context(), value.ID)
 		} else if value.Type == operation.TypeInstanceDelete && instances != nil {
 			value, err = instances.CancelDelete(r.Context(), value.ID)
+		} else if value.Type == operation.TypeModelValidate && models != nil {
+			value, err = models.CancelModelValidation(r.Context(), value.ID)
 		} else {
 			value, err = installs.Cancel(r.Context(), value.ID)
 		}

@@ -316,6 +316,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/model-validation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start an explicit bounded model connection validation Operation */
+        post: operations["startInstanceModelValidation"];
+        delete?: never;
+        /** Validate CORS access for explicit model validation */
+        options: operations["optionsInstanceModelValidation"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}/start": {
         parameters: {
             query?: never;
@@ -443,7 +463,7 @@ export interface components {
         Operation: {
             id: string;
             /** @enum {string} */
-            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete";
+            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "model.validate";
             targetType: string;
             targetId: string;
             /** @enum {string} */
@@ -538,6 +558,7 @@ export interface components {
             errorCode: string | null;
             completedAt: string | null;
         };
+        ModelValidationRequest: Record<string, never>;
         ModelConfiguration: {
             providerPresetId: string;
             modelId: string;
@@ -1456,6 +1477,57 @@ export interface operations {
         };
     };
     optionsInstanceModelCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    startInstanceModelValidation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelValidationRequest"];
+            };
+        };
+        responses: {
+            /** @description The model.validate Operation was accepted. Model/provider output is never included. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceModelValidation: {
         parameters: {
             query?: never;
             header?: never;

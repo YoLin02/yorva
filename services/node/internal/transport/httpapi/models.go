@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/app"
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -22,6 +23,8 @@ type ModelConfigurationService interface {
 	GetModelCredential(context.Context, string) (app.ModelCredentialView, error)
 	SaveModelCredentialConfiguration(context.Context, string, string, string, []byte) (app.ModelConfigurationView, error)
 	DeleteModelCredential(context.Context, string) (app.ModelCredentialView, error)
+	StartModelValidation(context.Context, string, string) (app.InstallStartResult, error)
+	CancelModelValidation(context.Context, string) (operation.Operation, error)
 }
 
 type ModelProviderPresetResponse struct {
@@ -166,6 +169,32 @@ func deleteModelCredential(models ModelConfigurationService) http.Handler {
 	})
 }
 
+func startModelValidation(models ModelConfigurationService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if models == nil {
+			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Model validation is unavailable.", Retryable: true})
+			return
+		}
+		key := r.Header.Get("Idempotency-Key")
+		if err := app.ValidateIdempotencyKey(key); err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_IDEMPOTENCY_KEY", Message: "A valid Idempotency-Key header is required.", Retryable: false})
+			return
+		}
+		if err := decodeClosedEmptyObject(r); err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorModelConfigInvalid), Message: "Model validation requires a closed empty JSON object.", Retryable: false})
+			return
+		}
+		result, err := models.StartModelValidation(r.Context(), r.PathValue("instanceId"), key)
+		if err != nil {
+			writeModelError(w, app.ModelConfigurationView{}, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(newOperationResponse(result.Operation))
+	})
+}
+
 func writeModelConfiguration(w http.ResponseWriter, status int, configuration app.ModelConfigurationView) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -173,13 +202,19 @@ func writeModelConfiguration(w http.ResponseWriter, status int, configuration ap
 }
 
 func newModelConfigurationResponse(configuration app.ModelConfigurationView) ModelConfigurationResponse {
+	validationState := configuration.Validation.State
+	if validationState == "" {
+		validationState = "NOT_RUN"
+	}
 	return ModelConfigurationResponse{
 		ProviderPresetID:     configuration.ProviderPresetID,
 		ModelID:              configuration.ModelID,
 		State:                configuration.State,
 		CredentialConfigured: configuration.CredentialConfigured,
 		ObservedAt:           configuration.ObservedAt,
-		Validation:           ModelValidationSummaryResponse{State: "NOT_RUN"},
+		Validation: ModelValidationSummaryResponse{
+			State: validationState, ErrorCode: nullableErrorCode(configuration.Validation.ErrorCode), CompletedAt: configuration.Validation.CompletedAt,
+		},
 	}
 }
 
