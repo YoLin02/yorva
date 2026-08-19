@@ -11,10 +11,13 @@ import { loadLocale, messages, saveLocale, type Locale, type PageId } from "./i1
 import {
   isHermesPrerequisite,
   isHermesRuntimeInstall,
+  isInstanceCreate,
+  isInstanceDelete,
   newestActiveOperation,
   operationIdFromConflict,
 } from "./operationRecovery";
 import { DashboardPage } from "./pages/DashboardPage";
+import { InstancesPage } from "./pages/InstancesPage";
 import { RuntimePage } from "./pages/RuntimePage";
 import { SettingsPage } from "./pages/SettingsPage";
 
@@ -32,6 +35,15 @@ export function App() {
   const [prereqOperationId, setPrereqOperationId] = useState<string | null>(null);
   const [prereqBusy, setPrereqBusy] = useState(false);
   const [prereqRequestError, setPrereqRequestError] = useState<InstallRequestError | null>(null);
+  const [createName, setCreateName] = useState("");
+  const [createKey, setCreateKey] = useState<string | null>(null);
+  const [createOperationId, setCreateOperationId] = useState<string | null>(null);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<import("./api/types").Instance | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  const [deleteOperationId, setDeleteOperationId] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const copy = messages[locale];
 
   const sessionQuery = useQuery({
@@ -56,6 +68,10 @@ export function App() {
     void queryClient.invalidateQueries({ queryKey: ["hermes-prereq-log"] });
     void queryClient.invalidateQueries({ queryKey: ["hermes-operations"] });
     void queryClient.invalidateQueries({ queryKey: ["hermes-prerequisites"] });
+    void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+    void queryClient.invalidateQueries({ queryKey: ["instance-operations"] });
+    void queryClient.invalidateQueries({ queryKey: ["instance-create"] });
+    void queryClient.invalidateQueries({ queryKey: ["instance-delete"] });
   }, [queryClient]);
   const eventStatus = useEventStreamStatus(
     client,
@@ -296,6 +312,107 @@ export function App() {
     discoveryState = { kind: "complete", discovery: discoveryQuery.data, onRetry: retryDiscovery };
   }
 
+  const hermesSupported = discoveryQuery.data?.state === "SUPPORTED";
+  const instancesQuery = useQuery({
+    queryKey: ["hermes-instances", sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.listHermesInstances(signal),
+    enabled: client !== undefined && nodeQuery.isSuccess && hermesSupported && activePage === "instances",
+    retry: false,
+  });
+  const instanceOperationsQuery = useQuery({
+    queryKey: ["instance-operations", instancesQuery.data?.runtimeInstallationId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) =>
+      client!.listOperations("runtime-installation", instancesQuery.data!.runtimeInstallationId, signal),
+    enabled: client !== undefined && Boolean(instancesQuery.data?.runtimeInstallationId),
+    retry: false,
+  });
+  const recoveredCreate = newestActiveOperation(instanceOperationsQuery.data?.operations, isInstanceCreate);
+  const recoveredDelete = newestActiveOperation(instanceOperationsQuery.data?.operations, isInstanceDelete);
+  const followedCreateId = createOperationId ?? recoveredCreate?.id ?? null;
+  const followedDeleteId = deleteOperationId ?? recoveredDelete?.id ?? null;
+  const recoveredDeleteTarget =
+    instancesQuery.data?.instances.find((item) => item.name === recoveredDelete?.message) ?? null;
+  const resolvedDeleteTarget = deleteTarget ?? recoveredDeleteTarget;
+  const resolvedDeleteConfirmation = deleteTarget
+    ? deleteConfirmation
+    : (recoveredDelete?.message ?? deleteConfirmation);
+  const createOperationQuery = useQuery({
+    queryKey: ["instance-create", followedCreateId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getOperation(followedCreateId!, signal),
+    enabled: client !== undefined && followedCreateId !== null,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "RUNNING" ? 1000 : false;
+    },
+  });
+  const startCreate = async () => {
+    if (!client || createBusy) return;
+    setCreateBusy(true);
+    try {
+      const key = createKey ?? crypto.randomUUID();
+      setCreateKey(key);
+      const operation = await client.createHermesInstance(createName, key);
+      setCreateOperationId(operation.id);
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+  const cancelCreate = async () => {
+    if (!client || !followedCreateId || createBusy) return;
+    setCreateBusy(true);
+    try {
+      await client.cancelOperation(followedCreateId);
+      await createOperationQuery.refetch();
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+  useEffect(() => {
+    if (createOperationQuery.data?.status === "SUCCEEDED") {
+      void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+    }
+  }, [createOperationQuery.data?.status, queryClient]);
+  const deleteOperationQuery = useQuery({
+    queryKey: ["instance-delete", followedDeleteId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getOperation(followedDeleteId!, signal),
+    enabled: client !== undefined && followedDeleteId !== null,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "RUNNING" ? 1000 : false;
+    },
+  });
+  const startDelete = async () => {
+    if (!client || !resolvedDeleteTarget || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      const key = deleteKey ?? crypto.randomUUID();
+      setDeleteKey(key);
+      const operation = await client.deleteInstance(
+        resolvedDeleteTarget.instanceId,
+        resolvedDeleteConfirmation,
+        key,
+      );
+      setDeleteOperationId(operation.id);
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+  const cancelDelete = async () => {
+    if (!client || !followedDeleteId || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      await client.cancelOperation(followedDeleteId);
+      await deleteOperationQuery.refetch();
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+  useEffect(() => {
+    if (deleteOperationQuery.data?.status === "SUCCEEDED") {
+      void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+    }
+  }, [deleteOperationQuery.data?.status, queryClient]);
+
   let content;
   if (activePage === "settings") {
     content = <SettingsPage copy={copy} locale={locale} onLocaleChange={changeLocale} />;
@@ -373,6 +490,47 @@ export function App() {
         onConfirmInstall={() => { void startInstall(); }}
         onCancelInstall={() => { void cancelInstall(); }}
         onRetryInstall={retryInstall}
+      />
+    );
+  } else if (activePage === "instances") {
+    content = (
+      <InstancesPage
+        supported={hermesSupported}
+        loading={instancesQuery.isPending || instancesQuery.isFetching}
+        error={instancesQuery.isError}
+        inventory={instancesQuery.data ?? null}
+        createName={createName}
+        createBusy={createBusy}
+        createOperation={createOperationQuery.data ?? null}
+        copy={copy}
+        locale={locale}
+        onRefresh={() => {
+          void instancesQuery.refetch();
+        }}
+        onCreateNameChange={setCreateName}
+        onCreate={() => {
+          void startCreate();
+        }}
+        onCancelCreate={() => {
+          void cancelCreate();
+        }}
+        deleteTarget={resolvedDeleteTarget}
+        deleteConfirmation={resolvedDeleteConfirmation}
+        deleteBusy={deleteBusy}
+        deleteOperation={deleteOperationQuery.data ?? null}
+        onDeleteTargetChange={(item) => {
+          setDeleteTarget(item);
+          setDeleteConfirmation("");
+          setDeleteOperationId(null);
+          setDeleteKey(null);
+        }}
+        onDeleteConfirmationChange={setDeleteConfirmation}
+        onDelete={() => {
+          void startDelete();
+        }}
+        onCancelDelete={() => {
+          void cancelDelete();
+        }}
       />
     );
   } else {

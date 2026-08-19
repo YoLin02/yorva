@@ -10,17 +10,17 @@ import (
 )
 
 func TestClosedEmptyObjectContract(t *testing.T) {
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, nil, "")
 	endpoints := []string{
 		"/api/v1/runtimes/hermes/install",
 		"/api/v1/runtimes/hermes/prerequisites/install",
 	}
 	cases := []struct {
-		name   string
-		body   string
-		key    string
-		want   int
-		code   string
+		name string
+		body string
+		key  string
+		want int
+		code string
 	}{
 		{name: "valid empty object", body: "{}", key: "ok-key", want: http.StatusAccepted},
 		{name: "unknown field", body: `{"url":"https://evil"}`, key: "ok-key", want: http.StatusBadRequest, code: "INVALID_REQUEST"},

@@ -13,6 +13,14 @@ export function isHermesPrerequisite(operation: Operation): boolean {
   return operation.type === "hermes.prerequisites" && operation.targetType === "runtime-kind" && operation.targetId === "hermes";
 }
 
+export function isInstanceCreate(operation: Operation): boolean {
+  return operation.type === "instance.create";
+}
+
+export function isInstanceDelete(operation: Operation): boolean {
+  return operation.type === "instance.delete";
+}
+
 export function newestActiveOperation(
   operations: Operation[] | undefined,
   match: (operation: Operation) => boolean,

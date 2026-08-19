@@ -59,6 +59,18 @@ const (
 	ErrorHermesNPMArchiveIntegrityFailed  ErrorCode = "RUNTIME_HERMES_NPM_ARCHIVE_INTEGRITY_FAILED"
 	ErrorHermesNodeDepsFailed             ErrorCode = "RUNTIME_HERMES_NODE_DEPS_FAILED"
 	ErrorHermesNodeDepsTimeout            ErrorCode = "RUNTIME_HERMES_NODE_DEPS_TIMEOUT"
+
+	ErrorRuntimeNotSupported          ErrorCode = "RUNTIME_NOT_SUPPORTED"
+	ErrorInstanceInvalidName          ErrorCode = "INSTANCE_INVALID_NAME"
+	ErrorInstanceAlreadyExists        ErrorCode = "INSTANCE_ALREADY_EXISTS"
+	ErrorInstanceNotFound             ErrorCode = "INSTANCE_NOT_FOUND"
+	ErrorInstanceProtected            ErrorCode = "INSTANCE_PROTECTED"
+	ErrorInstanceConfirmationMismatch ErrorCode = "INSTANCE_CONFIRMATION_MISMATCH"
+	ErrorInstanceConflict             ErrorCode = "INSTANCE_CONFLICT"
+	ErrorInstanceQueryFailed          ErrorCode = "INSTANCE_QUERY_FAILED"
+	ErrorInstanceOutputUnrecognized   ErrorCode = "INSTANCE_OUTPUT_UNRECOGNIZED"
+	ErrorInstanceOperationTimedOut    ErrorCode = "INSTANCE_OPERATION_TIMED_OUT"
+	ErrorCapabilityNotSupported       ErrorCode = "CAPABILITY_NOT_SUPPORTED"
 )
 
 type Candidate struct {

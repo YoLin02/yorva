@@ -108,7 +108,7 @@ func TestRuntimeDiscoveryRouteContract(t *testing.T) {
 	if preflightResponse.Code != http.StatusNoContent || preflightResponse.Header().Get("Allow") != "POST, OPTIONS" {
 		t.Fatalf("preflight status=%d Allow=%q", preflightResponse.Code, preflightResponse.Header().Get("Allow"))
 	}
-	if preflightResponse.Header().Get("Access-Control-Allow-Methods") != "GET, POST, OPTIONS" {
+	if preflightResponse.Header().Get("Access-Control-Allow-Methods") != "GET, POST, DELETE, OPTIONS" {
 		t.Fatalf("unexpected CORS methods: %q", preflightResponse.Header().Get("Access-Control-Allow-Methods"))
 	}
 

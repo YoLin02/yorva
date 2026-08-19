@@ -151,6 +151,8 @@ Phase 2 implements authenticated, read-only discovery for the registered `hermes
 
 ### Instances
 
+Phase 4 implements authenticated GET list/get, POST create, and DELETE with typed confirmation. `{runtimeId}` is `hermes` for the single supported installation. Responses omit native filesystem paths and `nativeId`.
+
 ```text
 GET    /api/v1/runtimes/{runtimeId}/instances
 POST   /api/v1/runtimes/{runtimeId}/instances

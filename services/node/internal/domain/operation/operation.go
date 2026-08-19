@@ -12,9 +12,15 @@ const TypeRuntimeInstall Type = "runtime.install"
 
 const TypeHermesPrerequisites Type = "hermes.prerequisites"
 
+const TypeInstanceCreate Type = "instance.create"
+
+const TypeInstanceDelete Type = "instance.delete"
+
 type TargetType string
 
 const TargetRuntimeKind TargetType = "runtime-kind"
+
+const TargetRuntimeInstallation TargetType = "runtime-installation"
 
 type Status string
 
@@ -48,6 +54,9 @@ const (
 	StageInstallBootstrapMarker Stage = "install.bootstrap-marker"
 	StagePostcheckDiscovery     Stage = "postcheck.discovery"
 	StageCleanup                Stage = "cleanup"
+	StageInstanceCreate         Stage = "instance.create"
+	StageInstanceDelete         Stage = "instance.delete"
+	StageInstanceReconcile      Stage = "instance.reconcile"
 )
 
 type Operation struct {

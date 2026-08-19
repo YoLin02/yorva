@@ -2,7 +2,7 @@ import type { RuntimeDiscoveryState } from "./api/types";
 import type { EventStreamStatus } from "./hooks/useEventStreamStatus";
 
 export type Locale = "en-US" | "zh-CN";
-export type PageId = "dashboard" | "runtimes" | "settings";
+export type PageId = "dashboard" | "runtimes" | "instances" | "settings";
 
 type RuntimeStateCopy = {
   title: string;
@@ -130,6 +130,40 @@ type Messages = {
     languageLegend: string;
     savedAutomatically: string;
   };
+  instances: {
+    unsupportedTitle: string;
+    unsupportedDescription: string;
+    loading: string;
+    refresh: string;
+    lastSynced: string;
+    freshnessUnknown: string;
+    emptyNamed: string;
+    defaultLabel: string;
+    protectedLabel: string;
+    availability: Record<"AVAILABLE" | "MISSING" | "UNKNOWN", string>;
+    availabilityHint: Record<"AVAILABLE" | "MISSING" | "UNKNOWN", string>;
+    lifecycleUnavailable: string;
+    loadFailure: string;
+    queryFailed: string;
+    createLabel: string;
+    createPlaceholder: string;
+    createAction: string;
+    createPending: string;
+    createRunning: string;
+    createSucceeded: string;
+    createFailed: string;
+    createInvalid: string;
+    cancelCreate: string;
+    deleteAction: string;
+    deleteTitle: string;
+    deleteWarning: string;
+    deleteConfirmLabel: string;
+    deletePending: string;
+    deleteRunning: string;
+    deleteSucceeded: string;
+    deleteFailed: string;
+    cancelDelete: string;
+  };
 };
 
 const english: Messages = {
@@ -147,6 +181,11 @@ const english: Messages = {
       navigation: "Runtimes",
       title: "Runtimes",
       description: "Discover the official Hermes CLI and verify version compatibility.",
+    },
+    instances: {
+      navigation: "Instances",
+      title: "Instances",
+      description: "List Hermes Profiles as YORVA Instances. Availability is not Agent, model, or login readiness.",
     },
     settings: {
       navigation: "Settings",
@@ -324,6 +363,48 @@ const english: Messages = {
     languageLegend: "Interface language",
     savedAutomatically: "Saved automatically",
   },
+  instances: {
+    unsupportedTitle: "Instances unavailable",
+    unsupportedDescription: "Instance management is available only when Hermes discovery is SUPPORTED.",
+    loading: "Refreshing instance inventory",
+    refresh: "Refresh",
+    lastSynced: "Last successful sync",
+    freshnessUnknown: "The latest Hermes query did not succeed. Showing last known rows as unknown, not missing.",
+    emptyNamed: "No named Instances yet. The built-in default Profile remains visible and protected.",
+    defaultLabel: "Default",
+    protectedLabel: "Protected",
+    availability: {
+      AVAILABLE: "Available",
+      MISSING: "Missing",
+      UNKNOWN: "Unknown",
+    },
+    availabilityHint: {
+      AVAILABLE: "Present in the latest successful Hermes query. This is not login, model, or process readiness.",
+      MISSING: "Absent from the latest successful Hermes query. The YORVA identity is retained.",
+      UNKNOWN: "The latest Hermes query failed or could not be parsed. Previous rows were not marked missing.",
+    },
+    lifecycleUnavailable: "Start, Stop, and Restart are not available in this phase.",
+    loadFailure: "YORVA could not load Instances.",
+    queryFailed: "Hermes Profile query failed. Inventory freshness is unknown.",
+    createLabel: "New instance name",
+    createPlaceholder: "coder",
+    createAction: "Create instance",
+    createPending: "Create queued",
+    createRunning: "Creating instance",
+    createSucceeded: "Instance created",
+    createFailed: "Instance create failed",
+    createInvalid: "Use a lowercase letter, then letters, digits, _ or -.",
+    cancelCreate: "Cancel create",
+    deleteAction: "Delete",
+    deleteTitle: "Delete instance",
+    deleteWarning: "This permanently deletes Hermes-owned profile data. The YORVA identity is kept as missing. The default profile cannot be deleted.",
+    deleteConfirmLabel: "Type the instance name to confirm",
+    deletePending: "Delete queued",
+    deleteRunning: "Deleting instance",
+    deleteSucceeded: "Instance deleted and retained as missing",
+    deleteFailed: "Instance delete failed",
+    cancelDelete: "Cancel delete",
+  },
 };
 
 const simplifiedChinese: Messages = {
@@ -341,6 +422,11 @@ const simplifiedChinese: Messages = {
       navigation: "运行时",
       title: "运行时",
       description: "检测官方 Hermes CLI 并核验版本兼容性。",
+    },
+    instances: {
+      navigation: "实例",
+      title: "实例",
+      description: "将 Hermes Profile 列为 YORVA 实例。可用状态不代表 Agent、模型或登录已就绪。",
     },
     settings: {
       navigation: "设置",
@@ -517,6 +603,48 @@ const simplifiedChinese: Messages = {
     languageDescription: "YORVA 会立即应用语言选择，并在此设备上记住该设置。",
     languageLegend: "界面语言",
     savedAutomatically: "已自动保存",
+  },
+  instances: {
+    unsupportedTitle: "实例不可用",
+    unsupportedDescription: "仅在 Hermes 检测结果为 SUPPORTED 时可以管理实例。",
+    loading: "正在刷新实例清单",
+    refresh: "刷新",
+    lastSynced: "最近一次成功同步",
+    freshnessUnknown: "最近一次 Hermes 查询未成功。正在显示上次已知记录，状态为未知，不是缺失。",
+    emptyNamed: "还没有命名实例。内置 default Profile 仍然可见且受保护。",
+    defaultLabel: "默认",
+    protectedLabel: "受保护",
+    availability: {
+      AVAILABLE: "可用",
+      MISSING: "缺失",
+      UNKNOWN: "未知",
+    },
+    availabilityHint: {
+      AVAILABLE: "最近一次成功的 Hermes 查询确认存在。这不代表已登录、已配置模型或进程已就绪。",
+      MISSING: "最近一次成功的 Hermes 查询中不存在。YORVA 身份仍然保留。",
+      UNKNOWN: "最近一次 Hermes 查询失败或无法解析。旧记录不会被误判为缺失。",
+    },
+    lifecycleUnavailable: "本阶段不提供启动、停止或重启。",
+    loadFailure: "无法加载实例。",
+    queryFailed: "Hermes Profile 查询失败。清单新鲜度为未知。",
+    createLabel: "新实例名称",
+    createPlaceholder: "coder",
+    createAction: "创建实例",
+    createPending: "创建已排队",
+    createRunning: "正在创建实例",
+    createSucceeded: "实例已创建",
+    createFailed: "创建实例失败",
+    createInvalid: "首字符必须是小写字母，后续只能是小写字母、数字、_ 或 -。",
+    cancelCreate: "取消创建",
+    deleteAction: "删除",
+    deleteTitle: "删除实例",
+    deleteWarning: "这将永久删除 Hermes 所有的 Profile 数据。YORVA 身份会保留为缺失。default 不可删除。",
+    deleteConfirmLabel: "输入实例名称以确认",
+    deletePending: "删除已排队",
+    deleteRunning: "正在删除实例",
+    deleteSucceeded: "实例已删除，并保留为缺失",
+    deleteFailed: "删除实例失败",
+    cancelDelete: "取消删除",
   },
 };
 

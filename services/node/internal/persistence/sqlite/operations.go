@@ -18,6 +18,7 @@ var (
 	ErrOperationNotFound       = errors.New("operation not found")
 	ErrDuplicateIdempotency    = errors.New("idempotency key already exists")
 	ErrActiveInstallExists     = errors.New("an active Runtime install already exists")
+	ErrActiveInstanceMutation  = errors.New("an active instance mutation already exists")
 	ErrInvalidStatusTransition = errors.New("invalid operation status transition")
 )
 
@@ -90,6 +91,40 @@ func (d *Database) ActiveRuntimeInstall(ctx context.Context, runtimeKind string)
 		return operation.Operation{}, false, err
 	}
 	return value, true, nil
+}
+
+func (d *Database) ActiveInstanceMutation(ctx context.Context, installationID string) (operation.Operation, bool, error) {
+	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
+        WHERE target_type = ? AND target_id = ? AND status IN ('PENDING', 'RUNNING')
+          AND operation_type IN ('instance.create', 'instance.delete')
+    `, string(operation.TargetRuntimeInstallation), installationID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return operation.Operation{}, false, nil
+	}
+	if err != nil {
+		return operation.Operation{}, false, err
+	}
+	return value, true, nil
+}
+
+func (d *Database) ListActiveInstanceOperations(ctx context.Context) ([]operation.Operation, error) {
+	rows, err := d.db.QueryContext(ctx, operationSelect+`
+        WHERE operation_type IN (?, ?) AND status IN ('PENDING', 'RUNNING')
+        ORDER BY created_at ASC
+    `, string(operation.TypeInstanceCreate), string(operation.TypeInstanceDelete))
+	if err != nil {
+		return nil, fmt.Errorf("list active instance operations: %w", err)
+	}
+	defer rows.Close()
+	result := make([]operation.Operation, 0)
+	for rows.Next() {
+		value, err := scanOperation(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
 }
 
 func (d *Database) ActiveHermesPrerequisite(ctx context.Context, runtimeKind string) (operation.Operation, bool, error) {
@@ -330,6 +365,9 @@ func mapOperationWriteError(err error) error {
 	message := strings.ToLower(err.Error())
 	if strings.Contains(message, "operations_idempotency_key") || strings.Contains(message, "operations.idempotency_key") {
 		return ErrDuplicateIdempotency
+	}
+	if strings.Contains(message, "operations_one_active_instance_mutation") {
+		return ErrActiveInstanceMutation
 	}
 	if strings.Contains(message, "operations_one_active_hermes_host_mutation") ||
 		strings.Contains(message, "operations_one_active_runtime_install") ||

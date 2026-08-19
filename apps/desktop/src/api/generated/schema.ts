@@ -213,6 +213,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runtimes/{runtimeId}/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: string;
+            };
+            cookie?: never;
+        };
+        /** List reconciled Instances for a Runtime */
+        get: operations["listRuntimeInstances"];
+        put?: never;
+        /** Create a minimal named Instance */
+        post: operations["createRuntimeInstance"];
+        delete?: never;
+        /** Validate CORS access for Runtime Instances */
+        options: operations["optionsRuntimeInstances"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        /** Read one cached Instance */
+        get: operations["getInstance"];
+        put?: never;
+        post?: never;
+        /** Delete a non-default Instance after typed confirmation */
+        delete: operations["deleteInstance"];
+        /** Validate CORS access for one Instance */
+        options: operations["optionsInstance"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start an Instance */
+        post: operations["startInstance"];
+        delete?: never;
+        /** Validate CORS access for Instance start */
+        options: operations["optionsStartInstance"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop an Instance */
+        post: operations["stopInstance"];
+        delete?: never;
+        /** Validate CORS access for Instance stop */
+        options: operations["optionsStopInstance"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restart an Instance */
+        post: operations["restartInstance"];
+        delete?: never;
+        /** Validate CORS access for Instance restart */
+        options: operations["optionsRestartInstance"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -280,7 +382,7 @@ export interface components {
         Operation: {
             id: string;
             /** @enum {string} */
-            type: "runtime.install" | "hermes.prerequisites";
+            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete";
             targetType: string;
             targetId: string;
             /** @enum {string} */
@@ -305,6 +407,42 @@ export interface components {
         };
         OperationList: {
             operations: components["schemas"]["Operation"][];
+        };
+        InstanceDeleteRequest: {
+            confirmationName: string;
+        };
+        InstanceCreateRequest: {
+            name: string;
+        };
+        InstanceCapabilities: {
+            instances: boolean;
+            /** @constant */
+            lifecycle: false;
+        };
+        Instance: {
+            instanceId: string;
+            runtimeInstallationId: string;
+            name: string;
+            default: boolean;
+            protected: boolean;
+            /** @enum {string} */
+            availability: "AVAILABLE" | "MISSING" | "UNKNOWN";
+            lastSyncedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            capabilities: components["schemas"]["InstanceCapabilities"];
+        };
+        InstanceList: {
+            runtimeId: string;
+            runtimeInstallationId: string;
+            /** @enum {string} */
+            freshness: "FRESH" | "UNKNOWN";
+            lastSyncedAt: string | null;
+            instances: components["schemas"]["Instance"][];
+            capabilities: components["schemas"]["InstanceCapabilities"];
+            errorCode: string | null;
         };
         /** @enum {string|null} */
         RuntimeDiscoveryErrorCode: null | "RUNTIME_NOT_INSTALLED" | "RUNTIME_UNSUPPORTED" | "RUNTIME_EXECUTABLE_BROKEN" | "RUNTIME_VERSION_MALFORMED" | "RUNTIME_DISCOVERY_TIMEOUT" | "RUNTIME_COMMAND_OUTPUT_LIMIT" | "RUNTIME_DISCOVERY_AMBIGUOUS";
@@ -395,6 +533,7 @@ export interface components {
     };
     parameters: {
         IdempotencyKey: string;
+        InstanceId: string;
     };
     requestBodies: never;
     headers: never;
@@ -836,6 +975,285 @@ export interface operations {
             header?: never;
             path: {
                 operationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listRuntimeInstances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The reconciled Instance inventory. A failed Hermes query returns cached rows with freshness UNKNOWN. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    createRuntimeInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                runtimeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstanceCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description The instance.create Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsRuntimeInstances: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The cached Instance record. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Instance"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+        };
+    };
+    deleteInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstanceDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description The instance.delete Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    startInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsStartInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    stopInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsStopInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    restartInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsRestartInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
             };
             cookie?: never;
         };
