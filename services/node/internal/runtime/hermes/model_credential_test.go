@@ -2,12 +2,15 @@ package hermes
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
 const credentialSentinel = "sk-phase5-sentinel-DO-NOT-LEAK"
@@ -128,6 +131,35 @@ func TestModelCredentialProductionBoundaryIsPinned(t *testing.T) {
 	}
 	if _, err := DeleteModelCredential("0.19.0", "default", "deepseek"); !IsModelVersionUnsupported(err) {
 		t.Fatalf("delete version error = %v", err)
+	}
+}
+
+func TestModelManagerCredentialBoundaryReturnsMetadataOnly(t *testing.T) {
+	store, _ := newTestCredentialStore(t)
+	manager := &ModelManager{home: func() string { return store.root }, credentials: store}
+	installation := testModelInstallation()
+	status, err := manager.SetModelCredential(context.Background(), installation, "default", "deepseek", []byte(credentialSentinel))
+	if err != nil || !status.Configured || status.ProviderPresetID != "deepseek" {
+		t.Fatalf("set = %#v %v", status, err)
+	}
+	if strings.Contains(status.ProviderPresetID, credentialSentinel) {
+		t.Fatal("credential value leaked into metadata")
+	}
+	status, err = manager.ModelCredentialStatus(context.Background(), installation, "default", "deepseek")
+	if err != nil || !status.Configured {
+		t.Fatalf("status = %#v %v", status, err)
+	}
+	status, err = manager.DeleteModelCredential(context.Background(), installation, "default", "deepseek")
+	if err != nil || status.Configured {
+		t.Fatalf("delete = %#v %v", status, err)
+	}
+	if _, err := manager.SetModelCredential(context.Background(), installation, "default", "deepseek", []byte("bad")); !errors.Is(err, yorvaruntime.ErrModelConfigInvalid) {
+		t.Fatalf("invalid mapping = %v", err)
+	}
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := manager.ModelCredentialStatus(cancelled, installation, "default", "deepseek"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancel mapping = %v", err)
 	}
 }
 

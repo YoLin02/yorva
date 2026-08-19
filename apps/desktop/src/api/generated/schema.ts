@@ -294,6 +294,28 @@ export interface paths {
         patch: operations["patchInstanceModelConfiguration"];
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/credentials/model-provider": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /** Read metadata-only status for the selected model Provider credential */
+        get: operations["getInstanceModelCredential"];
+        /** Save a write-only credential and apply its non-secret model configuration */
+        put: operations["putInstanceModelCredential"];
+        post?: never;
+        /** Delete the credential for the selected model Provider */
+        delete: operations["deleteInstanceModelCredential"];
+        /** Validate CORS access for model credential metadata and mutation */
+        options: operations["optionsInstanceModelCredential"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}/start": {
         parameters: {
             query?: never;
@@ -498,6 +520,17 @@ export interface components {
         ModelConfigurationPatch: {
             providerPresetId: string;
             modelId: string;
+        };
+        ModelCredentialPut: {
+            providerPresetId: string;
+            modelId: string;
+            value: string;
+        };
+        ModelCredential: {
+            providerPresetId: string;
+            configured: boolean;
+            /** Format: date-time */
+            observedAt: string;
         };
         ModelValidationSummary: {
             /** @enum {string} */
@@ -1330,6 +1363,112 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             409: components["responses"]["Conflict"];
             503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getInstanceModelCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Credential presence metadata; no secret or secret-derived fragment is returned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelCredential"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    putInstanceModelCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelCredentialPut"];
+            };
+        };
+        responses: {
+            /** @description Safe authoritative configuration after credential write and config read-back. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelConfiguration"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    deleteInstanceModelCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metadata-only credential status after deletion. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelCredential"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceModelCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     startInstance: {

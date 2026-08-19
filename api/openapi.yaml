@@ -694,6 +694,106 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/credentials/model-provider:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      operationId: getInstanceModelCredential
+      summary: Read metadata-only status for the selected model Provider credential
+      tags: [Models]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Credential presence metadata; no secret or secret-derived fragment is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelCredential"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    put:
+      operationId: putInstanceModelCredential
+      summary: Save a write-only credential and apply its non-secret model configuration
+      tags: [Models]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelCredentialPut"
+      responses:
+        "200":
+          description: Safe authoritative configuration after credential write and config read-back.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelConfiguration"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    delete:
+      operationId: deleteInstanceModelCredential
+      summary: Delete the credential for the selected model Provider
+      tags: [Models]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Metadata-only credential status after deletion.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelCredential"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceModelCredential
+      summary: Validate CORS access for model credential metadata and mutation
+      tags: [Models]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/instances/{instanceId}/start:
     parameters:
       - $ref: "#/components/parameters/InstanceId"
@@ -1201,6 +1301,37 @@ components:
           minLength: 1
           maxLength: 200
           pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$"
+    ModelCredentialPut:
+      type: object
+      additionalProperties: false
+      required: [providerPresetId, modelId, value]
+      properties:
+        providerPresetId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        modelId:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$"
+        value:
+          type: string
+          minLength: 4
+          maxLength: 16384
+          writeOnly: true
+    ModelCredential:
+      type: object
+      additionalProperties: false
+      required: [providerPresetId, configured, observedAt]
+      properties:
+        providerPresetId:
+          type: string
+        configured:
+          type: boolean
+        observedAt:
+          type: string
+          format: date-time
     ModelValidationSummary:
       type: object
       additionalProperties: false

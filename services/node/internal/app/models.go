@@ -20,6 +20,12 @@ type ModelConfigurationView struct {
 	ObservedAt           time.Time
 }
 
+type ModelCredentialView struct {
+	ProviderPresetID string
+	Configured       bool
+	ObservedAt       time.Time
+}
+
 func (s *InstanceInventory) ListModelProviderPresets(context.Context) ([]yorvaruntime.ModelProviderPreset, error) {
 	if s == nil || s.discovery == nil || s.discovery.registry == nil {
 		return nil, ErrRuntimeNotSupported
@@ -49,6 +55,53 @@ func (s *InstanceInventory) PatchModelConfiguration(ctx context.Context, instanc
 	defer unlock()
 	config, err := models.ApplyModelConfig(ctx, installation, row.NativeID, presetID, modelID)
 	return s.modelConfigurationView(config), err
+}
+
+func (s *InstanceInventory) GetModelCredential(ctx context.Context, instanceID string) (ModelCredentialView, error) {
+	row, models, installation, unlock, err := s.resolveModelTarget(ctx, instanceID, false)
+	if err != nil {
+		return ModelCredentialView{}, err
+	}
+	defer unlock()
+	configuration, err := models.ReadModelConfig(ctx, installation, row.NativeID)
+	if err != nil {
+		return ModelCredentialView{}, err
+	}
+	if configuration.ProviderPresetID == "" {
+		return ModelCredentialView{ObservedAt: s.now()}, nil
+	}
+	status, err := models.ModelCredentialStatus(ctx, installation, row.NativeID, configuration.ProviderPresetID)
+	return s.modelCredentialView(status), err
+}
+
+func (s *InstanceInventory) SaveModelCredentialConfiguration(ctx context.Context, instanceID, presetID, modelID string, secret []byte) (ModelConfigurationView, error) {
+	row, models, installation, unlock, err := s.resolveModelTarget(ctx, instanceID, true)
+	if err != nil {
+		return ModelConfigurationView{}, err
+	}
+	defer unlock()
+	if _, err := models.SetModelCredential(ctx, installation, row.NativeID, presetID, secret); err != nil {
+		return ModelConfigurationView{}, err
+	}
+	configuration, err := models.ApplyModelConfig(ctx, installation, row.NativeID, presetID, modelID)
+	return s.modelConfigurationView(configuration), err
+}
+
+func (s *InstanceInventory) DeleteModelCredential(ctx context.Context, instanceID string) (ModelCredentialView, error) {
+	row, models, installation, unlock, err := s.resolveModelTarget(ctx, instanceID, true)
+	if err != nil {
+		return ModelCredentialView{}, err
+	}
+	defer unlock()
+	configuration, err := models.ReadModelConfig(ctx, installation, row.NativeID)
+	if err != nil {
+		return ModelCredentialView{}, err
+	}
+	if configuration.ProviderPresetID == "" {
+		return ModelCredentialView{}, yorvaruntime.ErrModelConfigInvalid
+	}
+	status, err := models.DeleteModelCredential(ctx, installation, row.NativeID, configuration.ProviderPresetID)
+	return s.modelCredentialView(status), err
 }
 
 func (s *InstanceInventory) resolveModelTarget(ctx context.Context, instanceID string, mutation bool) (instance.Instance, yorvaruntime.ModelConfigurator, yorvaruntime.ModelInstallation, func(), error) {
@@ -107,4 +160,8 @@ func (s *InstanceInventory) modelConfigurationView(config yorvaruntime.ModelConf
 		CredentialConfigured: config.CredentialConfigured,
 		ObservedAt:           s.now(),
 	}
+}
+
+func (s *InstanceInventory) modelCredentialView(status yorvaruntime.ModelCredentialStatus) ModelCredentialView {
+	return ModelCredentialView{ProviderPresetID: status.ProviderPresetID, Configured: status.Configured, ObservedAt: s.now()}
 }

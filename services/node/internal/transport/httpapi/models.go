@@ -19,6 +19,9 @@ type ModelConfigurationService interface {
 	ListModelProviderPresets(context.Context) ([]yorvaruntime.ModelProviderPreset, error)
 	GetModelConfiguration(context.Context, string) (app.ModelConfigurationView, error)
 	PatchModelConfiguration(context.Context, string, string, string) (app.ModelConfigurationView, error)
+	GetModelCredential(context.Context, string) (app.ModelCredentialView, error)
+	SaveModelCredentialConfiguration(context.Context, string, string, string, []byte) (app.ModelConfigurationView, error)
+	DeleteModelCredential(context.Context, string) (app.ModelCredentialView, error)
 }
 
 type ModelProviderPresetResponse struct {
@@ -46,6 +49,12 @@ type ModelConfigurationResponse struct {
 	CredentialConfigured bool                                 `json:"credentialConfigured"`
 	ObservedAt           time.Time                            `json:"observedAt"`
 	Validation           ModelValidationSummaryResponse       `json:"validation"`
+}
+
+type ModelCredentialResponse struct {
+	ProviderPresetID string    `json:"providerPresetId"`
+	Configured       bool      `json:"configured"`
+	ObservedAt       time.Time `json:"observedAt"`
 }
 
 func listModelProviderPresets(models ModelConfigurationService) http.Handler {
@@ -106,6 +115,57 @@ func patchModelConfiguration(models ModelConfigurationService) http.Handler {
 	})
 }
 
+func getModelCredential(models ModelConfigurationService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if models == nil {
+			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Model credentials are unavailable.", Retryable: true})
+			return
+		}
+		credential, err := models.GetModelCredential(r.Context(), r.PathValue("instanceId"))
+		if err != nil {
+			writeModelError(w, app.ModelConfigurationView{}, err)
+			return
+		}
+		writeModelCredential(w, http.StatusOK, credential)
+	})
+}
+
+func putModelCredential(models ModelConfigurationService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if models == nil {
+			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Model credentials are unavailable.", Retryable: true})
+			return
+		}
+		presetID, modelID, secret, err := decodeClosedModelCredential(r)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorModelConfigInvalid), Message: "The model credential request is invalid.", Retryable: false})
+			return
+		}
+		defer clearBytes(secret)
+		configuration, err := models.SaveModelCredentialConfiguration(r.Context(), r.PathValue("instanceId"), presetID, modelID, secret)
+		if err != nil {
+			writeModelError(w, configuration, err)
+			return
+		}
+		writeModelConfiguration(w, http.StatusOK, configuration)
+	})
+}
+
+func deleteModelCredential(models ModelConfigurationService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if models == nil {
+			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Model credentials are unavailable.", Retryable: true})
+			return
+		}
+		credential, err := models.DeleteModelCredential(r.Context(), r.PathValue("instanceId"))
+		if err != nil {
+			writeModelError(w, app.ModelConfigurationView{}, err)
+			return
+		}
+		writeModelCredential(w, http.StatusOK, credential)
+	})
+}
+
 func writeModelConfiguration(w http.ResponseWriter, status int, configuration app.ModelConfigurationView) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -121,6 +181,14 @@ func newModelConfigurationResponse(configuration app.ModelConfigurationView) Mod
 		ObservedAt:           configuration.ObservedAt,
 		Validation:           ModelValidationSummaryResponse{State: "NOT_RUN"},
 	}
+}
+
+func writeModelCredential(w http.ResponseWriter, status int, credential app.ModelCredentialView) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(ModelCredentialResponse{
+		ProviderPresetID: credential.ProviderPresetID, Configured: credential.Configured, ObservedAt: credential.ObservedAt,
+	})
 }
 
 func decodeClosedModelConfig(r *http.Request) (string, string, error) {
@@ -147,12 +215,47 @@ func decodeClosedModelConfig(r *http.Request) (string, string, error) {
 	return body.ProviderPresetID, body.ModelID, nil
 }
 
+func decodeClosedModelCredential(r *http.Request) (string, string, []byte, error) {
+	if r.Body == nil {
+		return "", "", nil, io.EOF
+	}
+	defer r.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(r.Body, 24*1024+1))
+	if err != nil || len(payload) == 0 || len(payload) > 24*1024 {
+		clearBytes(payload)
+		return "", "", nil, io.ErrUnexpectedEOF
+	}
+	defer clearBytes(payload)
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	var body struct {
+		ProviderPresetID string `json:"providerPresetId"`
+		ModelID          string `json:"modelId"`
+		Value            string `json:"value"`
+	}
+	if err := decoder.Decode(&body); err != nil || body.ProviderPresetID == "" || body.ModelID == "" || body.Value == "" {
+		return "", "", nil, errors.New("invalid model credential")
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return "", "", nil, errors.New("trailing json")
+	}
+	secret := []byte(body.Value)
+	body.Value = ""
+	return body.ProviderPresetID, body.ModelID, secret, nil
+}
+
+func clearBytes(value []byte) {
+	for index := range value {
+		value[index] = 0
+	}
+}
+
 func writeModelError(w http.ResponseWriter, observed app.ModelConfigurationView, err error) {
 	switch {
 	case errors.Is(err, app.ErrInstanceNotFound):
 		writeError(w, http.StatusNotFound, ErrorBody{Code: string(yorvaruntime.ErrorInstanceNotFound), Message: "The requested instance was not found.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceNotAvailable):
-		writeError(w, http.StatusConflict, ErrorBody{Code: "INSTANCE_NOT_AVAILABLE", Message: "The requested instance is not available.", Retryable: false})
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceNotAvailable), Message: "The requested instance is not available.", Retryable: false})
 	case errors.Is(err, yorvaruntime.ErrModelProviderUnsupported), errors.Is(err, app.ErrRuntimeNotSupported):
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorModelProviderUnsupported), Message: "Model configuration is not supported by this Hermes installation.", Retryable: false})
 	case errors.Is(err, yorvaruntime.ErrModelConfigInvalid):
@@ -167,6 +270,12 @@ func writeModelError(w http.ResponseWriter, observed app.ModelConfigurationView,
 		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorModelConfigApplyFailed), Message: "The model configuration could not be applied.", Retryable: true})
 	case errors.Is(err, yorvaruntime.ErrModelConfigQueryFailed):
 		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorModelConfigQueryFailed), Message: "The model configuration could not be queried.", Retryable: true})
+	case errors.Is(err, yorvaruntime.ErrModelCredentialQueryFailed):
+		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorModelCredentialQueryFailed), Message: "Model credential status could not be queried.", Retryable: true})
+	case errors.Is(err, yorvaruntime.ErrModelCredentialWriteFailed):
+		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorModelCredentialWriteFailed), Message: "The model credential could not be saved.", Retryable: true})
+	case errors.Is(err, yorvaruntime.ErrModelCredentialDeleteFailed):
+		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorModelCredentialDeleteFailed), Message: "The model credential could not be deleted.", Retryable: true})
 	case errors.Is(err, context.Canceled):
 		return
 	default:

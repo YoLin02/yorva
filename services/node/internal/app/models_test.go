@@ -16,6 +16,36 @@ type fakeModelConfigurator struct {
 	applyModelID  string
 	config        yorvaruntime.ModelConfiguration
 	err           error
+	credential    yorvaruntime.ModelCredentialStatus
+	secret        []byte
+	deleted       string
+}
+
+func (f *fakeModelConfigurator) ModelCredentialStatus(_ context.Context, _ yorvaruntime.ModelInstallation, nativeID, presetID string) (yorvaruntime.ModelCredentialStatus, error) {
+	f.readNativeID = nativeID
+	if f.credential.ProviderPresetID == "" {
+		f.credential.ProviderPresetID = presetID
+	}
+	return f.credential, f.err
+}
+
+func (f *fakeModelConfigurator) SetModelCredential(_ context.Context, _ yorvaruntime.ModelInstallation, nativeID, presetID string, secret []byte) (yorvaruntime.ModelCredentialStatus, error) {
+	f.applyNativeID, f.applyPresetID = nativeID, presetID
+	f.secret = append([]byte(nil), secret...)
+	if f.err != nil {
+		return yorvaruntime.ModelCredentialStatus{}, f.err
+	}
+	f.credential = yorvaruntime.ModelCredentialStatus{ProviderPresetID: presetID, Configured: true}
+	return f.credential, nil
+}
+
+func (f *fakeModelConfigurator) DeleteModelCredential(_ context.Context, _ yorvaruntime.ModelInstallation, nativeID, presetID string) (yorvaruntime.ModelCredentialStatus, error) {
+	f.applyNativeID, f.deleted = nativeID, presetID
+	if f.err != nil {
+		return yorvaruntime.ModelCredentialStatus{}, f.err
+	}
+	f.credential = yorvaruntime.ModelCredentialStatus{ProviderPresetID: presetID}
+	return f.credential, nil
 }
 
 func (f *fakeModelConfigurator) ListProviderPresets() []yorvaruntime.ModelProviderPreset {
@@ -100,6 +130,36 @@ func TestModelUseCasePreservesSafeObservedStateOnAdapterError(t *testing.T) {
 	got, err := inventory.PatchModelConfiguration(context.Background(), listed.Instances[0].InstanceID, "deepseek", "new-model")
 	if !errors.Is(err, yorvaruntime.ErrModelConfigIncomplete) || got.ModelID != "old-model" || got.ObservedAt.IsZero() {
 		t.Fatalf("observed state = %#v, %v", got, err)
+	}
+}
+
+func TestCredentialUseCasesCoordinateSaveStatusAndDelete(t *testing.T) {
+	inventory, _ := newTestInventory(t, []ProfileSnapshot{{NativeID: "coder"}}, nil)
+	models := &fakeModelConfigurator{
+		config:     yorvaruntime.ModelConfiguration{ProviderPresetID: "deepseek", ModelID: "deepseek-v4-pro", State: yorvaruntime.ModelConfigurationConfigured, CredentialConfigured: true},
+		credential: yorvaruntime.ModelCredentialStatus{ProviderPresetID: "deepseek", Configured: true},
+	}
+	registerTestModels(t, inventory, models)
+	listed, err := inventory.ListInstances(context.Background(), hermesRuntimeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instanceID := listed.Instances[0].InstanceID
+	metadata, err := inventory.GetModelCredential(context.Background(), instanceID)
+	if err != nil || !metadata.Configured || metadata.ProviderPresetID != "deepseek" || metadata.ObservedAt.IsZero() {
+		t.Fatalf("metadata = %#v %v", metadata, err)
+	}
+	secret := []byte("batch-three-secret")
+	configuration, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "deepseek-v4-pro", secret)
+	if err != nil || configuration.State != yorvaruntime.ModelConfigurationConfigured || string(models.secret) != string(secret) || models.applyNativeID != "coder" {
+		t.Fatalf("save = %#v fake=%#v %v", configuration, models, err)
+	}
+	metadata, err = inventory.DeleteModelCredential(context.Background(), instanceID)
+	if err != nil || metadata.Configured || models.deleted != "deepseek" || models.applyNativeID != "coder" {
+		t.Fatalf("delete = %#v fake=%#v %v", metadata, models, err)
+	}
+	if models.applyNativeID == instanceID {
+		t.Fatal("public instanceId crossed the Runtime boundary")
 	}
 }
 

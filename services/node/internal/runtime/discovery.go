@@ -64,6 +64,7 @@ const (
 	ErrorInstanceInvalidName          ErrorCode = "INSTANCE_INVALID_NAME"
 	ErrorInstanceAlreadyExists        ErrorCode = "INSTANCE_ALREADY_EXISTS"
 	ErrorInstanceNotFound             ErrorCode = "INSTANCE_NOT_FOUND"
+	ErrorInstanceNotAvailable         ErrorCode = "INSTANCE_NOT_AVAILABLE"
 	ErrorInstanceProtected            ErrorCode = "INSTANCE_PROTECTED"
 	ErrorInstanceConfirmationMismatch ErrorCode = "INSTANCE_CONFIRMATION_MISMATCH"
 	ErrorInstanceConflict             ErrorCode = "INSTANCE_CONFLICT"
@@ -77,6 +78,9 @@ const (
 	ErrorModelConfigApplyFailed       ErrorCode = "MODEL_CONFIG_APPLY_FAILED"
 	ErrorModelConfigIncomplete        ErrorCode = "MODEL_CONFIG_INCOMPLETE"
 	ErrorModelCredentialRequired      ErrorCode = "MODEL_CREDENTIAL_REQUIRED"
+	ErrorModelCredentialQueryFailed   ErrorCode = "MODEL_CREDENTIAL_QUERY_FAILED"
+	ErrorModelCredentialWriteFailed   ErrorCode = "MODEL_CREDENTIAL_WRITE_FAILED"
+	ErrorModelCredentialDeleteFailed  ErrorCode = "MODEL_CREDENTIAL_DELETE_FAILED"
 	ErrorInstanceConfigConflict       ErrorCode = "INSTANCE_CONFIG_CONFLICT"
 )
 

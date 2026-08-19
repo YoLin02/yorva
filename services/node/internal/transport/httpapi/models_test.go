@@ -20,6 +20,8 @@ type fakeModelsAPI struct {
 	err           error
 	patchedPreset string
 	patchedModel  string
+	credential    app.ModelCredentialView
+	secret        []byte
 }
 
 func (f *fakeModelsAPI) ListModelProviderPresets(context.Context) ([]yorvaruntime.ModelProviderPreset, error) {
@@ -33,6 +35,20 @@ func (f *fakeModelsAPI) GetModelConfiguration(context.Context, string) (app.Mode
 func (f *fakeModelsAPI) PatchModelConfiguration(_ context.Context, _, presetID, modelID string) (app.ModelConfigurationView, error) {
 	f.patchedPreset, f.patchedModel = presetID, modelID
 	return f.configuration, f.err
+}
+
+func (f *fakeModelsAPI) GetModelCredential(context.Context, string) (app.ModelCredentialView, error) {
+	return f.credential, f.err
+}
+
+func (f *fakeModelsAPI) SaveModelCredentialConfiguration(_ context.Context, _, presetID, modelID string, secret []byte) (app.ModelConfigurationView, error) {
+	f.patchedPreset, f.patchedModel = presetID, modelID
+	f.secret = append([]byte(nil), secret...)
+	return f.configuration, f.err
+}
+
+func (f *fakeModelsAPI) DeleteModelCredential(context.Context, string) (app.ModelCredentialView, error) {
+	return f.credential, f.err
 }
 
 func TestModelHTTPContractIsAuthenticatedSafeAndClosed(t *testing.T) {
@@ -112,6 +128,52 @@ func TestModelRoutesAdvertisePatchAndCorsPut(t *testing.T) {
 	handler.ServeHTTP(result, options)
 	if result.Code != http.StatusNoContent || result.Header().Get("Allow") != "GET, PATCH, OPTIONS" || !strings.Contains(result.Header().Get("Access-Control-Allow-Methods"), "PUT") {
 		t.Fatalf("options = %d allow=%q cors=%q", result.Code, result.Header().Get("Allow"), result.Header().Get("Access-Control-Allow-Methods"))
+	}
+}
+
+func TestModelCredentialHTTPIsMetadataOnlyWriteOnlyAndClosed(t *testing.T) {
+	const secret = "sk-batch-three-http-sentinel"
+	now := time.Date(2026, 8, 19, 19, 0, 0, 0, time.UTC)
+	models := &fakeModelsAPI{
+		configuration: app.ModelConfigurationView{ProviderPresetID: "deepseek", ModelID: "deepseek-v4-pro", State: yorvaruntime.ModelConfigurationConfigured, CredentialConfigured: true, ObservedAt: now},
+		credential:    app.ModelCredentialView{ProviderPresetID: "deepseek", Configured: true, ObservedAt: now},
+	}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+
+	get := authorizedRequest(http.MethodGet, "/api/v1/instances/inst_public/credentials/model-provider", "")
+	getResult := httptest.NewRecorder()
+	handler.ServeHTTP(getResult, get)
+	if getResult.Code != http.StatusOK || !strings.Contains(getResult.Body.String(), `"configured":true`) || strings.Contains(getResult.Body.String(), secret) || strings.Contains(getResult.Body.String(), "value") {
+		t.Fatalf("metadata = %d %s", getResult.Code, getResult.Body.String())
+	}
+
+	putBody := `{"providerPresetId":"deepseek","modelId":"deepseek-v4-pro","value":"` + secret + `"}`
+	put := authorizedRequest(http.MethodPut, "/api/v1/instances/inst_public/credentials/model-provider", putBody)
+	putResult := httptest.NewRecorder()
+	handler.ServeHTTP(putResult, put)
+	if putResult.Code != http.StatusOK || string(models.secret) != secret || strings.Contains(putResult.Body.String(), secret) || strings.Contains(putResult.Body.String(), "value") {
+		t.Fatalf("put = %d %s fake=%#v", putResult.Code, putResult.Body.String(), models)
+	}
+
+	invalid := authorizedRequest(http.MethodPut, "/api/v1/instances/inst_public/credentials/model-provider", strings.TrimSuffix(putBody, "}")+`,"envName":"EVIL"}`)
+	invalidResult := httptest.NewRecorder()
+	handler.ServeHTTP(invalidResult, invalid)
+	if invalidResult.Code != http.StatusBadRequest || strings.Contains(invalidResult.Body.String(), secret) {
+		t.Fatalf("closed put = %d %s", invalidResult.Code, invalidResult.Body.String())
+	}
+
+	del := authorizedRequest(http.MethodDelete, "/api/v1/instances/inst_public/credentials/model-provider", "")
+	delResult := httptest.NewRecorder()
+	handler.ServeHTTP(delResult, del)
+	if delResult.Code != http.StatusOK || strings.Contains(delResult.Body.String(), secret) {
+		t.Fatalf("delete = %d %s", delResult.Code, delResult.Body.String())
+	}
+
+	options := httptest.NewRequest(http.MethodOptions, "/api/v1/instances/inst_public/credentials/model-provider", nil)
+	optionsResult := httptest.NewRecorder()
+	handler.ServeHTTP(optionsResult, options)
+	if optionsResult.Code != http.StatusNoContent || optionsResult.Header().Get("Allow") != "GET, PUT, DELETE, OPTIONS" {
+		t.Fatalf("credential options = %d %q", optionsResult.Code, optionsResult.Header().Get("Allow"))
 	}
 }
 

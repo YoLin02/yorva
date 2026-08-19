@@ -2,6 +2,7 @@ package hermes
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
 const (
@@ -29,6 +32,63 @@ var (
 type ModelCredentialStatus struct {
 	ProviderPresetID string
 	Configured       bool
+}
+
+func (m *ModelManager) ModelCredentialStatus(ctx context.Context, installation yorvaruntime.ModelInstallation, nativeID, presetID string) (yorvaruntime.ModelCredentialStatus, error) {
+	if err := validateModelCredentialTarget(ctx, installation, nativeID); err != nil {
+		return yorvaruntime.ModelCredentialStatus{}, err
+	}
+	status, err := m.credentials.Status(nativeID, presetID)
+	if err != nil {
+		return yorvaruntime.ModelCredentialStatus{}, normalizeModelCredentialError(err, false)
+	}
+	return yorvaruntime.ModelCredentialStatus{ProviderPresetID: status.ProviderPresetID, Configured: status.Configured}, nil
+}
+
+func (m *ModelManager) SetModelCredential(ctx context.Context, installation yorvaruntime.ModelInstallation, nativeID, presetID string, secret []byte) (yorvaruntime.ModelCredentialStatus, error) {
+	if err := validateModelCredentialTarget(ctx, installation, nativeID); err != nil {
+		return yorvaruntime.ModelCredentialStatus{}, err
+	}
+	status, err := m.credentials.Set(nativeID, presetID, secret)
+	if err != nil {
+		return yorvaruntime.ModelCredentialStatus{}, normalizeModelCredentialError(err, false)
+	}
+	return yorvaruntime.ModelCredentialStatus{ProviderPresetID: status.ProviderPresetID, Configured: status.Configured}, nil
+}
+
+func (m *ModelManager) DeleteModelCredential(ctx context.Context, installation yorvaruntime.ModelInstallation, nativeID, presetID string) (yorvaruntime.ModelCredentialStatus, error) {
+	if err := validateModelCredentialTarget(ctx, installation, nativeID); err != nil {
+		return yorvaruntime.ModelCredentialStatus{}, err
+	}
+	status, err := m.credentials.Delete(nativeID, presetID)
+	if err != nil {
+		return yorvaruntime.ModelCredentialStatus{}, normalizeModelCredentialError(err, true)
+	}
+	return yorvaruntime.ModelCredentialStatus{ProviderPresetID: status.ProviderPresetID, Configured: status.Configured}, nil
+}
+
+func validateModelCredentialTarget(ctx context.Context, installation yorvaruntime.ModelInstallation, nativeID string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return validateModelTarget(installation, nativeID)
+}
+
+func normalizeModelCredentialError(err error, deleting bool) error {
+	switch {
+	case IsModelProviderUnsupported(err):
+		return yorvaruntime.ErrModelProviderUnsupported
+	case IsModelCredentialInvalid(err):
+		return yorvaruntime.ErrModelConfigInvalid
+	case IsModelCredentialConflict(err):
+		return yorvaruntime.ErrInstanceConfigConflict
+	case IsModelCredentialQueryFailure(err), IsModelCredentialUnsafe(err):
+		return yorvaruntime.ErrModelCredentialQueryFailed
+	case deleting:
+		return yorvaruntime.ErrModelCredentialDeleteFailed
+	default:
+		return yorvaruntime.ErrModelCredentialWriteFailed
+	}
 }
 
 type credentialSnapshot struct {

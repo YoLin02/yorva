@@ -72,6 +72,9 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("DELETE /api/v1/instances/{instanceId}", requireBearer(token, deleteInstance(instances)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/config", requireBearer(token, getModelConfiguration(models)))
 	mux.Handle("PATCH /api/v1/instances/{instanceId}/config", requireBearer(token, patchModelConfiguration(models)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, getModelCredential(models)))
+	mux.Handle("PUT /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, putModelCredential(models)))
+	mux.Handle("DELETE /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, deleteModelCredential(models)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/start", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("POST /api/v1/instances/{instanceId}/stop", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("POST /api/v1/instances/{instanceId}/restart", requireBearer(token, instanceLifecycleUnsupported()))
@@ -161,6 +164,8 @@ func allowedMethods(path string) (string, bool) {
 		return "POST, OPTIONS", true
 	case "config":
 		return "GET, PATCH, OPTIONS", true
+	case "model-credential":
+		return "GET, PUT, DELETE, OPTIONS", true
 	}
 	return "", false
 }
