@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { InstanceList } from "../api/types";
 import { messages } from "../i18n";
@@ -16,6 +16,18 @@ const inventory: InstanceList = {
       name: "default",
       default: true,
       protected: true,
+      availability: "AVAILABLE",
+      lastSyncedAt: "2026-08-19T12:00:00Z",
+      createdAt: "2026-08-19T12:00:00Z",
+      updatedAt: "2026-08-19T12:00:00Z",
+      capabilities: { instances: true, lifecycle: false },
+    },
+    {
+      instanceId: "inst_coder",
+      runtimeInstallationId: "rtinst_test",
+      name: "coder",
+      default: false,
+      protected: false,
       availability: "AVAILABLE",
       lastSyncedAt: "2026-08-19T12:00:00Z",
       createdAt: "2026-08-19T12:00:00Z",
@@ -88,8 +100,8 @@ describe("InstancesPage", () => {
     );
     expect(screen.getByText("default")).toBeInTheDocument();
     expect(screen.getByText("Protected")).toBeInTheDocument();
-    expect(screen.getByText("Available")).toBeInTheDocument();
-    expect(screen.getByText(messages["en-US"].instances.emptyNamed)).toBeInTheDocument();
+    expect(screen.getAllByText("Available").length).toBeGreaterThan(0);
+    expect(screen.queryByText(messages["en-US"].instances.emptyNamed)).not.toBeInTheDocument();
     expect(screen.getByText(messages["en-US"].instances.lifecycleUnavailable)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     expect(onRefresh).toHaveBeenCalled();
@@ -123,5 +135,113 @@ describe("InstancesPage", () => {
     );
     expect(screen.getByText(messages["zh-CN"].instances.freshnessUnknown)).toBeInTheDocument();
     expect(screen.getByText("受保护")).toBeInTheDocument();
+  });
+
+  it("opens a modal confirmation when Delete is clicked", () => {
+    const onDeleteTargetChange = vi.fn();
+    const { rerender } = render(
+      <InstancesPage
+        supported
+        loading={false}
+        error={false}
+        inventory={inventory}
+        createName=""
+        createBusy={false}
+        createOperation={null}
+        copy={messages["en-US"]}
+        locale="en-US"
+        onRefresh={() => undefined}
+        onCreateNameChange={() => undefined}
+        onCreate={() => undefined}
+        onCancelCreate={() => undefined}
+        deleteTarget={null}
+        deleteConfirmation=""
+        deleteBusy={false}
+        deleteOperation={null}
+        onDeleteTargetChange={onDeleteTargetChange}
+        onDeleteConfirmationChange={() => undefined}
+        onDelete={() => undefined}
+        onCancelDelete={() => undefined}
+      />,
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(onDeleteTargetChange).toHaveBeenCalledWith(inventory.instances[1]);
+
+    rerender(
+      <InstancesPage
+        supported
+        loading={false}
+        error={false}
+        inventory={inventory}
+        createName=""
+        createBusy={false}
+        createOperation={null}
+        copy={messages["en-US"]}
+        locale="en-US"
+        onRefresh={() => undefined}
+        onCreateNameChange={() => undefined}
+        onCreate={() => undefined}
+        onCancelCreate={() => undefined}
+        deleteTarget={inventory.instances[1]}
+        deleteConfirmation=""
+        deleteBusy={false}
+        deleteOperation={null}
+        onDeleteTargetChange={onDeleteTargetChange}
+        onDeleteConfirmationChange={() => undefined}
+        onDelete={() => undefined}
+        onCancelDelete={() => undefined}
+      />,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Delete instance" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByText(messages["en-US"].instances.deleteWarning)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeDisabled();
+  });
+
+  it("does not offer delete for missing or unknown instances", () => {
+    const tombstoned: InstanceList = {
+      ...inventory,
+      instances: [
+        inventory.instances[0],
+        { ...inventory.instances[1], availability: "MISSING" },
+        {
+          ...inventory.instances[1],
+          instanceId: "inst_notes",
+          name: "notes",
+          availability: "UNKNOWN",
+        },
+      ],
+    };
+    render(
+      <InstancesPage
+        supported
+        loading={false}
+        error={false}
+        inventory={tombstoned}
+        createName=""
+        createBusy={false}
+        createOperation={null}
+        copy={messages["en-US"]}
+        locale="en-US"
+        onRefresh={() => undefined}
+        onCreateNameChange={() => undefined}
+        onCreate={() => undefined}
+        onCancelCreate={() => undefined}
+        deleteTarget={null}
+        deleteConfirmation=""
+        deleteBusy={false}
+        deleteOperation={null}
+        onDeleteTargetChange={() => undefined}
+        onDeleteConfirmationChange={() => undefined}
+        onDelete={() => undefined}
+        onCancelDelete={() => undefined}
+      />,
+    );
+    expect(screen.getByText("coder")).toBeInTheDocument();
+    expect(screen.getByText("notes")).toBeInTheDocument();
+    expect(screen.getByText("Missing")).toBeInTheDocument();
+    expect(screen.getByText("Unknown")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
   });
 });

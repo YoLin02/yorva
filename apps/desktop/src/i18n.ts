@@ -163,6 +163,7 @@ type Messages = {
     deleteSucceeded: string;
     deleteFailed: string;
     cancelDelete: string;
+    dismissDelete: string;
   };
 };
 
@@ -404,6 +405,7 @@ const english: Messages = {
     deleteSucceeded: "Instance deleted and retained as missing",
     deleteFailed: "Instance delete failed",
     cancelDelete: "Cancel delete",
+    dismissDelete: "Cancel",
   },
 };
 
@@ -645,6 +647,7 @@ const simplifiedChinese: Messages = {
     deleteSucceeded: "实例已删除，并保留为缺失",
     deleteFailed: "删除实例失败",
     cancelDelete: "取消删除",
+    dismissDelete: "取消",
   },
 };
 
