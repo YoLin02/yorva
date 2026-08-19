@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phase 1, Phase 2 and Phase 3 frozen; Phase 4 unfrozen for delete-timeout remediations; current Phase 3 baseline `phase-003-hermes-installation-baseline`
+> Status: Phase 1, Phase 2, Phase 3 and Phase 4 frozen; current Phase 4 baseline `phase-004-instance-profile-baseline`
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**

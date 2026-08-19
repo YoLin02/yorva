@@ -147,12 +147,15 @@ The detailed Phase 3 Spec was prepared after Phase 2 amendment 002A1 passed inde
 
 ## Phase 4 — Instance/Profile management
 
-Status: **UNFROZEN** (delete-timeout remediations; Owner manual verification required before re-freeze)
-Gate: `AUDIT-004R2` was **PASS WITH CONDITIONS**; freeze tag withdrawn 2026-08-19
-Specs: `docs/phases/PHASE-004-instance-profile.zh-CN.md` (Owner review) and `docs/phases/PHASE-004-instance-profile.md` (Agent execution mirror)
+Status: **COMPLETE / FROZEN**
+Gate: **PASS WITH CONDITIONS** (`AUDIT-004R3-instance-profile.md`)
+Baseline: `phase-004-instance-profile-baseline`
+Audit-accepted implementation commit: `35b268425a023f20c655bbfbd697f7a80c3e60a9`
+Exact-commit CI: GitHub Actions run `32234908416` — SUCCESS
+Specs: `docs/phases/PHASE-004-instance-profile.zh-CN.md` (Owner review) and `docs/phases/PHASE-004-instance-profile.md` (Agent execution mirror) — **FROZEN**
 Start commit: `d04b1fdc298f643f84d0c84a245595baae2e8994`
 Branch: `fix/phase4-profile-delete-timeout`
-Audit: `AUDIT-004` — **FAIL** (immutable); `AUDIT-004R1` — **PASS WITH CONDITIONS**; `AUDIT-004R2` — **PASS WITH CONDITIONS** (freeze withdrawn)
+Audit: `AUDIT-004` — **FAIL** (immutable); `AUDIT-004R1`/`R2` — **PASS WITH CONDITIONS** (historical); `AUDIT-004R3` — **PASS WITH CONDITIONS**
 
 Goal: manage multiple Hermes-backed YORVA instances.
 
@@ -174,7 +177,7 @@ Exit criteria:
 
 Status: **DRAFT — OWNER REVIEW REQUIRED**
 Specs: `docs/phases/PHASE-005-models-credentials.zh-CN.md` (Owner review) and `docs/phases/PHASE-005-models-credentials.md` (Agent execution mirror)
-Target baseline: Phase 4 re-freeze (previous `phase-004-instance-profile-baseline` withdrawn 2026-08-19)
+Target baseline: `phase-004-instance-profile-baseline`
 Implementation: **NOT AUTHORIZED**
 
 Goal: make model configuration safe and simple.
