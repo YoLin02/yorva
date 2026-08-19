@@ -458,7 +458,7 @@ This directive does not itself authorize implementation.
 ## 24. Completion Evidence
 
 ```text
-Implementation commit: recorded after Batch 6 verification commit
+Implementation commit: fe15203e71ac1f988bdc87a9e34ed4df886a9dfb
 Branch: codex/phase4-instance-profile
 Batch results:
   READY docs 60b23f4 PASS

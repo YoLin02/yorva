@@ -458,7 +458,7 @@ SQLite 是缓存。缓存 row 不能授权 Hermes mutation、删除或文件访�
 ## 24. 完成证据
 
 ```text
-Implementation commit: 在 Batch 6 验证提交后记录
+Implementation commit: fe15203e71ac1f988bdc87a9e34ed4df886a9dfb
 Branch: codex/phase4-instance-profile
 Batch results:
   READY docs 60b23f4 PASS
