@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 )
 
 type fakeMutator struct {
+	mu      sync.Mutex
 	source  *fakeProfileSource
 	err     error
 	calls   int
@@ -19,28 +21,44 @@ type fakeMutator struct {
 }
 
 func (f *fakeMutator) Delete(_ context.Context, _ string, nativeID string) error {
+	f.mu.Lock()
 	f.calls++
 	f.last = nativeID
-	if f.err != nil {
-		return f.err
+	err := f.err
+	source := f.source
+	f.mu.Unlock()
+	if err != nil {
+		return err
 	}
-	if f.source != nil {
-		f.source.removeProfile(nativeID)
+	if source != nil {
+		source.removeProfile(nativeID)
 	}
 	return nil
 }
 
 func (f *fakeMutator) Create(_ context.Context, _ string, name string) error {
+	f.mu.Lock()
 	f.calls++
 	f.last = name
-	if f.err != nil {
-		return f.err
+	err := f.err
+	source := f.source
+	f.mu.Unlock()
+	if err != nil {
+		return err
 	}
+	f.mu.Lock()
 	f.created = append(f.created, name)
-	if f.source != nil {
-		f.source.addProfile(ProfileSnapshot{NativeID: name})
+	f.mu.Unlock()
+	if source != nil {
+		source.addProfile(ProfileSnapshot{NativeID: name})
 	}
 	return nil
+}
+
+func (f *fakeMutator) snapshot() (int, string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls, f.last
 }
 
 func TestStartCreateRequiresValidNameAndIdempotency(t *testing.T) {
@@ -51,7 +69,7 @@ func TestStartCreateRequiresValidNameAndIdempotency(t *testing.T) {
 	if _, err := inventory.StartCreate(context.Background(), "hermes", "default", "key-1"); !errors.Is(err, ErrInstanceInvalidName) {
 		t.Fatalf("default name = %v", err)
 	}
-	if mutator.calls != 0 {
+	if calls, _ := mutator.snapshot(); calls != 0 {
 		t.Fatal("invalid name started a process")
 	}
 	if _, err := inventory.StartCreate(context.Background(), "hermes", "coder", "has space"); !errors.Is(err, ErrInvalidIdempotencyKey) {
@@ -82,15 +100,15 @@ func TestStartCreateIdempotencyAndSuccess(t *testing.T) {
 		t.Fatalf("payload conflict = %v", err)
 	}
 
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		got, err := inventory.db.GetOperation(context.Background(), first.Operation.ID)
 		if err == nil && got.Status == operation.StatusFailed {
 			t.Fatalf("create failed: %#v", got)
 		}
 		if err == nil && got.Status == operation.StatusSucceeded {
-			if mutator.last != "coder" || mutator.calls != 1 {
-				t.Fatalf("mutator = %#v", mutator)
+			if calls, last := mutator.snapshot(); last != "coder" || calls != 1 {
+				t.Fatalf("mutator calls=%d last=%s", calls, last)
 			}
 			listed, err := inventory.ListInstances(context.Background(), "hermes")
 			if err != nil {

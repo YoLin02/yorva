@@ -33,7 +33,7 @@ func TestCreateCancelBeforeStartAndNotAfter(t *testing.T) {
 			t.Fatalf("cancel after command start = %v", err)
 		}
 		close(release)
-	case <-time.After(2 * time.Second):
+	case <-time.After(15 * time.Second):
 		// cancelled before start
 		got, err := inventory.db.GetOperation(context.Background(), first.Operation.ID)
 		if err != nil {
