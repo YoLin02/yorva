@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -29,6 +30,21 @@ func main() {
 			os.Exit(11)
 		}
 		fmt.Print(os.Getenv("YORVA_FAKE_HERMES_PROFILE_LIST"))
+		return
+	}
+	if os.Getenv("YORVA_FAKE_HERMES_MODE") == "profile-delete-slow" {
+		if len(os.Args) != 5 || os.Args[1] != "profile" || os.Args[2] != "delete" || os.Args[4] != "--yes" || os.Args[3] == "default" {
+			os.Exit(9)
+		}
+		sleep := 3200 * time.Millisecond
+		if raw := os.Getenv("YORVA_FAKE_HERMES_SLEEP_MS"); raw != "" {
+			ms, err := strconv.Atoi(raw)
+			if err != nil || ms < 0 {
+				os.Exit(9)
+			}
+			sleep = time.Duration(ms) * time.Millisecond
+		}
+		time.Sleep(sleep)
 		return
 	}
 	if len(os.Args) != 2 || os.Args[1] != "--version" {

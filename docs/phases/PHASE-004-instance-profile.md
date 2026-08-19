@@ -1,6 +1,6 @@
 # YORVA Phase 4 — Instance / Profile Management
 
-> Status: COMPLETE / FROZEN
+> Status: UNFROZEN — delete-timeout remediations
 > Language: English execution mirror for the implementation Agent
 > Owner: Repository owner
 > Target baseline: `phase-003-hermes-installation-baseline`
@@ -9,13 +9,12 @@
 > Chinese Owner-review source: `PHASE-004-instance-profile.zh-CN.md`
 > Implementation authorization: **GRANTED** 2026-08-19
 > Owner decisions D1–D4: **APPROVED** 2026-08-19
-> Feature branch: `codex/phase4-instance-profile`
-> Implementation: COMPLETE / FROZEN
-> Phase 4 audit: `AUDIT-004` — FAIL (immutable); `AUDIT-004R1` — PASS WITH CONDITIONS (dirty tree); `AUDIT-004R2` — PASS WITH CONDITIONS
-> Audit-accepted implementation commit: `8397dd4785a98a750f866ee191c0ca9026efe96e`
-> Exact-commit CI: GitHub Actions run `32226244512` — SUCCESS
+> Feature branch: `fix/phase4-profile-delete-timeout`
+> Implementation: IN PROGRESS
+> Phase 4 audit: `AUDIT-004` — FAIL (immutable); `AUDIT-004R1` — PASS WITH CONDITIONS; `AUDIT-004R2` — PASS WITH CONDITIONS (freeze withdrawn 2026-08-19)
+> Previous freeze tag `phase-004-instance-profile-baseline` was deleted pending Owner manual verification
 
-This document and its Chinese mirror define the same contract. The Owner reviews the Chinese version. Independent `AUDIT-004R2` returned `PASS WITH CONDITIONS` on `8397dd4785a98a750f866ee191c0ca9026efe96e`. Historical `AUDIT-004` remains FAIL. Owner accepted the remaining Medium/Low conditions and authorized merge/freeze. Phase 5 implementation is not authorized by this freeze.
+This document and its Chinese mirror define the same contract. The 2026-08-19 freeze is withdrawn so a profile-delete command-timeout defect can be fixed. Do not treat Phase 4 as frozen. Phase 5 implementation remains unauthorized. Re-freeze only after Owner manual verification.
 
 ## 1. Objective
 
@@ -438,7 +437,7 @@ Real Hermes Profile smoke uses an isolated account/VM with disposable data. Neve
 - [x] Full verification and exact-commit CI pass.
 - [x] Independent `AUDIT-004R2-instance-profile.md` reaches Owner-accepted `PASS WITH CONDITIONS`.
 
-Phase 4 is `COMPLETE / FROZEN` on audit-accepted commit `8397dd4785a98a750f866ee191c0ca9026efe96e`. Do not begin Phase 5 from this freeze. Remaining Owner-accepted conditions are recorded in `AUDIT-004R2`.
+Phase 4 freeze was withdrawn on 2026-08-19 after Owner observed official `profile delete --yes` exceeding the 3s discovery command budget. Do not begin Phase 5. Re-freeze only after Owner manual verification.
 
 ## 22. Audit Requirements
 

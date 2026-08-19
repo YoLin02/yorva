@@ -1,6 +1,6 @@
 # YORVA Phase 4 — 实例 / Profile 管理
 
-> 状态：COMPLETE / FROZEN
+> 状态：UNFROZEN — 删除超时修复中
 > 语言：中文 Owner 审核版
 > Owner：仓库所有者
 > 目标基线：`phase-003-hermes-installation-baseline`
@@ -9,13 +9,12 @@
 > 英文 Agent 执行镜像：`PHASE-004-instance-profile.md`
 > 实现授权：**已授予** 2026-08-19
 > Owner 决策 D1–D4：**已批准** 2026-08-19
-> 功能分支：`codex/phase4-instance-profile`
-> 实现：COMPLETE / FROZEN
-> Phase 4 审计：`AUDIT-004` — FAIL（不可变）；`AUDIT-004R1` — PASS WITH CONDITIONS（脏工作区）；`AUDIT-004R2` — PASS WITH CONDITIONS
-> 审计接受的实现 commit：`8397dd4785a98a750f866ee191c0ca9026efe96e`
-> Exact-commit CI：GitHub Actions run `32226244512` — SUCCESS
+> 功能分支：`fix/phase4-profile-delete-timeout`
+> 实现：进行中
+> Phase 4 审计：`AUDIT-004` — FAIL（不可变）；`AUDIT-004R1` — PASS WITH CONDITIONS；`AUDIT-004R2` — PASS WITH CONDITIONS（冻结已于 2026-08-19 撤销）
+> 原冻结 tag `phase-004-instance-profile-baseline` 已删除，待 Owner 手动验证后再冻结
 
-本文件与英文镜像定义同一合同。Owner 审核中文版本。独立 `AUDIT-004R2` 对 `8397dd4785a98a750f866ee191c0ca9026efe96e` 给出 `PASS WITH CONDITIONS`。历史 `AUDIT-004` 保持 FAIL。Owner 已接受剩余 Medium/Low 条件并授权合并/冻结。本冻结不授权 Phase 5 实现。
+本文件与英文镜像定义同一合同。2026-08-19 的冻结已撤销，以便修复 Profile 删除命令超时缺陷。当前不得将 Phase 4 视为已冻结。Phase 5 实现仍未授权。仅在 Owner 手动验证通过后重新冻结。
 
 ## 1. 目标
 
@@ -438,7 +437,7 @@ SQLite 是缓存。缓存 row 不能授权 Hermes mutation、删除或文件访�
 - [x] 完整验证与 exact-commit CI 通过。
 - [x] 独立 `AUDIT-004R2-instance-profile.md` 达到 Owner 接受的 `PASS WITH CONDITIONS`。
 
-Phase 4 已在审计接受的 commit `8397dd4785a98a750f866ee191c0ca9026efe96e` 上 `COMPLETE / FROZEN`。不得从本次冻结开始 Phase 5。剩余 Owner 接受的条件记录在 `AUDIT-004R2`。
+Phase 4 冻结已于 2026-08-19 撤销，原因是官方 `profile delete --yes` 超过发现阶段 3 秒命令预算。不得开始 Phase 5。仅在 Owner 手动验证通过后重新冻结。
 
 ## 22. 审计要求
 

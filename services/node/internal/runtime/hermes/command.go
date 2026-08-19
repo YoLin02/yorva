@@ -12,6 +12,7 @@ import (
 
 const (
 	commandTimeout            = 3 * time.Second
+	profileMutationTimeout    = 30 * time.Second
 	commandWaitDelay          = time.Second
 	commandOutputLimit        = 64 * 1024
 	installCommandOutputLimit = 1024 * 1024
@@ -42,6 +43,12 @@ func newCommandRunner() commandRunner {
 		outputLimit: commandOutputLimit,
 		environment: minimalEnvironment,
 	}
+}
+
+func newProfileMutationRunner() commandRunner {
+	runner := newCommandRunner()
+	runner.timeout = profileMutationTimeout
+	return runner
 }
 
 func newInstallCommandRunner(timeout time.Duration, home string) commandRunner {

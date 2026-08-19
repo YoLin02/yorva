@@ -45,7 +45,7 @@ func deleteProfileWith(ctx context.Context, executable, nativeID string, run fun
 }
 
 func runProfileDeleteCommand(ctx context.Context, executable, home, nativeID string) commandResult {
-	runner := newCommandRunner()
+	runner := newProfileMutationRunner()
 	runner.environment = func() []string { return profileCommandEnvironment(home) }
 	return runner.run(ctx, commandInvocation{
 		path:       executable,
