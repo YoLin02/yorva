@@ -226,7 +226,11 @@ func (s *InstanceInventory) ensureInstallation(ctx context.Context, discovery yo
 	if err := s.db.UpsertAcceptedInstallation(ctx, created); err != nil {
 		return sqlite.AcceptedInstallation{}, err
 	}
-	return created, nil
+	stored, err := s.db.GetAcceptedInstallation(ctx, s.nodeID, yorvaruntime.Kind(hermesRuntimeID), discovery.Selected.Path)
+	if err != nil {
+		return sqlite.AcceptedInstallation{}, err
+	}
+	return stored, nil
 }
 
 func (s *InstanceInventory) lockInstallation(id string) func() {
