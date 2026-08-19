@@ -165,6 +165,38 @@ type Messages = {
     cancelDelete: string;
     dismissDelete: string;
   };
+  models: {
+    open: string;
+    close: string;
+    title: string;
+    description: string;
+    china: string;
+    global: string;
+    provider: string;
+    model: string;
+    modelHint: string;
+    apiKey: string;
+    apiKeyPlaceholder: string;
+    credentialConfigured: string;
+    credentialMissing: string;
+    save: string;
+    saving: string;
+    saved: string;
+    deleteCredential: string;
+    deleted: string;
+    testConnection: string;
+    testing: string;
+    cancelTest: string;
+    loading: string;
+    unavailable: string;
+    requestFailed: string;
+    observedAt: string;
+    validationAt: string;
+    errorCode: string;
+    validationAdvice: string;
+    configState: Record<"UNCONFIGURED" | "CONFIGURED", string>;
+    validationState: Record<"NOT_RUN" | "PASSED" | "FAILED" | "UNKNOWN", string>;
+  };
 };
 
 const english: Messages = {
@@ -407,6 +439,38 @@ const english: Messages = {
     cancelDelete: "Cancel delete",
     dismissDelete: "Cancel",
   },
+  models: {
+    open: "Models",
+    close: "Close models",
+    title: "Add model Provider",
+    description: "Choose a qualified Provider and model for this Instance. Saving does not contact the Provider.",
+    china: "Recommended in China",
+    global: "Other compatible Providers",
+    provider: "Provider",
+    model: "Model",
+    modelHint: "Choose a recommendation or enter a reviewed model ID.",
+    apiKey: "API Key",
+    apiKeyPlaceholder: "Enter a new key to save or replace it",
+    credentialConfigured: "Credential configured",
+    credentialMissing: "Credential not configured",
+    save: "Save configuration",
+    saving: "Saving configuration",
+    saved: "Configuration saved",
+    deleteCredential: "Delete credential",
+    deleted: "Credential deleted",
+    testConnection: "Test connection",
+    testing: "Testing connection",
+    cancelTest: "Cancel test",
+    loading: "Loading model configuration",
+    unavailable: "Models are disabled because this Instance is not available.",
+    requestFailed: "The model request could not be completed.",
+    observedAt: "Observed",
+    validationAt: "Last tested",
+    errorCode: "Error code",
+    validationAdvice: "Check the Provider key and model access, then run the test again.",
+    configState: { UNCONFIGURED: "Unconfigured", CONFIGURED: "Configured" },
+    validationState: { NOT_RUN: "Not tested", PASSED: "Passed", FAILED: "Failed", UNKNOWN: "Unknown" },
+  },
 };
 
 const simplifiedChinese: Messages = {
@@ -648,6 +712,38 @@ const simplifiedChinese: Messages = {
     deleteFailed: "删除实例失败",
     cancelDelete: "取消删除",
     dismissDelete: "取消",
+  },
+  models: {
+    open: "模型",
+    close: "关闭模型设置",
+    title: "添加模型 Provider",
+    description: "为此实例选择已验证的 Provider 和模型。保存配置不会请求 Provider。",
+    china: "国内推荐",
+    global: "其他兼容 Provider",
+    provider: "Provider",
+    model: "模型",
+    modelHint: "选择推荐模型，或输入已审核的 model ID。",
+    apiKey: "API Key",
+    apiKeyPlaceholder: "输入新密钥以保存或替换",
+    credentialConfigured: "凭据已配置",
+    credentialMissing: "凭据未配置",
+    save: "保存配置",
+    saving: "正在保存配置",
+    saved: "配置已保存",
+    deleteCredential: "删除凭据",
+    deleted: "凭据已删除",
+    testConnection: "测试连接",
+    testing: "正在测试连接",
+    cancelTest: "取消测试",
+    loading: "正在加载模型配置",
+    unavailable: "此实例不可用，模型操作已禁用。",
+    requestFailed: "模型请求未能完成。",
+    observedAt: "状态时间",
+    validationAt: "最近测试",
+    errorCode: "错误码",
+    validationAdvice: "请检查 Provider 密钥和模型访问权限，然后重新测试。",
+    configState: { UNCONFIGURED: "未配置", CONFIGURED: "已配置" },
+    validationState: { NOT_RUN: "未测试", PASSED: "通过", FAILED: "失败", UNKNOWN: "未知" },
   },
 };
 

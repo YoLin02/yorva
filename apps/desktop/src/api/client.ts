@@ -1,4 +1,4 @@
-import type { DaemonSession, ErrorResponse, Health, Instance, InstanceList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
+import type { DaemonSession, ErrorResponse, Health, Instance, InstanceList, ModelConfiguration, ModelCredential, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -84,6 +84,7 @@ export function createDaemonClient(session: DaemonSession) {
   }
 
   return {
+    scope: session.baseUrl,
     getHealth: (signal?: AbortSignal) => request<Health>("/api/v1/health", { signal }, false),
     getNode: (signal?: AbortSignal) => request<Node>("/api/v1/node", { signal }),
     detectHermes: (signal?: AbortSignal) =>
@@ -120,6 +121,44 @@ export function createDaemonClient(session: DaemonSession) {
           "Idempotency-Key": idempotencyKey,
         },
         body: JSON.stringify({ confirmationName }),
+      }),
+    listModelProviderPresets: (signal?: AbortSignal) =>
+      request<ModelProviderPresetList>("/api/v1/runtimes/hermes/model-provider-presets", {
+        signal: withDesktopTimeout(signal),
+      }),
+    getModelConfiguration: (instanceId: string, signal?: AbortSignal) =>
+      request<ModelConfiguration>(`/api/v1/instances/${encodeURIComponent(instanceId)}/config`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    patchModelConfiguration: (instanceId: string, providerPresetId: string, modelId: string, signal?: AbortSignal) =>
+      request<ModelConfiguration>(`/api/v1/instances/${encodeURIComponent(instanceId)}/config`, {
+        method: "PATCH",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerPresetId, modelId }),
+      }),
+    getModelCredential: (instanceId: string, signal?: AbortSignal) =>
+      request<ModelCredential>(`/api/v1/instances/${encodeURIComponent(instanceId)}/credentials/model-provider`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    saveModelCredential: (instanceId: string, providerPresetId: string, modelId: string, value: string, signal?: AbortSignal) =>
+      request<ModelConfiguration>(`/api/v1/instances/${encodeURIComponent(instanceId)}/credentials/model-provider`, {
+        method: "PUT",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerPresetId, modelId, value }),
+      }),
+    deleteModelCredential: (instanceId: string, signal?: AbortSignal) =>
+      request<ModelCredential>(`/api/v1/instances/${encodeURIComponent(instanceId)}/credentials/model-provider`, {
+        method: "DELETE",
+        signal: withDesktopTimeout(signal),
+      }),
+    startModelValidation: (instanceId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/model-validation`, {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: "{}",
       }),
     getHermesPrerequisites: (signal?: AbortSignal) =>
       request<import("./types").HermesPrerequisites>("/api/v1/runtimes/hermes/prerequisites", {

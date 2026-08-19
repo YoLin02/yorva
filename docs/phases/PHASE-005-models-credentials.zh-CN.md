@@ -1,6 +1,6 @@
 # YORVA Phase 5 — 模型与凭据
 
-> 状态：IN_PROGRESS — 已授权 Batch 1-5
+> 状态：AUDIT_PENDING — Batch 1-5 已完成
 > 语言：中文 Owner 审核源
 > Owner：仓库 Owner
 > Owner 指定的设计快照：`089a58005edc8f8f6a72b4fb44276be7c322eb1d`
@@ -13,7 +13,7 @@
 > Batch 2：已完成
 > Batch 3：已完成
 > Batch 4：已完成
-> Batch 5：进行中
+> Batch 5：已完成
 
 本文档与英文镜像共同定义同一份合同。Owner 审核中文版。2026-08-19，Owner 已批准 D1–D6、ADR-0007、同步治理变更、真实 Phase 4 基线，并批准中英文 Spec 标记为 `READY`。首次 Batch 1 资格检查在确认 pinned 官方 CLI 通过 argv 泄露秘密且 Web/TUI setter 需要常驻服务后正确 STOP。随后 Owner 批准 D3 中的狭窄 compatibility fallback，并一次性授权 Batch 1-5、审计、CI、合并/冻结/tag 与 Windows release build 连续执行。该历史 STOP 证据继续保留在资格记录中。
 
@@ -564,7 +564,7 @@ Phase 5 完成要求：
 - [ ] 正式审计达到可接受 Gate；
 - [x] Owner 授权在审计与 CI PASS 后 merge/freeze/tag。
 
-当前状态为 `IN_PROGRESS`。Batch 1-5 及其后的审计/CI/合并/冻结/tag/Windows build 序列均已授权，但每个既定 Gate 必须在下一不可逆步骤前 PASS。
+当前状态为 `AUDIT_PENDING`。Batch 1-5 已完成，后续审计/CI/合并/冻结/tag/Windows build 序列均已授权，但每个既定 Gate 必须在下一不可逆步骤前 PASS。
 
 ## 24. 强制停止条件
 

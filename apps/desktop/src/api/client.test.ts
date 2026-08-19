@@ -85,4 +85,32 @@ describe("daemon client", () => {
     controller.abort();
     expect(requestSignal.aborted).toBe(true);
   });
+
+  it("uses the write-only credential route without putting the secret in URL or headers", async () => {
+    const secret = "sk-client-phase5-do-not-leak";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        providerPresetId: "deepseek",
+        modelId: "deepseek-v4-pro",
+        state: "CONFIGURED",
+        credentialConfigured: true,
+        observedAt: "2026-08-19T12:00:00Z",
+        validation: { state: "NOT_RUN", errorCode: null, completedAt: null },
+      }), { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createDaemonClient(session).saveModelCredential("inst_coder", "deepseek", "deepseek-v4-pro", secret);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://127.0.0.1:49152/api/v1/instances/inst_coder/credentials/model-provider");
+    expect(url).not.toContain(secret);
+    expect(JSON.stringify(init.headers)).not.toContain(secret);
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(String(init.body))).toEqual({
+      providerPresetId: "deepseek",
+      modelId: "deepseek-v4-pro",
+      value: secret,
+    });
+  });
 });

@@ -1,6 +1,6 @@
 # YORVA Phase 5 — Models and Credentials
 
-> Status: IN_PROGRESS — Batches 1-5 authorized
+> Status: AUDIT_PENDING — Batches 1-5 complete
 > Language: English execution mirror for the implementation Agent
 > Owner: Repository owner
 > Owner-designated repository snapshot: `089a58005edc8f8f6a72b4fb44276be7c322eb1d`
@@ -10,7 +10,10 @@
 > Implementation branch: `codex/phase5-models-credentials`
 > Execution authorization: Batches 1-5, audit, CI, merge/freeze/tag and Windows release build
 > Batch 1: complete
-> Batch 2: in progress
+> Batch 2: complete
+> Batch 3: complete
+> Batch 4: complete
+> Batch 5: complete
 
 This document and its Chinese mirror define one contract. The Owner reviews the Chinese version. On 2026-08-19 the Owner approved D1-D6, ADR-0007, the synchronized governance update, the actual Phase 4 baseline and both specifications as `READY`. The initial Batch 1 qualification correctly stopped after proving that the pinned official CLI leaks secrets through argv and that the Web/TUI setters require a long-running service. The Owner then approved the narrow compatibility fallback in D3 and one continuous authorization through Batches 1-5, audit, CI, merge/freeze/tag and the Windows release build. That historical STOP evidence remains part of the qualification record.
 
@@ -561,7 +564,7 @@ Phase 5 completion requires:
 - [ ] formal audit reaches an acceptable Gate;
 - [x] Owner authorizes merge/freeze/tag after audit and CI pass.
 
-The current state is `IN_PROGRESS`. Batches 1-5 and the subsequent audit/CI/merge/freeze/tag/Windows-build sequence are authorized, but every stated Gate must pass before the next irreversible step.
+The current state is `AUDIT_PENDING`. Batches 1-5 are complete and the subsequent audit/CI/merge/freeze/tag/Windows-build sequence is authorized, but every stated Gate must pass before the next irreversible step.
 
 ## 24. Mandatory Stop Conditions
 

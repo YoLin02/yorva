@@ -369,6 +369,96 @@ p {
   margin-top: 14px;
 }
 
+.model-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 18px 20px;
+  border-color: rgb(16 185 129 / 35%);
+  background: rgb(248 250 252 / 85%);
+}
+
+.model-panel h3,
+.model-panel h4 {
+  margin: 0;
+  color: var(--yorva-heading);
+}
+
+.model-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.model-provider-grid legend {
+  margin-bottom: 10px;
+  font-weight: 650;
+}
+
+.model-provider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-provider-group h4 {
+  font-size: 13px;
+}
+
+.model-provider-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.model-provider-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid var(--yorva-border);
+  border-radius: 9px;
+  background: var(--yorva-surface);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.model-provider-option.is-active {
+  border-color: #10b981;
+  box-shadow: 0 0 0 1px #10b981;
+}
+
+.model-form-grid {
+  display: grid;
+  grid-template-columns: minmax(100px, 140px) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.model-form-grid label {
+  font-weight: 650;
+}
+
+.model-form-grid .page-copy {
+  grid-column: 2;
+  margin: -4px 0 2px;
+  font-size: 12px;
+}
+
+.model-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  color: var(--yorva-text-muted);
+  font-size: 13px;
+}
+
 .dashboard {
   display: flex;
   flex-direction: column;
@@ -951,8 +1041,17 @@ p {
 @media (max-width: 1100px) {
   .card-grid-2,
   .language-options,
-  .discovery-banner-grid {
+  .discovery-banner-grid,
+  .model-provider-grid {
     grid-template-columns: 1fr;
+  }
+
+  .model-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .model-form-grid .page-copy {
+    grid-column: 1;
   }
 
   .discovery-banner-side {

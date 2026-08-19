@@ -243,5 +243,7 @@ describe("InstancesPage", () => {
     expect(screen.getByText("Missing")).toBeInTheDocument();
     expect(screen.getByText("Unknown")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    const modelButtons = screen.getAllByRole("button", { name: "Models" });
+    expect(modelButtons.filter((button) => button.hasAttribute("disabled"))).toHaveLength(2);
   });
 });

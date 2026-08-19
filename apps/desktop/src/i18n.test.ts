@@ -19,6 +19,13 @@ describe("i18n", () => {
     expect(messages["zh-CN"].hermes.states.BROKEN_EXECUTABLE.title).not.toBe(messages["zh-CN"].hermes.states.NOT_INSTALLED.title);
   });
 
+  it("provides matching model configuration and validation states in both locales", () => {
+    expect(Object.keys(messages["zh-CN"].models.configState).sort()).toEqual(Object.keys(messages["en-US"].models.configState).sort());
+    expect(Object.keys(messages["zh-CN"].models.validationState).sort()).toEqual(Object.keys(messages["en-US"].models.validationState).sort());
+    expect(messages["zh-CN"].models.china).toBe("国内推荐");
+    expect(messages["en-US"].models.validationState.PASSED).not.toBe(messages["en-US"].models.configState.CONFIGURED);
+  });
+
   it("states the embedded source fallback without claiming offline installation", () => {
     expect(messages["en-US"].hermes.install.bundledSourceNote).toBe(
       "Bundled source prepared; dependencies may still require network.",
