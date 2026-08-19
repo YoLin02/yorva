@@ -1,6 +1,6 @@
 # YORVA Phase 4 — Instance / Profile Management
 
-> Status: **READY**
+> Status: COMPLETE / FROZEN
 > Language: English execution mirror for the implementation Agent
 > Owner: Repository owner
 > Target baseline: `phase-003-hermes-installation-baseline`
@@ -10,8 +10,12 @@
 > Implementation authorization: **GRANTED** 2026-08-19
 > Owner decisions D1–D4: **APPROVED** 2026-08-19
 > Feature branch: `codex/phase4-instance-profile`
+> Implementation: COMPLETE / FROZEN
+> Phase 4 audit: `AUDIT-004` — FAIL (immutable); `AUDIT-004R1` — PASS WITH CONDITIONS (dirty tree); `AUDIT-004R2` — PASS WITH CONDITIONS
+> Audit-accepted implementation commit: `8397dd4785a98a750f866ee191c0ca9026efe96e`
+> Exact-commit CI: GitHub Actions run `32226244512` — SUCCESS
 
-This document and its Chinese mirror define the same contract. The Owner reviews the Chinese version. Both files are synchronized, marked `READY`, and separately authorized by the Owner on 2026-08-19. If they differ materially, stop and request clarification.
+This document and its Chinese mirror define the same contract. The Owner reviews the Chinese version. Independent `AUDIT-004R2` returned `PASS WITH CONDITIONS` on `8397dd4785a98a750f866ee191c0ca9026efe96e`. Historical `AUDIT-004` remains FAIL. Owner accepted the remaining Medium/Low conditions and authorized merge/freeze. Phase 5 implementation is not authorized by this freeze.
 
 ## 1. Objective
 
@@ -425,16 +429,16 @@ Real Hermes Profile smoke uses an isolated account/VM with disposable data. Neve
 
 - [x] Section 3 decisions are Owner-approved.
 - [x] Official surface qualification and pinned fixtures are recorded.
-- [ ] Multiple Profiles reconcile as unique YORVA Instances.
-- [ ] Create and protected destructive delete work without a terminal.
-- [ ] Failed queries never become false absence.
-- [ ] SQLite remains a cache and Hermes remains authoritative.
-- [ ] No Phase 3 generation/environment invariant changes.
-- [ ] No Phase 5+ feature or lifecycle implementation enters the diff.
-- [ ] Full verification and exact-commit CI pass.
-- [ ] Independent `AUDIT-004-instance-profile.md` reaches `PASS` or Owner-accepted `PASS WITH CONDITIONS`.
+- [x] Multiple Profiles reconcile as unique YORVA Instances.
+- [x] Create and protected destructive delete work without a terminal.
+- [x] Failed queries never become false absence.
+- [x] SQLite remains a cache and Hermes remains authoritative.
+- [x] No Phase 3 generation/environment invariant changes.
+- [x] No Phase 5+ feature or lifecycle implementation enters the diff.
+- [x] Full verification and exact-commit CI pass.
+- [x] Independent `AUDIT-004R2-instance-profile.md` reaches Owner-accepted `PASS WITH CONDITIONS`.
 
-Implementation completion stops at `Phase 4 Implementation = COMPLETE`, `Verification = PASS`, `AUDIT-004 = PENDING`. The implementation Agent must not merge `main`, freeze, tag, delete the feature branch, or begin Phase 5.
+Phase 4 is `COMPLETE / FROZEN` on audit-accepted commit `8397dd4785a98a750f866ee191c0ca9026efe96e`. Do not begin Phase 5 from this freeze. Remaining Owner-accepted conditions are recorded in `AUDIT-004R2`.
 
 ## 22. Audit Requirements
 
@@ -458,7 +462,7 @@ This directive does not itself authorize implementation.
 ## 24. Completion Evidence
 
 ```text
-Implementation commit: fe15203e71ac1f988bdc87a9e34ed4df886a9dfb
+Implementation commit: 8397dd4785a98a750f866ee191c0ca9026efe96e
 Branch: codex/phase4-instance-profile
 Batch results:
   READY docs 60b23f4 PASS
@@ -467,7 +471,8 @@ Batch results:
   Batch 3 ff62906 PASS
   Batch 4 a2fa88e PASS
   Batch 5 65d4ddf PASS
-  Batch 6 verification+handoff — this commit
+  Batch 6 verification+handoff fe15203 PASS
+  High remediations 8397dd4 PASS
 Verification matrix:
   pnpm install --frozen-lockfile PASS
   pnpm audit --audit-level low PASS
@@ -495,10 +500,18 @@ Verification matrix:
   tauri build --no-bundle PASS
   MSI packaging NOT RUN (no packaging input change)
   Real Hermes delete smoke NOT RUN (requires isolated disposable account/VM)
-Exact-commit CI: required after push; local race not claimed as PASS
-Known non-blocking risks:
+Exact-commit CI: GitHub Actions run 32226244512 SUCCESS on 8397dd4
+  Web and API contract SUCCESS
+  Go Node including go test -race SUCCESS
+  Windows Desktop native shell SUCCESS
+Known non-blocking risks / Owner-accepted conditions:
   local go test -race blocked (CGO_ENABLED)
   cargo audit allowed historical GTK3/unic warnings
   official profile list docs example with * is stale vs 0.20.2 table printer
-AUDIT-004: PENDING
+  MEDIUM-004-001 Operation target remains runtime-installation / installationId
+  MEDIUM-004-002 create worker still persists timeout as INSTANCE_QUERY_FAILED
+  LOW-004R1-001 RecoverStale persist failure is warn-and-continue
+AUDIT-004: FAIL (historical, 10a2509)
+AUDIT-004R1: PASS WITH CONDITIONS (dirty tree now 8397dd4)
+AUDIT-004R2: PASS WITH CONDITIONS
 ```

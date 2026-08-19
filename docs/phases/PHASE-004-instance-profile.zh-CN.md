@@ -1,6 +1,6 @@
 # YORVA Phase 4 — 实例 / Profile 管理
 
-> 状态：**READY**
+> 状态：COMPLETE / FROZEN
 > 语言：中文 Owner 审核版
 > Owner：仓库所有者
 > 目标基线：`phase-003-hermes-installation-baseline`
@@ -10,8 +10,12 @@
 > 实现授权：**已授予** 2026-08-19
 > Owner 决策 D1–D4：**已批准** 2026-08-19
 > 功能分支：`codex/phase4-instance-profile`
+> 实现：COMPLETE / FROZEN
+> Phase 4 审计：`AUDIT-004` — FAIL（不可变）；`AUDIT-004R1` — PASS WITH CONDITIONS（脏工作区）；`AUDIT-004R2` — PASS WITH CONDITIONS
+> 审计接受的实现 commit：`8397dd4785a98a750f866ee191c0ca9026efe96e`
+> Exact-commit CI：GitHub Actions run `32226244512` — SUCCESS
 
-本文件与英文镜像定义同一合同。Owner 审核中文版本。两版已同步并标记为 `READY`，且 Owner 已于 2026-08-19 另行明确授权。若两版存在实质差异，必须停止并请求澄清。
+本文件与英文镜像定义同一合同。Owner 审核中文版本。独立 `AUDIT-004R2` 对 `8397dd4785a98a750f866ee191c0ca9026efe96e` 给出 `PASS WITH CONDITIONS`。历史 `AUDIT-004` 保持 FAIL。Owner 已接受剩余 Medium/Low 条件并授权合并/冻结。本冻结不授权 Phase 5 实现。
 
 ## 1. 目标
 
@@ -425,16 +429,16 @@ SQLite 是缓存。缓存 row 不能授权 Hermes mutation、删除或文件访�
 
 - [x] 第 3 节决策获得 Owner 批准。
 - [x] 官方接口资格与固定版本夹具已记录。
-- [ ] 多个 Profiles 能对账为唯一 YORVA Instances。
-- [ ] 用户无需终端即可创建并执行受保护的破坏性删除。
-- [ ] 查询失败永远不会变成错误的缺失判断。
-- [ ] SQLite 保持缓存，Hermes 保持权威。
-- [ ] 不改变 Phase 3 generation/environment 不变量。
-- [ ] Diff 中没有 Phase 5+ 功能或 lifecycle 实现。
-- [ ] 完整验证与 exact-commit CI 通过。
-- [ ] 独立 `AUDIT-004-instance-profile.md` 达到 `PASS` 或 Owner 接受的 `PASS WITH CONDITIONS`。
+- [x] 多个 Profiles 能对账为唯一 YORVA Instances。
+- [x] 用户无需终端即可创建并执行受保护的破坏性删除。
+- [x] 查询失败永远不会变成错误的缺失判断。
+- [x] SQLite 保持缓存，Hermes 保持权威。
+- [x] 不改变 Phase 3 generation/environment 不变量。
+- [x] Diff 中没有 Phase 5+ 功能或 lifecycle 实现。
+- [x] 完整验证与 exact-commit CI 通过。
+- [x] 独立 `AUDIT-004R2-instance-profile.md` 达到 Owner 接受的 `PASS WITH CONDITIONS`。
 
-实现完成时停止在：`Phase 4 Implementation = COMPLETE`、`Verification = PASS`、`AUDIT-004 = PENDING`。实现 Agent 不得合并 `main`、冻结、打 tag、删除功能分支或开始 Phase 5。
+Phase 4 已在审计接受的 commit `8397dd4785a98a750f866ee191c0ca9026efe96e` 上 `COMPLETE / FROZEN`。不得从本次冻结开始 Phase 5。剩余 Owner 接受的条件记录在 `AUDIT-004R2`。
 
 ## 22. 审计要求
 
@@ -458,7 +462,7 @@ SQLite 是缓存。缓存 row 不能授权 Hermes mutation、删除或文件访�
 ## 24. 完成证据
 
 ```text
-Implementation commit: fe15203e71ac1f988bdc87a9e34ed4df886a9dfb
+Implementation commit: 8397dd4785a98a750f866ee191c0ca9026efe96e
 Branch: codex/phase4-instance-profile
 Batch results:
   READY docs 60b23f4 PASS
@@ -467,7 +471,8 @@ Batch results:
   Batch 3 ff62906 PASS
   Batch 4 a2fa88e PASS
   Batch 5 65d4ddf PASS
-  Batch 6 verification+handoff — 本提交
+  Batch 6 verification+handoff fe15203 PASS
+  High remediations 8397dd4 PASS
 Verification matrix:
   pnpm install --frozen-lockfile PASS
   pnpm audit --audit-level low PASS
@@ -495,10 +500,18 @@ Verification matrix:
   tauri build --no-bundle PASS
   MSI packaging 未跑（packaging input 未变）
   真实 Hermes delete smoke 未跑（需要隔离可丢弃账号/VM）
-Exact-commit CI: 推送后必须取得；本地 race 不记为 PASS
-Known non-blocking risks:
+Exact-commit CI: GitHub Actions run 32226244512 SUCCESS on 8397dd4
+  Web and API contract SUCCESS
+  Go Node including go test -race SUCCESS
+  Windows Desktop native shell SUCCESS
+Known non-blocking risks / Owner 接受的条件:
   本地 go test -race 被 CGO 阻止
   cargo audit 允许的历史 GTK3/unic 警告
   官方 list 文档中的 * 示例相对 0.20.2 表格打印机已过时
-AUDIT-004: PENDING
+  MEDIUM-004-001 Operation target 仍是 runtime-installation / installationId
+  MEDIUM-004-002 create worker 仍把超时写成 INSTANCE_QUERY_FAILED
+  LOW-004R1-001 RecoverStale 持久化失败仍是 warn-and-continue
+AUDIT-004: FAIL（历史，10a2509）
+AUDIT-004R1: PASS WITH CONDITIONS（脏工作区现为 8397dd4）
+AUDIT-004R2: PASS WITH CONDITIONS
 ```
