@@ -246,6 +246,63 @@ p {
   letter-spacing: 0;
 }
 
+.instance-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.instance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.instance-card {
+  padding: 16px 20px;
+}
+
+.instance-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.instance-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.instance-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.instance-availability {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.instance-availability.is-available {
+  color: #047857;
+}
+
+.instance-availability.is-missing {
+  color: #b45309;
+}
+
+.instance-availability.is-unknown {
+  color: #475569;
+}
+
 .dashboard {
   display: flex;
   flex-direction: column;

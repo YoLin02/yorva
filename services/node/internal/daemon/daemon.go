@@ -107,8 +107,9 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	if _, err := installs.InterruptStale(ctx); err != nil {
 		logger.Warn("failed to interrupt stale install operations", "error", err)
 	}
+	instances := app.NewInstanceInventory(discovery, database, app.HermesProfileSource{}, localNode.ID)
 	server := &http.Server{
-		Handler:           httpapi.NewHandler(message.Token, localNode, broker, discovery, installs, message.DataDir),
+		Handler:           httpapi.NewHandler(message.Token, localNode, broker, discovery, installs, instances, message.DataDir),
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       30 * time.Second,

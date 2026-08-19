@@ -52,7 +52,7 @@ type RuntimeWarningResponse struct {
 	Message string `json:"message"`
 }
 
-func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService, dataDir string) http.Handler {
+func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService, instances InstanceInventoryService, dataDir string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/health", health)
 	mux.Handle("GET /api/v1/node", requireBearer(token, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -64,6 +64,11 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("POST /api/v1/runtimes/hermes/install", requireBearer(token, startHermesInstall(installs)))
 	mux.Handle("GET /api/v1/runtimes/hermes/prerequisites", requireBearer(token, getHermesPrerequisites(installs)))
 	mux.Handle("POST /api/v1/runtimes/hermes/prerequisites/install", requireBearer(token, startHermesPrerequisites(installs)))
+	mux.Handle("GET /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, listRuntimeInstances(instances)))
+	mux.Handle("GET /api/v1/instances/{instanceId}", requireBearer(token, getInstance(instances)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/start", requireBearer(token, instanceLifecycleUnsupported()))
+	mux.Handle("POST /api/v1/instances/{instanceId}/stop", requireBearer(token, instanceLifecycleUnsupported()))
+	mux.Handle("POST /api/v1/instances/{instanceId}/restart", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
 	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
 	mux.Handle("GET /api/v1/operations", requireBearer(token, listOperations(installs)))
@@ -138,6 +143,12 @@ func allowedMethods(path string) (string, bool) {
 		if kind != "" && !strings.Contains(kind, "/") {
 			return "POST, OPTIONS", true
 		}
+	}
+	switch instancePathKind(path) {
+	case "list", "get":
+		return "GET, OPTIONS", true
+	case "lifecycle":
+		return "POST, OPTIONS", true
 	}
 	return "", false
 }

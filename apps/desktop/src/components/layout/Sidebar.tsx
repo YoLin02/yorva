@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { AppMessages, Locale, PageId } from "../../i18n";
 import { messages } from "../../i18n";
-import { IconBox, IconChevronDown, IconChevronUp, IconGlobe, IconHome, IconSettings } from "../ui/icons";
+import { IconBox, IconChevronDown, IconChevronUp, IconGlobe, IconHome, IconLayers, IconSettings } from "../ui/icons";
 import { YorvaLogo } from "./YorvaLogo";
 
 type SidebarProps = {
@@ -12,11 +12,12 @@ type SidebarProps = {
   onLocaleChange: (locale: Locale) => void;
 };
 
-const pageOrder: PageId[] = ["dashboard", "runtimes", "settings"];
+const pageOrder: PageId[] = ["dashboard", "runtimes", "instances", "settings"];
 
 const pageIcons: Record<PageId, typeof IconHome> = {
   dashboard: IconHome,
   runtimes: IconBox,
+  instances: IconLayers,
   settings: IconSettings,
 };
 

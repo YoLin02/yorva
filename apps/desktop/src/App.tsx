@@ -15,6 +15,7 @@ import {
   operationIdFromConflict,
 } from "./operationRecovery";
 import { DashboardPage } from "./pages/DashboardPage";
+import { InstancesPage } from "./pages/InstancesPage";
 import { RuntimePage } from "./pages/RuntimePage";
 import { SettingsPage } from "./pages/SettingsPage";
 
@@ -56,6 +57,7 @@ export function App() {
     void queryClient.invalidateQueries({ queryKey: ["hermes-prereq-log"] });
     void queryClient.invalidateQueries({ queryKey: ["hermes-operations"] });
     void queryClient.invalidateQueries({ queryKey: ["hermes-prerequisites"] });
+    void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
   }, [queryClient]);
   const eventStatus = useEventStreamStatus(
     client,
@@ -296,6 +298,14 @@ export function App() {
     discoveryState = { kind: "complete", discovery: discoveryQuery.data, onRetry: retryDiscovery };
   }
 
+  const hermesSupported = discoveryQuery.data?.state === "SUPPORTED";
+  const instancesQuery = useQuery({
+    queryKey: ["hermes-instances", sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.listHermesInstances(signal),
+    enabled: client !== undefined && nodeQuery.isSuccess && hermesSupported && activePage === "instances",
+    retry: false,
+  });
+
   let content;
   if (activePage === "settings") {
     content = <SettingsPage copy={copy} locale={locale} onLocaleChange={changeLocale} />;
@@ -373,6 +383,20 @@ export function App() {
         onConfirmInstall={() => { void startInstall(); }}
         onCancelInstall={() => { void cancelInstall(); }}
         onRetryInstall={retryInstall}
+      />
+    );
+  } else if (activePage === "instances") {
+    content = (
+      <InstancesPage
+        supported={hermesSupported}
+        loading={instancesQuery.isPending || instancesQuery.isFetching}
+        error={instancesQuery.isError}
+        inventory={instancesQuery.data ?? null}
+        copy={copy}
+        locale={locale}
+        onRefresh={() => {
+          void instancesQuery.refetch();
+        }}
       />
     );
   } else {

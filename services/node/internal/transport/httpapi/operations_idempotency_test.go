@@ -43,7 +43,7 @@ func newLiveInstallHandler(t *testing.T) (http.Handler, *app.RuntimeInstall, *ev
 	broker := events.NewBroker()
 	discovery := app.NewRuntimeDiscovery(registry, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	service := app.NewRuntimeInstall(discovery, db).WithEvents(broker)
-	return NewHandler(testToken, testNode, broker, discovery, service, t.TempDir()), service, broker
+	return NewHandler(testToken, testNode, broker, discovery, service, nil, t.TempDir()), service, broker
 }
 
 func TestSimultaneousSameKeyHTTPReturnsSameOperation(t *testing.T) {

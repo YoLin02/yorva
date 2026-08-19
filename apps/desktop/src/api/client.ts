@@ -1,4 +1,4 @@
-import type { DaemonSession, ErrorResponse, Health, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
+import type { DaemonSession, ErrorResponse, Health, Instance, InstanceList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -92,6 +92,14 @@ export function createDaemonClient(session: DaemonSession) {
         signal: signal
           ? AbortSignal.any([signal, AbortSignal.timeout(desktopDiscoveryTimeoutMs)])
           : AbortSignal.timeout(desktopDiscoveryTimeoutMs),
+      }),
+    listHermesInstances: (signal?: AbortSignal) =>
+      request<InstanceList>("/api/v1/runtimes/hermes/instances", {
+        signal: withDesktopTimeout(signal),
+      }),
+    getInstance: (instanceId: string, signal?: AbortSignal) =>
+      request<Instance>(`/api/v1/instances/${encodeURIComponent(instanceId)}`, {
+        signal: withDesktopTimeout(signal),
       }),
     getHermesPrerequisites: (signal?: AbortSignal) =>
       request<import("./types").HermesPrerequisites>("/api/v1/runtimes/hermes/prerequisites", {

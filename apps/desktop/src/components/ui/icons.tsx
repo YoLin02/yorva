@@ -10,6 +10,7 @@ import {
   Globe,
   Home,
   Info,
+  Layers,
   Loader2,
   Monitor,
   RotateCw,
@@ -33,8 +34,16 @@ export function IconBox(props: LucideProps) {
   return glyph(Box, 16, props);
 }
 
+export function IconLayers(props: LucideProps) {
+  return glyph(Layers, 16, props);
+}
+
 export function IconSettings(props: LucideProps) {
   return glyph(Settings, 16, props);
+}
+
+export function IconRotateCw(props: LucideProps) {
+  return glyph(RotateCw, 16, props);
 }
 
 export function IconGlobe(props: LucideProps) {

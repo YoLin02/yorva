@@ -79,8 +79,9 @@ id                       TEXT PRIMARY KEY
 runtime_installation_id  TEXT NOT NULL REFERENCES runtime_installations(id)
 native_id                TEXT NOT NULL
 name                     TEXT NOT NULL
-status                   TEXT NOT NULL
-metadata_json            TEXT
+is_default               INTEGER NOT NULL
+is_protected             INTEGER NOT NULL
+availability             TEXT NOT NULL  -- AVAILABLE | MISSING | UNKNOWN
 last_synced_at           ...
 created_at               ... NOT NULL
 updated_at               ... NOT NULL

@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: YORVA Local Node API
   version: 0.0.0
-  description: Local loopback contract between YORVA Desktop and yorvad through Phase 3.
+  description: Local loopback contract between YORVA Desktop and yorvad through Phase 4 instance inventory.
 servers:
   - url: http://127.0.0.1:{port}
     variables:
@@ -16,6 +16,8 @@ tags:
     description: Persisted local Node identity.
   - name: Runtimes
     description: Runtime discovery, compatibility, and Hermes installation Operations.
+  - name: Instances
+    description: Hermes Profile inventory as normalized YORVA Instances.
   - name: Operations
     description: Durable local management Operations.
 paths:
@@ -435,6 +437,196 @@ paths:
           $ref: "#/components/responses/PreflightAccepted"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/runtimes/{runtimeId}/instances:
+    parameters:
+      - name: runtimeId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: listRuntimeInstances
+      summary: List reconciled Instances for a Runtime
+      tags: [Instances]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The reconciled Instance inventory. A failed Hermes query returns cached rows with freshness UNKNOWN.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    options:
+      operationId: optionsRuntimeInstances
+      summary: Validate CORS access for Runtime Instances
+      tags: [Instances]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}:
+    parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getInstance
+      summary: Read one cached Instance
+      tags: [Instances]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The cached Instance record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Instance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    options:
+      operationId: optionsInstance
+      summary: Validate CORS access for one Instance
+      tags: [Instances]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/start:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    post:
+      operationId: startInstance
+      summary: Start an Instance
+      tags: [Instances]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    options:
+      operationId: optionsStartInstance
+      summary: Validate CORS access for Instance start
+      tags: [Instances]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/instances/{instanceId}/stop:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    post:
+      operationId: stopInstance
+      summary: Stop an Instance
+      tags: [Instances]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    options:
+      operationId: optionsStopInstance
+      summary: Validate CORS access for Instance stop
+      tags: [Instances]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/instances/{instanceId}/restart:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    post:
+      operationId: restartInstance
+      summary: Restart an Instance
+      tags: [Instances]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    options:
+      operationId: optionsRestartInstance
+      summary: Validate CORS access for Instance restart
+      tags: [Instances]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   securitySchemes:
     bearerAuth:
@@ -500,6 +692,12 @@ components:
         minLength: 1
         maxLength: 128
         pattern: "^[\\x21-\\x7E]+$"
+    InstanceId:
+      name: instanceId
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     Health:
       type: object
@@ -694,6 +892,72 @@ components:
           maxItems: 50
           items:
             $ref: "#/components/schemas/Operation"
+    InstanceCapabilities:
+      type: object
+      additionalProperties: false
+      required: [instances, lifecycle]
+      properties:
+        instances:
+          type: boolean
+        lifecycle:
+          type: boolean
+          const: false
+    Instance:
+      type: object
+      additionalProperties: false
+      required: [instanceId, runtimeInstallationId, name, default, protected, availability, lastSyncedAt, createdAt, updatedAt, capabilities]
+      properties:
+        instanceId:
+          type: string
+        runtimeInstallationId:
+          type: string
+        name:
+          type: string
+        default:
+          type: boolean
+        protected:
+          type: boolean
+        availability:
+          type: string
+          enum: [AVAILABLE, MISSING, UNKNOWN]
+        lastSyncedAt:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        capabilities:
+          $ref: "#/components/schemas/InstanceCapabilities"
+    InstanceList:
+      type: object
+      additionalProperties: false
+      required: [runtimeId, runtimeInstallationId, freshness, lastSyncedAt, instances, capabilities, errorCode]
+      properties:
+        runtimeId:
+          type: string
+        runtimeInstallationId:
+          type: string
+        freshness:
+          type: string
+          enum: [FRESH, UNKNOWN]
+        lastSyncedAt:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        instances:
+          type: array
+          items:
+            $ref: "#/components/schemas/Instance"
+        capabilities:
+          $ref: "#/components/schemas/InstanceCapabilities"
+        errorCode:
+          type: ["string", "null"]
     RuntimeDiscoveryErrorCode:
       type: [string, "null"]
       enum:

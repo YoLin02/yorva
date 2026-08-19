@@ -21,6 +21,16 @@ func main() {
 		fmt.Println("Hermes Agent v0.20.0 (2026.8.3)")
 		return
 	}
+	if os.Getenv("YORVA_FAKE_HERMES_MODE") == "profile-list" {
+		if len(os.Args) != 3 || os.Args[1] != "profile" || os.Args[2] != "list" {
+			os.Exit(9)
+		}
+		if os.Getenv("OPENAI_API_KEY") != "" || os.Getenv("YORVA_TEST_PROVIDER_API_KEY") != "" {
+			os.Exit(11)
+		}
+		fmt.Print(os.Getenv("YORVA_FAKE_HERMES_PROFILE_LIST"))
+		return
+	}
 	if len(os.Args) != 2 || os.Args[1] != "--version" {
 		os.Exit(9)
 	}
