@@ -2,6 +2,8 @@ import type { Operation } from "../api/types";
 import type { HermesPrerequisites } from "../api/types";
 import type { InstallRequestError } from "../installDiagnostic";
 import type { AppMessages } from "../i18n";
+import { Button } from "./ui/Button";
+import { Card } from "./ui/Card";
 
 export function HermesPrerequisitePanel({
   copy,
@@ -57,48 +59,48 @@ export function HermesPrerequisitePanel({
   const errorCode = operation?.errorCode ?? requestError?.code ?? status?.node.errorCode;
 
   return (
-    <section className="diagnostic-block" aria-live="polite">
+    <Card className="runtime-card" aria-live="polite">
       <h3>{text.title}</h3>
-      <p>{summary}</p>
-      {status?.node.version && <p>Node {status.node.version}</p>}
-      {status?.npm.version && <p>npm {status.npm.version}</p>}
-      {hermesNotInstalled && (running || failed || showInstall) && <p>{text.continueWithoutNode}</p>}
+      <p className="panel-copy">{summary}</p>
+      {status?.node.version && <p className="small">Node {status.node.version}</p>}
+      {status?.npm.version && <p className="small">npm {status.npm.version}</p>}
+      {hermesNotInstalled && (running || failed || showInstall) && <p className="notice notice-info">{text.continueWithoutNode}</p>}
       {!failed && status?.node.errorCode && (
-        <p>{copy.hermes.install.errorCode}: {status.node.errorCode}</p>
+        <p className="panel-copy">{copy.hermes.install.errorCode}: {status.node.errorCode}</p>
       )}
-      {starting && <p>{text.starting}</p>}
+      {starting && <p className="panel-copy">{text.starting}</p>}
       {running && (
         <>
-          <p>{copy.hermes.install.stage}: {operation?.stage === "install.node" ? text.installingNode : text.installingDeps}</p>
-          {liveLog && <pre className="install-log">{liveLog}</pre>}
-          <button type="button" onClick={onCancel} disabled={disabled}>{text.cancel}</button>
+          <p className="panel-copy">{copy.hermes.install.stage}: {operation?.stage === "install.node" ? text.installingNode : text.installingDeps}</p>
+          {liveLog && <pre className="install-log-body">{liveLog}</pre>}
+          <Button onClick={onCancel} disabled={disabled}>{text.cancel}</Button>
         </>
       )}
       {failed && !running && (
         <div role="alert">
-          <p>{operation?.status === "CANCELLED" ? text.cancelled : text.failed}</p>
+          <p className="panel-copy">{operation?.status === "CANCELLED" ? text.cancelled : text.failed}</p>
           {operation?.stage && (
-            <p>{copy.hermes.install.stage}: {operation.stage === "install.node" ? text.installingNode : operation.stage}</p>
+            <p className="panel-copy">{copy.hermes.install.stage}: {operation.stage === "install.node" ? text.installingNode : operation.stage}</p>
           )}
-          {errorCode && <p>{copy.hermes.install.errorCode}: {errorCode}</p>}
-          {operation?.correlationId && <p>{copy.hermes.install.correlation}: {operation.correlationId}</p>}
-          {requestError?.message && <p>{requestError.message}</p>}
-          {liveLog && <pre className="install-log">{liveLog}</pre>}
-          <button type="button" className="primary-action" onClick={onRetryDeps} disabled={disabled}>
+          {errorCode && <p className="panel-copy">{copy.hermes.install.errorCode}: {errorCode}</p>}
+          {operation?.correlationId && <p className="panel-copy">{copy.hermes.install.correlation}: {operation.correlationId}</p>}
+          {requestError?.message && <p className="panel-copy">{requestError.message}</p>}
+          {liveLog && <pre className="install-log-body">{liveLog}</pre>}
+          <Button variant="primary" onClick={onRetryDeps} disabled={disabled}>
             {text.retry}
-          </button>
+          </Button>
         </div>
       )}
       {!running && !failed && !starting && showInstall && (
-        <button type="button" className="primary-action" onClick={onInstall} disabled={disabled}>
+        <Button variant="primary" onClick={onInstall} disabled={disabled}>
           {text.installAction}
-        </button>
+        </Button>
       )}
       {!running && !failed && !starting && showRetryDeps && (
-        <button type="button" className="primary-action" onClick={onRetryDeps} disabled={disabled}>
+        <Button variant="primary" onClick={onRetryDeps} disabled={disabled}>
           {text.retryDeps}
-        </button>
+        </Button>
       )}
-    </section>
+    </Card>
   );
 }

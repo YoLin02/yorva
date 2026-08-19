@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { Operation } from "../api/types";
 import type { AppMessages } from "../i18n";
 import { formatInstallDiagnostic, type InstallRequestError } from "../installDiagnostic";
+import { Button } from "./ui/Button";
+import { Card } from "./ui/Card";
 
 export function HermesInstallPanel({
   copy,
@@ -34,19 +36,19 @@ export function HermesInstallPanel({
 }) {
   const install = copy.hermes.install;
   if (!windowsHost) {
-    return <p>{install.unavailable}</p>;
+    return <p className="panel-copy">{install.unavailable}</p>;
   }
   if (operation && (operation.status === "PENDING" || operation.status === "RUNNING")) {
     return (
-      <section className="diagnostic-block" aria-live="polite">
+      <Card className="runtime-card" aria-live="polite">
         <h3>{install.running}</h3>
-        <p>{install.stage}: {operation.stage}</p>
-        {sourceNote(install, operation.message) && <p>{sourceNote(install, operation.message)}</p>}
+        <p className="panel-copy">{install.stage}: {operation.stage}</p>
+        {sourceNote(install, operation.message) && <p className="panel-copy">{sourceNote(install, operation.message)}</p>}
         <InstallLogBox copy={copy} text={liveLog || formatInstallDiagnostic({ operation })} />
-        <button type="button" className="primary-action" onClick={onCancel} disabled={busy}>
+        <Button variant="secondary" onClick={onCancel} disabled={busy}>
           {install.cancelInstall}
-        </button>
-      </section>
+        </Button>
+      </Card>
     );
   }
   if (requestError || (operation && (operation.status === "FAILED" || operation.status === "CANCELLED"))) {
@@ -57,53 +59,53 @@ export function HermesInstallPanel({
         : install.failed;
     const logText = liveLog || formatInstallDiagnostic({ operation, requestError });
     return (
-      <section className="diagnostic-block" role="alert">
+      <Card className="runtime-card" role="alert">
         <h3>{title}</h3>
-        {operation?.stage && <p>{install.stage}: {operation.stage}</p>}
-        {sourceNote(install, operation?.message) && <p>{sourceNote(install, operation?.message)}</p>}
+        {operation?.stage && <p className="panel-copy">{install.stage}: {operation.stage}</p>}
+        {sourceNote(install, operation?.message) && <p className="panel-copy">{sourceNote(install, operation?.message)}</p>}
         {(operation?.errorCode || requestError?.code) && (
-          <p>{install.errorCode}: {operation?.errorCode ?? requestError?.code}</p>
+          <p className="panel-copy">{install.errorCode}: {operation?.errorCode ?? requestError?.code}</p>
         )}
-        {operation?.correlationId && <p>{install.correlation}: {operation.correlationId}</p>}
+        {operation?.correlationId && <p className="panel-copy">{install.correlation}: {operation.correlationId}</p>}
         <InstallLogBox copy={copy} text={logText} />
         {operation?.retryable && (
-          <button type="button" className="primary-action" onClick={onRetry} disabled={busy}>
+          <Button variant="primary" onClick={onRetry} disabled={busy}>
             {install.retryInstall}
-          </button>
+          </Button>
         )}
-      </section>
+      </Card>
     );
   }
   if (confirmOpen) {
     return (
-      <section className="diagnostic-block" aria-labelledby="install-confirm-title">
+      <Card className="runtime-card" aria-labelledby="install-confirm-title">
         <h3 id="install-confirm-title">{install.confirmTitle}</h3>
-        <p>{install.confirmDescription}</p>
-        <dl className="detail-grid">
+        <p className="panel-copy">{install.confirmDescription}</p>
+        <dl className="detail-list">
           <div><dt>{install.source}</dt><dd>NousResearch/hermes-agent @ df4b65147d7ddd74dd449f9067aabbca5aef0ec7</dd></div>
           <div><dt>{install.version}</dt><dd>0.20.2 / v2026.8.16</dd></div>
-          <div className="detail-wide"><dt>{install.destination}</dt><dd>%LOCALAPPDATA%\hermes\hermes-agent</dd></div>
+          <div><dt>{install.destination}</dt><dd className="mono">%LOCALAPPDATA%\hermes\hermes-agent</dd></div>
         </dl>
-        <p>{install.hostChanges}</p>
-        <ul>
+        <p className="panel-copy">{install.hostChanges}</p>
+        <ul className="plain-list">
           {install.hostChangeItems.map((item) => <li key={item}>{item}</li>)}
         </ul>
-        <p>{install.bundledSourceNote}</p>
-        <p>{install.noProfileNote}</p>
-        <div className="panel-heading-split">
-          <button type="button" onClick={onCloseConfirm} disabled={busy}>{install.back}</button>
-          <button type="button" className="primary-action" onClick={onConfirm} disabled={busy}>{install.confirm}</button>
+        <p className="panel-copy">{install.bundledSourceNote}</p>
+        <p className="notice notice-info">{install.noProfileNote}</p>
+        <div className="inline-actions">
+          <Button onClick={onCloseConfirm} disabled={busy}>{install.back}</Button>
+          <Button variant="primary" onClick={onConfirm} disabled={busy}>{install.confirm}</Button>
         </div>
-      </section>
+      </Card>
     );
   }
   if (!canStart) {
     return null;
   }
   return (
-    <button type="button" className="primary-action" onClick={onOpenConfirm} disabled={busy}>
+    <Button variant="primary" onClick={onOpenConfirm} disabled={busy}>
       {install.action}
-    </button>
+    </Button>
   );
 }
 
@@ -145,12 +147,12 @@ function InstallLogBox({ copy, text }: { copy: AppMessages; text: string }) {
     <div className="install-log">
       <div className="install-log-heading">
         <p>{install.logTitle}</p>
-        <button type="button" className="secondary-action action-top" onClick={() => { void copyLog(); }}>
+        <Button variant="ghost" onClick={() => { void copyLog(); }}>
           {copied ? install.logCopied : install.copyLog}
-        </button>
+        </Button>
       </div>
       <pre className="install-log-body">{text}</pre>
-      <p>{install.logHint}</p>
+      <p className="small muted">{install.logHint}</p>
     </div>
   );
 }

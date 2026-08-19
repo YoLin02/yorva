@@ -1,5 +1,7 @@
 import type { AppMessages, Locale } from "../i18n";
 import { messages, supportedLocales } from "../i18n";
+import { Card } from "./ui/Card";
+import { IconGlobe } from "./ui/icons";
 
 export function SettingsView({
   copy,
@@ -11,18 +13,21 @@ export function SettingsView({
   onLocaleChange: (locale: Locale) => void;
 }) {
   return (
-    <section className="panel settings-panel" aria-labelledby="language-title">
+    <Card className="settings-card" aria-labelledby="language-title">
       <div className="panel-heading">
+        <div className="icon-tile icon-tile-ok">
+          <IconGlobe size={24} />
+        </div>
         <div>
-          <p className="section-kicker">{copy.settings.savedAutomatically}</p>
+          <p className="page-kicker">{copy.settings.savedAutomatically}</p>
           <h2 id="language-title">{copy.settings.language}</h2>
-          <p>{copy.settings.languageDescription}</p>
+          <p className="panel-copy">{copy.settings.languageDescription}</p>
         </div>
       </div>
       <fieldset className="language-options">
         <legend>{copy.settings.languageLegend}</legend>
         {supportedLocales.map((option) => (
-          <label key={option} className={locale === option ? "language-option language-option-active" : "language-option"}>
+          <label key={option} className={locale === option ? "language-option is-active" : "language-option"}>
             <input
               type="radio"
               name="locale"
@@ -35,6 +40,6 @@ export function SettingsView({
           </label>
         ))}
       </fieldset>
-    </section>
+    </Card>
   );
 }

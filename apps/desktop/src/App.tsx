@@ -4,13 +4,8 @@ import { createDaemonClient } from "./api/client";
 import { YorvaApiError } from "./api/client";
 import type { InstallRequestError } from "./installDiagnostic";
 import { getDaemonSession, isDaemonNotReady } from "./api/session";
-import { DesktopShell } from "./components/DesktopShell";
-import { HermesDiscoveryView, type HermesDiscoveryViewState } from "./components/HermesDiscoveryView";
-import { HermesInstallPanel } from "./components/HermesInstallPanel";
-import { HermesPrerequisitePanel } from "./components/HermesPrerequisitePanel";
-import { HermesSummaryCard } from "./components/HermesSummaryCard";
-import { NodeStatusView } from "./components/NodeStatusView";
-import { SettingsView } from "./components/SettingsView";
+import { DesktopShell } from "./components/layout/DesktopShell";
+import type { HermesDiscoveryViewState } from "./components/HermesDiscoveryView";
 import { useEventStreamStatus } from "./hooks/useEventStreamStatus";
 import { loadLocale, messages, saveLocale, type Locale, type PageId } from "./i18n";
 import {
@@ -19,6 +14,9 @@ import {
   newestActiveOperation,
   operationIdFromConflict,
 } from "./operationRecovery";
+import { DashboardPage } from "./pages/DashboardPage";
+import { RuntimePage } from "./pages/RuntimePage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 export function App() {
   const queryClient = useQueryClient();
@@ -83,7 +81,6 @@ export function App() {
     setLocale(nextLocale);
     saveLocale(nextLocale);
   };
-  const toggleLocale = () => changeLocale(locale === "en-US" ? "zh-CN" : "en-US");
   const cancelDiscovery = () => {
     setDiscoveryCancelled(true);
     void queryClient.cancelQueries({ queryKey: discoveryKey, exact: true });
@@ -301,13 +298,40 @@ export function App() {
 
   let content;
   if (activePage === "settings") {
-    content = <SettingsView copy={copy} locale={locale} onLocaleChange={changeLocale} />;
+    content = <SettingsPage copy={copy} locale={locale} onLocaleChange={changeLocale} />;
   } else if (sessionQuery.isError) {
-    content = <NodeStatusView state={{ kind: "failure", message: copy.node.daemonStartFailure }} copy={copy} />;
+    content = (
+      <DashboardPage
+        nodeState={{ kind: "failure", message: copy.node.daemonStartFailure }}
+        discoveryState={discoveryState}
+        copy={copy}
+        locale={locale}
+        onOpenRuntimes={() => setActivePage("runtimes")}
+        onOpenSettings={() => setActivePage("settings")}
+      />
+    );
   } else if (!sessionQuery.data || nodeQuery.isPending) {
-    content = <NodeStatusView state={{ kind: "starting" }} copy={copy} />;
+    content = (
+      <DashboardPage
+        nodeState={{ kind: "starting" }}
+        discoveryState={discoveryState}
+        copy={copy}
+        locale={locale}
+        onOpenRuntimes={() => setActivePage("runtimes")}
+        onOpenSettings={() => setActivePage("settings")}
+      />
+    );
   } else if (nodeQuery.isError) {
-    content = <NodeStatusView state={{ kind: "failure", message: copy.node.nodeReachFailure }} copy={copy} />;
+    content = (
+      <DashboardPage
+        nodeState={{ kind: "failure", message: copy.node.nodeReachFailure }}
+        discoveryState={discoveryState}
+        copy={copy}
+        locale={locale}
+        onOpenRuntimes={() => setActivePage("runtimes")}
+        onOpenSettings={() => setActivePage("settings")}
+      />
+    );
   } else if (activePage === "runtimes") {
     const windowsHost = nodeQuery.data.platform.toLowerCase() === "windows";
     const notInstalled = discoveryQuery.data?.state === "NOT_INSTALLED";
@@ -317,65 +341,60 @@ export function App() {
     const prereqBlocking = Boolean(prereqOperation && (prereqOperation.status === "PENDING" || prereqOperation.status === "RUNNING"));
     const showInstallPanel = notInstalled || followedInstallId !== null || installRequestError !== null;
     content = (
-      <div>
-        <HermesDiscoveryView state={discoveryState} copy={copy} locale={locale} />
-        {discoveryQuery.isSuccess && (
-          <HermesPrerequisitePanel
-            copy={copy}
-            status={prerequisitesQuery.data ?? null}
-            operation={prereqOperation}
-            liveLog={prereqLogQuery.data?.text ?? ""}
-            busy={prereqBusy}
-            blocked={installBlocking}
-            requestError={prereqRequestError}
-            hermesNotInstalled={notInstalled}
-            onInstall={() => { void startPrereq(); }}
-            onRetryDeps={retryPrereq}
-            onCancel={() => { void cancelPrereq(); }}
-          />
-        )}
-        {showInstallPanel && (
-          <HermesInstallPanel
-            copy={copy}
-            windowsHost={windowsHost}
-            canStart={notInstalled}
-            confirmOpen={confirmInstall && notInstalled && !prereqBlocking}
-            busy={installBusy || prereqBlocking}
-            operation={installOperation}
-            liveLog={operationLogQuery.data?.text ?? ""}
-            requestError={installRequestError}
-            onOpenConfirm={() => {
-              if (!notInstalled || installBlocking) return;
-              setInstallRequestError(null);
-              setConfirmInstall(true);
-            }}
-            onCloseConfirm={() => setConfirmInstall(false)}
-            onConfirm={() => { void startInstall(); }}
-            onCancel={() => { void cancelInstall(); }}
-            onRetry={retryInstall}
-          />
-        )}
-      </div>
+      <RuntimePage
+        discoveryState={discoveryState}
+        discoveryReady={discoveryQuery.isSuccess}
+        copy={copy}
+        locale={locale}
+        prerequisites={prerequisitesQuery.data ?? null}
+        prereqOperation={prereqOperation}
+        prereqLog={prereqLogQuery.data?.text ?? ""}
+        prereqBusy={prereqBusy}
+        prereqBlocked={installBlocking}
+        prereqRequestError={prereqRequestError}
+        hermesNotInstalled={notInstalled}
+        onInstallPrereq={() => { void startPrereq(); }}
+        onRetryPrereq={retryPrereq}
+        onCancelPrereq={() => { void cancelPrereq(); }}
+        showInstallPanel={showInstallPanel}
+        windowsHost={windowsHost}
+        canStartInstall={notInstalled}
+        confirmInstall={confirmInstall && notInstalled && !prereqBlocking}
+        installBusy={installBusy || prereqBlocking}
+        installOperation={installOperation}
+        installLog={operationLogQuery.data?.text ?? ""}
+        installRequestError={installRequestError}
+        onOpenConfirm={() => {
+          if (!notInstalled || installBlocking) return;
+          setInstallRequestError(null);
+          setConfirmInstall(true);
+        }}
+        onCloseConfirm={() => setConfirmInstall(false)}
+        onConfirmInstall={() => { void startInstall(); }}
+        onCancelInstall={() => { void cancelInstall(); }}
+        onRetryInstall={retryInstall}
+      />
     );
   } else {
     content = (
-      <div className="dashboard-grid">
-        <NodeStatusView state={{ kind: "connected", node: nodeQuery.data, eventStatus }} copy={copy} />
-        <HermesSummaryCard state={discoveryState} copy={copy} onOpen={() => setActivePage("runtimes")} />
-      </div>
+      <DashboardPage
+        nodeState={{ kind: "connected", node: nodeQuery.data, eventStatus }}
+        discoveryState={discoveryState}
+        copy={copy}
+        locale={locale}
+        onOpenRuntimes={() => setActivePage("runtimes")}
+        onOpenSettings={() => setActivePage("settings")}
+      />
     );
   }
 
-  const targetLocale = locale === "en-US" ? "zh-CN" : "en-US";
   return (
     <DesktopShell
       activePage={activePage}
       copy={copy}
       locale={locale}
-      nodeVersion={nodeQuery.data?.nodeVersion}
       onNavigate={setActivePage}
-      onToggleLocale={toggleLocale}
-      targetLocaleLabel={messages[targetLocale].languageName}
+      onLocaleChange={changeLocale}
     >
       {content}
     </DesktopShell>

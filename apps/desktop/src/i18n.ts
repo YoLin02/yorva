@@ -14,8 +14,22 @@ type Messages = {
   brandTagline: string;
   navigationLabel: string;
   pages: Record<PageId, { navigation: string; title: string; description: string }>;
+  languageShort: string;
   switchLanguage: string;
   versionUnavailable: string;
+  dashboard: {
+    connectionState: string;
+    nodeInfo: string;
+    systemPlatform: string;
+    discoveryTitle: string;
+    discoveryNotice: string;
+    supportedStatuses: string;
+    statusInstalled: string;
+    statusUnsupported: string;
+    statusChecking: string;
+    statusBroken: string;
+    unavailableValue: string;
+  };
   node: {
     starting: string;
     startingDescription: string;
@@ -120,13 +134,14 @@ type Messages = {
 
 const english: Messages = {
   languageName: "English",
+  languageShort: "English",
   brandTagline: "Local-first AI runtime control",
   navigationLabel: "Primary navigation",
   pages: {
     dashboard: {
       navigation: "Dashboard",
-      title: "Dashboard",
-      description: "Local Node health and Runtime readiness at a glance.",
+      title: "Runtime Overview",
+      description: "Monitor your local node and Hermes runtime status",
     },
     runtimes: {
       navigation: "Runtimes",
@@ -141,6 +156,19 @@ const english: Messages = {
   },
   switchLanguage: "Switch language",
   versionUnavailable: "yorvad unavailable",
+  dashboard: {
+    connectionState: "Connection State",
+    nodeInfo: "Node Information",
+    systemPlatform: "System & Platform",
+    discoveryTitle: "Hermes Runtime Discovery",
+    discoveryNotice: "Hermes is required for Runtime capabilities. Install a supported official version to continue.",
+    supportedStatuses: "Supported Statuses",
+    statusInstalled: "Installed",
+    statusUnsupported: "Unsupported",
+    statusChecking: "Checking",
+    statusBroken: "Broken",
+    unavailableValue: "—",
+  },
   node: {
     starting: "Starting local node",
     startingDescription: "Creating a private Desktop session and checking the local daemon.",
@@ -300,13 +328,14 @@ const english: Messages = {
 
 const simplifiedChinese: Messages = {
   languageName: "简体中文",
+  languageShort: "中文",
   brandTagline: "本地优先的 AI 运行时控制台",
   navigationLabel: "主导航",
   pages: {
     dashboard: {
       navigation: "仪表盘",
-      title: "仪表盘",
-      description: "集中查看本地节点健康状态和运行时就绪情况。",
+      title: "运行时总览",
+      description: "查看本地节点与 Hermes 运行时状态",
     },
     runtimes: {
       navigation: "运行时",
@@ -321,6 +350,19 @@ const simplifiedChinese: Messages = {
   },
   switchLanguage: "切换语言",
   versionUnavailable: "yorvad 不可用",
+  dashboard: {
+    connectionState: "连接状态",
+    nodeInfo: "节点信息",
+    systemPlatform: "系统与平台",
+    discoveryTitle: "Hermes 运行时检测",
+    discoveryNotice: "完整运行时能力需要 Hermes。请安装受支持的官方版本后再继续。",
+    supportedStatuses: "支持的状态",
+    statusInstalled: "已安装",
+    statusUnsupported: "不受支持",
+    statusChecking: "检测中",
+    statusBroken: "已损坏",
+    unavailableValue: "—",
+  },
   node: {
     starting: "正在启动本地节点",
     startingDescription: "正在创建私有桌面会话并检查本地守护进程。",
