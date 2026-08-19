@@ -100,13 +100,7 @@ func TestStartDeleteDisappearanceRaceIsSuccess(t *testing.T) {
 			coderID = item.InstanceID
 		}
 	}
-	kept := make([]ProfileSnapshot, 0, 1)
-	for _, row := range source.profiles {
-		if row.NativeID != "coder" {
-			kept = append(kept, row)
-		}
-	}
-	source.profiles = kept
+	source.removeProfile("coder")
 	started, err := inventory.StartDelete(context.Background(), coderID, "coder", "del-race")
 	if err != nil {
 		t.Fatal(err)

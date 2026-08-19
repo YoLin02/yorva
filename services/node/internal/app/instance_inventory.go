@@ -81,6 +81,7 @@ type InstanceInventory struct {
 	now       func() time.Time
 	newID     func() (string, error)
 	mu        sync.Mutex
+	ensureMu  sync.Mutex
 	locks     map[string]*sync.Mutex
 	workers   map[string]context.CancelFunc
 	started   map[string]bool
@@ -192,6 +193,8 @@ func (s *InstanceInventory) GetInstance(ctx context.Context, instanceID string) 
 }
 
 func (s *InstanceInventory) ensureInstallation(ctx context.Context, discovery yorvaruntime.Discovery) (sqlite.AcceptedInstallation, error) {
+	s.ensureMu.Lock()
+	defer s.ensureMu.Unlock()
 	now := s.now()
 	existing, err := s.db.GetAcceptedInstallation(ctx, s.nodeID, yorvaruntime.Kind(hermesRuntimeID), discovery.Selected.Path)
 	if err == nil {

@@ -89,7 +89,7 @@ func TestQueryFailureDoesNotInventMissingAndKeepsPhase3CapabilityFalse(t *testin
 	if _, err := inventory.ListInstances(context.Background(), "hermes"); err != nil {
 		t.Fatal(err)
 	}
-	source.err = ErrInstanceQueryFailed
+	source.setErr(ErrInstanceQueryFailed)
 	failed, err := inventory.ListInstances(context.Background(), "hermes")
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +120,7 @@ func (b *blockingMutator) Create(ctx context.Context, _ string, name string) err
 		return ctx.Err()
 	}
 	if b.source != nil {
-		b.source.profiles = append(append([]ProfileSnapshot(nil), b.source.profiles...), ProfileSnapshot{NativeID: name})
+		b.source.addProfile(ProfileSnapshot{NativeID: name})
 	}
 	return nil
 }

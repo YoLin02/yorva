@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,17 +14,50 @@ import (
 )
 
 type fakeProfileSource struct {
+	mu       sync.Mutex
 	profiles []ProfileSnapshot
 	err      error
 	calls    int
 }
 
 func (f *fakeProfileSource) List(context.Context, string) ([]ProfileSnapshot, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.calls++
 	if f.err != nil {
 		return nil, f.err
 	}
 	return append([]ProfileSnapshot(nil), f.profiles...), nil
+}
+
+func (f *fakeProfileSource) setProfiles(profiles []ProfileSnapshot) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.profiles = append([]ProfileSnapshot(nil), profiles...)
+}
+
+func (f *fakeProfileSource) addProfile(profile ProfileSnapshot) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.profiles = append(f.profiles, profile)
+}
+
+func (f *fakeProfileSource) setErr(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.err = err
+}
+
+func (f *fakeProfileSource) removeProfile(nativeID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	kept := make([]ProfileSnapshot, 0, len(f.profiles))
+	for _, row := range f.profiles {
+		if row.NativeID != nativeID {
+			kept = append(kept, row)
+		}
+	}
+	f.profiles = kept
 }
 
 type inventoryDiscoverer struct {
@@ -64,7 +98,7 @@ func TestListInstancesReconcilesAvailabilityAndIdentity(t *testing.T) {
 		}
 	}
 
-	source.profiles = []ProfileSnapshot{{NativeID: "default", Default: true}}
+	source.setProfiles([]ProfileSnapshot{{NativeID: "default", Default: true}})
 	second, err := inventory.ListInstances(ctx, "hermes")
 	if err != nil {
 		t.Fatal(err)
@@ -77,10 +111,10 @@ func TestListInstancesReconcilesAvailabilityAndIdentity(t *testing.T) {
 		t.Fatalf("tombstone dropped: %#v", second.Instances)
 	}
 
-	source.profiles = []ProfileSnapshot{
+	source.setProfiles([]ProfileSnapshot{
 		{NativeID: "default", Default: true},
 		{NativeID: "coder", Default: false},
-	}
+	})
 	if _, err := inventory.ListInstances(ctx, "hermes"); err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +130,7 @@ func TestListInstancesQueryFailureIsUnknownNotMissing(t *testing.T) {
 	if _, err := inventory.ListInstances(ctx, "hermes"); err != nil {
 		t.Fatal(err)
 	}
-	source.err = ErrInstanceOutputUnrecognized
+	source.setErr(ErrInstanceOutputUnrecognized)
 	failed, err := inventory.ListInstances(ctx, "hermes")
 	if err != nil {
 		t.Fatal(err)

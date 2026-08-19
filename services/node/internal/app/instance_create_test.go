@@ -24,16 +24,9 @@ func (f *fakeMutator) Delete(_ context.Context, _ string, nativeID string) error
 	if f.err != nil {
 		return f.err
 	}
-	if f.source == nil {
-		return nil
+	if f.source != nil {
+		f.source.removeProfile(nativeID)
 	}
-	kept := make([]ProfileSnapshot, 0, len(f.source.profiles))
-	for _, row := range f.source.profiles {
-		if row.NativeID != nativeID {
-			kept = append(kept, row)
-		}
-	}
-	f.source.profiles = kept
 	return nil
 }
 
@@ -45,7 +38,7 @@ func (f *fakeMutator) Create(_ context.Context, _ string, name string) error {
 	}
 	f.created = append(f.created, name)
 	if f.source != nil {
-		f.source.profiles = append(append([]ProfileSnapshot(nil), f.source.profiles...), ProfileSnapshot{NativeID: name})
+		f.source.addProfile(ProfileSnapshot{NativeID: name})
 	}
 	return nil
 }
@@ -65,7 +58,7 @@ func TestStartCreateRequiresValidNameAndIdempotency(t *testing.T) {
 		t.Fatalf("bad key = %v", err)
 	}
 
-	source.profiles = []ProfileSnapshot{{NativeID: "default", Default: true}, {NativeID: "coder", Default: false}}
+	source.setProfiles([]ProfileSnapshot{{NativeID: "default", Default: true}, {NativeID: "coder", Default: false}})
 	if _, err := inventory.StartCreate(context.Background(), "hermes", "coder", "key-2"); !errors.Is(err, ErrInstanceAlreadyExists) {
 		t.Fatalf("duplicate = %v", err)
 	}
@@ -75,7 +68,7 @@ func TestStartCreateIdempotencyAndSuccess(t *testing.T) {
 	inventory, source := newTestInventory(t, []ProfileSnapshot{{NativeID: "default", Default: true}}, nil)
 	mutator := &fakeMutator{source: source}
 	inventory.WithMutator(mutator)
-	source.profiles = []ProfileSnapshot{{NativeID: "default", Default: true}}
+	source.setProfiles([]ProfileSnapshot{{NativeID: "default", Default: true}})
 
 	first, err := inventory.StartCreate(context.Background(), "hermes", "coder", "same-key")
 	if err != nil || !first.Created {
