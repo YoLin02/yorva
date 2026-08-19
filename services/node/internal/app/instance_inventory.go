@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/instance"
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes"
 )
 
 const hermesRuntimeID = "hermes"
@@ -20,6 +22,10 @@ var (
 	ErrInstanceQueryFailed        = errors.New("instance query failed")
 	ErrInstanceOutputUnrecognized = errors.New("instance output unrecognized")
 	ErrInstanceRuntimeNotFound    = errors.New("runtime inventory target not found")
+	ErrInstanceInvalidName        = errors.New("instance name is invalid")
+	ErrInstanceAlreadyExists      = errors.New("instance already exists")
+	ErrInstanceConflict           = errors.New("instance operation conflicts")
+	ErrInstanceNotCancellable     = errors.New("instance operation is not cancellable")
 )
 
 type ProfileSnapshot struct {
@@ -29,6 +35,10 @@ type ProfileSnapshot struct {
 
 type ProfileSource interface {
 	List(ctx context.Context, executable string) ([]ProfileSnapshot, error)
+}
+
+type ProfileMutator interface {
+	Create(ctx context.Context, executable, name string) error
 }
 
 type InstanceCapabilities struct {
@@ -63,10 +73,14 @@ type InstanceInventory struct {
 	discovery *RuntimeDiscovery
 	db        *sqlite.Database
 	source    ProfileSource
+	mutator   ProfileMutator
 	nodeID    string
 	now       func() time.Time
+	newID     func() (string, error)
 	mu        sync.Mutex
 	locks     map[string]*sync.Mutex
+	workers   map[string]context.CancelFunc
+	started   map[string]bool
 }
 
 func NewInstanceInventory(discovery *RuntimeDiscovery, db *sqlite.Database, source ProfileSource, nodeID string) *InstanceInventory {
@@ -76,8 +90,16 @@ func NewInstanceInventory(discovery *RuntimeDiscovery, db *sqlite.Database, sour
 		source:    source,
 		nodeID:    nodeID,
 		now:       func() time.Time { return time.Now().UTC() },
+		newID:     newOperationID,
 		locks:     make(map[string]*sync.Mutex),
+		workers:   make(map[string]context.CancelFunc),
+		started:   make(map[string]bool),
 	}
+}
+
+func (s *InstanceInventory) WithMutator(mutator ProfileMutator) *InstanceInventory {
+	s.mutator = mutator
+	return s
 }
 
 func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string) (InstanceList, error) {
@@ -239,4 +261,235 @@ func classifyProfileListError(err error) error {
 		return ErrInstanceOutputUnrecognized
 	}
 	return ErrInstanceQueryFailed
+}
+
+func (s *InstanceInventory) StartCreate(ctx context.Context, runtimeID, name, idempotencyKey string) (InstallStartResult, error) {
+	if err := ValidateIdempotencyKey(idempotencyKey); err != nil {
+		return InstallStartResult{}, err
+	}
+	if err := hermes.ValidateCreateProfileName(name); err != nil {
+		return InstallStartResult{}, ErrInstanceInvalidName
+	}
+	if s.mutator == nil {
+		return InstallStartResult{}, ErrRuntimeNotSupported
+	}
+	listed, err := s.ListInstances(ctx, runtimeID)
+	if err != nil {
+		return InstallStartResult{}, err
+	}
+	if existing, ok, err := s.db.GetOperationByIdempotencyKey(ctx, idempotencyKey); err != nil {
+		return InstallStartResult{}, err
+	} else if ok {
+		if existing.Type != operation.TypeInstanceCreate || existing.Message != name {
+			return InstallStartResult{}, ErrInstanceConflict
+		}
+		return InstallStartResult{Operation: existing}, nil
+	}
+	for _, item := range listed.Instances {
+		if item.Name == name && item.Availability == instance.Available {
+			return InstallStartResult{}, ErrInstanceAlreadyExists
+		}
+	}
+	if active, ok, err := s.db.ActiveInstanceMutation(ctx, listed.RuntimeInstallationID); err != nil {
+		return InstallStartResult{}, err
+	} else if ok {
+		return InstallStartResult{}, instanceConflict(active.ID)
+	}
+
+	now := s.now()
+	id, err := s.newID()
+	if err != nil {
+		return InstallStartResult{}, err
+	}
+	correlation, err := newCorrelationID()
+	if err != nil {
+		return InstallStartResult{}, err
+	}
+	op := operation.Operation{
+		ID:             id,
+		Type:           operation.TypeInstanceCreate,
+		TargetType:     operation.TargetRuntimeInstallation,
+		TargetID:       listed.RuntimeInstallationID,
+		Status:         operation.StatusPending,
+		Stage:          operation.StagePreflight,
+		Message:        name,
+		IdempotencyKey: idempotencyKey,
+		CorrelationID:  correlation,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if err := s.db.CreateOperation(ctx, op); err != nil {
+		if errors.Is(err, sqlite.ErrDuplicateIdempotency) {
+			existing, ok, getErr := s.db.GetOperationByIdempotencyKey(ctx, idempotencyKey)
+			if getErr == nil && ok {
+				if existing.Message != name {
+					return InstallStartResult{}, ErrInstanceConflict
+				}
+				return InstallStartResult{Operation: existing}, nil
+			}
+		}
+		if errors.Is(err, sqlite.ErrActiveInstanceMutation) {
+			return InstallStartResult{}, ErrInstanceConflict
+		}
+		return InstallStartResult{}, err
+	}
+	s.startCreateWorker(op, listed.RuntimeInstallationID, name)
+	return InstallStartResult{Operation: op, Created: true}, nil
+}
+
+func (s *InstanceInventory) CancelCreate(ctx context.Context, operationID string) (operation.Operation, error) {
+	current, err := s.db.GetOperation(ctx, operationID)
+	if err != nil {
+		return operation.Operation{}, err
+	}
+	if current.Type != operation.TypeInstanceCreate {
+		return operation.Operation{}, ErrInstanceNotFound
+	}
+	s.mu.Lock()
+	started := s.started[operationID]
+	cancel := s.workers[operationID]
+	s.mu.Unlock()
+	if started || current.Status == operation.StatusRunning {
+		return current, ErrInstanceNotCancellable
+	}
+	if cancel != nil {
+		cancel()
+	}
+	if operation.IsTerminal(current.Status) {
+		return current, nil
+	}
+	now := s.now()
+	next := current
+	next.Status = operation.StatusCancelled
+	next.CompletedAt = &now
+	next.UpdatedAt = now
+	if err := s.db.UpdateOperation(ctx, current, next); err != nil {
+		return operation.Operation{}, err
+	}
+	return next, nil
+}
+
+func (s *InstanceInventory) startCreateWorker(op operation.Operation, installationID, name string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	s.mu.Lock()
+	s.workers[op.ID] = cancel
+	s.mu.Unlock()
+	go func() {
+		defer func() {
+			s.mu.Lock()
+			delete(s.workers, op.ID)
+			s.mu.Unlock()
+			cancel()
+		}()
+		s.runCreate(ctx, op, installationID, name)
+	}()
+}
+
+func (s *InstanceInventory) runCreate(ctx context.Context, op operation.Operation, installationID, name string) {
+	unlock := s.lockInstallation(installationID)
+	defer unlock()
+	current, err := s.db.GetOperation(ctx, op.ID)
+	if err != nil || operation.IsTerminal(current.Status) {
+		return
+	}
+	now := s.now()
+	running := current
+	running.Status = operation.StatusRunning
+	running.Stage = operation.StageInstanceCreate
+	running.StartedAt = &now
+	running.UpdatedAt = now
+	if err := s.db.UpdateOperation(ctx, current, running); err != nil {
+		return
+	}
+	s.mu.Lock()
+	s.started[op.ID] = true
+	s.mu.Unlock()
+
+	cmdCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	discovery, err := s.discovery.Detect(cmdCtx, yorvaruntime.Kind(hermesRuntimeID))
+	if err != nil || discovery.Selected == nil {
+		s.failCreate(running, yorvaruntime.ErrorRuntimeNotSupported, false)
+		return
+	}
+	createErr := s.mutator.Create(cmdCtx, discovery.Selected.Path, name)
+	_, _ = s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
+	present, presentErr := s.profilePresent(ctx, installationID, name)
+	if presentErr == nil && present {
+		if createErr != nil {
+			s.failCreate(running, yorvaruntime.ErrorInstanceAlreadyExists, false)
+			return
+		}
+		s.succeedCreate(running)
+		return
+	}
+	if createErr != nil {
+		s.failCreate(running, yorvaruntime.ErrorInstanceQueryFailed, true)
+		return
+	}
+	s.failCreate(running, yorvaruntime.ErrorInstanceQueryFailed, true)
+}
+
+func (s *InstanceInventory) reconcileLocked(ctx context.Context, installationID, executable string) (InstanceList, error) {
+	now := s.now()
+	natives, listErr := s.source.List(ctx, executable)
+	if listErr != nil {
+		_ = s.db.MarkInstancesUnknown(ctx, installationID, now)
+		return InstanceList{}, classifyProfileListError(listErr)
+	}
+	entries := make([]sqlite.InstanceSnapshotEntry, 0, len(natives))
+	for _, native := range natives {
+		entries = append(entries, sqlite.InstanceSnapshotEntry{NativeID: native.NativeID, Default: native.Default || native.NativeID == "default"})
+	}
+	if err := s.db.ApplyInstanceSnapshot(ctx, installationID, entries, now); err != nil {
+		return InstanceList{}, err
+	}
+	rows, err := s.db.ListInstances(ctx, installationID)
+	if err != nil {
+		return InstanceList{}, err
+	}
+	views := make([]InstanceView, 0, len(rows))
+	for _, row := range rows {
+		views = append(views, instanceView(row))
+	}
+	return InstanceList{RuntimeInstallationID: installationID, Freshness: "FRESH", Instances: views}, nil
+}
+
+func (s *InstanceInventory) profilePresent(ctx context.Context, installationID, name string) (bool, error) {
+	rows, err := s.db.ListInstances(ctx, installationID)
+	if err != nil {
+		return false, err
+	}
+	for _, row := range rows {
+		if row.NativeID == name && row.Availability == instance.Available {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *InstanceInventory) succeedCreate(current operation.Operation) {
+	now := s.now()
+	next := current
+	next.Status = operation.StatusSucceeded
+	next.Stage = operation.StageInstanceReconcile
+	next.CompletedAt = &now
+	next.UpdatedAt = now
+	_ = s.db.UpdateOperation(context.Background(), current, next)
+}
+
+func (s *InstanceInventory) failCreate(current operation.Operation, code yorvaruntime.ErrorCode, retryable bool) {
+	now := s.now()
+	next := current
+	next.Status = operation.StatusFailed
+	next.ErrorCode = code
+	next.Retryable = retryable
+	next.CompletedAt = &now
+	next.UpdatedAt = now
+	_ = s.db.UpdateOperation(context.Background(), current, next)
+}
+
+func instanceConflict(activeID string) error {
+	_ = activeID
+	return ErrInstanceConflict
 }

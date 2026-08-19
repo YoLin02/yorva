@@ -35,9 +35,15 @@ describe("InstancesPage", () => {
         loading={false}
         error={false}
         inventory={null}
+        createName=""
+        createBusy={false}
+        createOperation={null}
         copy={messages["en-US"]}
         locale="en-US"
         onRefresh={() => undefined}
+        onCreateNameChange={() => undefined}
+        onCreate={() => undefined}
+        onCancelCreate={() => undefined}
       />,
     );
     expect(screen.getByText(messages["en-US"].instances.unsupportedTitle)).toBeInTheDocument();
@@ -53,9 +59,15 @@ describe("InstancesPage", () => {
         loading={false}
         error={false}
         inventory={inventory}
+        createName=""
+        createBusy={false}
+        createOperation={null}
         copy={messages["en-US"]}
         locale="en-US"
         onRefresh={onRefresh}
+        onCreateNameChange={() => undefined}
+        onCreate={() => undefined}
+        onCancelCreate={() => undefined}
       />,
     );
     expect(screen.getByText("default")).toBeInTheDocument();
@@ -74,9 +86,15 @@ describe("InstancesPage", () => {
         loading={false}
         error={false}
         inventory={{ ...inventory, freshness: "UNKNOWN" }}
+        createName=""
+        createBusy={false}
+        createOperation={null}
         copy={messages["zh-CN"]}
         locale="zh-CN"
         onRefresh={() => undefined}
+        onCreateNameChange={() => undefined}
+        onCreate={() => undefined}
+        onCancelCreate={() => undefined}
       />,
     );
     expect(screen.getByText(messages["zh-CN"].instances.freshnessUnknown)).toBeInTheDocument();

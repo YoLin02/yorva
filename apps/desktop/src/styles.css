@@ -252,6 +252,24 @@ p {
   gap: 16px;
 }
 
+.instance-create {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.instance-create-label {
+  font-weight: 600;
+}
+
+.instance-create-input {
+  border: 1px solid var(--yorva-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
 .instance-list {
   display: flex;
   flex-direction: column;

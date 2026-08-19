@@ -11,6 +11,7 @@ import (
 
 	"github.com/YoLin02/yorva/services/node/internal/app"
 	"github.com/YoLin02/yorva/services/node/internal/domain/instance"
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -30,6 +31,14 @@ func (f fakeInstanceInventory) ListInstances(_ context.Context, runtimeID string
 
 func (f fakeInstanceInventory) GetInstance(_ context.Context, _ string) (app.InstanceView, error) {
 	return f.get, f.getErr
+}
+
+func (f fakeInstanceInventory) StartCreate(context.Context, string, string, string) (app.InstallStartResult, error) {
+	return app.InstallStartResult{}, app.ErrRuntimeNotSupported
+}
+
+func (f fakeInstanceInventory) CancelCreate(context.Context, string) (operation.Operation, error) {
+	return operation.Operation{}, app.ErrInstanceNotFound
 }
 
 func TestListAndGetInstancesContract(t *testing.T) {

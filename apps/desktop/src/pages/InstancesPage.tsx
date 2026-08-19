@@ -1,18 +1,26 @@
 import { formatDateTime } from "../formatDateTime";
-import type { Instance, InstanceList } from "../api/types";
+import type { Instance, InstanceList, Operation } from "../api/types";
 import type { AppMessages, Locale } from "../i18n";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { IconRotateCw } from "../components/ui/icons";
+
+const createNamePattern = /^[a-z][a-z0-9_-]{0,63}$/;
 
 type InstancesPageProps = {
   supported: boolean;
   loading: boolean;
   error: boolean;
   inventory: InstanceList | null;
+  createName: string;
+  createBusy: boolean;
+  createOperation: Operation | null;
   copy: AppMessages;
   locale: Locale;
   onRefresh: () => void;
+  onCreateNameChange: (value: string) => void;
+  onCreate: () => void;
+  onCancelCreate: () => void;
 };
 
 export function InstancesPage({
@@ -20,9 +28,15 @@ export function InstancesPage({
   loading,
   error,
   inventory,
+  createName,
+  createBusy,
+  createOperation,
   copy,
   locale,
   onRefresh,
+  onCreateNameChange,
+  onCreate,
+  onCancelCreate,
 }: InstancesPageProps) {
   const items = inventory?.instances ?? [];
   const named = items.filter((item) => !item.default);
@@ -56,6 +70,52 @@ export function InstancesPage({
             </p>
           ) : null}
           {inventory?.errorCode ? <p className="page-copy">{copy.instances.queryFailed}</p> : null}
+
+          <form
+            className="instance-create"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onCreate();
+            }}
+          >
+            <label className="instance-create-label" htmlFor="instance-name">
+              {copy.instances.createLabel}
+            </label>
+            <input
+              id="instance-name"
+              className="instance-create-input"
+              value={createName}
+              onChange={(event) => onCreateNameChange(event.target.value)}
+              placeholder={copy.instances.createPlaceholder}
+              autoComplete="off"
+              spellCheck={false}
+              disabled={createBusy}
+            />
+            {createName !== "" && !createNamePattern.test(createName) ? (
+              <p className="page-copy">{copy.instances.createInvalid}</p>
+            ) : null}
+            <div className="instance-toolbar">
+              <Button type="submit" disabled={createBusy || !createNamePattern.test(createName)}>
+                {copy.instances.createAction}
+              </Button>
+              {createOperation && (createOperation.status === "PENDING") ? (
+                <Button type="button" onClick={onCancelCreate} disabled={createBusy}>
+                  {copy.instances.cancelCreate}
+                </Button>
+              ) : null}
+            </div>
+            {createOperation ? (
+              <p className="page-copy" role="status">
+                {createOperation.status === "PENDING"
+                  ? copy.instances.createPending
+                  : createOperation.status === "RUNNING"
+                    ? copy.instances.createRunning
+                    : createOperation.status === "SUCCEEDED"
+                      ? copy.instances.createSucceeded
+                      : copy.instances.createFailed}
+              </p>
+            ) : null}
+          </form>
 
           <ul className="instance-list">
             {items.map((item) => (

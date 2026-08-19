@@ -467,6 +467,39 @@ paths:
           $ref: "#/components/responses/MethodNotAllowed"
         "409":
           $ref: "#/components/responses/Conflict"
+    post:
+      operationId: createRuntimeInstance
+      summary: Create a minimal named Instance
+      tags: [Instances]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstanceCreateRequest"
+      responses:
+        "202":
+          description: The instance.create Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
     options:
       operationId: optionsRuntimeInstances
       summary: Validate CORS access for Runtime Instances
@@ -835,7 +868,7 @@ components:
           type: string
         type:
           type: string
-          enum: [runtime.install, hermes.prerequisites]
+          enum: [runtime.install, hermes.prerequisites, instance.create]
         targetType:
           type: string
         targetId:
@@ -892,6 +925,16 @@ components:
           maxItems: 50
           items:
             $ref: "#/components/schemas/Operation"
+    InstanceCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[a-z][a-z0-9_-]{0,63}$"
     InstanceCapabilities:
       type: object
       additionalProperties: false

@@ -33,6 +33,10 @@ export function App() {
   const [prereqOperationId, setPrereqOperationId] = useState<string | null>(null);
   const [prereqBusy, setPrereqBusy] = useState(false);
   const [prereqRequestError, setPrereqRequestError] = useState<InstallRequestError | null>(null);
+  const [createName, setCreateName] = useState("");
+  const [createKey, setCreateKey] = useState<string | null>(null);
+  const [createOperationId, setCreateOperationId] = useState<string | null>(null);
+  const [createBusy, setCreateBusy] = useState(false);
   const copy = messages[locale];
 
   const sessionQuery = useQuery({
@@ -298,6 +302,44 @@ export function App() {
     discoveryState = { kind: "complete", discovery: discoveryQuery.data, onRetry: retryDiscovery };
   }
 
+  const createOperationQuery = useQuery({
+    queryKey: ["instance-create", createOperationId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getOperation(createOperationId!, signal),
+    enabled: client !== undefined && createOperationId !== null,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "RUNNING" ? 1000 : false;
+    },
+  });
+  const startCreate = async () => {
+    if (!client || createBusy) return;
+    setCreateBusy(true);
+    try {
+      const key = createKey ?? crypto.randomUUID();
+      setCreateKey(key);
+      const operation = await client.createHermesInstance(createName, key);
+      setCreateOperationId(operation.id);
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+  const cancelCreate = async () => {
+    if (!client || !createOperationId || createBusy) return;
+    setCreateBusy(true);
+    try {
+      await client.cancelOperation(createOperationId);
+      await createOperationQuery.refetch();
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+  useEffect(() => {
+    if (createOperationQuery.data?.status === "SUCCEEDED") {
+      void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+      setCreateName("");
+      setCreateKey(null);
+    }
+  }, [createOperationQuery.data?.status, queryClient]);
   const hermesSupported = discoveryQuery.data?.state === "SUPPORTED";
   const instancesQuery = useQuery({
     queryKey: ["hermes-instances", sessionQuery.data?.baseUrl],
@@ -392,10 +434,20 @@ export function App() {
         loading={instancesQuery.isPending || instancesQuery.isFetching}
         error={instancesQuery.isError}
         inventory={instancesQuery.data ?? null}
+        createName={createName}
+        createBusy={createBusy}
+        createOperation={createOperationQuery.data ?? null}
         copy={copy}
         locale={locale}
         onRefresh={() => {
           void instancesQuery.refetch();
+        }}
+        onCreateNameChange={setCreateName}
+        onCreate={() => {
+          void startCreate();
+        }}
+        onCancelCreate={() => {
+          void cancelCreate();
         }}
       />
     );

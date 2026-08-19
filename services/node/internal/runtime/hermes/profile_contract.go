@@ -95,6 +95,10 @@ func officialValidateProfileName(name string) error {
 	return nil
 }
 
+func ValidateCreateProfileName(name string) error {
+	return validateYORVACreateProfileName(name)
+}
+
 func validateYORVACreateProfileName(name string) error {
 	if name == "" {
 		return fmt.Errorf("%w: empty", errProfileNameInvalid)

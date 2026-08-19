@@ -97,6 +97,16 @@ export function createDaemonClient(session: DaemonSession) {
       request<InstanceList>("/api/v1/runtimes/hermes/instances", {
         signal: withDesktopTimeout(signal),
       }),
+    createHermesInstance: (name: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>("/api/v1/runtimes/hermes/instances", {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: JSON.stringify({ name }),
+      }),
     getInstance: (instanceId: string, signal?: AbortSignal) =>
       request<Instance>(`/api/v1/instances/${encodeURIComponent(instanceId)}`, {
         signal: withDesktopTimeout(signal),

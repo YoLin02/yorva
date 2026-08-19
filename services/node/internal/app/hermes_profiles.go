@@ -8,6 +8,16 @@ import (
 
 type HermesProfileSource struct{}
 
+func (HermesProfileSource) Create(ctx context.Context, executable, name string) error {
+	if err := hermes.CreateProfile(ctx, executable, name); err != nil {
+		if hermes.IsProfileOutputUnrecognized(err) {
+			return ErrInstanceOutputUnrecognized
+		}
+		return ErrInstanceQueryFailed
+	}
+	return nil
+}
+
 func (HermesProfileSource) List(ctx context.Context, executable string) ([]ProfileSnapshot, error) {
 	natives, err := hermes.ListProfiles(ctx, executable)
 	if hermes.IsProfileOutputUnrecognized(err) {

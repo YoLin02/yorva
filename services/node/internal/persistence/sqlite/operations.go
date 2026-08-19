@@ -18,6 +18,7 @@ var (
 	ErrOperationNotFound       = errors.New("operation not found")
 	ErrDuplicateIdempotency    = errors.New("idempotency key already exists")
 	ErrActiveInstallExists     = errors.New("an active Runtime install already exists")
+	ErrActiveInstanceMutation  = errors.New("an active instance mutation already exists")
 	ErrInvalidStatusTransition = errors.New("invalid operation status transition")
 )
 
@@ -83,6 +84,20 @@ func (d *Database) ActiveRuntimeInstall(ctx context.Context, runtimeKind string)
 	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
         WHERE operation_type = ? AND target_type = ? AND target_id = ? AND status IN ('PENDING', 'RUNNING')
     `, string(operation.TypeRuntimeInstall), string(operation.TargetRuntimeKind), runtimeKind))
+	if errors.Is(err, sql.ErrNoRows) {
+		return operation.Operation{}, false, nil
+	}
+	if err != nil {
+		return operation.Operation{}, false, err
+	}
+	return value, true, nil
+}
+
+func (d *Database) ActiveInstanceMutation(ctx context.Context, installationID string) (operation.Operation, bool, error) {
+	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
+        WHERE target_type = ? AND target_id = ? AND status IN ('PENDING', 'RUNNING')
+          AND operation_type IN ('instance.create', 'instance.delete')
+    `, string(operation.TargetRuntimeInstallation), installationID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return operation.Operation{}, false, nil
 	}
@@ -330,6 +345,9 @@ func mapOperationWriteError(err error) error {
 	message := strings.ToLower(err.Error())
 	if strings.Contains(message, "operations_idempotency_key") || strings.Contains(message, "operations.idempotency_key") {
 		return ErrDuplicateIdempotency
+	}
+	if strings.Contains(message, "operations_one_active_instance_mutation") {
+		return ErrActiveInstanceMutation
 	}
 	if strings.Contains(message, "operations_one_active_hermes_host_mutation") ||
 		strings.Contains(message, "operations_one_active_runtime_install") ||

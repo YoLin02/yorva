@@ -145,6 +145,15 @@ type Messages = {
     lifecycleUnavailable: string;
     loadFailure: string;
     queryFailed: string;
+    createLabel: string;
+    createPlaceholder: string;
+    createAction: string;
+    createPending: string;
+    createRunning: string;
+    createSucceeded: string;
+    createFailed: string;
+    createInvalid: string;
+    cancelCreate: string;
   };
 };
 
@@ -368,6 +377,15 @@ const english: Messages = {
     lifecycleUnavailable: "Start, Stop, and Restart are not available in this phase.",
     loadFailure: "YORVA could not load Instances.",
     queryFailed: "Hermes Profile query failed. Inventory freshness is unknown.",
+    createLabel: "New instance name",
+    createPlaceholder: "coder",
+    createAction: "Create instance",
+    createPending: "Create queued",
+    createRunning: "Creating instance",
+    createSucceeded: "Instance created",
+    createFailed: "Instance create failed",
+    createInvalid: "Use a lowercase letter, then letters, digits, _ or -.",
+    cancelCreate: "Cancel create",
   },
 };
 
@@ -591,6 +609,15 @@ const simplifiedChinese: Messages = {
     lifecycleUnavailable: "本阶段不提供启动、停止或重启。",
     loadFailure: "无法加载实例。",
     queryFailed: "Hermes Profile 查询失败。清单新鲜度为未知。",
+    createLabel: "新实例名称",
+    createPlaceholder: "coder",
+    createAction: "创建实例",
+    createPending: "创建已排队",
+    createRunning: "正在创建实例",
+    createSucceeded: "实例已创建",
+    createFailed: "创建实例失败",
+    createInvalid: "首字符必须是小写字母，后续只能是小写字母、数字、_ 或 -。",
+    cancelCreate: "取消创建",
   },
 };
 

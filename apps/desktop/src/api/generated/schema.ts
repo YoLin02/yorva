@@ -225,7 +225,8 @@ export interface paths {
         /** List reconciled Instances for a Runtime */
         get: operations["listRuntimeInstances"];
         put?: never;
-        post?: never;
+        /** Create a minimal named Instance */
+        post: operations["createRuntimeInstance"];
         delete?: never;
         /** Validate CORS access for Runtime Instances */
         options: operations["optionsRuntimeInstances"];
@@ -380,7 +381,7 @@ export interface components {
         Operation: {
             id: string;
             /** @enum {string} */
-            type: "runtime.install" | "hermes.prerequisites";
+            type: "runtime.install" | "hermes.prerequisites" | "instance.create";
             targetType: string;
             targetId: string;
             /** @enum {string} */
@@ -405,6 +406,9 @@ export interface components {
         };
         OperationList: {
             operations: components["schemas"]["Operation"][];
+        };
+        InstanceCreateRequest: {
+            name: string;
         };
         InstanceCapabilities: {
             instances: boolean;
@@ -996,6 +1000,40 @@ export interface operations {
                     "application/json": components["schemas"]["InstanceList"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    createRuntimeInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                runtimeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstanceCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description The instance.create Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
