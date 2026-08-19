@@ -147,8 +147,10 @@ The detailed Phase 3 Spec was prepared after Phase 2 amendment 002A1 passed inde
 
 ## Phase 4 — Instance/Profile management
 
-Status: **READY** (specification only; implementation not authorized)
-Spec: `docs/phases/PHASE-004-instance-profile.md`
+Status: **IN_PROGRESS** (Owner authorized implementation 2026-08-19)
+Specs: `docs/phases/PHASE-004-instance-profile.zh-CN.md` (Owner review) and `docs/phases/PHASE-004-instance-profile.md` (Agent execution mirror) — **READY**
+Start commit: `d04b1fdc298f643f84d0c84a245595baae2e8994`
+Branch: `codex/phase4-instance-profile`
 
 Goal: manage multiple Hermes-backed YORVA instances.
 
