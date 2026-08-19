@@ -18,6 +18,25 @@ type fakeMutator struct {
 	created []string
 }
 
+func (f *fakeMutator) Delete(_ context.Context, _ string, nativeID string) error {
+	f.calls++
+	f.last = nativeID
+	if f.err != nil {
+		return f.err
+	}
+	if f.source == nil {
+		return nil
+	}
+	kept := make([]ProfileSnapshot, 0, len(f.source.profiles))
+	for _, row := range f.source.profiles {
+		if row.NativeID != nativeID {
+			kept = append(kept, row)
+		}
+	}
+	f.source.profiles = kept
+	return nil
+}
+
 func (f *fakeMutator) Create(_ context.Context, _ string, name string) error {
 	f.calls++
 	f.last = name

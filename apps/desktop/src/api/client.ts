@@ -111,6 +111,16 @@ export function createDaemonClient(session: DaemonSession) {
       request<Instance>(`/api/v1/instances/${encodeURIComponent(instanceId)}`, {
         signal: withDesktopTimeout(signal),
       }),
+    deleteInstance: (instanceId: string, confirmationName: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}`, {
+        method: "DELETE",
+        signal: withDesktopTimeout(signal),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
+        body: JSON.stringify({ confirmationName }),
+      }),
     getHermesPrerequisites: (signal?: AbortSignal) =>
       request<import("./types").HermesPrerequisites>("/api/v1/runtimes/hermes/prerequisites", {
         signal: withDesktopTimeout(signal),

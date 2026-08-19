@@ -21,6 +21,14 @@ type InstancesPageProps = {
   onCreateNameChange: (value: string) => void;
   onCreate: () => void;
   onCancelCreate: () => void;
+  deleteTarget: Instance | null;
+  deleteConfirmation: string;
+  deleteBusy: boolean;
+  deleteOperation: Operation | null;
+  onDeleteTargetChange: (item: Instance | null) => void;
+  onDeleteConfirmationChange: (value: string) => void;
+  onDelete: () => void;
+  onCancelDelete: () => void;
 };
 
 export function InstancesPage({
@@ -37,6 +45,14 @@ export function InstancesPage({
   onCreateNameChange,
   onCreate,
   onCancelCreate,
+  deleteTarget,
+  deleteConfirmation,
+  deleteBusy,
+  deleteOperation,
+  onDeleteTargetChange,
+  onDeleteConfirmationChange,
+  onDelete,
+  onCancelDelete,
 }: InstancesPageProps) {
   const items = inventory?.instances ?? [];
   const named = items.filter((item) => !item.default);
@@ -120,7 +136,12 @@ export function InstancesPage({
           <ul className="instance-list">
             {items.map((item) => (
               <li key={item.instanceId}>
-                <InstanceRow item={item} copy={copy} locale={locale} />
+                <InstanceRow
+                  item={item}
+                  copy={copy}
+                  locale={locale}
+                  onDelete={() => onDeleteTargetChange(item)}
+                />
               </li>
             ))}
           </ul>
@@ -130,6 +151,57 @@ export function InstancesPage({
           ) : null}
 
           <p className="page-copy">{copy.instances.lifecycleUnavailable}</p>
+
+          {deleteTarget && !deleteTarget.protected && !deleteTarget.default ? (
+            <div className="card instance-card" role="dialog" aria-labelledby="delete-instance-title">
+              <h2 id="delete-instance-title" className="instance-card-title">
+                {copy.instances.deleteTitle}
+              </h2>
+              <p className="page-copy">{copy.instances.deleteWarning}</p>
+              <label className="instance-create-label" htmlFor="delete-confirm">
+                {copy.instances.deleteConfirmLabel}
+              </label>
+              <input
+                id="delete-confirm"
+                className="instance-create-input"
+                value={deleteConfirmation}
+                onChange={(event) => onDeleteConfirmationChange(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                disabled={deleteBusy}
+              />
+              <div className="instance-toolbar">
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={deleteBusy || deleteConfirmation !== deleteTarget.name}
+                  onClick={onDelete}
+                >
+                  {copy.instances.deleteAction}
+                </Button>
+                {deleteOperation?.status === "PENDING" ? (
+                  <Button type="button" onClick={onCancelDelete} disabled={deleteBusy}>
+                    {copy.instances.cancelDelete}
+                  </Button>
+                ) : (
+                  <Button type="button" onClick={() => onDeleteTargetChange(null)} disabled={deleteBusy}>
+                    {copy.hermes.install.back}
+                  </Button>
+                )}
+              </div>
+              {deleteOperation ? (
+                <p className="page-copy" role="status">
+                  {deleteOperation.status === "PENDING"
+                    ? copy.instances.deletePending
+                    : deleteOperation.status === "RUNNING"
+                      ? copy.instances.deleteRunning
+                      : deleteOperation.status === "SUCCEEDED"
+                        ? copy.instances.deleteSucceeded
+                        : copy.instances.deleteFailed}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </>
       )}
     </section>
@@ -140,10 +212,12 @@ function InstanceRow({
   item,
   copy,
   locale,
+  onDelete,
 }: {
   item: Instance;
   copy: AppMessages;
   locale: Locale;
+  onDelete: () => void;
 }) {
   const availability = item.availability;
   return (
@@ -163,6 +237,11 @@ function InstanceRow({
         <p className="page-copy">
           {copy.instances.lastSynced}: {formatDateTime(item.lastSyncedAt, locale)}
         </p>
+      ) : null}
+      {!item.default && !item.protected ? (
+        <Button type="button" variant="danger" onClick={onDelete}>
+          {copy.instances.deleteAction}
+        </Button>
       ) : null}
     </article>
   );

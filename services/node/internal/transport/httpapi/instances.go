@@ -20,6 +20,8 @@ type InstanceInventoryService interface {
 	GetInstance(context.Context, string) (app.InstanceView, error)
 	StartCreate(context.Context, string, string, string) (app.InstallStartResult, error)
 	CancelCreate(context.Context, string) (operation.Operation, error)
+	StartDelete(context.Context, string, string, string) (app.InstallStartResult, error)
+	CancelDelete(context.Context, string) (operation.Operation, error)
 }
 
 type InstanceCapabilitiesResponse struct {
@@ -121,6 +123,33 @@ func getInstance(inventory InstanceInventoryService) http.Handler {
 	})
 }
 
+func deleteInstance(inventory InstanceInventoryService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if inventory == nil {
+			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Instance inventory is unavailable.", Retryable: true})
+			return
+		}
+		key := r.Header.Get("Idempotency-Key")
+		if err := app.ValidateIdempotencyKey(key); err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_IDEMPOTENCY_KEY", Message: "A valid Idempotency-Key header is required.", Retryable: false})
+			return
+		}
+		confirmation, err := decodeClosedConfirmationName(r)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The delete request must be a closed JSON object with confirmationName.", Retryable: false})
+			return
+		}
+		result, err := inventory.StartDelete(r.Context(), r.PathValue("instanceId"), confirmation, key)
+		if err != nil {
+			writeInstanceError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(newOperationResponse(result.Operation))
+	})
+}
+
 func instanceLifecycleUnsupported() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusConflict, ErrorBody{
@@ -156,6 +185,10 @@ func writeInstanceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorInstanceInvalidName), Message: "The instance name is not allowed.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceAlreadyExists):
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceAlreadyExists), Message: "An instance with this name already exists.", Retryable: false})
+	case errors.Is(err, app.ErrInstanceProtected):
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceProtected), Message: "The default instance cannot be deleted.", Retryable: false})
+	case errors.Is(err, app.ErrInstanceConfirmationMismatch):
+		writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorInstanceConfirmationMismatch), Message: "The confirmation name does not match.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceConflict):
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceConflict), Message: "Another instance operation is already running.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceNotCancellable):
@@ -194,6 +227,35 @@ func decodeClosedInstanceName(r *http.Request) (string, error) {
 		return "", errors.New("trailing json")
 	}
 	return body.Name, nil
+}
+
+func decodeClosedConfirmationName(r *http.Request) (string, error) {
+	if r.Body == nil {
+		return "", io.EOF
+	}
+	defer r.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(r.Body, maxInstallRequestBytes+1))
+	if err != nil {
+		return "", err
+	}
+	if len(payload) == 0 || len(payload) > maxInstallRequestBytes {
+		return "", io.ErrUnexpectedEOF
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	var body struct {
+		ConfirmationName string `json:"confirmationName"`
+	}
+	if err := decoder.Decode(&body); err != nil {
+		return "", err
+	}
+	if body.ConfirmationName == "" {
+		return "", errors.New("confirmationName required")
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return "", errors.New("trailing json")
+	}
+	return body.ConfirmationName, nil
 }
 
 func instancePathKind(path string) string {

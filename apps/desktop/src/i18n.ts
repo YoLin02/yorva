@@ -154,6 +154,15 @@ type Messages = {
     createFailed: string;
     createInvalid: string;
     cancelCreate: string;
+    deleteAction: string;
+    deleteTitle: string;
+    deleteWarning: string;
+    deleteConfirmLabel: string;
+    deletePending: string;
+    deleteRunning: string;
+    deleteSucceeded: string;
+    deleteFailed: string;
+    cancelDelete: string;
   };
 };
 
@@ -386,6 +395,15 @@ const english: Messages = {
     createFailed: "Instance create failed",
     createInvalid: "Use a lowercase letter, then letters, digits, _ or -.",
     cancelCreate: "Cancel create",
+    deleteAction: "Delete",
+    deleteTitle: "Delete instance",
+    deleteWarning: "This permanently deletes Hermes-owned profile data. The YORVA identity is kept as missing. The default profile cannot be deleted.",
+    deleteConfirmLabel: "Type the instance name to confirm",
+    deletePending: "Delete queued",
+    deleteRunning: "Deleting instance",
+    deleteSucceeded: "Instance deleted and retained as missing",
+    deleteFailed: "Instance delete failed",
+    cancelDelete: "Cancel delete",
   },
 };
 
@@ -618,6 +636,15 @@ const simplifiedChinese: Messages = {
     createFailed: "创建实例失败",
     createInvalid: "首字符必须是小写字母，后续只能是小写字母、数字、_ 或 -。",
     cancelCreate: "取消创建",
+    deleteAction: "删除",
+    deleteTitle: "删除实例",
+    deleteWarning: "这将永久删除 Hermes 所有的 Profile 数据。YORVA 身份会保留为缺失。default 不可删除。",
+    deleteConfirmLabel: "输入实例名称以确认",
+    deletePending: "删除已排队",
+    deleteRunning: "正在删除实例",
+    deleteSucceeded: "实例已删除，并保留为缺失",
+    deleteFailed: "删除实例失败",
+    cancelDelete: "取消删除",
   },
 };
 

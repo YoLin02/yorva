@@ -44,6 +44,14 @@ describe("InstancesPage", () => {
         onCreateNameChange={() => undefined}
         onCreate={() => undefined}
         onCancelCreate={() => undefined}
+        deleteTarget={null}
+        deleteConfirmation=""
+        deleteBusy={false}
+        deleteOperation={null}
+        onDeleteTargetChange={() => undefined}
+        onDeleteConfirmationChange={() => undefined}
+        onDelete={() => undefined}
+        onCancelDelete={() => undefined}
       />,
     );
     expect(screen.getByText(messages["en-US"].instances.unsupportedTitle)).toBeInTheDocument();
@@ -68,6 +76,14 @@ describe("InstancesPage", () => {
         onCreateNameChange={() => undefined}
         onCreate={() => undefined}
         onCancelCreate={() => undefined}
+        deleteTarget={null}
+        deleteConfirmation=""
+        deleteBusy={false}
+        deleteOperation={null}
+        onDeleteTargetChange={() => undefined}
+        onDeleteConfirmationChange={() => undefined}
+        onDelete={() => undefined}
+        onCancelDelete={() => undefined}
       />,
     );
     expect(screen.getByText("default")).toBeInTheDocument();
@@ -95,6 +111,14 @@ describe("InstancesPage", () => {
         onCreateNameChange={() => undefined}
         onCreate={() => undefined}
         onCancelCreate={() => undefined}
+        deleteTarget={null}
+        deleteConfirmation=""
+        deleteBusy={false}
+        deleteOperation={null}
+        onDeleteTargetChange={() => undefined}
+        onDeleteConfirmationChange={() => undefined}
+        onDelete={() => undefined}
+        onCancelDelete={() => undefined}
       />,
     );
     expect(screen.getByText(messages["zh-CN"].instances.freshnessUnknown)).toBeInTheDocument();

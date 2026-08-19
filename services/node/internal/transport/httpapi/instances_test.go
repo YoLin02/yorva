@@ -41,6 +41,14 @@ func (f fakeInstanceInventory) CancelCreate(context.Context, string) (operation.
 	return operation.Operation{}, app.ErrInstanceNotFound
 }
 
+func (f fakeInstanceInventory) StartDelete(context.Context, string, string, string) (app.InstallStartResult, error) {
+	return app.InstallStartResult{}, app.ErrRuntimeNotSupported
+}
+
+func (f fakeInstanceInventory) CancelDelete(context.Context, string) (operation.Operation, error) {
+	return operation.Operation{}, app.ErrInstanceNotFound
+}
+
 func TestListAndGetInstancesContract(t *testing.T) {
 	now := time.Date(2026, 8, 19, 16, 0, 0, 0, time.UTC)
 	inventory := fakeInstanceInventory{

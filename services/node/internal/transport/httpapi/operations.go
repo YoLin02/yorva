@@ -232,6 +232,8 @@ func cancelOperation(installs RuntimeInstallService, instances InstanceInventory
 		}
 		if value.Type == operation.TypeInstanceCreate && instances != nil {
 			value, err = instances.CancelCreate(r.Context(), value.ID)
+		} else if value.Type == operation.TypeInstanceDelete && instances != nil {
+			value, err = instances.CancelDelete(r.Context(), value.ID)
 		} else {
 			value, err = installs.Cancel(r.Context(), value.ID)
 		}

@@ -67,6 +67,7 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, listRuntimeInstances(instances)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, createRuntimeInstance(instances)))
 	mux.Handle("GET /api/v1/instances/{instanceId}", requireBearer(token, getInstance(instances)))
+	mux.Handle("DELETE /api/v1/instances/{instanceId}", requireBearer(token, deleteInstance(instances)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/start", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("POST /api/v1/instances/{instanceId}/stop", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("POST /api/v1/instances/{instanceId}/restart", requireBearer(token, instanceLifecycleUnsupported()))
@@ -149,7 +150,7 @@ func allowedMethods(path string) (string, bool) {
 	case "list":
 		return "GET, POST, OPTIONS", true
 	case "get":
-		return "GET, OPTIONS", true
+		return "GET, DELETE, OPTIONS", true
 	case "lifecycle":
 		return "POST, OPTIONS", true
 	}
@@ -336,7 +337,7 @@ func restrictOrigins(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Accept, Content-Type, Idempotency-Key")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		}
 		next.ServeHTTP(w, r)
 	})

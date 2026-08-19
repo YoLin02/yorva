@@ -18,6 +18,16 @@ func (HermesProfileSource) Create(ctx context.Context, executable, name string) 
 	return nil
 }
 
+func (HermesProfileSource) Delete(ctx context.Context, executable, nativeID string) error {
+	if err := hermes.DeleteProfile(ctx, executable, nativeID); err != nil {
+		if hermes.IsProfileOutputUnrecognized(err) {
+			return ErrInstanceOutputUnrecognized
+		}
+		return ErrInstanceQueryFailed
+	}
+	return nil
+}
+
 func (HermesProfileSource) List(ctx context.Context, executable string) ([]ProfileSnapshot, error) {
 	natives, err := hermes.ListProfiles(ctx, executable)
 	if hermes.IsProfileOutputUnrecognized(err) {

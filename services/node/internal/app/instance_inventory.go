@@ -17,15 +17,17 @@ import (
 const hermesRuntimeID = "hermes"
 
 var (
-	ErrRuntimeNotSupported        = errors.New("runtime is not supported for instance inventory")
-	ErrInstanceNotFound           = errors.New("instance not found")
-	ErrInstanceQueryFailed        = errors.New("instance query failed")
-	ErrInstanceOutputUnrecognized = errors.New("instance output unrecognized")
-	ErrInstanceRuntimeNotFound    = errors.New("runtime inventory target not found")
-	ErrInstanceInvalidName        = errors.New("instance name is invalid")
-	ErrInstanceAlreadyExists      = errors.New("instance already exists")
-	ErrInstanceConflict           = errors.New("instance operation conflicts")
-	ErrInstanceNotCancellable     = errors.New("instance operation is not cancellable")
+	ErrRuntimeNotSupported          = errors.New("runtime is not supported for instance inventory")
+	ErrInstanceNotFound             = errors.New("instance not found")
+	ErrInstanceQueryFailed          = errors.New("instance query failed")
+	ErrInstanceOutputUnrecognized   = errors.New("instance output unrecognized")
+	ErrInstanceRuntimeNotFound      = errors.New("runtime inventory target not found")
+	ErrInstanceInvalidName          = errors.New("instance name is invalid")
+	ErrInstanceAlreadyExists        = errors.New("instance already exists")
+	ErrInstanceConflict             = errors.New("instance operation conflicts")
+	ErrInstanceNotCancellable       = errors.New("instance operation is not cancellable")
+	ErrInstanceProtected            = errors.New("instance is protected")
+	ErrInstanceConfirmationMismatch = errors.New("instance confirmation does not match")
 )
 
 type ProfileSnapshot struct {
@@ -39,6 +41,7 @@ type ProfileSource interface {
 
 type ProfileMutator interface {
 	Create(ctx context.Context, executable, name string) error
+	Delete(ctx context.Context, executable, nativeID string) error
 }
 
 type InstanceCapabilities struct {
@@ -492,4 +495,200 @@ func (s *InstanceInventory) failCreate(current operation.Operation, code yorvaru
 func instanceConflict(activeID string) error {
 	_ = activeID
 	return ErrInstanceConflict
+}
+
+func (s *InstanceInventory) StartDelete(ctx context.Context, instanceID, confirmationName, idempotencyKey string) (InstallStartResult, error) {
+	if err := ValidateIdempotencyKey(idempotencyKey); err != nil {
+		return InstallStartResult{}, err
+	}
+	row, err := s.db.GetInstance(ctx, instanceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return InstallStartResult{}, ErrInstanceNotFound
+	}
+	if err != nil {
+		return InstallStartResult{}, err
+	}
+	if row.Default || row.Protected || row.NativeID == "default" {
+		return InstallStartResult{}, ErrInstanceProtected
+	}
+	if confirmationName != row.NativeID {
+		return InstallStartResult{}, ErrInstanceConfirmationMismatch
+	}
+	if existing, ok, err := s.db.GetOperationByIdempotencyKey(ctx, idempotencyKey); err != nil {
+		return InstallStartResult{}, err
+	} else if ok {
+		if existing.Type != operation.TypeInstanceDelete || existing.Message != confirmationName || existing.TargetID != row.RuntimeInstallationID {
+			return InstallStartResult{}, ErrInstanceConflict
+		}
+		return InstallStartResult{Operation: existing}, nil
+	}
+
+	listed, err := s.ListInstances(ctx, hermesRuntimeID)
+	if err != nil {
+		return InstallStartResult{}, err
+	}
+	if listed.RuntimeInstallationID != row.RuntimeInstallationID {
+		return InstallStartResult{}, ErrInstanceNotFound
+	}
+	present := false
+	for _, item := range listed.Instances {
+		if item.InstanceID == instanceID && item.Availability == instance.Available {
+			present = true
+		}
+	}
+	if active, ok, err := s.db.ActiveInstanceMutation(ctx, row.RuntimeInstallationID); err != nil {
+		return InstallStartResult{}, err
+	} else if ok {
+		return InstallStartResult{}, instanceConflict(active.ID)
+	}
+
+	now := s.now()
+	id, err := s.newID()
+	if err != nil {
+		return InstallStartResult{}, err
+	}
+	correlation, err := newCorrelationID()
+	if err != nil {
+		return InstallStartResult{}, err
+	}
+	op := operation.Operation{
+		ID:             id,
+		Type:           operation.TypeInstanceDelete,
+		TargetType:     operation.TargetRuntimeInstallation,
+		TargetID:       row.RuntimeInstallationID,
+		Status:         operation.StatusPending,
+		Stage:          operation.StagePreflight,
+		Message:        confirmationName,
+		IdempotencyKey: idempotencyKey,
+		CorrelationID:  correlation,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if err := s.db.CreateOperation(ctx, op); err != nil {
+		if errors.Is(err, sqlite.ErrDuplicateIdempotency) {
+			existing, ok, getErr := s.db.GetOperationByIdempotencyKey(ctx, idempotencyKey)
+			if getErr == nil && ok && existing.Message == confirmationName {
+				return InstallStartResult{Operation: existing}, nil
+			}
+			return InstallStartResult{}, ErrInstanceConflict
+		}
+		if errors.Is(err, sqlite.ErrActiveInstanceMutation) {
+			return InstallStartResult{}, ErrInstanceConflict
+		}
+		return InstallStartResult{}, err
+	}
+	s.startDeleteWorker(op, row.RuntimeInstallationID, row.NativeID, present)
+	return InstallStartResult{Operation: op, Created: true}, nil
+}
+
+func (s *InstanceInventory) CancelDelete(ctx context.Context, operationID string) (operation.Operation, error) {
+	current, err := s.db.GetOperation(ctx, operationID)
+	if err != nil {
+		return operation.Operation{}, err
+	}
+	if current.Type != operation.TypeInstanceDelete {
+		return operation.Operation{}, ErrInstanceNotFound
+	}
+	s.mu.Lock()
+	started := s.started[operationID]
+	cancel := s.workers[operationID]
+	s.mu.Unlock()
+	if started || current.Status == operation.StatusRunning {
+		return current, ErrInstanceNotCancellable
+	}
+	if cancel != nil {
+		cancel()
+	}
+	if operation.IsTerminal(current.Status) {
+		return current, nil
+	}
+	now := s.now()
+	next := current
+	next.Status = operation.StatusCancelled
+	next.CompletedAt = &now
+	next.UpdatedAt = now
+	if err := s.db.UpdateOperation(ctx, current, next); err != nil {
+		return operation.Operation{}, err
+	}
+	return next, nil
+}
+
+func (s *InstanceInventory) startDeleteWorker(op operation.Operation, installationID, nativeID string, present bool) {
+	ctx, cancel := context.WithCancel(context.Background())
+	s.mu.Lock()
+	s.workers[op.ID] = cancel
+	s.mu.Unlock()
+	go func() {
+		defer func() {
+			s.mu.Lock()
+			delete(s.workers, op.ID)
+			s.mu.Unlock()
+			cancel()
+		}()
+		s.runDelete(ctx, op, installationID, nativeID, present)
+	}()
+}
+
+func (s *InstanceInventory) runDelete(ctx context.Context, op operation.Operation, installationID, nativeID string, present bool) {
+	unlock := s.lockInstallation(installationID)
+	defer unlock()
+	current, err := s.db.GetOperation(ctx, op.ID)
+	if err != nil || operation.IsTerminal(current.Status) {
+		return
+	}
+	now := s.now()
+	running := current
+	running.Status = operation.StatusRunning
+	running.Stage = operation.StageInstanceDelete
+	running.StartedAt = &now
+	running.UpdatedAt = now
+	if err := s.db.UpdateOperation(ctx, current, running); err != nil {
+		return
+	}
+	s.mu.Lock()
+	s.started[op.ID] = true
+	s.mu.Unlock()
+
+	cmdCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	discovery, err := s.discovery.Detect(cmdCtx, yorvaruntime.Kind(hermesRuntimeID))
+	if err != nil || discovery.Selected == nil {
+		s.failCreate(running, yorvaruntime.ErrorRuntimeNotSupported, false)
+		return
+	}
+	_, _ = s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
+	stillPresent, presentErr := s.profilePresent(cmdCtx, installationID, nativeID)
+	if presentErr == nil && !stillPresent {
+		s.succeedDelete(running)
+		return
+	}
+	if present || stillPresent {
+		if err := s.mutator.Delete(cmdCtx, discovery.Selected.Path, nativeID); err != nil && !errors.Is(err, context.Canceled) {
+			_, _ = s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
+			gone, goneErr := s.profilePresent(cmdCtx, installationID, nativeID)
+			if goneErr == nil && !gone {
+				s.succeedDelete(running)
+				return
+			}
+			s.failCreate(running, yorvaruntime.ErrorInstanceQueryFailed, true)
+			return
+		}
+	}
+	_, _ = s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
+	gone, goneErr := s.profilePresent(cmdCtx, installationID, nativeID)
+	if goneErr == nil && !gone {
+		s.succeedDelete(running)
+		return
+	}
+	s.failCreate(running, yorvaruntime.ErrorInstanceQueryFailed, true)
+}
+
+func (s *InstanceInventory) succeedDelete(current operation.Operation) {
+	now := s.now()
+	next := current
+	next.Status = operation.StatusSucceeded
+	next.Stage = operation.StageInstanceReconcile
+	next.CompletedAt = &now
+	next.UpdatedAt = now
+	_ = s.db.UpdateOperation(context.Background(), current, next)
 }

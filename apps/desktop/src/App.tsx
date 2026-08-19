@@ -37,6 +37,11 @@ export function App() {
   const [createKey, setCreateKey] = useState<string | null>(null);
   const [createOperationId, setCreateOperationId] = useState<string | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<import("./api/types").Instance | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  const [deleteOperationId, setDeleteOperationId] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const copy = messages[locale];
 
   const sessionQuery = useQuery({
@@ -340,6 +345,44 @@ export function App() {
       setCreateKey(null);
     }
   }, [createOperationQuery.data?.status, queryClient]);
+  const deleteOperationQuery = useQuery({
+    queryKey: ["instance-delete", deleteOperationId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getOperation(deleteOperationId!, signal),
+    enabled: client !== undefined && deleteOperationId !== null,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "RUNNING" ? 1000 : false;
+    },
+  });
+  const startDelete = async () => {
+    if (!client || !deleteTarget || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      const key = deleteKey ?? crypto.randomUUID();
+      setDeleteKey(key);
+      const operation = await client.deleteInstance(deleteTarget.instanceId, deleteConfirmation, key);
+      setDeleteOperationId(operation.id);
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+  const cancelDelete = async () => {
+    if (!client || !deleteOperationId || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      await client.cancelOperation(deleteOperationId);
+      await deleteOperationQuery.refetch();
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+  useEffect(() => {
+    if (deleteOperationQuery.data?.status === "SUCCEEDED") {
+      void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+      setDeleteConfirmation("");
+      setDeleteKey(null);
+    }
+  }, [deleteOperationQuery.data?.status, queryClient]);
   const hermesSupported = discoveryQuery.data?.state === "SUPPORTED";
   const instancesQuery = useQuery({
     queryKey: ["hermes-instances", sessionQuery.data?.baseUrl],
@@ -448,6 +491,23 @@ export function App() {
         }}
         onCancelCreate={() => {
           void cancelCreate();
+        }}
+        deleteTarget={deleteTarget}
+        deleteConfirmation={deleteConfirmation}
+        deleteBusy={deleteBusy}
+        deleteOperation={deleteOperationQuery.data ?? null}
+        onDeleteTargetChange={(item) => {
+          setDeleteTarget(item);
+          setDeleteConfirmation("");
+          setDeleteOperationId(null);
+          setDeleteKey(null);
+        }}
+        onDeleteConfirmationChange={setDeleteConfirmation}
+        onDelete={() => {
+          void startDelete();
+        }}
+        onCancelDelete={() => {
+          void cancelDelete();
         }}
       />
     );

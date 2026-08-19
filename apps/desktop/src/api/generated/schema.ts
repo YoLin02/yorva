@@ -247,7 +247,8 @@ export interface paths {
         get: operations["getInstance"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete a non-default Instance after typed confirmation */
+        delete: operations["deleteInstance"];
         /** Validate CORS access for one Instance */
         options: operations["optionsInstance"];
         head?: never;
@@ -381,7 +382,7 @@ export interface components {
         Operation: {
             id: string;
             /** @enum {string} */
-            type: "runtime.install" | "hermes.prerequisites" | "instance.create";
+            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete";
             targetType: string;
             targetId: string;
             /** @enum {string} */
@@ -406,6 +407,9 @@ export interface components {
         };
         OperationList: {
             operations: components["schemas"]["Operation"][];
+        };
+        InstanceDeleteRequest: {
+            confirmationName: string;
         };
         InstanceCreateRequest: {
             name: string;
@@ -1081,6 +1085,40 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             405: components["responses"]["MethodNotAllowed"];
+        };
+    };
+    deleteInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstanceDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description The instance.delete Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
         };
     };
     optionsInstance: {
