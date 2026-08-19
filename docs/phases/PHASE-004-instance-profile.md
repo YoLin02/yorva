@@ -458,11 +458,47 @@ This directive does not itself authorize implementation.
 ## 24. Completion Evidence
 
 ```text
-Implementation commit:
-Branch:
+Implementation commit: recorded after Batch 6 verification commit
+Branch: codex/phase4-instance-profile
 Batch results:
+  READY docs 60b23f4 PASS
+  Batch 1 618d5ca PASS
+  Batch 2 b11eaa3 PASS
+  Batch 3 ff62906 PASS
+  Batch 4 a2fa88e PASS
+  Batch 5 65d4ddf PASS
+  Batch 6 verification+handoff — this commit
 Verification matrix:
-Exact-commit CI:
+  pnpm install --frozen-lockfile PASS
+  pnpm audit --audit-level low PASS
+  pnpm api:lint PASS
+  pnpm api:generate PASS; generated schema no drift
+  pnpm typecheck PASS
+  pnpm lint PASS after removing setState-in-effect
+  pnpm test PASS
+  pnpm build PASS
+  gofmt on changed Go files PASS
+  go test ./... PASS
+  go test affected -count=20 PASS
+  go test -race ./... NOT RUN locally: -race requires cgo
+  go vet ./... PASS
+  govulncheck ./... PASS
+  go build ./cmd/yorvad PASS
+  cargo fmt --check PASS
+  cargo test --locked --offline --lib PASS
+  cargo clippy --locked --all-targets -- -D warnings PASS
+  cargo check --locked PASS
+  cargo audit PASS with 17 allowed unmaintained/unsound warnings (pre-existing GTK/unic stack)
+  pnpm build:sidecar PASS
+  windows-lifecycle-smoke.ps1 PASS
+  inspect-yorva-msi.tests.ps1 PASS
+  tauri build --no-bundle PASS
+  MSI packaging NOT RUN (no packaging input change)
+  Real Hermes delete smoke NOT RUN (requires isolated disposable account/VM)
+Exact-commit CI: required after push; local race not claimed as PASS
 Known non-blocking risks:
+  local go test -race blocked (CGO_ENABLED)
+  cargo audit allowed historical GTK3/unic warnings
+  official profile list docs example with * is stale vs 0.20.2 table printer
 AUDIT-004: PENDING
 ```

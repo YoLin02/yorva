@@ -458,11 +458,47 @@ SQLite 是缓存。缓存 row 不能授权 Hermes mutation、删除或文件访�
 ## 24. 完成证据
 
 ```text
-Implementation commit:
-Branch:
+Implementation commit: 在 Batch 6 验证提交后记录
+Branch: codex/phase4-instance-profile
 Batch results:
+  READY docs 60b23f4 PASS
+  Batch 1 618d5ca PASS
+  Batch 2 b11eaa3 PASS
+  Batch 3 ff62906 PASS
+  Batch 4 a2fa88e PASS
+  Batch 5 65d4ddf PASS
+  Batch 6 verification+handoff — 本提交
 Verification matrix:
-Exact-commit CI:
+  pnpm install --frozen-lockfile PASS
+  pnpm audit --audit-level low PASS
+  pnpm api:lint PASS
+  pnpm api:generate PASS；generated schema 无 drift
+  pnpm typecheck PASS
+  pnpm lint PASS（已去掉 effect 内 setState）
+  pnpm test PASS
+  pnpm build PASS
+  变更 Go 文件 gofmt PASS
+  go test ./... PASS
+  go test 受影响包 -count=20 PASS
+  go test -race ./... 本地未跑：-race 需要 cgo
+  go vet ./... PASS
+  govulncheck ./... PASS
+  go build ./cmd/yorvad PASS
+  cargo fmt --check PASS
+  cargo test --locked --offline --lib PASS
+  cargo clippy --locked --all-targets -- -D warnings PASS
+  cargo check --locked PASS
+  cargo audit PASS，17 条允许的既有 unmaintained/unsound 警告
+  pnpm build:sidecar PASS
+  windows-lifecycle-smoke.ps1 PASS
+  inspect-yorva-msi.tests.ps1 PASS
+  tauri build --no-bundle PASS
+  MSI packaging 未跑（packaging input 未变）
+  真实 Hermes delete smoke 未跑（需要隔离可丢弃账号/VM）
+Exact-commit CI: 推送后必须取得；本地 race 不记为 PASS
 Known non-blocking risks:
+  本地 go test -race 被 CGO 阻止
+  cargo audit 允许的历史 GTK3/unic 警告
+  官方 list 文档中的 * 示例相对 0.20.2 表格打印机已过时
 AUDIT-004: PENDING
 ```

@@ -341,8 +341,6 @@ export function App() {
   useEffect(() => {
     if (createOperationQuery.data?.status === "SUCCEEDED") {
       void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
-      setCreateName("");
-      setCreateKey(null);
     }
   }, [createOperationQuery.data?.status, queryClient]);
   const deleteOperationQuery = useQuery({
@@ -379,8 +377,6 @@ export function App() {
   useEffect(() => {
     if (deleteOperationQuery.data?.status === "SUCCEEDED") {
       void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
-      setDeleteConfirmation("");
-      setDeleteKey(null);
     }
   }, [deleteOperationQuery.data?.status, queryClient]);
   const hermesSupported = discoveryQuery.data?.state === "SUPPORTED";
