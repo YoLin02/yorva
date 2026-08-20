@@ -166,6 +166,10 @@ func TestListInstancesRejectsUnsupportedRuntime(t *testing.T) {
 }
 
 func newTestInventory(t *testing.T, profiles []ProfileSnapshot, listErr error) (*InstanceInventory, *fakeProfileSource) {
+	return newTestInventoryWithLifecycle(t, profiles, listErr, nil)
+}
+
+func newTestInventoryWithLifecycle(t *testing.T, profiles []ProfileSnapshot, listErr error, lifecycle yorvaruntime.LifecycleManager) (*InstanceInventory, *fakeProfileSource) {
 	t.Helper()
 	db, err := sqlite.Open(context.Background(), t.TempDir())
 	if err != nil {
@@ -186,6 +190,7 @@ func newTestInventory(t *testing.T, profiles []ProfileSnapshot, listErr error) (
 			State:       yorvaruntime.DiscoverySupported,
 			Selected:    &yorvaruntime.Candidate{Path: `C:\hermes\bin\hermes.exe`, Version: "0.20.2", State: yorvaruntime.DiscoverySupported},
 		}},
+		Lifecycle: lifecycle,
 	}); err != nil {
 		t.Fatal(err)
 	}

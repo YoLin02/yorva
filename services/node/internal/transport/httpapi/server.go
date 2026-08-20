@@ -55,6 +55,7 @@ type RuntimeWarningResponse struct {
 func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService, instances InstanceInventoryService, dataDir string) http.Handler {
 	mux := http.NewServeMux()
 	models, _ := instances.(ModelConfigurationService)
+	lifecycle, _ := instances.(InstanceLifecycleService)
 	mux.HandleFunc("GET /api/v1/health", health)
 	mux.Handle("GET /api/v1/node", requireBearer(token, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -76,9 +77,10 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("PUT /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, putModelCredential(models)))
 	mux.Handle("DELETE /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, deleteModelCredential(models)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/model-validation", requireBearer(token, startModelValidation(models)))
-	mux.Handle("POST /api/v1/instances/{instanceId}/start", requireBearer(token, instanceLifecycleUnsupported()))
-	mux.Handle("POST /api/v1/instances/{instanceId}/stop", requireBearer(token, instanceLifecycleUnsupported()))
-	mux.Handle("POST /api/v1/instances/{instanceId}/restart", requireBearer(token, instanceLifecycleUnsupported()))
+	mux.Handle("GET /api/v1/instances/{instanceId}/lifecycle", requireBearer(token, getInstanceLifecycle(lifecycle)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/start", requireBearer(token, startInstanceLifecycle(lifecycle, app.LifecycleStart)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/stop", requireBearer(token, startInstanceLifecycle(lifecycle, app.LifecycleStop)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/restart", requireBearer(token, startInstanceLifecycle(lifecycle, app.LifecycleRestart)))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
 	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
 	mux.Handle("GET /api/v1/operations", requireBearer(token, listOperations(installs)))
@@ -163,6 +165,8 @@ func allowedMethods(path string) (string, bool) {
 		return "GET, DELETE, OPTIONS", true
 	case "lifecycle":
 		return "POST, OPTIONS", true
+	case "lifecycle-status":
+		return "GET, OPTIONS", true
 	case "config":
 		return "GET, PATCH, OPTIONS", true
 	case "model-credential":

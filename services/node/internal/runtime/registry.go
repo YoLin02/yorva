@@ -18,6 +18,7 @@ type Bundle struct {
 	Descriptor Descriptor
 	Discoverer Discoverer
 	Models     ModelConfigurator
+	Lifecycle  LifecycleManager
 }
 
 type Registry struct {

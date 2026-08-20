@@ -17,7 +17,7 @@ func configureProcessTree(command *exec.Cmd) {
 	}
 }
 
-func ownProcessTree(command *exec.Cmd) (func(), error) {
+func ownProcessTree(command *exec.Cmd, allowBreakaway bool) (func(), error) {
 	job, err := windows.CreateJobObject(nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create process job: %w", err)
@@ -25,6 +25,9 @@ func ownProcessTree(command *exec.Cmd) (func(), error) {
 	closeJob := func() { _ = windows.CloseHandle(job) }
 	information := windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION{}
 	information.BasicLimitInformation.LimitFlags = windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+	if allowBreakaway {
+		information.BasicLimitInformation.LimitFlags |= windows.JOB_OBJECT_LIMIT_BREAKAWAY_OK
+	}
 	if _, err := windows.SetInformationJobObject(
 		job,
 		windows.JobObjectExtendedLimitInformation,

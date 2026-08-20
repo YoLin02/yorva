@@ -23,6 +23,26 @@ type fakeInstanceInventory struct {
 	deleteErr error
 }
 
+type fakeLifecycleInventory struct {
+	fakeInstanceInventory
+	view      app.LifecycleView
+	operation operation.Operation
+	action    app.LifecycleAction
+}
+
+func (f *fakeLifecycleInventory) GetLifecycle(context.Context, string) (app.LifecycleView, error) {
+	return f.view, nil
+}
+
+func (f *fakeLifecycleInventory) StartLifecycle(_ context.Context, _ string, action app.LifecycleAction, _ string) (app.InstallStartResult, error) {
+	f.action = action
+	return app.InstallStartResult{Operation: f.operation, Created: true}, nil
+}
+
+func (f *fakeLifecycleInventory) CancelLifecycle(context.Context, string) (operation.Operation, error) {
+	return f.operation, nil
+}
+
 func (f fakeInstanceInventory) ListInstances(_ context.Context, runtimeID string) (app.InstanceList, error) {
 	if runtimeID != "hermes" && f.listErr == nil {
 		return app.InstanceList{}, app.ErrInstanceRuntimeNotFound
@@ -115,6 +135,36 @@ func TestListAndGetInstancesContract(t *testing.T) {
 	handler.ServeHTTP(lifeRes, lifeReq)
 	if lifeRes.Code != http.StatusConflict || !strings.Contains(lifeRes.Body.String(), string(yorvaruntime.ErrorCapabilityNotSupported)) {
 		t.Fatalf("lifecycle = %d %s", lifeRes.Code, lifeRes.Body.String())
+	}
+}
+
+func TestLifecycleStatusAndMutationContracts(t *testing.T) {
+	now := time.Date(2026, 8, 20, 20, 0, 0, 0, time.UTC)
+	inventory := &fakeLifecycleInventory{
+		view:      app.LifecycleView{State: yorvaruntime.LifecycleStopped, ObservedAt: now},
+		operation: operation.Operation{ID: "op_life", Type: operation.TypeInstanceStart, TargetType: operation.TargetInstance, TargetID: "inst_1", Status: operation.StatusPending, Stage: operation.StagePreflight, IdempotencyKey: "life-key", CreatedAt: now, UpdatedAt: now},
+	}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "")
+	statusReq := authorizedRequest(http.MethodGet, "/api/v1/instances/inst_1/lifecycle", "")
+	statusRes := httptest.NewRecorder()
+	handler.ServeHTTP(statusRes, statusReq)
+	if statusRes.Code != http.StatusOK || !strings.Contains(statusRes.Body.String(), `"state":"STOPPED"`) || strings.Contains(statusRes.Body.String(), "PID") {
+		t.Fatalf("status = %d %s", statusRes.Code, statusRes.Body.String())
+	}
+
+	startReq := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_1/start", "")
+	startReq.Header.Set("Idempotency-Key", "life-key")
+	startRes := httptest.NewRecorder()
+	handler.ServeHTTP(startRes, startReq)
+	if startRes.Code != http.StatusAccepted || inventory.action != app.LifecycleStart || !strings.Contains(startRes.Body.String(), `"type":"instance.start"`) {
+		t.Fatalf("start = %d %s action=%s", startRes.Code, startRes.Body.String(), inventory.action)
+	}
+
+	missingKey := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_1/stop", "")
+	missingRes := httptest.NewRecorder()
+	handler.ServeHTTP(missingRes, missingKey)
+	if missingRes.Code != http.StatusBadRequest || !strings.Contains(missingRes.Body.String(), "INVALID_IDEMPOTENCY_KEY") {
+		t.Fatalf("missing key = %d %s", missingRes.Code, missingRes.Body.String())
 	}
 }
 

@@ -148,6 +148,11 @@ func (s *InstanceInventory) resolveModelTarget(ctx context.Context, instanceID s
 		} else if active {
 			return fail(yorvaruntime.ErrInstanceConfigConflict)
 		}
+		if _, active, activeErr := s.db.ActiveInstanceLifecycle(ctx, row.ID); activeErr != nil {
+			return fail(activeErr)
+		} else if active {
+			return fail(yorvaruntime.ErrInstanceConfigConflict)
+		}
 	}
 	accepted, err := s.db.GetAcceptedInstallationByID(ctx, row.RuntimeInstallationID)
 	if err != nil {

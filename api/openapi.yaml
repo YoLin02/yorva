@@ -844,6 +844,44 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/lifecycle:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      operationId: getInstanceLifecycle
+      summary: Read authoritative Instance lifecycle state
+      tags: [Instances]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Normalized live lifecycle state and active mutation identifier.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lifecycle"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceLifecycle
+      summary: Validate CORS access for Instance lifecycle status
+      tags: [Instances]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/instances/{instanceId}/start:
     parameters:
       - $ref: "#/components/parameters/InstanceId"
@@ -853,13 +891,17 @@ paths:
       tags: [Instances]
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        "200":
-          description: Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED.
+        "202":
+          description: The instance.start Operation was accepted.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/Conflict"
         "401":
@@ -889,13 +931,17 @@ paths:
       tags: [Instances]
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        "200":
-          description: Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED.
+        "202":
+          description: The instance.stop Operation was accepted.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/Conflict"
         "401":
@@ -925,13 +971,17 @@ paths:
       tags: [Instances]
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       responses:
-        "200":
-          description: Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED.
+        "202":
+          description: The instance.restart Operation was accepted.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/Conflict"
         "401":
@@ -1166,7 +1216,7 @@ components:
           type: string
         type:
           type: string
-          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, model.validate]
+          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, instance.start, instance.stop, instance.restart, model.validate]
         targetType:
           type: string
         targetId:
@@ -1251,6 +1301,21 @@ components:
           type: boolean
         lifecycle:
           type: boolean
+    Lifecycle:
+      type: object
+      additionalProperties: false
+      required: [state, activeOperationId, observedAt, errorCode]
+      properties:
+        state:
+          type: string
+          enum: [RUNNING, STOPPED, UNKNOWN]
+        activeOperationId:
+          type: [string, "null"]
+        observedAt:
+          type: string
+          format: date-time
+        errorCode:
+          type: [string, "null"]
           const: false
     Instance:
       type: object

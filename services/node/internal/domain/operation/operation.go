@@ -18,6 +18,12 @@ const TypeInstanceDelete Type = "instance.delete"
 
 const TypeModelValidate Type = "model.validate"
 
+const TypeInstanceStart Type = "instance.start"
+
+const TypeInstanceStop Type = "instance.stop"
+
+const TypeInstanceRestart Type = "instance.restart"
+
 type TargetType string
 
 const TargetRuntimeKind TargetType = "runtime-kind"
@@ -62,6 +68,10 @@ const (
 	StageInstanceDelete         Stage = "instance.delete"
 	StageInstanceReconcile      Stage = "instance.reconcile"
 	StageModelValidate          Stage = "model.validate"
+	StageInstanceStart          Stage = "instance.start"
+	StageInstanceStop           Stage = "instance.stop"
+	StageInstanceRestart        Stage = "instance.restart"
+	StageLifecycleReconcile     Stage = "lifecycle.reconcile"
 )
 
 type Operation struct {

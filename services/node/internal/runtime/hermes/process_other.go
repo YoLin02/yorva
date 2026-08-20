@@ -12,7 +12,7 @@ func configureProcessTree(command *exec.Cmd) {
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
 
-func ownProcessTree(command *exec.Cmd) (func(), error) {
+func ownProcessTree(command *exec.Cmd, _ bool) (func(), error) {
 	pid := command.Process.Pid
 	var once sync.Once
 	return func() {

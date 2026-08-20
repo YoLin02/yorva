@@ -236,6 +236,12 @@ func cancelOperation(installs RuntimeInstallService, instances InstanceInventory
 			value, err = instances.CancelDelete(r.Context(), value.ID)
 		} else if value.Type == operation.TypeModelValidate && models != nil {
 			value, err = models.CancelModelValidation(r.Context(), value.ID)
+		} else if isLifecycleOperationType(value.Type) && instances != nil {
+			if lifecycle, ok := instances.(InstanceLifecycleService); ok {
+				value, err = lifecycle.CancelLifecycle(r.Context(), value.ID)
+			} else {
+				err = app.ErrRuntimeNotSupported
+			}
 		} else {
 			value, err = installs.Cancel(r.Context(), value.ID)
 		}
@@ -250,6 +256,10 @@ func cancelOperation(installs RuntimeInstallService, instances InstanceInventory
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(newOperationResponse(value))
 	})
+}
+
+func isLifecycleOperationType(value operation.Type) bool {
+	return value == operation.TypeInstanceStart || value == operation.TypeInstanceStop || value == operation.TypeInstanceRestart
 }
 
 func newOperationResponse(value operation.Operation) OperationResponse {

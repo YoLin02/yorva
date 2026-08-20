@@ -30,10 +30,11 @@ type commandResult struct {
 }
 
 type commandRunner struct {
-	timeout     time.Duration
-	waitDelay   time.Duration
-	outputLimit int64
-	environment func() []string
+	timeout        time.Duration
+	waitDelay      time.Duration
+	outputLimit    int64
+	allowBreakaway bool
+	environment    func() []string
 }
 
 func newCommandRunner() commandRunner {
@@ -89,7 +90,7 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 	if err := command.Start(); err != nil {
 		return commandResult{exitCode: -1, err: err}
 	}
-	cleanupProcessTree, err := ownProcessTree(command)
+	cleanupProcessTree, err := ownProcessTree(command, r.allowBreakaway)
 	if err != nil {
 		_ = command.Process.Kill()
 		_ = command.Wait()

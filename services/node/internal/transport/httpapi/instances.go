@@ -24,6 +24,12 @@ type InstanceInventoryService interface {
 	CancelDelete(context.Context, string) (operation.Operation, error)
 }
 
+type InstanceLifecycleService interface {
+	GetLifecycle(context.Context, string) (app.LifecycleView, error)
+	StartLifecycle(context.Context, string, app.LifecycleAction, string) (app.InstallStartResult, error)
+	CancelLifecycle(context.Context, string) (operation.Operation, error)
+}
+
 type InstanceCapabilitiesResponse struct {
 	Instances bool `json:"instances"`
 	Lifecycle bool `json:"lifecycle"`
@@ -52,6 +58,13 @@ type InstanceListResponse struct {
 	ErrorCode             *yorvaruntime.ErrorCode      `json:"errorCode"`
 }
 
+type LifecycleResponse struct {
+	State             string                  `json:"state"`
+	ActiveOperationID *string                 `json:"activeOperationId"`
+	ObservedAt        time.Time               `json:"observedAt"`
+	ErrorCode         *yorvaruntime.ErrorCode `json:"errorCode"`
+}
+
 func listRuntimeInstances(inventory InstanceInventoryService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if inventory == nil {
@@ -74,7 +87,7 @@ func listRuntimeInstances(inventory InstanceInventoryService) http.Handler {
 			Freshness:             result.Freshness,
 			LastSyncedAt:          result.LastSyncedAt,
 			Instances:             items,
-			Capabilities:          InstanceCapabilitiesResponse{Instances: result.Capabilities.Instances, Lifecycle: false},
+			Capabilities:          InstanceCapabilitiesResponse{Instances: result.Capabilities.Instances, Lifecycle: result.Capabilities.Lifecycle},
 			ErrorCode:             nullableErrorCode(result.ErrorCode),
 		})
 	})
@@ -150,13 +163,47 @@ func deleteInstance(inventory InstanceInventoryService) http.Handler {
 	})
 }
 
-func instanceLifecycleUnsupported() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		writeError(w, http.StatusConflict, ErrorBody{
-			Code:      string(yorvaruntime.ErrorCapabilityNotSupported),
-			Message:   "Instance lifecycle is not available in this phase.",
-			Retryable: false,
-		})
+func getInstanceLifecycle(service InstanceLifecycleService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if service == nil {
+			writeLifecycleUnsupported(w)
+			return
+		}
+		view, err := service.GetLifecycle(r.Context(), r.PathValue("instanceId"))
+		if err != nil {
+			writeInstanceError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(LifecycleResponse{State: string(view.State), ActiveOperationID: view.ActiveOperationID, ObservedAt: view.ObservedAt, ErrorCode: nullableErrorCode(view.ErrorCode)})
+	})
+}
+
+func startInstanceLifecycle(service InstanceLifecycleService, action app.LifecycleAction) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if service == nil {
+			writeLifecycleUnsupported(w)
+			return
+		}
+		key := r.Header.Get("Idempotency-Key")
+		if err := app.ValidateIdempotencyKey(key); err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_IDEMPOTENCY_KEY", Message: "A valid Idempotency-Key header is required.", Retryable: false})
+			return
+		}
+		result, err := service.StartLifecycle(r.Context(), r.PathValue("instanceId"), action, key)
+		if err != nil {
+			writeInstanceError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(newOperationResponse(result.Operation))
+	})
+}
+
+func writeLifecycleUnsupported(w http.ResponseWriter) {
+	writeError(w, http.StatusConflict, ErrorBody{
+		Code: string(yorvaruntime.ErrorCapabilityNotSupported), Message: "Instance lifecycle is not supported.", Retryable: false,
 	})
 }
 
@@ -171,7 +218,7 @@ func newInstanceResponse(item app.InstanceView) InstanceResponse {
 		LastSyncedAt:          item.LastSyncedAt,
 		CreatedAt:             item.CreatedAt,
 		UpdatedAt:             item.UpdatedAt,
-		Capabilities:          InstanceCapabilitiesResponse{Instances: true, Lifecycle: false},
+		Capabilities:          InstanceCapabilitiesResponse{Instances: item.Capabilities.Instances, Lifecycle: item.Capabilities.Lifecycle},
 	}
 }
 
@@ -193,6 +240,10 @@ func writeInstanceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceConflict), Message: "Another instance operation is already running.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceNotCancellable):
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorOperationNotCancellable), Message: "This instance operation can no longer be cancelled.", Retryable: false})
+	case errors.Is(err, app.ErrInstanceNotAvailable):
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceNotAvailable), Message: "The instance is not currently available.", Retryable: true})
+	case errors.Is(err, yorvaruntime.ErrInstanceNotRunning):
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceNotRunning), Message: "The instance gateway is not running.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceOutputUnrecognized):
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceOutputUnrecognized), Message: "Instance inventory output was not recognized.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceOperationTimedOut):
@@ -282,6 +333,12 @@ func instancePathKind(path string) string {
 				if id != "" && !strings.Contains(id, "/") {
 					return "lifecycle"
 				}
+			}
+		}
+		if strings.HasSuffix(rest, "/lifecycle") {
+			id := strings.TrimSuffix(rest, "/lifecycle")
+			if id != "" && !strings.Contains(id, "/") {
+				return "lifecycle-status"
 			}
 		}
 		if strings.HasSuffix(rest, "/config") {

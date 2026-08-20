@@ -163,7 +163,7 @@ func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string)
 	views := make([]InstanceView, 0, len(rows))
 	var lastSync *time.Time
 	for _, row := range rows {
-		views = append(views, instanceView(row))
+		views = append(views, instanceView(row, s.lifecycleCapable()))
 		if row.LastSyncedAt != nil && (lastSync == nil || row.LastSyncedAt.After(*lastSync)) {
 			lastSync = row.LastSyncedAt
 		}
@@ -174,7 +174,7 @@ func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string)
 		Freshness:             freshness,
 		LastSyncedAt:          lastSync,
 		Instances:             views,
-		Capabilities:          InstanceCapabilities{Instances: true, Lifecycle: false},
+		Capabilities:          InstanceCapabilities{Instances: true, Lifecycle: s.lifecycleCapable()},
 	}
 	if queryErr != nil {
 		result.ErrorCode = errorCodeFrom(queryErr)
@@ -193,7 +193,7 @@ func (s *InstanceInventory) GetInstance(ctx context.Context, instanceID string) 
 	if err != nil {
 		return InstanceView{}, err
 	}
-	return instanceView(row), nil
+	return instanceView(row, s.lifecycleCapable()), nil
 }
 
 func (s *InstanceInventory) ensureInstallation(ctx context.Context, discovery yorvaruntime.Discovery) (sqlite.AcceptedInstallation, error) {
@@ -252,7 +252,7 @@ func (s *InstanceInventory) lockInstallation(id string) func() {
 	return lock.Unlock
 }
 
-func instanceView(row instance.Instance) InstanceView {
+func instanceView(row instance.Instance, lifecycle bool) InstanceView {
 	return InstanceView{
 		InstanceID:            row.ID,
 		RuntimeInstallationID: row.RuntimeInstallationID,
@@ -263,8 +263,16 @@ func instanceView(row instance.Instance) InstanceView {
 		LastSyncedAt:          row.LastSyncedAt,
 		CreatedAt:             row.CreatedAt,
 		UpdatedAt:             row.UpdatedAt,
-		Capabilities:          InstanceCapabilities{Instances: true, Lifecycle: false},
+		Capabilities:          InstanceCapabilities{Instances: true, Lifecycle: lifecycle},
 	}
+}
+
+func (s *InstanceInventory) lifecycleCapable() bool {
+	if s == nil || s.discovery == nil || s.discovery.registry == nil {
+		return false
+	}
+	bundle, ok := s.discovery.registry.Get(yorvaruntime.Kind(hermesRuntimeID))
+	return ok && bundle.Lifecycle != nil
 }
 
 func classifyProfileListError(err error) error {
@@ -500,7 +508,7 @@ func (s *InstanceInventory) reconcileLocked(ctx context.Context, installationID,
 	}
 	views := make([]InstanceView, 0, len(rows))
 	for _, row := range rows {
-		views = append(views, instanceView(row))
+		views = append(views, instanceView(row, s.lifecycleCapable()))
 	}
 	return InstanceList{RuntimeInstallationID: installationID, Freshness: "FRESH", Instances: views}, nil
 }
@@ -579,6 +587,17 @@ func (s *InstanceInventory) StartDelete(ctx context.Context, instanceID, confirm
 	}
 	if listed.Freshness != "FRESH" {
 		return InstallStartResult{}, instanceQueryError(listed.ErrorCode)
+	}
+	if s.lifecycleCapable() {
+		lifecycle, lifecycleErr := s.GetLifecycle(ctx, instanceID)
+		if lifecycleErr != nil || lifecycle.State != yorvaruntime.LifecycleStopped {
+			return InstallStartResult{}, ErrInstanceConflict
+		}
+		if _, active, activeErr := s.db.ActiveInstanceLifecycle(ctx, instanceID); activeErr != nil {
+			return InstallStartResult{}, activeErr
+		} else if active {
+			return InstallStartResult{}, ErrInstanceConflict
+		}
 	}
 	if active, ok, err := s.db.ActiveInstanceMutation(ctx, row.RuntimeInstallationID); err != nil {
 		return InstallStartResult{}, err

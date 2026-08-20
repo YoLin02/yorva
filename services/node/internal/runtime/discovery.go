@@ -88,6 +88,14 @@ const (
 	ErrorModelValidationUnsafe        ErrorCode = "MODEL_VALIDATION_UNSAFE"
 	ErrorModelValidationUnknown       ErrorCode = "MODEL_VALIDATION_UNKNOWN"
 	ErrorInstanceConfigConflict       ErrorCode = "INSTANCE_CONFIG_CONFLICT"
+	ErrorLifecycleQueryFailed         ErrorCode = "LIFECYCLE_QUERY_FAILED"
+	ErrorLifecycleOutputUnrecognized  ErrorCode = "LIFECYCLE_OUTPUT_UNRECOGNIZED"
+	ErrorLifecycleStartFailed         ErrorCode = "LIFECYCLE_START_FAILED"
+	ErrorLifecycleStopFailed          ErrorCode = "LIFECYCLE_STOP_FAILED"
+	ErrorLifecycleRestartFailed       ErrorCode = "LIFECYCLE_RESTART_FAILED"
+	ErrorLifecyclePostconditionFailed ErrorCode = "LIFECYCLE_POSTCONDITION_FAILED"
+	ErrorLifecycleResultUnknown       ErrorCode = "LIFECYCLE_RESULT_UNKNOWN"
+	ErrorInstanceNotRunning           ErrorCode = "INSTANCE_NOT_RUNNING"
 )
 
 type Candidate struct {

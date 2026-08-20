@@ -25,7 +25,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := emptyDB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, emptyDir, 8)
+	assertMigrationCount(t, emptyDir, 9)
 
 	phase2Dir := t.TempDir()
 	applyNamedMigration(t, ctx, phase2Dir, "001_initial.sql")
@@ -37,7 +37,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := phase2DB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, phase2Dir, 8)
+	assertMigrationCount(t, phase2Dir, 9)
 }
 
 func TestSimultaneousSameKeyCreateReturnsDuplicateIdempotency(t *testing.T) {
@@ -246,6 +246,32 @@ func TestListActiveInstanceOperationsIgnoresInstallAndTerminalRows(t *testing.T)
 	}
 	if _, ok, err := db.ActiveInstanceMutation(ctx, "rtinst_recover"); err != nil || !ok {
 		t.Fatalf("ActiveInstanceMutation() ok=%v err=%v", ok, err)
+	}
+}
+
+func TestLifecycleMigrationSerializesOneMutationPerInstance(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDatabase(t)
+	defer db.Close()
+	now := time.Date(2026, 8, 20, 20, 0, 0, 0, time.UTC)
+	first := operation.Operation{ID: "op_life_one", Type: operation.TypeInstanceStart, TargetType: operation.TargetInstance, TargetID: "inst_one", Status: operation.StatusPending, Stage: operation.StagePreflight, IdempotencyKey: "life-one", CreatedAt: now, UpdatedAt: now}
+	if err := db.CreateOperation(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	conflict := operation.Operation{ID: "op_life_two", Type: operation.TypeInstanceStop, TargetType: operation.TargetInstance, TargetID: "inst_one", Status: operation.StatusPending, Stage: operation.StagePreflight, IdempotencyKey: "life-two", CreatedAt: now.Add(time.Second), UpdatedAt: now.Add(time.Second)}
+	if err := db.CreateOperation(ctx, conflict); !errors.Is(err, ErrActiveInstanceMutation) {
+		t.Fatalf("same instance = %v", err)
+	}
+	other := conflict
+	other.ID = "op_life_other"
+	other.TargetID = "inst_other"
+	other.IdempotencyKey = "life-other"
+	if err := db.CreateOperation(ctx, other); err != nil {
+		t.Fatalf("different instance = %v", err)
+	}
+	active, ok, err := db.ActiveInstanceLifecycle(ctx, "inst_one")
+	if err != nil || !ok || active.ID != first.ID {
+		t.Fatalf("active = %#v ok=%v err=%v", active, ok, err)
 	}
 }
 
