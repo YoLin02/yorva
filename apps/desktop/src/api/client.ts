@@ -1,4 +1,4 @@
-import type { DaemonSession, ErrorResponse, Health, Instance, InstanceList, ModelConfiguration, ModelCredential, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
+import type { ChannelList, ChannelQr, DaemonSession, ErrorResponse, Health, Instance, InstanceList, ModelConfiguration, ModelCredential, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -31,6 +31,7 @@ function withDesktopTimeout(signal?: AbortSignal): AbortSignal {
 }
 
 export function createDaemonClient(session: DaemonSession) {
+	const channelSessionId = crypto.randomUUID();
   async function request<T>(path: string, init: RequestInit = {}, authenticated = true): Promise<T> {
     const response = await fetch(`${session.baseUrl}${path}`, {
       ...init,
@@ -121,6 +122,36 @@ export function createDaemonClient(session: DaemonSession) {
         method: "POST",
         signal: withDesktopTimeout(signal),
         headers: { "Idempotency-Key": idempotencyKey },
+      }),
+    listInstanceChannels: (instanceId: string, signal?: AbortSignal) =>
+      request<ChannelList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/channels`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    connectWeixin: (instanceId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/channels/weixin/connect`, {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey, "Yorva-Session-Id": channelSessionId },
+        body: "{}",
+      }),
+    connectWeCom: (instanceId: string, botId: string, secret: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/channels/wecom/connect`, {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey, "Yorva-Session-Id": channelSessionId },
+        body: JSON.stringify({ botId, secret }),
+      }),
+    disconnectChannel: (instanceId: string, channelType: "weixin" | "wecom", idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/channels/${channelType}`, {
+        method: "DELETE",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: "{}",
+      }),
+    getChannelQr: (operationId: string, signal?: AbortSignal) =>
+      request<ChannelQr>(`/api/v1/operations/${encodeURIComponent(operationId)}/channel-qr`, {
+        signal: withDesktopTimeout(signal),
+        headers: { "Yorva-Session-Id": channelSessionId },
       }),
     deleteInstance: (instanceId: string, confirmationName: string, idempotencyKey: string, signal?: AbortSignal) =>
       request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}`, {

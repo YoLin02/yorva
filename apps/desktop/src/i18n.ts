@@ -205,6 +205,44 @@ type Messages = {
     capabilityAvailable: string;
     capabilityUnavailable: string;
   };
+  channels: {
+    open: string;
+    close: string;
+    title: string;
+    description: string;
+    gatewayState: string;
+    gatewayRunning: string;
+    gatewayStopped: string;
+    gatewayUnknown: string;
+    independenceNote: string;
+    weixin: string;
+    weixinDescription: string;
+    wecom: string;
+    wecomDescription: string;
+    connect: string;
+    disconnect: string;
+    retry: string;
+    cancel: string;
+    refresh: string;
+    loading: string;
+    requestFailed: string;
+    botId: string;
+    botIdPlaceholder: string;
+    secret: string;
+    secretPlaceholder: string;
+    qrTitle: string;
+    qrDescription: string;
+    qrWaiting: string;
+    qrExpired: string;
+    expiresIn: string;
+    safeIdentity: string;
+    noIdentity: string;
+    connecting: string;
+	disconnecting: string;
+    revocationNote: string;
+    disconnectConfirm: string;
+    state: Record<"NOT_CONFIGURED" | "CONNECTING" | "CONNECTED" | "DISCONNECTED" | "FAILED" | "UNKNOWN", string>;
+  };
   models: {
     open: string;
     close: string;
@@ -520,6 +558,51 @@ const english: Messages = {
     lifecycleCapability: "Lifecycle",
     capabilityAvailable: "Available",
     capabilityUnavailable: "Not available",
+  },
+  channels: {
+    open: "Channels",
+    close: "Close channels",
+    title: "Messaging channels",
+    description: "Connect Weixin or WeCom to this exact Hermes instance.",
+    gatewayState: "Gateway",
+    gatewayRunning: "Running",
+    gatewayStopped: "Stopped",
+    gatewayUnknown: "Unknown",
+    independenceNote: "Channel connection and gateway runtime are independent states. A connected channel does not mean the gateway is running.",
+    weixin: "Weixin",
+    weixinDescription: "Scan an expiring iLink QR code with Weixin to authorize this instance.",
+    wecom: "WeCom",
+    wecomDescription: "Enter the Bot ID and Secret from WeCom. YORVA verifies them before saving.",
+    connect: "Connect",
+    disconnect: "Disconnect locally",
+    retry: "Retry",
+    cancel: "Cancel",
+    refresh: "Refresh",
+    loading: "Loading channel state",
+    requestFailed: "The channel request could not be completed.",
+    botId: "Bot ID",
+    botIdPlaceholder: "Enter the WeCom Bot ID",
+    secret: "Secret",
+    secretPlaceholder: "Enter the WeCom Secret",
+    qrTitle: "Scan with Weixin",
+    qrDescription: "Keep this window open and confirm the login in Weixin.",
+    qrWaiting: "Preparing the expiring QR code…",
+    qrExpired: "This QR code has expired. Cancel and retry.",
+    expiresIn: "Expires in {seconds}s",
+    safeIdentity: "Connected identity",
+    noIdentity: "No verified identity",
+    connecting: "Connecting",
+	disconnecting: "Disconnecting",
+    revocationNote: "Disconnect removes only this instance's local Hermes binding. It does not delete or revoke the remote account or bot identity.",
+    disconnectConfirm: "Remove this channel's local binding? The remote account or bot will not be deleted.",
+    state: {
+      NOT_CONFIGURED: "Not configured",
+      CONNECTING: "Connecting",
+      CONNECTED: "Connected",
+      DISCONNECTED: "Disconnected",
+      FAILED: "Failed",
+      UNKNOWN: "Unknown",
+    },
   },
   models: {
     open: "Models",
@@ -839,6 +922,51 @@ const simplifiedChinese: Messages = {
     lifecycleCapability: "生命周期",
     capabilityAvailable: "可用",
     capabilityUnavailable: "不可用",
+  },
+  channels: {
+    open: "通道",
+    close: "关闭通道",
+    title: "消息通道",
+    description: "为当前这一 Hermes 实例连接微信或企业微信。",
+    gatewayState: "网关状态",
+    gatewayRunning: "运行中",
+    gatewayStopped: "已停止",
+    gatewayUnknown: "未知",
+    independenceNote: "通道连接与网关运行是两个独立状态。通道已连接不代表网关正在运行。",
+    weixin: "微信",
+    weixinDescription: "使用微信扫描有时效的 iLink 二维码，为此实例授权。",
+    wecom: "企业微信",
+    wecomDescription: "输入企业微信 Bot ID 和 Secret；YORVA 会先验证，再保存到 Hermes。",
+    connect: "连接",
+    disconnect: "断开本地连接",
+    retry: "重试",
+    cancel: "取消",
+    refresh: "刷新",
+    loading: "正在加载通道状态",
+    requestFailed: "无法完成通道请求。",
+    botId: "Bot ID",
+    botIdPlaceholder: "输入企业微信 Bot ID",
+    secret: "Secret",
+    secretPlaceholder: "输入企业微信 Secret",
+    qrTitle: "使用微信扫码",
+    qrDescription: "请保持此窗口打开，并在微信中确认登录。",
+    qrWaiting: "正在准备有时效的二维码…",
+    qrExpired: "二维码已过期，请取消后重试。",
+    expiresIn: "{seconds} 秒后过期",
+    safeIdentity: "已连接身份",
+    noIdentity: "尚无已验证身份",
+    connecting: "正在连接",
+	disconnecting: "正在断开",
+    revocationNote: "断开连接只会移除此实例在 Hermes 中的本地绑定，不会删除或撤销远端账号或机器人身份。",
+    disconnectConfirm: "确定移除此通道的本地绑定吗？远端账号或机器人不会被删除。",
+    state: {
+      NOT_CONFIGURED: "未配置",
+      CONNECTING: "连接中",
+      CONNECTED: "已连接",
+      DISCONNECTED: "已断开",
+      FAILED: "失败",
+      UNKNOWN: "未知",
+    },
   },
   models: {
     open: "模型",

@@ -113,4 +113,27 @@ describe("daemon client", () => {
       value: secret,
     });
   });
+
+	it("keeps one ephemeral channel session in memory and sends the WeCom secret only in the write body", async () => {
+		const secret = "wecom-client-secret-sentinel";
+		const fetchMock = vi.fn()
+			.mockResolvedValueOnce(new Response(JSON.stringify({ id: "op_channel" }), { status: 202, headers: { "Content-Type": "application/json" } }))
+			.mockResolvedValueOnce(new Response(JSON.stringify({ payload: "qr-source", expiresAt: "2026-08-20T12:01:00Z" }), { status: 200, headers: { "Content-Type": "application/json" } }));
+		vi.stubGlobal("fetch", fetchMock);
+		const client = createDaemonClient(session);
+
+		await client.connectWeCom("inst_coder", "bot-one", secret, "connect-wecom-1");
+		await client.getChannelQr("op_channel");
+
+		const [connectURL, connectInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+		const [qrURL, qrInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+		const connectHeaders = connectInit.headers as Record<string, string>;
+		const qrHeaders = qrInit.headers as Record<string, string>;
+		expect(connectURL).not.toContain(secret);
+		expect(qrURL).not.toContain(secret);
+		expect(JSON.stringify(connectHeaders)).not.toContain(secret);
+		expect(connectHeaders["Yorva-Session-Id"]).toMatch(/^[A-Za-z0-9_-]{20,128}$/);
+		expect(qrHeaders["Yorva-Session-Id"]).toBe(connectHeaders["Yorva-Session-Id"]);
+		expect(JSON.parse(String(connectInit.body))).toEqual({ botId: "bot-one", secret });
+	});
 });

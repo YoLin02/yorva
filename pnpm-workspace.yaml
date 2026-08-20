@@ -4,6 +4,7 @@ packages:
 
 catalog:
   lucide-react: 1.31.0
+  qrcode.react: 4.2.0
 
 catalogMode: strict
 

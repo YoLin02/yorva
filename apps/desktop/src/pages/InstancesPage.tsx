@@ -16,6 +16,7 @@ import {
   IconTrash,
 } from "../components/ui/icons";
 import { ModelConfigurationPanel } from "../components/models/ModelConfigurationPanel";
+import { ChannelPanel } from "../components/channels/ChannelPanel";
 
 const createNamePattern = /^[a-z][a-z0-9_-]{0,63}$/;
 type AvailabilityFilter = "ALL" | Instance["availability"];
@@ -77,7 +78,9 @@ export function InstancesPage({
   const [searchQuery, setSearchQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [modelInstanceId, setModelInstanceId] = useState<string | null>(null);
+  const [channelInstanceId, setChannelInstanceId] = useState<string | null>(null);
   const modelInstance = items.find((item) => item.instanceId === modelInstanceId) ?? null;
+  const channelInstance = items.find((item) => item.instanceId === channelInstanceId) ?? null;
 
   const createOperationActive = createOperation?.status === "PENDING" || createOperation?.status === "RUNNING";
 
@@ -180,6 +183,7 @@ export function InstancesPage({
                       client={client}
                       onDelete={() => onDeleteTargetChange(item)}
                       onOpenModels={() => setModelInstanceId(item.instanceId)}
+                      onOpenChannels={() => setChannelInstanceId(item.instanceId)}
                     />
                   ))}
                   {!loading && filteredItems.length === 0 ? (
@@ -235,6 +239,14 @@ export function InstancesPage({
                   locale={locale}
                   onClose={() => setModelInstanceId(null)}
                 />
+              </div>
+            </div>
+          ) : null}
+
+          {client && channelInstance ? (
+            <div className="instance-modal-backdrop model-modal-backdrop">
+              <div className="channel-modal" role="dialog" aria-modal="true" aria-label={`${copy.channels.title}: ${channelInstance.name}`}>
+                <ChannelPanel client={client} instance={channelInstance} copy={copy} onClose={() => setChannelInstanceId(null)} />
               </div>
             </div>
           ) : null}
@@ -436,13 +448,14 @@ function dismissFromBackdrop(event: MouseEvent<HTMLDivElement>, locked: boolean,
   else onDismiss();
 }
 
-function InstanceRow({ item, copy, locale, client, onDelete, onOpenModels }: {
+function InstanceRow({ item, copy, locale, client, onDelete, onOpenModels, onOpenChannels }: {
   item: Instance;
   copy: AppMessages;
   locale: Locale;
   client?: DaemonClient;
   onDelete: () => void;
   onOpenModels: () => void;
+  onOpenChannels: () => void;
 }) {
   const availability = item.availability;
   return (
@@ -481,6 +494,9 @@ function InstanceRow({ item, copy, locale, client, onDelete, onOpenModels }: {
           <Button type="button" variant="ghost" onClick={onOpenModels} disabled={availability !== "AVAILABLE"}>
             <IconSliders />
             {copy.models.open}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onOpenChannels} disabled={availability !== "AVAILABLE"}>
+            {copy.channels.open}
           </Button>
           {!item.default && !item.protected && availability === "AVAILABLE" ? (
             <Button type="button" variant="ghost" className="button-danger-ghost" onClick={onDelete}>
