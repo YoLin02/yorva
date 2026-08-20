@@ -219,7 +219,7 @@ func getOperationLog(installs RuntimeInstallService, dataDir string) http.Handle
 	})
 }
 
-func cancelOperation(installs RuntimeInstallService, instances InstanceInventoryService, models ModelConfigurationService) http.Handler {
+func cancelOperation(installs RuntimeInstallService, instances InstanceInventoryService, models ModelConfigurationService, channels ChannelService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if installs == nil {
 			writeError(w, http.StatusNotFound, ErrorBody{Code: "NOT_FOUND", Message: "The requested local API resource was not found."})
@@ -242,6 +242,8 @@ func cancelOperation(installs RuntimeInstallService, instances InstanceInventory
 			} else {
 				err = app.ErrRuntimeNotSupported
 			}
+		} else if isChannelOperationType(value.Type) && channels != nil {
+			value, err = channels.CancelChannel(r.Context(), value.ID)
 		} else {
 			value, err = installs.Cancel(r.Context(), value.ID)
 		}
@@ -256,6 +258,10 @@ func cancelOperation(installs RuntimeInstallService, instances InstanceInventory
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(newOperationResponse(value))
 	})
+}
+
+func isChannelOperationType(value operation.Type) bool {
+	return value == operation.TypeChannelConnect || value == operation.TypeChannelDisconnect
 }
 
 func isLifecycleOperationType(value operation.Type) bool {

@@ -96,6 +96,14 @@ const (
 	ErrorLifecyclePostconditionFailed ErrorCode = "LIFECYCLE_POSTCONDITION_FAILED"
 	ErrorLifecycleResultUnknown       ErrorCode = "LIFECYCLE_RESULT_UNKNOWN"
 	ErrorInstanceNotRunning           ErrorCode = "INSTANCE_NOT_RUNNING"
+	ErrorChannelNotSupported          ErrorCode = "CHANNEL_NOT_SUPPORTED"
+	ErrorChannelConflict              ErrorCode = "CHANNEL_CONFLICT"
+	ErrorChannelAuthFailed            ErrorCode = "CHANNEL_AUTH_FAILED"
+	ErrorChannelAuthTimeout           ErrorCode = "CHANNEL_AUTH_TIMEOUT"
+	ErrorChannelAuthCancelled         ErrorCode = "CHANNEL_AUTH_CANCELLED"
+	ErrorChannelStateUnknown          ErrorCode = "CHANNEL_STATE_UNKNOWN"
+	ErrorChannelDisconnectFailed      ErrorCode = "CHANNEL_DISCONNECT_FAILED"
+	ErrorChannelDependencyMissing     ErrorCode = "CHANNEL_DEPENDENCY_MISSING"
 )
 
 type Candidate struct {

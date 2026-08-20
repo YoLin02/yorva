@@ -195,12 +195,19 @@ updated_at     ... NOT NULL
 Constraint:
 
 ```text
-UNIQUE(instance_id, channel_type, external_id)
+UNIQUE(instance_id, channel_type)
 ```
 
-If a Runtime/channel supports only one binding and has no stable external ID, the adapter/application may use an empty normalized external identity and enforce one active binding.
+Phase 6 migration `010_channel_bindings.sql` implements the currently qualified
+one-binding-per-Instance/Channel model as `UNIQUE(instance_id, channel_type)`, restricts
+`channel_type` to `weixin|wecom`, restricts state to the six normalized values, requires
+`metadata_json` to remain exactly `{}`, and cascades Instance deletion to its safe
+projections. A future multi-binding design requires a new Phase contract and migration;
+it must not reinterpret this table in place.
 
-**No channel token or credential plaintext is stored here.**
+**No channel token, Bot Secret, QR payload, sensitive URL or credential plaintext is
+stored here.** Hermes Profile storage is the sole credential authority under ADR-0008;
+this table is a safe last-known projection and cannot authorize a mutation.
 
 ## 10. `secret_refs`
 

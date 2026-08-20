@@ -75,19 +75,21 @@ type InstanceList struct {
 }
 
 type InstanceInventory struct {
-	discovery *RuntimeDiscovery
-	db        *sqlite.Database
-	source    ProfileSource
-	mutator   ProfileMutator
-	nodeID    string
-	now       func() time.Time
-	newID     func() (string, error)
-	mu        sync.Mutex
-	ensureMu  sync.Mutex
-	locks     map[string]*sync.Mutex
-	workers   map[string]context.CancelFunc
-	started   map[string]bool
-	events    *events.Broker
+	discovery   *RuntimeDiscovery
+	db          *sqlite.Database
+	source      ProfileSource
+	mutator     ProfileMutator
+	nodeID      string
+	now         func() time.Time
+	newID       func() (string, error)
+	mu          sync.Mutex
+	operationMu sync.Mutex
+	ensureMu    sync.Mutex
+	locks       map[string]*sync.Mutex
+	workers     map[string]context.CancelFunc
+	started     map[string]bool
+	events      *events.Broker
+	channelQR   *channelQRBroker
 }
 
 func NewInstanceInventory(discovery *RuntimeDiscovery, db *sqlite.Database, source ProfileSource, nodeID string) *InstanceInventory {
@@ -101,6 +103,7 @@ func NewInstanceInventory(discovery *RuntimeDiscovery, db *sqlite.Database, sour
 		locks:     make(map[string]*sync.Mutex),
 		workers:   make(map[string]context.CancelFunc),
 		started:   make(map[string]bool),
+		channelQR: newChannelQRBroker(),
 	}
 }
 
@@ -250,6 +253,10 @@ func (s *InstanceInventory) lockInstallation(id string) func() {
 	s.mu.Unlock()
 	lock.Lock()
 	return lock.Unlock
+}
+
+func (s *InstanceInventory) lockInstance(id string) func() {
+	return s.lockInstallation("instance:" + id)
 }
 
 func instanceView(row instance.Instance, lifecycle bool) InstanceView {
@@ -588,12 +595,14 @@ func (s *InstanceInventory) StartDelete(ctx context.Context, instanceID, confirm
 	if listed.Freshness != "FRESH" {
 		return InstallStartResult{}, instanceQueryError(listed.ErrorCode)
 	}
+	s.operationMu.Lock()
+	defer s.operationMu.Unlock()
 	if s.lifecycleCapable() {
 		lifecycle, lifecycleErr := s.GetLifecycle(ctx, instanceID)
 		if lifecycleErr != nil || lifecycle.State != yorvaruntime.LifecycleStopped {
 			return InstallStartResult{}, ErrInstanceConflict
 		}
-		if _, active, activeErr := s.db.ActiveInstanceLifecycle(ctx, instanceID); activeErr != nil {
+		if _, active, activeErr := s.db.ActiveInstanceRuntimeMutation(ctx, instanceID); activeErr != nil {
 			return InstallStartResult{}, activeErr
 		} else if active {
 			return InstallStartResult{}, ErrInstanceConflict

@@ -170,6 +170,10 @@ func newTestInventory(t *testing.T, profiles []ProfileSnapshot, listErr error) (
 }
 
 func newTestInventoryWithLifecycle(t *testing.T, profiles []ProfileSnapshot, listErr error, lifecycle yorvaruntime.LifecycleManager) (*InstanceInventory, *fakeProfileSource) {
+	return newTestInventoryWithManagers(t, profiles, listErr, lifecycle, nil)
+}
+
+func newTestInventoryWithManagers(t *testing.T, profiles []ProfileSnapshot, listErr error, lifecycle yorvaruntime.LifecycleManager, channels yorvaruntime.ChannelManager) (*InstanceInventory, *fakeProfileSource) {
 	t.Helper()
 	db, err := sqlite.Open(context.Background(), t.TempDir())
 	if err != nil {
@@ -191,6 +195,7 @@ func newTestInventoryWithLifecycle(t *testing.T, profiles []ProfileSnapshot, lis
 			Selected:    &yorvaruntime.Candidate{Path: `C:\hermes\bin\hermes.exe`, Version: "0.20.2", State: yorvaruntime.DiscoverySupported},
 		}},
 		Lifecycle: lifecycle,
+		Channels:  channels,
 	}); err != nil {
 		t.Fatal(err)
 	}

@@ -15,5 +15,6 @@ func Register(registry *yorvaruntime.Registry) error {
 		Discoverer: NewDetector(),
 		Models:     NewModelManager(),
 		Lifecycle:  NewLifecycleManager(),
+		Channels:   NewChannelManager(),
 	})
 }

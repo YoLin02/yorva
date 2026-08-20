@@ -117,6 +117,9 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	if _, err := instances.RecoverLifecycle(ctx); err != nil {
 		logger.Warn("failed to recover stale lifecycle operations", "error", err)
 	}
+	if _, err := instances.RecoverChannels(ctx); err != nil {
+		logger.Warn("failed to recover stale channel operations", "error", err)
+	}
 	server := &http.Server{
 		Handler:           httpapi.NewHandler(message.Token, localNode, broker, discovery, installs, instances, message.DataDir),
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },

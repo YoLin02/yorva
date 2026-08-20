@@ -58,6 +58,8 @@ func (s *InstanceInventory) StartLifecycle(ctx context.Context, instanceID strin
 	if err != nil {
 		return InstallStartResult{}, err
 	}
+	s.operationMu.Lock()
+	defer s.operationMu.Unlock()
 	opType, stage := lifecycleOperationShape(action)
 	if existing, ok, getErr := s.db.GetOperationByIdempotencyKey(ctx, idempotencyKey); getErr != nil {
 		return InstallStartResult{}, getErr

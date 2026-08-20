@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: YORVA Local Node API
   version: 0.0.0
-  description: Local loopback contract between YORVA Desktop and yorvad through Phase 5 model configuration.
+  description: Local loopback contract between YORVA Desktop and yorvad through Phase 6 lifecycle and messaging channels.
 servers:
   - url: http://127.0.0.1:{port}
     variables:
@@ -20,6 +20,8 @@ tags:
     description: Hermes Profile inventory as normalized YORVA Instances.
   - name: Models
     description: Safe model Provider presets, configuration, credentials, and explicit validation.
+  - name: Channels
+    description: Instance-scoped Weixin and WeCom connection state and Operations.
   - name: Operations
     description: Durable local management Operations.
 paths:
@@ -1002,6 +1004,180 @@ paths:
           $ref: "#/components/responses/PreflightAccepted"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/instances/{instanceId}/channels:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      operationId: listInstanceChannels
+      summary: List safe authoritative Channel projections for one Instance
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Weixin and WeCom state without credentials or QR payloads.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceChannels
+      summary: Validate CORS access for Channel state
+      tags: [Channels]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/instances/{instanceId}/channels/{channelType}/connect:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/ChannelType"
+    post:
+      operationId: connectInstanceChannel
+      summary: Start an Instance Channel connection Operation
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/ChannelSessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/WeixinConnectRequest"
+                - $ref: "#/components/schemas/WeComConnectRequest"
+      responses:
+        "202":
+          description: The channel.connect Operation was accepted. Secrets and QR payloads are excluded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsConnectInstanceChannel
+      summary: Validate CORS access for Channel connect
+      tags: [Channels]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/instances/{instanceId}/channels/{channelType}:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/ChannelType"
+    delete:
+      operationId: disconnectInstanceChannel
+      summary: Remove one Channel's local Instance binding material
+      description: This does not claim to revoke the remote Weixin account or WeCom bot identity.
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosedEmptyObject"
+      responses:
+        "202":
+          description: The channel.disconnect Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsDisconnectInstanceChannel
+      summary: Validate CORS access for Channel disconnect
+      tags: [Channels]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/operations/{operationId}/channel-qr:
+    parameters:
+      - $ref: "#/components/parameters/OperationId"
+    get:
+      operationId: getChannelQr
+      summary: Fetch an expiring QR payload for the initiating Desktop session
+      description: The payload is memory-only, non-replayable through SSE, and never persisted.
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ChannelSessionId"
+      responses:
+        "200":
+          description: The current expiring QR source payload.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelQr"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    options:
+      operationId: optionsChannelQr
+      summary: Validate CORS access for Channel QR retrieval
+      tags: [Channels]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   securitySchemes:
     bearerAuth:
@@ -1073,6 +1249,29 @@ components:
         minLength: 1
         maxLength: 128
         pattern: "^[\\x21-\\x7E]+$"
+    ChannelSessionId:
+      name: Yorva-Session-Id
+      in: header
+      required: true
+      description: Ephemeral Desktop process identifier; it is not an authentication credential.
+      schema:
+        type: string
+        minLength: 20
+        maxLength: 128
+        pattern: "^[A-Za-z0-9_-]+$"
+    ChannelType:
+      name: channelType
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [weixin, wecom]
+    OperationId:
+      name: operationId
+      in: path
+      required: true
+      schema:
+        type: string
     InstanceId:
       name: instanceId
       in: path
@@ -1216,7 +1415,7 @@ components:
           type: string
         type:
           type: string
-          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, instance.start, instance.stop, instance.restart, model.validate]
+          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, instance.start, instance.stop, instance.restart, model.validate, channel.connect, channel.disconnect]
         targetType:
           type: string
         targetId:
@@ -1273,6 +1472,73 @@ components:
           maxItems: 50
           items:
             $ref: "#/components/schemas/Operation"
+    ClosedEmptyObject:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+    WeixinConnectRequest:
+      $ref: "#/components/schemas/ClosedEmptyObject"
+    WeComConnectRequest:
+      type: object
+      additionalProperties: false
+      required: [botId, secret]
+      properties:
+        botId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$"
+        secret:
+          type: string
+          minLength: 1
+          maxLength: 8192
+          writeOnly: true
+    ChannelState:
+      type: string
+      enum: [NOT_CONFIGURED, CONNECTING, CONNECTED, DISCONNECTED, FAILED, UNKNOWN]
+    Channel:
+      type: object
+      additionalProperties: false
+      required: [type, state, accountLabel, externalId, lastCheckedAt, activeOperationId]
+      properties:
+        type:
+          type: string
+          enum: [weixin, wecom]
+        state:
+          $ref: "#/components/schemas/ChannelState"
+        accountLabel:
+          type: string
+        externalId:
+          type: string
+        lastCheckedAt:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        activeOperationId:
+          type: [string, "null"]
+    ChannelList:
+      type: object
+      additionalProperties: false
+      required: [channels]
+      properties:
+        channels:
+          type: array
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/Channel"
+    ChannelQr:
+      type: object
+      additionalProperties: false
+      required: [payload, expiresAt]
+      properties:
+        payload:
+          type: string
+          minLength: 1
+          maxLength: 8192
+        expiresAt:
+          type: string
+          format: date-time
     InstanceDeleteRequest:
       type: object
       additionalProperties: false

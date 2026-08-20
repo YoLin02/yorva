@@ -56,6 +56,7 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux := http.NewServeMux()
 	models, _ := instances.(ModelConfigurationService)
 	lifecycle, _ := instances.(InstanceLifecycleService)
+	channels, _ := instances.(ChannelService)
 	mux.HandleFunc("GET /api/v1/health", health)
 	mux.Handle("GET /api/v1/node", requireBearer(token, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -81,10 +82,14 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("POST /api/v1/instances/{instanceId}/start", requireBearer(token, startInstanceLifecycle(lifecycle, app.LifecycleStart)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/stop", requireBearer(token, startInstanceLifecycle(lifecycle, app.LifecycleStop)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/restart", requireBearer(token, startInstanceLifecycle(lifecycle, app.LifecycleRestart)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/channels", requireBearer(token, listInstanceChannels(channels)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/channels/{channelType}/connect", requireBearer(token, connectInstanceChannel(channels)))
+	mux.Handle("DELETE /api/v1/instances/{instanceId}/channels/{channelType}", requireBearer(token, disconnectInstanceChannel(channels)))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
+	mux.Handle("GET /api/v1/operations/{operationId}/channel-qr", requireBearer(token, getChannelQR(channels)))
 	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
 	mux.Handle("GET /api/v1/operations", requireBearer(token, listOperations(installs)))
-	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs, instances, models)))
+	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs, instances, models, channels)))
 	return securityHeaders(restrictOrigins(routeContract(mux)))
 }
 
@@ -149,6 +154,12 @@ func allowedMethods(path string) (string, bool) {
 				return "GET, OPTIONS", true
 			}
 		}
+		if strings.HasSuffix(rest, "/channel-qr") {
+			id := strings.TrimSuffix(rest, "/channel-qr")
+			if id != "" && !strings.Contains(id, "/") {
+				return "GET, OPTIONS", true
+			}
+		}
 	}
 	const prefix = "/api/v1/runtimes/"
 	const suffix = "/detect"
@@ -173,6 +184,12 @@ func allowedMethods(path string) (string, bool) {
 		return "GET, PUT, DELETE, OPTIONS", true
 	case "model-validation":
 		return "POST, OPTIONS", true
+	case "channels":
+		return "GET, OPTIONS", true
+	case "channel-connect":
+		return "POST, OPTIONS", true
+	case "channel-binding":
+		return "DELETE, OPTIONS", true
 	}
 	return "", false
 }
@@ -356,7 +373,7 @@ func restrictOrigins(next http.Handler) http.Handler {
 			}
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Accept, Content-Type, Idempotency-Key")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Accept, Content-Type, Idempotency-Key, Yorva-Session-Id")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
 		}
 		next.ServeHTTP(w, r)

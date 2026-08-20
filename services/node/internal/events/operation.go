@@ -12,6 +12,7 @@ const (
 	TypeOperationCompleted = "operation.completed"
 	TypeOperationFailed    = "operation.failed"
 	TypeOperationCancelled = "operation.cancelled"
+	TypeChannelQRReady     = "channel.qr.ready"
 )
 
 // OperationPayload is the only SSE body published for Operation transitions.
@@ -23,6 +24,19 @@ type OperationPayload struct {
 	Stage         string `json:"stage"`
 	ErrorCode     string `json:"errorCode,omitempty"`
 	CorrelationID string `json:"correlationId"`
+}
+
+type ChannelQRReadyPayload struct {
+	OperationID string    `json:"operationId"`
+	ExpiresAt   time.Time `json:"expiresAt"`
+}
+
+func NewChannelQRReadyEvent(operationID string, expiresAt, now time.Time) Event {
+	data, err := json.Marshal(ChannelQRReadyPayload{OperationID: operationID, ExpiresAt: expiresAt.UTC()})
+	if err != nil {
+		data = []byte("{}")
+	}
+	return Event{Type: TypeChannelQRReady, OccurredAt: now.UTC(), Data: data}
 }
 
 func NewOperationEvent(eventType string, payload OperationPayload, now time.Time) Event {

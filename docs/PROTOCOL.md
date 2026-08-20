@@ -211,11 +211,28 @@ GET returns metadata only:
 ```text
 GET  /api/v1/instances/{instanceId}/channels
 POST /api/v1/instances/{instanceId}/channels/{channel}/connect
-POST /api/v1/instances/{instanceId}/channels/{channel}/disconnect
-GET  /api/v1/instances/{instanceId}/channels/{channel}
+DELETE /api/v1/instances/{instanceId}/channels/{channel}
+GET  /api/v1/operations/{operationId}/channel-qr
 ```
 
-QR/login flows return an Operation. QR payloads/events must have short validity and must not be persisted longer than needed.
+Phase 6 supports the closed Channel identifiers `weixin` and `wecom`. Connect and
+disconnect return durable `channel.connect` and `channel.disconnect` Operations. Weixin
+connect accepts exactly `{}`; WeCom connect accepts exactly `{ "botId": "...",
+"secret": "..." }`, where `secret` is write-only. Disconnect accepts exactly `{}` and
+removes only the target local Hermes binding; it does not claim remote revocation.
+
+Channel GET responses expose only normalized state, safe account label/external ID,
+last-check time and active Operation ID. They never expose credentials or QR payloads.
+`CONNECTED` means YORVA previously completed authenticated verification and the exact
+Hermes-native binding is still present. It does not mean the Instance gateway is
+`RUNNING`.
+
+QR retrieval requires the same `Yorva-Session-Id` header (20–128 allowlisted characters)
+used to initiate the connect Operation. The opaque header is held in Desktop process
+memory only and complements bearer authentication; it is not a replacement credential.
+The response is `Cache-Control: no-store`, bounded to 8 KiB and explicitly expiring.
+Shared SSE publishes only `channel.qr.ready` with `operationId` and `expiresAt`; QR
+content is never included or replayed.
 
 ### Runtime installation
 

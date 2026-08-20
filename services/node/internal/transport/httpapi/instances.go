@@ -359,6 +359,26 @@ func instancePathKind(path string) string {
 				return "model-validation"
 			}
 		}
+		if strings.HasSuffix(rest, "/channels") {
+			id := strings.TrimSuffix(rest, "/channels")
+			if id != "" && !strings.Contains(id, "/") {
+				return "channels"
+			}
+		}
+		if strings.Contains(rest, "/channels/") {
+			instanceID, tail, ok := strings.Cut(rest, "/channels/")
+			if instanceID != "" && ok && !strings.Contains(instanceID, "/") {
+				if strings.HasSuffix(tail, "/connect") {
+					kind := strings.TrimSuffix(tail, "/connect")
+					if kind != "" && !strings.Contains(kind, "/") {
+						return "channel-connect"
+					}
+				}
+				if tail != "" && !strings.Contains(tail, "/") {
+					return "channel-binding"
+				}
+			}
+		}
 	}
 	return ""
 }

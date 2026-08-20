@@ -137,7 +137,12 @@ func (s *InstanceInventory) resolveModelTarget(ctx context.Context, instanceID s
 	if err != nil {
 		return instance.Instance{}, nil, yorvaruntime.ModelInstallation{}, nil, err
 	}
-	unlock := s.lockInstallation(row.RuntimeInstallationID)
+	unlockInstallation := s.lockInstallation(row.RuntimeInstallationID)
+	unlockInstance := s.lockInstance(row.ID)
+	unlock := func() {
+		unlockInstance()
+		unlockInstallation()
+	}
 	fail := func(err error) (instance.Instance, yorvaruntime.ModelConfigurator, yorvaruntime.ModelInstallation, func(), error) {
 		unlock()
 		return instance.Instance{}, nil, yorvaruntime.ModelInstallation{}, nil, err
@@ -148,7 +153,7 @@ func (s *InstanceInventory) resolveModelTarget(ctx context.Context, instanceID s
 		} else if active {
 			return fail(yorvaruntime.ErrInstanceConfigConflict)
 		}
-		if _, active, activeErr := s.db.ActiveInstanceLifecycle(ctx, row.ID); activeErr != nil {
+		if _, active, activeErr := s.db.ActiveInstanceRuntimeMutation(ctx, row.ID); activeErr != nil {
 			return fail(activeErr)
 		} else if active {
 			return fail(yorvaruntime.ErrInstanceConfigConflict)

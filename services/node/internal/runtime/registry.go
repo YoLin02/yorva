@@ -19,6 +19,7 @@ type Bundle struct {
 	Discoverer Discoverer
 	Models     ModelConfigurator
 	Lifecycle  LifecycleManager
+	Channels   ChannelManager
 }
 
 type Registry struct {

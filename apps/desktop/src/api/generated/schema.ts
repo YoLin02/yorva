@@ -416,6 +416,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /** List safe authoritative Channel projections for one Instance */
+        get: operations["listInstanceChannels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Channel state */
+        options: operations["optionsInstanceChannels"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/channels/{channelType}/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start an Instance Channel connection Operation */
+        post: operations["connectInstanceChannel"];
+        delete?: never;
+        /** Validate CORS access for Channel connect */
+        options: operations["optionsConnectInstanceChannel"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/channels/{channelType}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove one Channel's local Instance binding material
+         * @description This does not claim to revoke the remote Weixin account or WeCom bot identity.
+         */
+        delete: operations["disconnectInstanceChannel"];
+        /** Validate CORS access for Channel disconnect */
+        options: operations["optionsDisconnectInstanceChannel"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operations/{operationId}/channel-qr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: components["parameters"]["OperationId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fetch an expiring QR payload for the initiating Desktop session
+         * @description The payload is memory-only, non-replayable through SSE, and never persisted.
+         */
+        get: operations["getChannelQr"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Channel QR retrieval */
+        options: operations["optionsChannelQr"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -483,7 +571,7 @@ export interface components {
         Operation: {
             id: string;
             /** @enum {string} */
-            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "instance.start" | "instance.stop" | "instance.restart" | "model.validate";
+            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "instance.start" | "instance.stop" | "instance.restart" | "model.validate" | "channel.connect" | "channel.disconnect";
             targetType: string;
             targetId: string;
             /** @enum {string} */
@@ -508,6 +596,31 @@ export interface components {
         };
         OperationList: {
             operations: components["schemas"]["Operation"][];
+        };
+        ClosedEmptyObject: Record<string, never>;
+        WeixinConnectRequest: components["schemas"]["ClosedEmptyObject"];
+        WeComConnectRequest: {
+            botId: string;
+            secret: string;
+        };
+        /** @enum {string} */
+        ChannelState: "NOT_CONFIGURED" | "CONNECTING" | "CONNECTED" | "DISCONNECTED" | "FAILED" | "UNKNOWN";
+        Channel: {
+            /** @enum {string} */
+            type: "weixin" | "wecom";
+            state: components["schemas"]["ChannelState"];
+            accountLabel: string;
+            externalId: string;
+            lastCheckedAt: string | null;
+            activeOperationId: string | null;
+        };
+        ChannelList: {
+            channels: components["schemas"]["Channel"][];
+        };
+        ChannelQr: {
+            payload: string;
+            /** Format: date-time */
+            expiresAt: string;
         };
         InstanceDeleteRequest: {
             confirmationName: string;
@@ -695,6 +808,10 @@ export interface components {
     };
     parameters: {
         IdempotencyKey: string;
+        /** @description Ephemeral Desktop process identifier; it is not an authentication credential. */
+        ChannelSessionId: string;
+        ChannelType: "weixin" | "wecom";
+        OperationId: string;
         InstanceId: string;
     };
     requestBodies: never;
@@ -1740,6 +1857,196 @@ export interface operations {
             header?: never;
             path: {
                 instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listInstanceChannels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Weixin and WeCom state without credentials or QR payloads. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceChannels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    connectInstanceChannel: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /** @description Ephemeral Desktop process identifier; it is not an authentication credential. */
+                "Yorva-Session-Id": components["parameters"]["ChannelSessionId"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WeixinConnectRequest"] | components["schemas"]["WeComConnectRequest"];
+            };
+        };
+        responses: {
+            /** @description The channel.connect Operation was accepted. Secrets and QR payloads are excluded. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsConnectInstanceChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    disconnectInstanceChannel: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description The channel.disconnect Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsDisconnectInstanceChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getChannelQr: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Ephemeral Desktop process identifier; it is not an authentication credential. */
+                "Yorva-Session-Id": components["parameters"]["ChannelSessionId"];
+            };
+            path: {
+                operationId: components["parameters"]["OperationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current expiring QR source payload. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelQr"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    optionsChannelQr: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationId: components["parameters"]["OperationId"];
             };
             cookie?: never;
         };

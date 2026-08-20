@@ -62,6 +62,19 @@ func TestNewOperationEventExcludesRawFields(t *testing.T) {
 	}
 }
 
+func TestChannelQRReadyEventContainsMetadataOnly(t *testing.T) {
+	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
+	expires := now.Add(time.Minute)
+	event := NewChannelQRReadyEvent("op_channel", expires, now)
+	if event.Type != TypeChannelQRReady || strings.Contains(string(event.Data), "payload") || strings.Contains(string(event.Data), "http") {
+		t.Fatalf("unsafe QR event = %#v", event)
+	}
+	var payload ChannelQRReadyPayload
+	if err := json.Unmarshal(event.Data, &payload); err != nil || payload.OperationID != "op_channel" || !payload.ExpiresAt.Equal(expires) {
+		t.Fatalf("payload = %#v, %v", payload, err)
+	}
+}
+
 func TestBrokerAssignsEventID(t *testing.T) {
 	broker := NewBroker()
 	sub := broker.Subscribe()

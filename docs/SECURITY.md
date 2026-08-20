@@ -247,12 +247,24 @@ QR/login payloads may be credential-equivalent while valid.
 
 Rules:
 
-- store in memory only where possible;
-- publish only to the authenticated initiating client/session;
-- apply expiry;
-- clear after success/failure/timeout;
+- store only in bounded daemon memory (8 KiB maximum) and modal-local React state;
+- publish only to the bearer-authenticated initiating Desktop session, matched by an
+  ephemeral 20–128 character `Yorva-Session-Id` held in process memory;
+- apply explicit expiry and `Cache-Control: no-store`;
+- clear after success, failure, cancellation, timeout, replacement, expiry or daemon
+  shutdown;
 - do not write QR payloads to audit logs;
-- do not retain QR images as backups.
+- do not place QR payloads in URLs, SQLite, Operation rows/events, logs, diagnostics,
+  localStorage, sessionStorage, Zustand or backups;
+- shared SSE may announce only the Operation ID and expiry metadata.
+
+Hermes `0.20.2` Channel integration is version-pinned. Weixin permits only the fixed
+qualified HTTPS iLink host, disables redirects, bounds responses to 64 KiB and fails
+closed on unknown states/hosts. WeCom permits only the fixed official WSS host and writes
+Bot ID/Secret to the exact Profile only after an authenticated subscribe response. The
+adapter accepts no caller-supplied host, path, filename or environment key. Disconnect
+removes only the selected local binding and never represents that as remote account/bot
+revocation.
 
 ## 17. Updates and installers
 

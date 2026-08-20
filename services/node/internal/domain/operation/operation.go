@@ -24,6 +24,10 @@ const TypeInstanceStop Type = "instance.stop"
 
 const TypeInstanceRestart Type = "instance.restart"
 
+const TypeChannelConnect Type = "channel.connect"
+
+const TypeChannelDisconnect Type = "channel.disconnect"
+
 type TargetType string
 
 const TargetRuntimeKind TargetType = "runtime-kind"
@@ -72,6 +76,12 @@ const (
 	StageInstanceStop           Stage = "instance.stop"
 	StageInstanceRestart        Stage = "instance.restart"
 	StageLifecycleReconcile     Stage = "lifecycle.reconcile"
+	StageChannelPreparing       Stage = "channel.preparing"
+	StageChannelQRReady         Stage = "channel.qr-ready"
+	StageChannelWaiting         Stage = "channel.waiting"
+	StageChannelVerifying       Stage = "channel.verifying"
+	StageChannelCommitting      Stage = "channel.committing"
+	StageChannelDisconnect      Stage = "channel.disconnect"
 )
 
 type Operation struct {
