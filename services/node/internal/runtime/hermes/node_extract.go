@@ -17,7 +17,7 @@ import (
 const (
 	nodeArchiveMaxEntries      = 8000
 	nodeArchiveMaxUncompressed = 256 << 20
-	nodeArchiveMaxMember       = 32 << 20
+	nodeArchiveMaxMember       = 96 << 20
 	npmArchiveMaxEntries       = 8000
 	npmArchiveMaxUncompressed  = 64 << 20
 	nodeDepsOutputLimit        = 1 << 20

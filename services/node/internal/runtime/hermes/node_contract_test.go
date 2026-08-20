@@ -228,8 +228,12 @@ func writeTarGZ(t *testing.T, files map[string]string) string {
 }
 
 func TestCompiledExtractionLimits(t *testing.T) {
-	if nodeArchiveMaxEntries != 8000 || nodeArchiveMaxMember != 32<<20 || nodeArchiveMaxUncompressed != 256<<20 {
+	if nodeArchiveMaxEntries != 8000 || nodeArchiveMaxMember != 96<<20 || nodeArchiveMaxUncompressed != 256<<20 {
 		t.Fatalf("node zip limits changed unexpectedly")
+	}
+	const officialNodeExecutableSize = 86_989_128
+	if nodeArchiveMaxMember < officialNodeExecutableSize {
+		t.Fatalf("node zip member limit %d rejects the pinned node.exe size %d", nodeArchiveMaxMember, officialNodeExecutableSize)
 	}
 	if npmArchiveMaxEntries != 8000 || npmArchiveMaxUncompressed != 64<<20 {
 		t.Fatalf("npm tar limits changed unexpectedly")

@@ -11,6 +11,7 @@
 > Amendment: `docs/phases/amendments/AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED
 > Amendment: `docs/phases/amendments/AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED
 > Amendment: `docs/phases/amendments/AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED
+> Amendment: `docs/phases/amendments/AMENDMENT-003A5-node-archive-member-limit.md` — ACCEPTED EMERGENCY CORRECTION
 > Phase 3 audit: `AUDIT-003`–`R7` — FAIL (immutable); `AUDIT-003R8` — PASS WITH CONDITIONS; `AUDIT-003R9` — PASS
 > Audit-accepted implementation commit: `721325181892d0fd8534f9f7d287fe05d9603bb0`
 > Exact-commit CI: GitHub Actions run `32131548538` — SUCCESS
