@@ -1,13 +1,13 @@
 # YORVA Phase 6 — Runtime Lifecycle and Messaging Channels
 
-> Status: **DRAFT — OWNER REVIEW REQUIRED — IMPLEMENTATION NOT AUTHORIZED**
+> Status: **READY — IMPLEMENTATION AUTHORIZED**
 > Language: English execution mirror
 > Owner: Repository owner
-> Required baseline: `phase-005-models-credentials-baseline` → `d82a802b59d5f2715e431f73f6e4fe44e623d7a4`
+> Required baseline: `phase-005a1-post-freeze-corrections-baseline` → `9957775`
 > Chinese Owner-review source: `PHASE-006-runtime-lifecycle-messaging-channels.zh-CN.md`
 > Roadmap entry: Phase 6, expanded by Owner direction on 2026-08-20
-> Implementation branch: not created
-> Execution authorization: **none**
+> Implementation branch: current owner-authorized branch
+> Execution authorization: **Owner authorized Phase 6 execution on 2026-08-20**
 
 ## 1. Objective
 
@@ -44,15 +44,15 @@ The following direction is already approved by the Owner on 2026-08-20:
 - [x] **D1 — Phase 6 order and scope.** Instance/Runtime lifecycle is moved forward from Phase 7 and implemented before messaging channels in Phase 6.
 - [x] **D2 — Unified lifecycle ownership.** Lifecycle intent, normalized state, Operations, conflict control and recovery belong in Runtime-neutral Core/application code. Hermes-specific execution remains inside the Hermes adapter.
 
-The following decisions are required before the Spec may become `READY`:
+Qualification evidence is recorded in `evidence/PHASE-006-BATCH-1-QUALIFICATION.md`.
 
-- [ ] **D3 — Hermes lifecycle target.** Confirm that Start/Stop/Restart for a YORVA Instance means managing the selected Hermes Profile's messaging gateway, not starting or stopping the immutable Hermes installation tree.
-- [ ] **D4 — Background-service policy.** Confirm whether Phase 6 enables an explicit per-Instance `ON_LOGIN` startup policy using the qualified official Hermes Windows service surface. No service installation or elevation may occur as a hidden side effect of Start.
-- [ ] **D5 — Channel credential authority.** Approve a new ADR defining the sole authority for Weixin/WeCom credentials. ADR-0007 is insufficient. No implementation may create a second secret authority or a silent plaintext fallback.
-- [ ] **D6 — WeCom QR compatibility.** Accept or reject a version-pinned compatibility integration with the non-public WeCom admin-console QR endpoints used by pinned Hermes. If rejected, define whether secure manual Bot ID/Secret entry satisfies the Phase 6 WeCom exit criterion.
-- [ ] **D7 — Ephemeral QR delivery.** Approve the initiating-session-only delivery contract. Shared SSE notification events must not contain QR payloads or credential-equivalent URLs.
-- [ ] **D8 — Messaging dependency materialization.** Approve how required pinned messaging dependencies enter a new sealed Hermes generation. A sealed active generation must never be modified in place.
-- [ ] **D9 — Meaning of `CONNECTED`.** Confirm that Channel `CONNECTED` means authenticated binding verified, while lifecycle `RUNNING` independently means the Hermes gateway is online. The UI may combine both, but neither state may imply the other.
+- [x] **D3 — Hermes lifecycle target.** Start/Stop/Restart manages the selected Hermes Profile messaging gateway, never the immutable installation tree.
+- [x] **D4 — Background-service policy.** `ON_LOGIN` is rejected for Phase 6 because the qualified Windows path may prompt for elevation or use an implicit persistence fallback. Phase 6 is manual lifecycle only.
+- [x] **D5 — Channel credential authority.** ADR-0008 is accepted. Exact Profile-scoped Hermes-native storage is the sole authority; YORVA stores safe projections only.
+- [x] **D6 — WeCom QR compatibility.** The non-public QR compatibility path is rejected. A typed manual Bot ID/Secret flow with authenticated verification satisfies the WeCom exit criterion.
+- [x] **D7 — Ephemeral QR delivery.** Initiating-session-only delivery is approved. Shared SSE contains readiness metadata only.
+- [x] **D8 — Messaging dependency materialization.** The qualified installed bytes may be used. Missing bytes require a new ADR-0006 sealed generation and never an in-place repair.
+- [x] **D9 — Meaning of `CONNECTED`.** Channel `CONNECTED` means an authenticated binding was verified; lifecycle `RUNNING` independently means the gateway is online.
 
 Any rejected decision must update the in-scope list, test matrix and exit criteria before implementation authorization.
 
@@ -124,7 +124,7 @@ Instance
 - pinned Hermes `0.20.2` Profile gateway status qualification;
 - Profile-scoped Start, Stop and Restart for default and named Profiles;
 - Windows normal-user lifecycle management;
-- optional explicit `ON_LOGIN` startup/service configuration if D4 is approved;
+- manual startup only; `ON_LOGIN` policy management is deferred;
 - bounded graceful stop followed by bounded escalation only through the qualified official surface;
 - status reconciliation after external Hermes CLI/Studio changes or process crashes;
 - no dependency on Hermes internal Python imports or database schemas.
@@ -224,11 +224,8 @@ type LifecycleManager interface {
     Start(ctx context.Context, installation Installation, nativeID string) error
     Stop(ctx context.Context, installation Installation, nativeID string) error
     Restart(ctx context.Context, installation Installation, nativeID string) error
-    ConfigureStartup(ctx context.Context, installation Installation, nativeID string, mode StartupMode) error
 }
 ```
-
-`ConfigureStartup` is present only if D4 approves startup/service management. The capability may distinguish lifecycle mutations from startup-policy support without adding Hermes checks to Desktop.
 
 Stable observed lifecycle states:
 
@@ -245,14 +242,6 @@ STARTING
 STOPPING
 RESTARTING
 CONFIGURING_STARTUP
-```
-
-Normalized startup modes:
-
-```text
-MANUAL
-ON_LOGIN
-UNKNOWN
 ```
 
 Rules:
@@ -354,15 +343,15 @@ If official output is human-readable only, a version-pinned fixture-tested parse
 
 ## 13. Startup/Service Management
 
-This content is moved from Phase 7 into Phase 6.
+Lifecycle management is moved from Phase 7 into Phase 6. Persistent login-start policy remains deferred after qualification.
 
-The normalized startup policy is separate from current process state:
+The qualified boundary for Phase 6 is:
 
-- `MANUAL` means YORVA does not expect the Profile gateway to start at Windows login;
-- `ON_LOGIN` means an approved normal-user Hermes startup mechanism is configured;
-- changing startup mode does not implicitly Stop a currently running gateway;
-- Start does not silently enable `ON_LOGIN`;
-- disabling `ON_LOGIN` does not silently Stop a running gateway.
+- Start is an explicit manual action and never enables login persistence;
+- Stop and Restart affect only the selected Profile gateway;
+- existing Hermes login items may be observed for diagnostics but are not created, changed or removed by YORVA;
+- an absent login item uses the fixed official `gateway install --no-start-on-login --start-now` invocation, whose qualified Windows implementation creates no persistence;
+- any unexpected prompt, elevation request or persistence change fails the Operation.
 
 Any service installation/removal that may require elevation must:
 
@@ -405,10 +394,7 @@ GET  /api/v1/instances/{instanceId}/lifecycle
 POST /api/v1/instances/{instanceId}/start
 POST /api/v1/instances/{instanceId}/stop
 POST /api/v1/instances/{instanceId}/restart
-PUT  /api/v1/instances/{instanceId}/lifecycle/startup
 ```
-
-The startup endpoint is included only if D4 is approved. Its request is a closed typed object containing only the normalized startup mode.
 
 OpenAPI must replace the Phase 4 `lifecycle: false` literal and unsupported-only responses with typed capabilities, lifecycle views and `202 Operation` responses. CORS, authentication, error envelopes and request-size bounds remain unchanged.
 
@@ -537,14 +523,14 @@ Lifecycle and Channel actions write secret-free local audit metadata for Start, 
 
 ## 20. Messaging Dependencies and Sealed Generations
 
-The current managed Hermes installation intentionally skips the official `platform-sdks` and `gateway` install stages, while the pinned Hermes `all` extra does not guarantee the complete Weixin messaging dependency set.
+The current installed Hermes `0.20.2` environment was read-only qualified with the required `aiohttp`, `cryptography`, `httpx` and `qrcode` modules present.
 
 Phase 6 must not mutate the active sealed generation in place or permit Hermes lazy installation to do so.
 
-Batch 1 must define one approved path:
+The approved path is:
 
-- build and activate a new generation containing the exact locked messaging dependencies; or
-- prove the qualified lifecycle/authentication path needs no additional generation bytes and defer gateway activation without falsely satisfying the exit criterion.
+- use the already qualified bytes for lifecycle and channel authentication;
+- if any required byte is absent, stop and build/activate a new exact-lock generation under ADR-0006 before continuing.
 
 Any generation-building path must preserve ADR-0006:
 
@@ -667,10 +653,10 @@ Public errors contain user-safe text only. Desktop behavior depends on codes and
 - update lifecycle OpenAPI and generated Desktop types;
 - remove lifecycle=false hard-coding without adding Hermes branches to Core/UI.
 
-### Batch 3 — Hermes lifecycle adapter and startup policy
+### Batch 3 — Hermes lifecycle adapter
 
 - implement exact Profile-scoped status/Start/Stop/Restart;
-- implement approved Windows startup policy;
+- enforce manual-only startup with no hidden persistence or elevation;
 - add bounded command/process behavior and postcondition checks;
 - add adapter fixtures, cancellation/timeout and restart recovery tests.
 
@@ -696,7 +682,7 @@ Public errors contain user-safe text only. Desktop behavior depends on codes and
 
 ### Batch 7 — WeCom
 
-- implement the D6-approved QR fallback or secure manual auth flow;
+- implement the approved secure manual Bot ID/Secret flow;
 - implement status/disconnect and revocation disclosure;
 - verify exact Instance/Profile isolation.
 
@@ -728,8 +714,7 @@ No batch automatically authorizes the next. A blocking qualification, security o
 | Daemon exits after successful Start | gateway remains running | Windows smoke |
 | Daemon restart with orphan Start/Stop | terminal result derived from authoritative state | application/integration |
 | Daemon restart with orphan Restart | no false success from final running state alone | application/integration |
-| Startup policy change | explicit action only; normalized status matches OS truth | adapter/Windows smoke |
-| Declined elevation | stable failure; no hidden fallback or partial service | native/adapter smoke |
+| Missing login item on Start | fixed non-persistent start path; no prompt or elevation | adapter/Windows smoke |
 | Channel capability list | only qualified Weixin/WeCom appear | adapter/API/Desktop |
 | Weixin QR success | expiring QR -> confirmed -> safe `CONNECTED` metadata | adapter/application/Desktop/manual |
 | QR expires | operation times out; payload cleared | application/security |
@@ -776,7 +761,6 @@ Required manual evidence:
 
 - default and named Profile Start/Stop/Restart on Windows;
 - Desktop close while gateway remains running;
-- startup policy across Windows login if D4 is approved;
 - real Weixin scan/confirm/connect/disconnect;
 - real WeCom approved auth path;
 - no plaintext secret/QR in inspected logs and SQLite;
@@ -810,7 +794,7 @@ Phase 6 can pass only when:
 
 - a supported Hermes Instance exposes `lifecycle: true` from qualified capability data;
 - Start, Stop, Restart and live status work for default and named Profiles without a terminal;
-- startup/service policy and lifecycle recovery behave exactly as approved;
+- manual-only lifecycle and lifecycle recovery behave exactly as approved;
 - Desktop close does not stop managed Hermes gateways;
 - Weixin and the D6-approved WeCom path complete their mandatory auth flows;
 - Channel and lifecycle status are both visible and semantically distinct;

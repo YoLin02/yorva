@@ -131,6 +131,9 @@ Indexes:
 (target_id, created_at)
 UNIQUE(target_type, target_id) WHERE status IN ('PENDING', 'RUNNING')
   AND operation_type IN ('runtime.install', 'hermes.prerequisites')
+UNIQUE(target_type, target_id) WHERE status IN ('PENDING', 'RUNNING')
+  AND target_type = 'instance'
+  AND operation_type IN ('instance.start', 'instance.stop', 'instance.restart')
 ```
 
 If idempotency is used locally:
@@ -144,6 +147,10 @@ UNIQUE(idempotency_key) WHERE idempotency_key IS NOT NULL
 Generation install state lives in `control/transactions/txn_*.json` and `control/active.json`. Automatic GC follows D4 retention and never deletes unknown directories, legacy `hermes-agent`, or official Hermes user data.
 
 Progress must be null when percentage has no meaningful interpretation. Do not invent fake percentages.
+
+Lifecycle Operations target the stable YORVA Instance ID. PID and service/task identity are
+never persisted as lifecycle authority. Recovery queries the Runtime adapter and treats an
+orphaned Restart as unknown rather than inferring success from a final running process.
 
 ## 8. `operation_events`
 

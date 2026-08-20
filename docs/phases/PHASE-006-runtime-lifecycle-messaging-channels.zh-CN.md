@@ -1,13 +1,13 @@
 # YORVA Phase 6 — Runtime 生命周期与消息通道
 
-> 状态：**DRAFT — OWNER REVIEW REQUIRED — IMPLEMENTATION NOT AUTHORIZED**
+> 状态：**READY — IMPLEMENTATION AUTHORIZED**
 > 语言：中文 Owner 审阅源
 > Owner：Repository owner
-> 必需基线：`phase-005-models-credentials-baseline` → `d82a802b59d5f2715e431f73f6e4fe44e623d7a4`
+> 必需基线：`phase-005a1-post-freeze-corrections-baseline` → `9957775`
 > 英文执行镜像：`PHASE-006-runtime-lifecycle-messaging-channels.md`
 > 路线图条目：Phase 6，按 Owner 于 2026-08-20 的指示扩展
-> 实现分支：尚未创建
-> 执行授权：**无**
+> 实现分支：当前 Owner 授权分支
+> 执行授权：**Owner 于 2026-08-20 授权执行 Phase 6**
 
 ## 1. 目标
 
@@ -44,15 +44,15 @@ Owner 已于 2026-08-20 批准以下方向：
 - [x] **D1 — Phase 6 顺序与范围。** Instance/Runtime 生命周期从 Phase 7 前移到 Phase 6，并在消息通道之前实现。
 - [x] **D2 — 统一生命周期所有权。** 生命周期意图、标准化状态、Operation、冲突控制和恢复属于 Runtime-neutral Core/application 代码；Hermes-specific 执行保留在 Hermes adapter 内。
 
-Spec 变为 `READY` 前还必须完成以下决策：
+资格证据记录于 `evidence/PHASE-006-BATCH-1-QUALIFICATION.md`。
 
-- [ ] **D3 — Hermes 生命周期目标。** 确认 YORVA Instance 的 Start/Stop/Restart 指管理所选 Hermes Profile 的 messaging gateway，而不是启动或停止不可变 Hermes installation tree。
-- [ ] **D4 — 后台服务策略。** 确认 Phase 6 是否通过已资格确认的官方 Hermes Windows 服务接口提供显式、每 Instance 的 `ON_LOGIN` 启动策略。Start 不得把服务安装或提权隐藏为副作用。
-- [ ] **D5 — 通道凭据权威。** 批准一份新的 ADR，定义微信/企业微信凭据的唯一权威。ADR-0007 不足以授权本阶段。实现不得制造第二份秘密权威或静默明文 fallback。
-- [ ] **D6 — 企业微信 QR 兼容。** 接受或拒绝对固定 Hermes 当前使用的非公开企业微信管理后台 QR endpoint 进行版本固定的兼容集成。若拒绝，需决定安全手动输入 Bot ID/Secret 是否满足 Phase 6 企业微信退出标准。
-- [ ] **D7 — 短时 QR 投递。** 批准仅限发起 session 的投递合同。共享 SSE notification event 不得包含 QR payload 或具有凭据等价性的 URL。
-- [ ] **D8 — 消息依赖物化。** 批准所需固定消息依赖如何进入新的 sealed Hermes generation。不得原地修改已经 Seal 的 active generation。
-- [ ] **D9 — `CONNECTED` 的含义。** 确认 Channel `CONNECTED` 代表已验证的认证 binding，而 lifecycle `RUNNING` 独立表示 Hermes gateway 在线。UI 可以组合显示，但二者不得互相暗示。
+- [x] **D3 — Hermes 生命周期目标。** Start/Stop/Restart 管理所选 Hermes Profile messaging gateway，绝不管理不可变 installation tree。
+- [x] **D4 — 后台服务策略。** Phase 6 拒绝 `ON_LOGIN`；已资格确认的 Windows 路径可能触发提权或隐式持久化 fallback。本阶段仅提供手动生命周期。
+- [x] **D5 — 通道凭据权威。** ADR-0008 已接受；精确 Profile 范围的 Hermes-native 存储是唯一权威，YORVA 只存安全投影。
+- [x] **D6 — 企业微信 QR 兼容。** 拒绝非公开 QR 兼容路径；typed 手动 Bot ID/Secret 加认证验证满足退出标准。
+- [x] **D7 — 短时 QR 投递。** 批准仅限发起 session 的投递；共享 SSE 只含 readiness 元数据。
+- [x] **D8 — 消息依赖物化。** 可使用已资格确认的安装字节；若缺少依赖，必须创建新的 ADR-0006 sealed generation，禁止原地修复。
+- [x] **D9 — `CONNECTED` 的含义。** Channel `CONNECTED` 表示 binding 已通过认证验证；lifecycle `RUNNING` 独立表示 gateway 在线。
 
 任何被拒绝的决策都必须在授权实现前同步修改 in-scope、测试矩阵和退出标准。
 
@@ -124,7 +124,7 @@ Instance
 - 固定 Hermes `0.20.2` Profile gateway status 资格确认；
 - 默认 Profile 和命名 Profile 的 Profile-scoped Start、Stop、Restart；
 - Windows 普通用户生命周期管理；
-- D4 批准时提供显式可选 `ON_LOGIN` startup/service 配置；
+- 仅手动启动；`ON_LOGIN` 策略管理延后；
 - 仅通过已资格确认的官方接口执行有界 graceful stop 和必要的有界升级终止；
 - 外部 Hermes CLI/Studio 修改或进程崩溃后的状态 reconciliation；
 - 不依赖 Hermes internal Python import 或数据库 schema。
@@ -224,11 +224,8 @@ type LifecycleManager interface {
     Start(ctx context.Context, installation Installation, nativeID string) error
     Stop(ctx context.Context, installation Installation, nativeID string) error
     Restart(ctx context.Context, installation Installation, nativeID string) error
-    ConfigureStartup(ctx context.Context, installation Installation, nativeID string, mode StartupMode) error
 }
 ```
-
-只有 D4 批准 startup/service management 后才包含 `ConfigureStartup`。Capability 可以区分 lifecycle mutation 和 startup-policy support，而不在 Desktop 添加 Hermes check。
 
 稳定的 observed lifecycle state：
 
@@ -245,14 +242,6 @@ STARTING
 STOPPING
 RESTARTING
 CONFIGURING_STARTUP
-```
-
-标准化 startup mode：
-
-```text
-MANUAL
-ON_LOGIN
-UNKNOWN
 ```
 
 规则：
@@ -354,15 +343,15 @@ Adapter 只调用 trusted absolute active-generation launcher，使用固定 com
 
 ## 13. 启动/服务管理
 
-此内容从 Phase 7 前移至 Phase 6。
+生命周期管理从 Phase 7 前移至 Phase 6。资格确认后，持久化 login-start 策略仍延后。
 
-标准化 startup policy 与当前 process state 相互独立：
+Phase 6 已资格确认的边界为：
 
-- `MANUAL` 表示 YORVA 不期望 Profile gateway 在 Windows login 时自动启动；
-- `ON_LOGIN` 表示已配置获批 normal-user Hermes startup mechanism；
-- 改变 startup mode 不隐式 Stop 当前运行的 gateway；
-- Start 不静默启用 `ON_LOGIN`；
-- 禁用 `ON_LOGIN` 不静默 Stop 运行中的 gateway。
+- Start 是显式手动操作，绝不启用 login persistence；
+- Stop 与 Restart 只影响所选 Profile gateway；
+- 可为诊断观察既有 Hermes login item，但 YORVA 不创建、修改或删除它；
+- login item 缺失时使用固定官方 `gateway install --no-start-on-login --start-now` 调用；其已资格确认的 Windows 实现不会创建 persistence；
+- 任何意外 prompt、提权请求或 persistence 变化均使 Operation 失败。
 
 任何可能需要提权的 service 安装/移除必须：
 
@@ -405,10 +394,7 @@ GET  /api/v1/instances/{instanceId}/lifecycle
 POST /api/v1/instances/{instanceId}/start
 POST /api/v1/instances/{instanceId}/stop
 POST /api/v1/instances/{instanceId}/restart
-PUT  /api/v1/instances/{instanceId}/lifecycle/startup
 ```
-
-只有 D4 批准时才包含 startup endpoint。其 request 是 closed typed object，只包含 normalized startup mode。
 
 OpenAPI 必须把 Phase 4 的 `lifecycle: false` literal 和 unsupported-only response 替换为 typed capability、lifecycle view 与 `202 Operation` response。CORS、authentication、error envelope 和 request-size bound 保持不变。
 
@@ -537,14 +523,14 @@ Start、Stop、Restart、startup-policy change、Connect 和 Disconnect 都写�
 
 ## 20. 消息依赖与 Sealed Generation
 
-当前 managed Hermes installation 有意跳过官方 `platform-sdks` 和 `gateway` install stage，而固定 Hermes `all` extra 不保证完整 Weixin 消息依赖集合。
+当前安装的 Hermes `0.20.2` 环境已经只读资格确认，包含所需的 `aiohttp`、`cryptography`、`httpx` 与 `qrcode` module。
 
 Phase 6 不得原地修改 active sealed generation，也不得允许 Hermes lazy installation 这样做。
 
-Batch 1 必须定义一个获批路径：
+获批路径为：
 
-- 构建并激活包含准确 locked messaging dependencies 的新 generation；或
-- 证明已资格确认的 lifecycle/authentication path 不需要额外 generation bytes，并在不虚假满足退出标准的前提下推迟 gateway activation。
+- lifecycle 与 channel authentication 使用已经资格确认的字节；
+- 若缺少任何必需字节，停止执行，并按 ADR-0006 构建/激活新的 exact-lock generation 后再继续。
 
 任何 generation-building path 都必须保持 ADR-0006：
 
@@ -667,10 +653,10 @@ Public error 只包含 user-safe text。Desktop behavior 依赖 error code 和 t
 - 更新 lifecycle OpenAPI 和 generated Desktop types；
 - 去除 lifecycle=false hard-coding，且不在 Core/UI 加入 Hermes branch。
 
-### Batch 3 — Hermes 生命周期 Adapter 与启动策略
+### Batch 3 — Hermes 生命周期 Adapter
 
 - 实现准确 Profile-scoped status/Start/Stop/Restart；
-- 实现获批 Windows startup policy；
+- 强制仅手动启动，不允许隐藏 persistence 或提权；
 - 添加 bounded command/process behavior 和 postcondition check；
 - 添加 adapter fixture、cancellation/timeout 和 restart recovery test。
 
@@ -696,7 +682,7 @@ Public error 只包含 user-safe text。Desktop behavior 依赖 error code 和 t
 
 ### Batch 7 — 企业微信
 
-- 实现 D6 批准的 QR fallback 或安全 manual auth flow；
+- 实现已批准的安全手动 Bot ID/Secret flow；
 - 实现 status/disconnect 和 revocation disclosure；
 - 验证准确 Instance/Profile isolation。
 
@@ -728,8 +714,7 @@ Public error 只包含 user-safe text。Desktop behavior 依赖 error code 和 t
 | Daemon 在 Start 成功后退出 | gateway 继续运行 | Windows smoke |
 | Daemon restart 发现 orphan Start/Stop | 由权威 state 派生 terminal result | application/integration |
 | Daemon restart 发现 orphan Restart | 不根据最终 running state alone 虚假成功 | application/integration |
-| Startup policy change | 仅显式 action；normalized status 匹配 OS truth | adapter/Windows smoke |
-| Declined elevation | 稳定 failure；无 hidden fallback 或 partial service | native/adapter smoke |
+| login item 缺失时 Start | 固定非持久化启动路径；无 prompt 或提权 | adapter/Windows smoke |
 | Channel capability list | 只显示已资格确认的 Weixin/WeCom | adapter/API/Desktop |
 | Weixin QR success | 短时 QR -> confirmed -> 安全 `CONNECTED` metadata | adapter/application/Desktop/manual |
 | QR expires | operation timeout；payload cleared | application/security |
@@ -776,7 +761,6 @@ Tauri no-bundle release build
 
 - Windows 上默认与命名 Profile 的 Start/Stop/Restart；
 - gateway 继续运行时关闭 Desktop；
-- D4 批准时验证跨 Windows login 的 startup policy；
 - 真实微信 scan/confirm/connect/disconnect；
 - 真实企业微信获批 auth path；
 - 检查 log 和 SQLite，确认无 plaintext secret/QR；
@@ -810,7 +794,7 @@ Phase 6 只有在以下条件全部满足时才可通过：
 
 - 受支持 Hermes Instance 从资格确认后的 capability data 暴露 `lifecycle: true`；
 - 默认与命名 Profile 的 Start、Stop、Restart 和 live status 无需终端即可工作；
-- startup/service policy 和 lifecycle recovery 严格按获批方案工作；
+- 仅手动 lifecycle 和 lifecycle recovery 严格按获批方案工作；
 - 关闭 Desktop 不停止已管理的 Hermes gateway；
 - Weixin 与 D6 获批的 WeCom path 完成 mandatory auth flow；
 - Channel 与 lifecycle status 均可见，且语义相互独立；

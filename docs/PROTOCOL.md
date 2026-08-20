@@ -163,12 +163,18 @@ DELETE /api/v1/instances/{instanceId}
 ### Lifecycle
 
 ```text
+GET  /api/v1/instances/{instanceId}/lifecycle
 POST /api/v1/instances/{instanceId}/start
 POST /api/v1/instances/{instanceId}/stop
 POST /api/v1/instances/{instanceId}/restart
 ```
 
-If a Runtime does not expose Instance-level lifecycle, capability metadata must say so and the endpoint returns `CAPABILITY_NOT_SUPPORTED`.
+Lifecycle GET returns the normalized live state, safe error code, observation time and an
+optional active Operation ID. Mutations require `Idempotency-Key` and return `202` with an
+`instance.start`, `instance.stop`, or `instance.restart` Operation. If a Runtime/version
+does not expose qualified Instance lifecycle, capability metadata says so and the endpoint
+returns `CAPABILITY_NOT_SUPPORTED`. No response exposes PID, task name, executable/Profile
+path, raw output, command, or environment.
 
 ### Configuration
 

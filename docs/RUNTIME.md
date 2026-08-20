@@ -123,6 +123,12 @@ type LifecycleManager interface {
 
 Not every Runtime must support this capability at Instance scope.
 
+Phase 6 normalizes only `RUNNING`, `STOPPED`, and `UNKNOWN`. Transient Starting,
+Stopping, and Restarting presentation comes from the active Operation. Hermes `0.20.2`
+maps this contract to the exact Profile messaging gateway. Manual Start never enables
+login persistence; OS task names, PIDs, paths, and human command output remain inside the
+Hermes adapter.
+
 ### Configuration
 
 ```go
