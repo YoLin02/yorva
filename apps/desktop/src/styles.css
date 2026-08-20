@@ -1290,6 +1290,14 @@ p {
   align-items: center;
   justify-content: flex-end;
   gap: 2px;
+  flex-wrap: wrap;
+}
+
+.instance-lifecycle-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
 }
 
 .instance-row-actions .button {

@@ -10,6 +10,7 @@ export type Operation = components["schemas"]["Operation"];
 export type OperationList = components["schemas"]["OperationList"];
 export type Instance = components["schemas"]["Instance"];
 export type InstanceList = components["schemas"]["InstanceList"];
+export type Lifecycle = components["schemas"]["Lifecycle"];
 export type ModelProviderPreset = components["schemas"]["ModelProviderPreset"];
 export type ModelProviderPresetList = components["schemas"]["ModelProviderPresetList"];
 export type ModelConfiguration = components["schemas"]["ModelConfiguration"];

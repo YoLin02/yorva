@@ -1,7 +1,8 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { formatDateTime } from "../formatDateTime";
 import type { DaemonClient } from "../api/client";
-import type { Instance, InstanceList, Operation } from "../api/types";
+import type { Instance, InstanceList, Lifecycle, Operation } from "../api/types";
 import type { AppMessages, Locale } from "../i18n";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -176,6 +177,7 @@ export function InstancesPage({
                       item={item}
                       copy={copy}
                       locale={locale}
+                      client={client}
                       onDelete={() => onDeleteTargetChange(item)}
                       onOpenModels={() => setModelInstanceId(item.instanceId)}
                     />
@@ -188,7 +190,7 @@ export function InstancesPage({
             </div>
             <div className="instance-table-footer">
               <span>{copy.instances.totalCount.replace("{count}", String(filteredItems.length))}</span>
-              <span>{copy.instances.lifecycleUnavailable}</span>
+              <span>{inventory?.capabilities.lifecycle ? copy.instances.lifecycleReady : copy.instances.lifecycleUnavailable}</span>
             </div>
           </div>
 
@@ -434,10 +436,11 @@ function dismissFromBackdrop(event: MouseEvent<HTMLDivElement>, locked: boolean,
   else onDismiss();
 }
 
-function InstanceRow({ item, copy, locale, onDelete, onOpenModels }: {
+function InstanceRow({ item, copy, locale, client, onDelete, onOpenModels }: {
   item: Instance;
   copy: AppMessages;
   locale: Locale;
+  client?: DaemonClient;
   onDelete: () => void;
   onOpenModels: () => void;
 }) {
@@ -472,6 +475,9 @@ function InstanceRow({ item, copy, locale, onDelete, onOpenModels }: {
       </td>
       <td>
         <div className="instance-row-actions">
+          {client && item.capabilities.lifecycle && availability === "AVAILABLE" ? (
+            <LifecycleControls client={client} item={item} copy={copy} />
+          ) : null}
           <Button type="button" variant="ghost" onClick={onOpenModels} disabled={availability !== "AVAILABLE"}>
             <IconSliders />
             {copy.models.open}
@@ -486,6 +492,121 @@ function InstanceRow({ item, copy, locale, onDelete, onOpenModels }: {
       </td>
     </tr>
   );
+}
+
+function LifecycleControls({ client, item, copy }: { client: DaemonClient; item: Instance; copy: AppMessages }) {
+  const queryClient = useQueryClient();
+  const [submittedOperationId, setSubmittedOperationId] = useState<string | null>(null);
+  const [lifecycleError, setLifecycleError] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<"stop" | "restart" | null>(null);
+  const lifecycleQuery = useQuery({
+    queryKey: ["instance-lifecycle", item.instanceId, client.scope],
+    queryFn: ({ signal }) => client.getInstanceLifecycle(item.instanceId, signal),
+    retry: false,
+    refetchInterval: 5000,
+  });
+  const followedOperationId = submittedOperationId ?? lifecycleQuery.data?.activeOperationId ?? null;
+  const lifecycleOperationQuery = useQuery({
+    queryKey: ["instance-lifecycle-operation", followedOperationId, client.scope],
+    queryFn: ({ signal }) => client.getOperation(followedOperationId!, signal),
+    enabled: followedOperationId !== null,
+    retry: false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "RUNNING" ? 750 : false;
+    },
+  });
+  const lifecycleOperation = lifecycleOperationQuery.data;
+  const lifecycleOperationId = lifecycleOperation?.id;
+  const lifecycleOperationStatus = lifecycleOperation?.status;
+  const lifecycleBusy = lifecycleOperationStatus === "PENDING" || lifecycleOperationStatus === "RUNNING";
+  const refetchLifecycle = lifecycleQuery.refetch;
+
+  useEffect(() => {
+    if (!lifecycleOperationId || lifecycleBusy) return;
+    void refetchLifecycle();
+    void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+  }, [lifecycleBusy, lifecycleOperationId, lifecycleOperationStatus, queryClient, refetchLifecycle]);
+
+  const runLifecycle = async (action: "start" | "stop" | "restart") => {
+    if (lifecycleBusy) return;
+    setLifecycleError(false);
+    try {
+      const operation = await client.startInstanceLifecycle(item.instanceId, action, crypto.randomUUID());
+      setSubmittedOperationId(operation.id);
+    } catch {
+      setLifecycleError(true);
+      void lifecycleQuery.refetch();
+    }
+  };
+
+  const presentation = lifecyclePresentation(lifecycleQuery.data, lifecycleOperation, copy);
+  const refreshLifecycle = () => {
+    setSubmittedOperationId(null);
+    setLifecycleError(false);
+    void lifecycleQuery.refetch();
+  };
+  return (
+    <div className="instance-lifecycle-actions" title={lifecycleError ? copy.instances.lifecycleFailed : undefined}>
+      <Badge tone={presentation.tone}>{presentation.label}</Badge>
+      {presentation.state === "STOPPED" ? (
+        <Button type="button" variant="ghost" disabled={lifecycleBusy} onClick={() => { void runLifecycle("start"); }}>
+          {copy.instances.lifecycleStart}
+        </Button>
+      ) : null}
+      {presentation.state === "RUNNING" ? (
+        <>
+          <Button type="button" variant="ghost" disabled={lifecycleBusy} onClick={() => { setConfirmAction("stop"); }}>
+            {copy.instances.lifecycleStop}
+          </Button>
+          <Button type="button" variant="ghost" disabled={lifecycleBusy} onClick={() => { setConfirmAction("restart"); }}>
+            <IconRefresh className={lifecycleBusy ? "spin" : undefined} />
+            {copy.instances.lifecycleRestart}
+          </Button>
+        </>
+      ) : null}
+      {presentation.state === "UNKNOWN" && !lifecycleBusy ? (
+        <Button type="button" variant="ghost" onClick={refreshLifecycle}>{copy.instances.refresh}</Button>
+      ) : null}
+      {confirmAction ? (
+        <div className="instance-modal-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setConfirmAction(null);
+        }}>
+          <div className="instance-modal" role="dialog" aria-modal="true" aria-labelledby={`lifecycle-confirm-${item.instanceId}`}>
+            <h2 id={`lifecycle-confirm-${item.instanceId}`} className="instance-modal-title">{copy.instances.lifecycleConfirmTitle}</h2>
+            <p>{confirmAction === "stop" ? copy.instances.lifecycleStopWarning : copy.instances.lifecycleRestartWarning}</p>
+            <p className="instance-modal-name">{item.name}</p>
+            <div className="instance-modal-actions">
+              <Button type="button" variant="secondary" onClick={() => { setConfirmAction(null); }}>{copy.instances.dismissDelete}</Button>
+              <Button type="button" variant="primary" onClick={() => {
+                const action = confirmAction;
+                setConfirmAction(null);
+                void runLifecycle(action);
+              }}>{copy.instances.lifecycleConfirm}</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function lifecyclePresentation(lifecycle: Lifecycle | undefined, operation: Operation | undefined, copy: AppMessages): {
+  state: Lifecycle["state"];
+  label: string;
+  tone: "ok" | "warn" | "neutral" | "info" | "error";
+} {
+  if (operation?.status === "PENDING" || operation?.status === "RUNNING") {
+    if (operation.type === "instance.stop") return { state: "UNKNOWN", label: copy.instances.lifecycleStopping, tone: "info" };
+    if (operation.type === "instance.restart") return { state: "UNKNOWN", label: copy.instances.lifecycleRestarting, tone: "info" };
+    return { state: "UNKNOWN", label: copy.instances.lifecycleStarting, tone: "info" };
+  }
+  if (operation?.status === "FAILED" || operation?.status === "CANCELLED") {
+    return { state: "UNKNOWN", label: copy.instances.lifecycleFailed, tone: "error" };
+  }
+  if (lifecycle?.state === "RUNNING") return { state: "RUNNING", label: copy.instances.lifecycleRunning, tone: "ok" };
+  if (lifecycle?.state === "STOPPED") return { state: "STOPPED", label: copy.instances.lifecycleStopped, tone: "warn" };
+  return { state: "UNKNOWN", label: copy.instances.lifecycleUnknown, tone: "neutral" };
 }
 
 function operationStatus(operation: Operation, copy: AppMessages, kind: "create" | "delete") {

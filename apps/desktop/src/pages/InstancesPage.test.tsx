@@ -1,5 +1,7 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { DaemonClient } from "../api/client";
 import type { InstanceList } from "../api/types";
 import { messages } from "../i18n";
 import { InstancesPage } from "./InstancesPage";
@@ -290,5 +292,86 @@ describe("InstancesPage", () => {
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
     const modelButtons = screen.getAllByRole("button", { name: "Models" });
     expect(modelButtons.filter((button) => button.hasAttribute("disabled"))).toHaveLength(2);
+  });
+
+  it("shows authoritative lifecycle state and starts an Operation", async () => {
+    const startInstanceLifecycle = vi.fn().mockResolvedValue({
+      id: "op_start", type: "instance.start", targetType: "instance", targetId: "inst_coder",
+      status: "PENDING", stage: "preflight", progress: null, message: "start", errorCode: null,
+      retryable: false, correlationId: "cor", createdAt: "2026-08-20T12:00:00Z", startedAt: null,
+      completedAt: null, updatedAt: "2026-08-20T12:00:00Z",
+    });
+    const client = {
+      scope: "http://127.0.0.1:1",
+      getInstanceLifecycle: vi.fn().mockResolvedValue({ state: "STOPPED", activeOperationId: null, observedAt: "2026-08-20T12:00:00Z", errorCode: null }),
+      startInstanceLifecycle,
+      getOperation: vi.fn().mockResolvedValue({
+        id: "op_start", type: "instance.start", targetType: "instance", targetId: "inst_coder",
+        status: "PENDING", stage: "preflight", progress: null, message: "start", errorCode: null,
+        retryable: false, correlationId: "cor", createdAt: "2026-08-20T12:00:00Z", startedAt: null,
+        completedAt: null, updatedAt: "2026-08-20T12:00:00Z",
+      }),
+    } as unknown as DaemonClient;
+    const lifecycleInventory: InstanceList = {
+      ...inventory,
+      instances: [{ ...inventory.instances[1], capabilities: { instances: true, lifecycle: true } }],
+      capabilities: { instances: true, lifecycle: true },
+    };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <InstancesPage
+          supported loading={false} error={false} inventory={lifecycleInventory} createName="" createBusy={false}
+          createOperation={null} copy={messages["en-US"]} locale="en-US" onRefresh={() => undefined}
+          onPrepareCreate={() => undefined} onCreateNameChange={() => undefined} onCreate={() => undefined}
+          onCancelCreate={() => undefined} deleteTarget={null} deleteConfirmation="" deleteBusy={false}
+          deleteOperation={null} onDeleteTargetChange={() => undefined} onDeleteConfirmationChange={() => undefined}
+          onDelete={() => undefined} onCancelDelete={() => undefined} client={client}
+        />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("Stopped")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
+    await waitFor(() => expect(startInstanceLifecycle).toHaveBeenCalledWith("inst_coder", "start", expect.any(String)));
+    expect(await screen.findByText("Starting")).toBeInTheDocument();
+  });
+
+  it("confirms a stop before starting the lifecycle Operation", async () => {
+    const startInstanceLifecycle = vi.fn().mockResolvedValue({
+      id: "op_stop", type: "instance.stop", targetType: "instance", targetId: "inst_coder",
+      status: "PENDING", stage: "preflight", progress: null, message: "stop", errorCode: null,
+      retryable: false, correlationId: "cor", createdAt: "2026-08-20T12:00:00Z", startedAt: null,
+      completedAt: null, updatedAt: "2026-08-20T12:00:00Z",
+    });
+    const client = {
+      scope: "http://127.0.0.1:1",
+      getInstanceLifecycle: vi.fn().mockResolvedValue({ state: "RUNNING", activeOperationId: null, observedAt: "2026-08-20T12:00:00Z", errorCode: null }),
+      startInstanceLifecycle,
+      getOperation: vi.fn(),
+    } as unknown as DaemonClient;
+    const lifecycleInventory: InstanceList = {
+      ...inventory,
+      instances: [{ ...inventory.instances[1], capabilities: { instances: true, lifecycle: true } }],
+      capabilities: { instances: true, lifecycle: true },
+    };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <InstancesPage
+          supported loading={false} error={false} inventory={lifecycleInventory} createName="" createBusy={false}
+          createOperation={null} copy={messages["en-US"]} locale="en-US" onRefresh={() => undefined}
+          onPrepareCreate={() => undefined} onCreateNameChange={() => undefined} onCreate={() => undefined}
+          onCancelCreate={() => undefined} deleteTarget={null} deleteConfirmation="" deleteBusy={false}
+          deleteOperation={null} onDeleteTargetChange={() => undefined} onDeleteConfirmationChange={() => undefined}
+          onDelete={() => undefined} onCancelDelete={() => undefined} client={client}
+        />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("Running")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    expect(startInstanceLifecycle).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("dialog", { name: "Confirm lifecycle action" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+    await waitFor(() => expect(startInstanceLifecycle).toHaveBeenCalledWith("inst_coder", "stop", expect.any(String)));
   });
 });

@@ -112,6 +112,16 @@ export function createDaemonClient(session: DaemonSession) {
       request<Instance>(`/api/v1/instances/${encodeURIComponent(instanceId)}`, {
         signal: withDesktopTimeout(signal),
       }),
+    getInstanceLifecycle: (instanceId: string, signal?: AbortSignal) =>
+      request<import("./types").Lifecycle>(`/api/v1/instances/${encodeURIComponent(instanceId)}/lifecycle`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    startInstanceLifecycle: (instanceId: string, action: "start" | "stop" | "restart", idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/${action}`, {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: { "Idempotency-Key": idempotencyKey },
+      }),
     deleteInstance: (instanceId: string, confirmationName: string, idempotencyKey: string, signal?: AbortSignal) =>
       request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}`, {
         method: "DELETE",

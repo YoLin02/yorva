@@ -158,6 +158,21 @@ type Messages = {
     availability: Record<"AVAILABLE" | "MISSING" | "UNKNOWN", string>;
     availabilityHint: Record<"AVAILABLE" | "MISSING" | "UNKNOWN", string>;
     lifecycleUnavailable: string;
+    lifecycleReady: string;
+    lifecycleRunning: string;
+    lifecycleStopped: string;
+    lifecycleUnknown: string;
+    lifecycleStarting: string;
+    lifecycleStopping: string;
+    lifecycleRestarting: string;
+    lifecycleStart: string;
+    lifecycleStop: string;
+    lifecycleRestart: string;
+    lifecycleFailed: string;
+    lifecycleConfirmTitle: string;
+    lifecycleStopWarning: string;
+    lifecycleRestartWarning: string;
+    lifecycleConfirm: string;
     loadFailure: string;
     queryFailed: string;
     createLabel: string;
@@ -458,7 +473,22 @@ const english: Messages = {
       MISSING: "Absent from the latest successful Hermes query. The YORVA identity is retained.",
       UNKNOWN: "The latest Hermes query failed or could not be parsed. Previous rows were not marked missing.",
     },
-    lifecycleUnavailable: "Start, Stop, and Restart are not available in this phase.",
+    lifecycleUnavailable: "Lifecycle controls are unavailable for this Runtime.",
+    lifecycleReady: "Manual Start, Stop, and Restart are available. Login auto-start is not changed.",
+    lifecycleRunning: "Running",
+    lifecycleStopped: "Stopped",
+    lifecycleUnknown: "Unknown",
+    lifecycleStarting: "Starting",
+    lifecycleStopping: "Stopping",
+    lifecycleRestarting: "Restarting",
+    lifecycleStart: "Start",
+    lifecycleStop: "Stop",
+    lifecycleRestart: "Restart",
+    lifecycleFailed: "Lifecycle action failed. Refresh the authoritative state and retry.",
+    lifecycleConfirmTitle: "Confirm lifecycle action",
+    lifecycleStopWarning: "Stopping this instance may interrupt active work. Continue?",
+    lifecycleRestartWarning: "Restarting this instance may interrupt active work. Continue?",
+    lifecycleConfirm: "Continue",
     loadFailure: "YORVA could not load Instances.",
     queryFailed: "Hermes Profile query failed. Inventory freshness is unknown.",
     createLabel: "New instance name",
@@ -762,7 +792,22 @@ const simplifiedChinese: Messages = {
       MISSING: "最近一次成功的 Hermes 查询中不存在。YORVA 身份仍然保留。",
       UNKNOWN: "最近一次 Hermes 查询失败或无法解析。旧记录不会被误判为缺失。",
     },
-    lifecycleUnavailable: "本阶段不提供启动、停止或重启。",
+    lifecycleUnavailable: "此 Runtime 不支持生命周期控制。",
+    lifecycleReady: "可手动启动、停止和重启；不会更改登录自启设置。",
+    lifecycleRunning: "运行中",
+    lifecycleStopped: "已停止",
+    lifecycleUnknown: "未知",
+    lifecycleStarting: "正在启动",
+    lifecycleStopping: "正在停止",
+    lifecycleRestarting: "正在重启",
+    lifecycleStart: "启动",
+    lifecycleStop: "停止",
+    lifecycleRestart: "重启",
+    lifecycleFailed: "生命周期操作失败。请刷新权威状态后重试。",
+    lifecycleConfirmTitle: "确认生命周期操作",
+    lifecycleStopWarning: "停止此实例可能会中断正在进行的任务。是否继续？",
+    lifecycleRestartWarning: "重启此实例可能会中断正在进行的任务。是否继续？",
+    lifecycleConfirm: "继续",
     loadFailure: "无法加载实例。",
     queryFailed: "Hermes Profile 查询失败。清单新鲜度为未知。",
     createLabel: "新实例名称",

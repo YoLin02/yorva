@@ -336,6 +336,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /** Read authoritative Instance lifecycle state */
+        get: operations["getInstanceLifecycle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Instance lifecycle status */
+        options: operations["optionsInstanceLifecycle"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}/start": {
         parameters: {
             query?: never;
@@ -463,7 +483,7 @@ export interface components {
         Operation: {
             id: string;
             /** @enum {string} */
-            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "model.validate";
+            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "instance.start" | "instance.stop" | "instance.restart" | "model.validate";
             targetType: string;
             targetId: string;
             /** @enum {string} */
@@ -497,8 +517,16 @@ export interface components {
         };
         InstanceCapabilities: {
             instances: boolean;
+            lifecycle: boolean;
+        };
+        Lifecycle: {
+            /** @enum {string} */
+            state: "RUNNING" | "STOPPED" | "UNKNOWN";
+            activeOperationId: string | null;
+            /** Format: date-time */
+            observedAt: string;
             /** @constant */
-            lifecycle: false;
+            errorCode: false;
         };
         Instance: {
             instanceId: string;
@@ -1543,7 +1571,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    startInstance: {
+    getInstanceLifecycle: {
         parameters: {
             query?: never;
             header?: never;
@@ -1554,15 +1582,61 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED. */
+            /** @description Normalized live lifecycle state and active mutation identifier. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["Lifecycle"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceLifecycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    startInstance: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The instance.start Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -1588,7 +1662,9 @@ export interface operations {
     stopInstance: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 instanceId: components["parameters"]["InstanceId"];
             };
@@ -1596,15 +1672,16 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED. */
-            200: {
+            /** @description The instance.stop Operation was accepted. */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -1630,7 +1707,9 @@ export interface operations {
     restartInstance: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
             path: {
                 instanceId: components["parameters"]["InstanceId"];
             };
@@ -1638,15 +1717,16 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Unused. Phase 4 always returns CAPABILITY_NOT_SUPPORTED. */
-            200: {
+            /** @description The instance.restart Operation was accepted. */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["Operation"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
