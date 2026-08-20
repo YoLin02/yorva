@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
@@ -206,7 +207,11 @@ func newTestModelManager(t *testing.T, provider, modelID string) (*ModelManager,
 }
 
 func testModelInstallation() yorvaruntime.ModelInstallation {
-	return yorvaruntime.ModelInstallation{Executable: filepath.Join(`C:\`, "hermes", "hermes.exe"), Version: modelSurfaceVersion}
+	executable := filepath.Join(string(filepath.Separator), "opt", "hermes", "bin", "hermes")
+	if runtime.GOOS == "windows" {
+		executable = filepath.Join(`C:\`, "hermes", "hermes.exe")
+	}
+	return yorvaruntime.ModelInstallation{Executable: executable, Version: modelSurfaceVersion}
 }
 
 func containsArgs(haystack [][]string, needle []string) bool {
