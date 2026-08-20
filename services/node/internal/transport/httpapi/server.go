@@ -54,6 +54,7 @@ type RuntimeWarningResponse struct {
 
 func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService, instances InstanceInventoryService, dataDir string) http.Handler {
 	mux := http.NewServeMux()
+	models, _ := instances.(ModelConfigurationService)
 	mux.HandleFunc("GET /api/v1/health", health)
 	mux.Handle("GET /api/v1/node", requireBearer(token, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -66,15 +67,22 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("POST /api/v1/runtimes/hermes/prerequisites/install", requireBearer(token, startHermesPrerequisites(installs)))
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, listRuntimeInstances(instances)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, createRuntimeInstance(instances)))
+	mux.Handle("GET /api/v1/runtimes/hermes/model-provider-presets", requireBearer(token, listModelProviderPresets(models)))
 	mux.Handle("GET /api/v1/instances/{instanceId}", requireBearer(token, getInstance(instances)))
 	mux.Handle("DELETE /api/v1/instances/{instanceId}", requireBearer(token, deleteInstance(instances)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/config", requireBearer(token, getModelConfiguration(models)))
+	mux.Handle("PATCH /api/v1/instances/{instanceId}/config", requireBearer(token, patchModelConfiguration(models)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, getModelCredential(models)))
+	mux.Handle("PUT /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, putModelCredential(models)))
+	mux.Handle("DELETE /api/v1/instances/{instanceId}/credentials/model-provider", requireBearer(token, deleteModelCredential(models)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/model-validation", requireBearer(token, startModelValidation(models)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/start", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("POST /api/v1/instances/{instanceId}/stop", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("POST /api/v1/instances/{instanceId}/restart", requireBearer(token, instanceLifecycleUnsupported()))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
 	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
 	mux.Handle("GET /api/v1/operations", requireBearer(token, listOperations(installs)))
-	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs, instances)))
+	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs, instances, models)))
 	return securityHeaders(restrictOrigins(routeContract(mux)))
 }
 
@@ -119,6 +127,8 @@ func allowedMethods(path string) (string, bool) {
 		return "GET, OPTIONS", true
 	case "/api/v1/runtimes/hermes/prerequisites/install":
 		return "POST, OPTIONS", true
+	case "/api/v1/runtimes/hermes/model-provider-presets":
+		return "GET, OPTIONS", true
 	}
 	if strings.HasPrefix(path, "/api/v1/operations/") {
 		rest := strings.TrimPrefix(path, "/api/v1/operations/")
@@ -152,6 +162,12 @@ func allowedMethods(path string) (string, bool) {
 	case "get":
 		return "GET, DELETE, OPTIONS", true
 	case "lifecycle":
+		return "POST, OPTIONS", true
+	case "config":
+		return "GET, PATCH, OPTIONS", true
+	case "model-credential":
+		return "GET, PUT, DELETE, OPTIONS", true
+	case "model-validation":
 		return "POST, OPTIONS", true
 	}
 	return "", false
@@ -337,7 +353,7 @@ func restrictOrigins(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Accept, Content-Type, Idempotency-Key")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
 		}
 		next.ServeHTTP(w, r)
 	})

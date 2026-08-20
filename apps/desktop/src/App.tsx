@@ -72,6 +72,10 @@ export function App() {
     void queryClient.invalidateQueries({ queryKey: ["instance-operations"] });
     void queryClient.invalidateQueries({ queryKey: ["instance-create"] });
     void queryClient.invalidateQueries({ queryKey: ["instance-delete"] });
+    void queryClient.invalidateQueries({ queryKey: ["model-configuration"] });
+    void queryClient.invalidateQueries({ queryKey: ["model-credential"] });
+    void queryClient.invalidateQueries({ queryKey: ["model-validation-operations"] });
+    void queryClient.invalidateQueries({ queryKey: ["model-validation"] });
   }, [queryClient]);
   const eventStatus = useEventStreamStatus(
     client,
@@ -531,6 +535,7 @@ export function App() {
         onCancelDelete={() => {
           void cancelDelete();
         }}
+        client={client}
       />
     );
   } else {

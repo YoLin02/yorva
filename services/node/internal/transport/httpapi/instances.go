@@ -284,6 +284,24 @@ func instancePathKind(path string) string {
 				}
 			}
 		}
+		if strings.HasSuffix(rest, "/config") {
+			id := strings.TrimSuffix(rest, "/config")
+			if id != "" && !strings.Contains(id, "/") {
+				return "config"
+			}
+		}
+		if strings.HasSuffix(rest, "/credentials/model-provider") {
+			id := strings.TrimSuffix(rest, "/credentials/model-provider")
+			if id != "" && !strings.Contains(id, "/") {
+				return "model-credential"
+			}
+		}
+		if strings.HasSuffix(rest, "/model-validation") {
+			id := strings.TrimSuffix(rest, "/model-validation")
+			if id != "" && !strings.Contains(id, "/") {
+				return "model-validation"
+			}
+		}
 	}
 	return ""
 }

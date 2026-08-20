@@ -103,25 +103,28 @@ A local API token being present in Desktop memory does not remove the need for C
 
 ## 7. Secret storage
 
-Secrets must be stored behind a `SecretStore` abstraction backed by OS-secure storage when available.
+YORVA-owned secrets must be stored behind a `SecretStore` abstraction backed by OS-secure storage when available. Runtime-native secrets may instead use an Owner-approved Runtime authority defined by an ADR.
 
 Examples of secret scopes:
 
 ```text
 node/device credential
-instance/model provider credential
 instance/channel credential
 future cloud refresh/session credential
 ```
 
+ADR-0007 defines one narrow exception for the Windows consumer MVP: Hermes Profile model provider credentials remain solely in Hermes' official Profile credential store. YORVA prefers a pinned, qualified official Hermes surface. For Hermes `0.20.2`, whose offline non-interactive CLI exposes the key in argv, only the Hermes adapter may instead use the ADR-approved version-fixed, Profile-scoped, Provider-allowlisted canonical `.env` compatibility writer. No caller supplies a path or env name; the writer is bounded, preserves unrelated entries, uses same-directory atomic replacement and fails closed on observed external modification. YORVA keeps no `SecretStore`, SQLite or `secret_refs` duplicate. This is an explicit at-rest tradeoff, not a general plaintext fallback.
+
 Rules:
 
-- SQLite stores only secret references/metadata;
+- SQLite stores only safe references/metadata and never secret plaintext;
 - no silent plaintext fallback;
 - ordinary API reads return `configured` metadata only;
 - replacement writes accept secret values but never echo them;
 - delete actually removes provider-backed material where possible;
 - backup does not include secrets unless a future explicit encrypted-secret export feature is designed.
+
+For Runtime-native credentials, Profile isolation and exact native targeting are mandatory. Secret material must not enter argv, URLs, logs, events, Operations, diagnostics, Desktop storage, Windows user/system environment variables or ambient child environments. The official surface or approved compatibility writer must satisfy those rules; otherwise the integration stops.
 
 ## 8. Secret redaction
 

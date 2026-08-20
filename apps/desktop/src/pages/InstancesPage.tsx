@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatDateTime } from "../formatDateTime";
+import type { DaemonClient } from "../api/client";
 import type { Instance, InstanceList, Operation } from "../api/types";
 import type { AppMessages, Locale } from "../i18n";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { IconRotateCw } from "../components/ui/icons";
+import { ModelConfigurationPanel } from "../components/models/ModelConfigurationPanel";
 
 const createNamePattern = /^[a-z][a-z0-9_-]{0,63}$/;
 
@@ -30,6 +32,7 @@ type InstancesPageProps = {
   onDeleteConfirmationChange: (value: string) => void;
   onDelete: () => void;
   onCancelDelete: () => void;
+  client?: DaemonClient;
 };
 
 export function InstancesPage({
@@ -54,9 +57,11 @@ export function InstancesPage({
   onDeleteConfirmationChange,
   onDelete,
   onCancelDelete,
+  client,
 }: InstancesPageProps) {
   const items = inventory?.instances ?? [];
   const named = items.filter((item) => !item.default);
+  const [modelInstanceId, setModelInstanceId] = useState<string | null>(null);
 
   return (
     <section className="page-stack" aria-label={copy.pages.instances.title}>
@@ -142,7 +147,17 @@ export function InstancesPage({
                   copy={copy}
                   locale={locale}
                   onDelete={() => onDeleteTargetChange(item)}
+                  onOpenModels={() => setModelInstanceId(item.instanceId)}
                 />
+                {client && modelInstanceId === item.instanceId ? (
+                  <ModelConfigurationPanel
+                    client={client}
+                    instance={item}
+                    copy={copy}
+                    locale={locale}
+                    onClose={() => setModelInstanceId(null)}
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
@@ -301,11 +316,13 @@ function InstanceRow({
   copy,
   locale,
   onDelete,
+  onOpenModels,
 }: {
   item: Instance;
   copy: AppMessages;
   locale: Locale;
   onDelete: () => void;
+  onOpenModels: () => void;
 }) {
   const availability = item.availability;
   return (
@@ -331,6 +348,9 @@ function InstanceRow({
           {copy.instances.deleteAction}
         </Button>
       ) : null}
+      <Button type="button" onClick={onOpenModels} disabled={item.availability !== "AVAILABLE"}>
+        {copy.models.open}
+      </Button>
     </article>
   );
 }

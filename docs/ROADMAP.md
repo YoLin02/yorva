@@ -175,10 +175,12 @@ Exit criteria:
 
 ## Phase 5 — Models and credentials
 
-Status: **DRAFT — OWNER REVIEW REQUIRED**
-Specs: `docs/phases/PHASE-005-models-credentials.zh-CN.md` (Owner review) and `docs/phases/PHASE-005-models-credentials.md` (Agent execution mirror)
+Status: **IN PROGRESS — BATCHES 1-5 AUTHORIZED**
+Specs: `docs/phases/PHASE-005-models-credentials.zh-CN.md` (Owner review) and `docs/phases/PHASE-005-models-credentials.md` (Agent execution mirror) — **READY**
 Target baseline: `phase-004-instance-profile-baseline`
-Implementation: **NOT AUTHORIZED**
+Owner decisions: D1-D6 **APPROVED** 2026-08-19
+Credential authority: `ADR-0007-hermes-native-model-credential-authority.md` — **ACCEPTED**
+Implementation: **BATCHES 1-5 AUTHORIZED** 2026-08-19; automatic continuation through audit, CI, merge/freeze/tag and Windows release build is approved, subject to the required Gates
 
 Goal: make model configuration safe and simple.
 
@@ -186,7 +188,7 @@ Deliverables:
 
 - provider/model configuration UI;
 - write-only credential mutation;
-- secure-store integration;
+- qualified Hermes-native Profile credential persistence without a YORVA duplicate, using the ADR-0007 narrow compatibility writer only where the pinned official surface is unsafe;
 - credential status metadata;
 - configuration validation;
 - secret-redaction tests.

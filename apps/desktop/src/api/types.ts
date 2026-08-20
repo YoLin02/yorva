@@ -10,6 +10,10 @@ export type Operation = components["schemas"]["Operation"];
 export type OperationList = components["schemas"]["OperationList"];
 export type Instance = components["schemas"]["Instance"];
 export type InstanceList = components["schemas"]["InstanceList"];
+export type ModelProviderPreset = components["schemas"]["ModelProviderPreset"];
+export type ModelProviderPresetList = components["schemas"]["ModelProviderPresetList"];
+export type ModelConfiguration = components["schemas"]["ModelConfiguration"];
+export type ModelCredential = components["schemas"]["ModelCredential"];
 export type HermesPrerequisites = {
   node: { state: string; version: string; errorCode: string | null; retryable: boolean };
   npm: { state: string; version: string; errorCode: string | null; retryable: boolean };
