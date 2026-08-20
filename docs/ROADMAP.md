@@ -175,12 +175,13 @@ Exit criteria:
 
 ## Phase 5 — Models and credentials
 
-Status: **IN PROGRESS — BATCHES 1-5 AUTHORIZED**
-Specs: `docs/phases/PHASE-005-models-credentials.zh-CN.md` (Owner review) and `docs/phases/PHASE-005-models-credentials.md` (Agent execution mirror) — **READY**
+Status: **COMPLETE / FROZEN**
+Specs: `docs/phases/PHASE-005-models-credentials.zh-CN.md` (Owner review) and `docs/phases/PHASE-005-models-credentials.md` (Agent execution mirror)
 Target baseline: `phase-004-instance-profile-baseline`
 Owner decisions: D1-D6 **APPROVED** 2026-08-19
 Credential authority: `ADR-0007-hermes-native-model-credential-authority.md` — **ACCEPTED**
-Implementation: **BATCHES 1-5 AUTHORIZED** 2026-08-19; automatic continuation through audit, CI, merge/freeze/tag and Windows release build is approved, subject to the required Gates
+Accepted audit: `docs/phases/audits/AUDIT-005R1-models-credentials.md` — **PASS**
+Frozen baseline: `phase-005-models-credentials-baseline` → `d82a802b59d5f2715e431f73f6e4fe44e623d7a4`
 
 Goal: make model configuration safe and simple.
 
@@ -198,18 +199,31 @@ Exit criteria:
 - user can configure a working Hermes model without editing `.env` or YAML;
 - no API key plaintext appears in SQLite or ordinary logs.
 
-## Phase 6 — Messaging channels
+## Phase 6 — Runtime lifecycle and messaging channels
 
-Goal: deliver the key YORVA promise: one-click channel connection.
+Status: **DRAFT — OWNER REVIEW REQUIRED — IMPLEMENTATION NOT AUTHORIZED**
+Specs: `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.zh-CN.md` (Owner review) and `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.md` (Agent execution mirror)
+Target baseline: `phase-005-models-credentials-baseline`
+
+Goal: make a configured Instance operational, then deliver the key YORVA promise of one-click channel connection.
 
 Priority:
 
-1. Weixin;
-2. WeCom;
-3. additional Hermes channels based on actual user demand.
+1. Runtime-neutral Instance lifecycle foundation;
+2. Hermes Profile gateway status/start/stop/restart;
+3. startup/service management and lifecycle crash/recovery UX;
+4. Weixin;
+5. WeCom;
+6. additional Hermes channels based on actual user demand in a later phase.
 
 Deliverables:
 
+- normalized lifecycle capability and live status;
+- start/stop/restart Operations;
+- Runtime-neutral lifecycle orchestration, conflict control and recovery;
+- Hermes-specific lifecycle execution isolated in the Hermes adapter;
+- explicit startup/service policy without hidden elevation;
+- lifecycle-related crash/recovery UX;
 - channel capability list;
 - connect/disconnect workflow;
 - QR/login Operation;
@@ -221,10 +235,12 @@ Exit criteria:
 
 ```text
 Instance
+→ Start/Stop/Restart without a terminal
+→ authoritative lifecycle status visible in YORVA
 → Connect Weixin/WeCom
 → QR/auth flow
 → connected
-→ status visible in YORVA
+→ Channel status visible separately from lifecycle status
 ```
 
 ## Phase 7 — Runtime management completeness
@@ -238,8 +254,7 @@ Candidate deliverables:
 - backups/restores;
 - Hermes upgrades;
 - richer health/log views;
-- startup/service management;
-- crash/recovery UX.
+- feature-specific recovery UX for Skills, MCP, backup/restore and upgrade workflows.
 
 Only implement features with stable Hermes integration paths.
 
