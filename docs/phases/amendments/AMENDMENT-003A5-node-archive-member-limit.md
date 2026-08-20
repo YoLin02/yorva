@@ -1,6 +1,6 @@
 # YORVA Phase 3 Amendment 003A5 — Pinned Node Archive Member Limit
 
-> Status: IMPLEMENTED / LOCAL VERIFICATION PASSED; INDEPENDENT RE-AUDIT REQUIRED
+> Status: ACCEPTED / FROZEN
 > Date: 2026-08-20
 > Owner: Repository owner
 > Phase: 3 — Hermes Installation
@@ -48,3 +48,8 @@ owner-approved amendment and relevant security re-audit.
 - The real pinned Node archive must pass the production digest and extraction
   functions.
 - Relevant Hermes adapter tests, Go tests and Desktop build checks must pass.
+
+## 5. Gate
+
+Accepted by `AUDIT-005A1-post-freeze-corrections.md` on 2026-08-20. The
+correction is included in the revised Phase 5 entry baseline.

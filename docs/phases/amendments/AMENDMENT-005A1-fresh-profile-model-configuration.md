@@ -1,6 +1,6 @@
 # Phase 5 Amendment 005A1 — Fresh Profile Model Configuration
 
-- Status: **IMPLEMENTED / AUDIT PENDING**
+- Status: **ACCEPTED / FROZEN**
 - Date: 2026-08-20
 - Owner approval: 2026-08-20
 - Affected baseline: `phase-005-models-credentials-baseline`
@@ -75,8 +75,8 @@ human-readable CLI parser.
 
 ## Gate
 
-Phase 6 implementation remains paused until this amendment is implemented,
-verified, independently audited and accepted as the revised Phase 5 baseline.
+The amendment passed `AUDIT-005A1-post-freeze-corrections.md` on 2026-08-20
+and is accepted for the revised Phase 5 baseline.
 
 ## Implementation Verification — 2026-08-20
 
@@ -96,4 +96,5 @@ verified, independently audited and accepted as the revised Phase 5 baseline.
   `UNCONFIGURED` without `MODEL_CONFIG_QUERY_FAILED`. No credential or model
   configuration mutation was performed during this check.
 
-Independent amendment audit and revised-baseline acceptance remain pending.
+The revised baseline is frozen under tag
+`phase-005a1-post-freeze-corrections-baseline`.
