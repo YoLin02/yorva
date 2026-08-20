@@ -38,6 +38,13 @@ func (m *ModelManager) ListProviderPresets() []yorvaruntime.ModelProviderPreset 
 	return ListModelProviderPresets()
 }
 
+func (m *ModelManager) ValidateModelSelection(presetID, modelID string) error {
+	if _, err := lookupModelProviderPreset(presetID); err != nil {
+		return err
+	}
+	return validateModelID(modelID)
+}
+
 func (m *ModelManager) ReadModelConfig(ctx context.Context, installation yorvaruntime.ModelInstallation, nativeID string) (yorvaruntime.ModelConfiguration, error) {
 	if err := validateModelTarget(installation, nativeID); err != nil {
 		return yorvaruntime.ModelConfiguration{}, err
@@ -46,28 +53,28 @@ func (m *ModelManager) ReadModelConfig(ctx context.Context, installation yorvaru
 	if home == "" || !filepath.IsAbs(home) {
 		return yorvaruntime.ModelConfiguration{}, yorvaruntime.ErrModelConfigQueryFailed
 	}
-	provider, err := m.readScalar(ctx, installation.Executable, home, nativeID, modelProviderConfigKey)
+	first, err := m.readNativeConfig(ctx, installation.Executable, home, nativeID)
 	if err != nil {
 		return yorvaruntime.ModelConfiguration{}, err
 	}
-	modelID, err := m.readScalar(ctx, installation.Executable, home, nativeID, modelDefaultConfigKey)
+	confirmed, err := m.readNativeConfig(ctx, installation.Executable, home, nativeID)
 	if err != nil {
 		return yorvaruntime.ModelConfiguration{}, err
 	}
-	return m.normalizeConfig(nativeID, provider, modelID)
+	if confirmed != first {
+		return yorvaruntime.ModelConfiguration{}, yorvaruntime.ErrModelConfigQueryFailed
+	}
+	return m.normalizeConfig(nativeID, confirmed.provider, confirmed.modelID)
 }
 
 func (m *ModelManager) ApplyModelConfig(ctx context.Context, installation yorvaruntime.ModelInstallation, nativeID, presetID, modelID string) (yorvaruntime.ModelConfiguration, error) {
 	if err := validateModelTarget(installation, nativeID); err != nil {
 		return yorvaruntime.ModelConfiguration{}, err
 	}
-	preset, err := lookupModelProviderPreset(presetID)
-	if err != nil {
+	if err := m.ValidateModelSelection(presetID, modelID); err != nil {
 		return yorvaruntime.ModelConfiguration{}, err
 	}
-	if err := validateModelID(modelID); err != nil {
-		return yorvaruntime.ModelConfiguration{}, err
-	}
+	preset, _ := lookupModelProviderPreset(presetID)
 	status, err := m.credentials.Status(nativeID, presetID)
 	if err != nil {
 		return yorvaruntime.ModelConfiguration{}, yorvaruntime.ErrModelConfigQueryFailed
@@ -203,8 +210,18 @@ func validateModelTarget(installation yorvaruntime.ModelInstallation, nativeID s
 
 func validateModelID(value string) error {
 	if len(value) == 0 || len(value) > modelIDMaxLength || !modelIDPattern.MatchString(value) ||
-		strings.Contains(value, "://") || strings.Contains(value, "..") || strings.HasSuffix(value, "/") {
+		strings.Contains(value, ":/") || strings.Contains(value, "..") || strings.HasSuffix(value, "/") {
 		return yorvaruntime.ErrModelConfigInvalid
+	}
+	for _, key := range []string{modelProviderConfigKey, modelDefaultConfigKey, contextEngineConfigKey} {
+		if strings.EqualFold(value, key) {
+			return yorvaruntime.ErrModelConfigInvalid
+		}
+	}
+	for _, preset := range qualifiedModelProviderPresets {
+		if strings.EqualFold(value, preset.credentialEnvName) {
+			return yorvaruntime.ErrModelConfigInvalid
+		}
 	}
 	return nil
 }

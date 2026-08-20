@@ -19,6 +19,11 @@ func TestModelCredentialSetReplaceDeletePreservesUnknownContent(t *testing.T) {
 	store, defaultEnv := newTestCredentialStore(t)
 	original := []byte("# owned by Hermes\r\nOTHER=value\r\nexport DEEPSEEK_API_KEY='old-key'\r\nTAIL=keep # exact\r\n")
 	writeTestCredentialFile(t, defaultEnv, original)
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(defaultEnv, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	status, err := store.Status("default", "deepseek")
 	if err != nil || !status.Configured {
@@ -32,6 +37,15 @@ func TestModelCredentialSetReplaceDeletePreservesUnknownContent(t *testing.T) {
 	want := []byte("# owned by Hermes\r\nOTHER=value\r\nDEEPSEEK_API_KEY=\"" + credentialSentinel + "\"\r\nTAIL=keep # exact\r\n")
 	if !bytes.Equal(got, want) {
 		t.Fatalf("set content differs\ngot:  %q\nwant: %q", got, want)
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(defaultEnv)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("credential mode = %o", info.Mode().Perm())
+		}
 	}
 	if leftovers, _ := filepath.Glob(filepath.Join(filepath.Dir(defaultEnv), ".yorva-model-credential-*")); len(leftovers) != 0 {
 		t.Fatalf("temporary files remain: %v", leftovers)
@@ -101,7 +115,7 @@ func TestModelCredentialOptimisticConflictPreservesExternalWrite(t *testing.T) {
 
 func TestModelCredentialFailsClosedOnUnsafeInputAndState(t *testing.T) {
 	store, path := newTestCredentialStore(t)
-	tests := [][]byte{nil, {}, []byte("abc"), []byte(" leading"), []byte("trailing "), []byte("line\nbreak"), []byte("your-api-key"), bytes.Repeat([]byte{'x'}, modelCredentialMaxValue+1)}
+	tests := [][]byte{nil, {}, []byte("abc"), []byte(" leading"), []byte("trailing "), []byte("line\nbreak"), []byte("${HOME}"), []byte("your-api-key"), bytes.Repeat([]byte{'x'}, modelCredentialMaxValue+1)}
 	for _, secret := range tests {
 		if _, err := store.Set("default", "deepseek", secret); !IsModelCredentialInvalid(err) {
 			t.Fatalf("secret length %d error = %v", len(secret), err)
@@ -113,6 +127,10 @@ func TestModelCredentialFailsClosedOnUnsafeInputAndState(t *testing.T) {
 	}
 	if _, err := store.Delete("default", "deepseek"); !IsModelCredentialUnsafe(err) {
 		t.Fatalf("duplicate delete error = %v", err)
+	}
+	writeTestCredentialFile(t, path, []byte("DEEPSEEK_API_KEY=\"${HOME}\"\n"))
+	if _, err := store.Status("default", "deepseek"); !IsModelCredentialUnsafe(err) {
+		t.Fatalf("interpolated status error = %v", err)
 	}
 	if _, err := store.Set("../escape", "deepseek", []byte("valid")); !IsModelCredentialUnsafe(err) {
 		t.Fatalf("traversal error = %v", err)

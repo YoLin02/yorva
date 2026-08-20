@@ -72,6 +72,7 @@ var (
 
 type ModelConfigurator interface {
 	ListProviderPresets() []ModelProviderPreset
+	ValidateModelSelection(string, string) error
 	ReadModelConfig(context.Context, ModelInstallation, string) (ModelConfiguration, error)
 	ApplyModelConfig(context.Context, ModelInstallation, string, string, string) (ModelConfiguration, error)
 	ModelCredentialStatus(context.Context, ModelInstallation, string, string) (ModelCredentialStatus, error)

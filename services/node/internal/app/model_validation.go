@@ -93,22 +93,34 @@ func (s *InstanceInventory) CancelModelValidation(ctx context.Context, operation
 	if cancel != nil {
 		cancel()
 	}
-	now := s.now()
-	next := current
-	next.Status = operation.StatusCancelled
-	next.ErrorCode = yorvaruntime.ErrorModelValidationCancelled
-	next.Retryable = true
-	next.CompletedAt = &now
-	next.UpdatedAt = now
-	if err := s.db.UpdateOperation(ctx, current, next); err != nil {
-		latest, getErr := s.db.GetOperation(ctx, operationID)
-		if getErr == nil && operation.IsTerminal(latest.Status) {
-			return latest, nil
+	return s.cancelModelValidationOperation(ctx, current)
+}
+
+func (s *InstanceInventory) cancelModelValidationOperation(ctx context.Context, current operation.Operation) (operation.Operation, error) {
+	for attempt := 0; attempt < 3; attempt++ {
+		if operation.IsTerminal(current.Status) {
+			return current, nil
 		}
-		return operation.Operation{}, err
+		now := s.now()
+		next := current
+		next.Status = operation.StatusCancelled
+		next.ErrorCode = yorvaruntime.ErrorModelValidationCancelled
+		next.Retryable = true
+		next.CompletedAt = &now
+		next.UpdatedAt = now
+		if err := s.db.UpdateOperation(ctx, current, next); err == nil {
+			s.emitValidationOperation(current, next, false)
+			return next, nil
+		} else if !errors.Is(err, sqlite.ErrInvalidStatusTransition) {
+			return operation.Operation{}, err
+		}
+		latest, err := s.db.GetOperation(ctx, current.ID)
+		if err != nil {
+			return operation.Operation{}, err
+		}
+		current = latest
 	}
-	s.emitValidationOperation(current, next, false)
-	return next, nil
+	return operation.Operation{}, sqlite.ErrInvalidStatusTransition
 }
 
 func (s *InstanceInventory) startModelValidationWorker(created operation.Operation) {

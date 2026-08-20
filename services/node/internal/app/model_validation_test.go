@@ -133,6 +133,32 @@ func TestModelValidationCanCancelAndRejectsConcurrentStart(t *testing.T) {
 	}
 }
 
+func TestModelValidationCancelRetriesAfterPendingWorkerTransition(t *testing.T) {
+	inventory, _ := newTestInventory(t, []ProfileSnapshot{{NativeID: "coder"}}, nil)
+	now := inventory.now()
+	pending := operation.Operation{
+		ID: "op_validation_cancel_race", Type: operation.TypeModelValidate, TargetType: operation.TargetInstance, TargetID: "inst_public",
+		Status: operation.StatusPending, Stage: operation.StagePreflight, IdempotencyKey: "cancel-race", CorrelationID: "cor_cancel_race",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := inventory.db.CreateOperation(context.Background(), pending); err != nil {
+		t.Fatal(err)
+	}
+	running := pending
+	running.Status = operation.StatusRunning
+	running.Stage = operation.StageModelValidate
+	running.StartedAt = &now
+	running.UpdatedAt = now.Add(time.Millisecond)
+	if err := inventory.db.UpdateOperation(context.Background(), pending, running); err != nil {
+		t.Fatal(err)
+	}
+
+	cancelled, err := inventory.cancelModelValidationOperation(context.Background(), pending)
+	if err != nil || cancelled.Status != operation.StatusCancelled || cancelled.ErrorCode != yorvaruntime.ErrorModelValidationCancelled {
+		t.Fatalf("cancelled after CAS race = %#v %v", cancelled, err)
+	}
+}
+
 func TestModelValidationRestartRecoveryBecomesUnknown(t *testing.T) {
 	inventory, _ := newTestInventory(t, []ProfileSnapshot{{NativeID: "coder"}}, nil)
 	models := configuredFakeModels()

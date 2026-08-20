@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { DaemonClient } from "../../api/client";
+import { YorvaApiError, type DaemonClient } from "../../api/client";
 import type { Instance, ModelConfiguration } from "../../api/types";
 import { messages } from "../../i18n";
 import { ModelConfigurationPanel } from "./ModelConfigurationPanel";
@@ -34,7 +34,7 @@ function modelClient(overrides: Partial<DaemonClient> = {}) {
     listModelProviderPresets: vi.fn().mockResolvedValue({
       items: [
         { id: "deepseek", displayName: "DeepSeek", region: "CHINA", recommendedModels: ["deepseek-v4-pro"] },
-        { id: "qwen", displayName: "Qwen / Alibaba DashScope", region: "CHINA", recommendedModels: ["qwen3.7-max"] },
+        { id: "qwen", displayName: "Qwen / Alibaba DashScope", region: "CHINA", recommendedModels: ["qwen3.7-max"], helpText: "Hermes 0.20.2 uses the DashScope international compatible endpoint." },
         { id: "kimi", displayName: "Kimi / Moonshot (China)", region: "CHINA", recommendedModels: ["kimi-k3"] },
         { id: "minimax", displayName: "MiniMax (China)", region: "CHINA", recommendedModels: ["MiniMax-M3"] },
         { id: "glm", displayName: "GLM / Zhipu", region: "CHINA", recommendedModels: ["glm-5.2"] },
@@ -83,6 +83,9 @@ describe("ModelConfigurationPanel", () => {
     }
     expect(screen.getByText("未配置")).toBeInTheDocument();
     expect(screen.getByText("未测试")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Qwen / Alibaba DashScope" }));
+    expect(screen.getByText("Hermes 0.20.2 使用 DashScope 国际兼容端点。")).toBeInTheDocument();
+    expect(screen.queryByText("Hermes 0.20.2 uses the DashScope international compatible endpoint.")).not.toBeInTheDocument();
   });
 
   it("clears the password after save and never places it in query or browser storage", async () => {
@@ -141,5 +144,23 @@ describe("ModelConfigurationPanel", () => {
     expect(await screen.findByText(/MODEL_VALIDATION_FAILED/)).toHaveTextContent(
       "Check the Provider key and model access, then run the test again.",
     );
+  });
+
+  it("disables model mutations when the Hermes model surface version is unsupported", async () => {
+    const client = modelClient({
+      getModelConfiguration: vi.fn().mockRejectedValue(new YorvaApiError({
+        code: "MODEL_PROVIDER_UNSUPPORTED",
+        message: "The model provider surface is unsupported.",
+        retryable: false,
+        details: {},
+      })),
+    });
+    renderPanel(client);
+    expect(await screen.findByText(messages["en-US"].models.unsupported)).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "DeepSeek" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save configuration" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Save configuration" }));
+    expect(client.patchModelConfiguration).not.toHaveBeenCalled();
+    expect(client.saveModelCredential).not.toHaveBeenCalled();
   });
 });

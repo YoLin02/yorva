@@ -21,7 +21,7 @@ func TestModelManagerReadsNormalizedConfiguration(t *testing.T) {
 		got.State != yorvaruntime.ModelConfigurationConfigured || !got.CredentialConfigured {
 		t.Fatalf("configuration = %#v", got)
 	}
-	if *state == (nativeModelConfig{}) || len(*calls) != 2 {
+	if *state == (nativeModelConfig{}) || len(*calls) != 4 {
 		t.Fatalf("state/calls = %#v %#v", *state, *calls)
 	}
 }
@@ -76,6 +76,31 @@ func TestModelManagerRequiresCredentialAndValidatesClosedInputs(t *testing.T) {
 	}
 	if _, err := manager.ApplyModelConfig(context.Background(), testModelInstallation(), "coder", "deepseek", "https://example.test/model"); !errors.Is(err, yorvaruntime.ErrModelConfigInvalid) {
 		t.Fatalf("model error = %v", err)
+	}
+	for _, modelID := range []string{"C:/secret", "model.provider", "DEEPSEEK_API_KEY"} {
+		if err := manager.ValidateModelSelection("deepseek", modelID); !errors.Is(err, yorvaruntime.ErrModelConfigInvalid) {
+			t.Fatalf("unsafe model %q error = %v", modelID, err)
+		}
+	}
+}
+
+func TestModelManagerReadFailsClosedOnChangingNativeConfig(t *testing.T) {
+	manager, state, _ := newTestModelManager(t, "deepseek", "deepseek-v4-pro")
+	modelReads := 0
+	baseRun := manager.run
+	manager.run = func(ctx context.Context, executable, home string, args []string, mutation bool) commandResult {
+		result := baseRun(ctx, executable, home, args, mutation)
+		if reflect.DeepEqual(args, modelConfigGetArgs("coder", modelDefaultConfigKey)) {
+			modelReads++
+			if modelReads == 1 {
+				state.provider = "openrouter"
+				state.modelID = "openai/gpt-5.4"
+			}
+		}
+		return result
+	}
+	if _, err := manager.ReadModelConfig(context.Background(), testModelInstallation(), "coder"); !errors.Is(err, yorvaruntime.ErrModelConfigQueryFailed) {
+		t.Fatalf("changing native config error = %v", err)
 	}
 }
 

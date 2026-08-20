@@ -90,6 +90,9 @@ func (s *InstanceInventory) SaveModelCredentialConfiguration(ctx context.Context
 		return ModelConfigurationView{}, err
 	}
 	defer unlock()
+	if err := models.ValidateModelSelection(presetID, modelID); err != nil {
+		return ModelConfigurationView{}, err
+	}
 	if _, err := models.SetModelCredential(ctx, installation, row.NativeID, presetID, secret); err != nil {
 		return ModelConfigurationView{}, err
 	}

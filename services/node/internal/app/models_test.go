@@ -10,16 +10,25 @@ import (
 )
 
 type fakeModelConfigurator struct {
-	readNativeID  string
-	applyNativeID string
-	applyPresetID string
-	applyModelID  string
-	config        yorvaruntime.ModelConfiguration
-	err           error
-	credential    yorvaruntime.ModelCredentialStatus
-	secret        []byte
-	deleted       string
-	validate      func(context.Context, string, string, string) yorvaruntime.ModelValidationResult
+	readNativeID      string
+	applyNativeID     string
+	applyPresetID     string
+	applyModelID      string
+	validatedPresetID string
+	validatedModelID  string
+	setCalls          int
+	config            yorvaruntime.ModelConfiguration
+	err               error
+	selectionErr      error
+	credential        yorvaruntime.ModelCredentialStatus
+	secret            []byte
+	deleted           string
+	validate          func(context.Context, string, string, string) yorvaruntime.ModelValidationResult
+}
+
+func (f *fakeModelConfigurator) ValidateModelSelection(presetID, modelID string) error {
+	f.validatedPresetID, f.validatedModelID = presetID, modelID
+	return f.selectionErr
 }
 
 func (f *fakeModelConfigurator) ValidateModel(ctx context.Context, _ yorvaruntime.ModelInstallation, nativeID, presetID, modelID string) yorvaruntime.ModelValidationResult {
@@ -39,6 +48,7 @@ func (f *fakeModelConfigurator) ModelCredentialStatus(_ context.Context, _ yorva
 
 func (f *fakeModelConfigurator) SetModelCredential(_ context.Context, _ yorvaruntime.ModelInstallation, nativeID, presetID string, secret []byte) (yorvaruntime.ModelCredentialStatus, error) {
 	f.applyNativeID, f.applyPresetID = nativeID, presetID
+	f.setCalls++
 	f.secret = append([]byte(nil), secret...)
 	if f.err != nil {
 		return yorvaruntime.ModelCredentialStatus{}, f.err
@@ -159,7 +169,8 @@ func TestCredentialUseCasesCoordinateSaveStatusAndDelete(t *testing.T) {
 	}
 	secret := []byte("batch-three-secret")
 	configuration, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "deepseek-v4-pro", secret)
-	if err != nil || configuration.State != yorvaruntime.ModelConfigurationConfigured || string(models.secret) != string(secret) || models.applyNativeID != "coder" {
+	if err != nil || configuration.State != yorvaruntime.ModelConfigurationConfigured || string(models.secret) != string(secret) || models.applyNativeID != "coder" ||
+		models.validatedPresetID != "deepseek" || models.validatedModelID != "deepseek-v4-pro" {
 		t.Fatalf("save = %#v fake=%#v %v", configuration, models, err)
 	}
 	metadata, err = inventory.DeleteModelCredential(context.Background(), instanceID)
@@ -168,6 +179,22 @@ func TestCredentialUseCasesCoordinateSaveStatusAndDelete(t *testing.T) {
 	}
 	if models.applyNativeID == instanceID {
 		t.Fatal("public instanceId crossed the Runtime boundary")
+	}
+}
+
+func TestCredentialSaveValidatesSelectionBeforeSecretMutation(t *testing.T) {
+	inventory, _ := newTestInventory(t, []ProfileSnapshot{{NativeID: "coder"}}, nil)
+	models := &fakeModelConfigurator{selectionErr: yorvaruntime.ErrModelConfigInvalid}
+	registerTestModels(t, inventory, models)
+	instanceID := firstTestInstanceID(t, inventory)
+
+	secret := []byte("must-not-be-written")
+	_, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "model.provider", secret)
+	if !errors.Is(err, yorvaruntime.ErrModelConfigInvalid) {
+		t.Fatalf("save error = %v", err)
+	}
+	if models.setCalls != 0 || len(models.secret) != 0 || models.applyNativeID != "" {
+		t.Fatalf("credential mutated before validation: %#v", models)
 	}
 }
 

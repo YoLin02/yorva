@@ -189,11 +189,13 @@ type Messages = {
     cancelTest: string;
     loading: string;
     unavailable: string;
+    unsupported: string;
     requestFailed: string;
     observedAt: string;
     validationAt: string;
     errorCode: string;
     validationAdvice: string;
+    providerHelp: Record<"qwen" | "glm", string>;
     configState: Record<"UNCONFIGURED" | "CONFIGURED", string>;
     validationState: Record<"NOT_RUN" | "PASSED" | "FAILED" | "UNKNOWN", string>;
   };
@@ -463,11 +465,16 @@ const english: Messages = {
     cancelTest: "Cancel test",
     loading: "Loading model configuration",
     unavailable: "Models are disabled because this Instance is not available.",
+    unsupported: "Models are disabled because this Hermes version does not support the qualified model surface.",
     requestFailed: "The model request could not be completed.",
     observedAt: "Observed",
     validationAt: "Last tested",
     errorCode: "Error code",
     validationAdvice: "Check the Provider key and model access, then run the test again.",
+    providerHelp: {
+      qwen: "Hermes 0.20.2 uses the DashScope international compatible endpoint.",
+      glm: "Hermes selects the qualified Z.AI endpoint for this provider.",
+    },
     configState: { UNCONFIGURED: "Unconfigured", CONFIGURED: "Configured" },
     validationState: { NOT_RUN: "Not tested", PASSED: "Passed", FAILED: "Failed", UNKNOWN: "Unknown" },
   },
@@ -737,11 +744,16 @@ const simplifiedChinese: Messages = {
     cancelTest: "取消测试",
     loading: "正在加载模型配置",
     unavailable: "此实例不可用，模型操作已禁用。",
+    unsupported: "当前 Hermes 版本不支持已验证的模型配置接口，模型操作已禁用。",
     requestFailed: "模型请求未能完成。",
     observedAt: "状态时间",
     validationAt: "最近测试",
     errorCode: "错误码",
     validationAdvice: "请检查 Provider 密钥和模型访问权限，然后重新测试。",
+    providerHelp: {
+      qwen: "Hermes 0.20.2 使用 DashScope 国际兼容端点。",
+      glm: "Hermes 会为此 Provider 选择已验证的 Z.AI 端点。",
+    },
     configState: { UNCONFIGURED: "未配置", CONFIGURED: "已配置" },
     validationState: { NOT_RUN: "未测试", PASSED: "通过", FAILED: "失败", UNKNOWN: "未知" },
   },

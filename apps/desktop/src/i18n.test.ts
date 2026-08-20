@@ -23,6 +23,8 @@ describe("i18n", () => {
     expect(Object.keys(messages["zh-CN"].models.configState).sort()).toEqual(Object.keys(messages["en-US"].models.configState).sort());
     expect(Object.keys(messages["zh-CN"].models.validationState).sort()).toEqual(Object.keys(messages["en-US"].models.validationState).sort());
     expect(messages["zh-CN"].models.china).toBe("国内推荐");
+    expect(Object.keys(messages["zh-CN"].models.providerHelp).sort()).toEqual(Object.keys(messages["en-US"].models.providerHelp).sort());
+    expect(messages["zh-CN"].models.providerHelp.qwen).not.toBe(messages["en-US"].models.providerHelp.qwen);
     expect(messages["en-US"].models.validationState.PASSED).not.toBe(messages["en-US"].models.configState.CONFIGURED);
   });
 

@@ -191,6 +191,31 @@ func TestModelCredentialHTTPIsMetadataOnlyWriteOnlyAndClosed(t *testing.T) {
 	}
 }
 
+func TestModelCredentialHTTPAcceptsOpenAPIMaximumEscapedValue(t *testing.T) {
+	models := &fakeModelsAPI{configuration: app.ModelConfigurationView{
+		ProviderPresetID: "deepseek", ModelID: "deepseek-v4-pro", State: yorvaruntime.ModelConfigurationConfigured,
+		CredentialConfigured: true, ObservedAt: time.Now(),
+	}}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+	secret := strings.Repeat("\"", 16*1024)
+	payload, err := json.Marshal(map[string]string{
+		"providerPresetId": "deepseek",
+		"modelId":          "deepseek-v4-pro",
+		"value":            secret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(payload) <= 24*1024 {
+		t.Fatalf("escaped payload did not exercise the former limit: %d", len(payload))
+	}
+	result := httptest.NewRecorder()
+	handler.ServeHTTP(result, authorizedRequest(http.MethodPut, "/api/v1/instances/inst_public/credentials/model-provider", string(payload)))
+	if result.Code != http.StatusOK || len(models.secret) != len(secret) {
+		t.Fatalf("maximum escaped credential = %d body=%s stored=%d", result.Code, result.Body.String(), len(models.secret))
+	}
+}
+
 func TestModelValidationHTTPStartsExplicitOperationWithClosedBody(t *testing.T) {
 	models := &fakeModelsAPI{}
 	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")

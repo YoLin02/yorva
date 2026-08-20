@@ -86,9 +86,14 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
     () => presetsQuery.data?.items.find((preset) => preset.id === providerPresetId),
     [presetsQuery.data?.items, providerPresetId],
   );
+  const unsupported = configurationQuery.error instanceof YorvaApiError && configurationQuery.error.code === "MODEL_PROVIDER_UNSUPPORTED";
+  const operable = available && !unsupported;
   const configured = credentialQuery.data?.configured ?? configurationQuery.data?.credentialConfigured ?? false;
   const validationBusy = isActiveOperation(validationOperationQuery.data) || recoveredValidation !== undefined;
-  const disabled = !available || busy;
+  const disabled = !operable || busy;
+  const selectedHelp = selectedPreset?.id === "qwen" || selectedPreset?.id === "glm"
+    ? copy.models.providerHelp[selectedPreset.id]
+    : selectedPreset?.helpText;
 
   const invalidateModelState = async () => {
     await Promise.all([
@@ -162,7 +167,7 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
   };
 
   const cancelValidation = async () => {
-    if (!followedValidationId || busy) return;
+    if (!followedValidationId || disabled) return;
     setBusy(true);
     try {
       await client.cancelOperation(followedValidationId);
@@ -184,6 +189,7 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
         <Button variant="ghost" onClick={onClose}>{copy.models.close}</Button>
       </div>
       {!available ? <p role="status" className="notice notice-warn">{copy.models.unavailable}</p> : null}
+      {unsupported ? <p role="status" className="notice notice-warn">{copy.models.unsupported}</p> : null}
       {configurationQuery.isPending || presetsQuery.isPending ? <p className="page-copy">{copy.models.loading}</p> : null}
       <fieldset className="model-provider-grid" disabled={disabled || presetsQuery.isPending}>
         <legend>{copy.models.provider}</legend>
@@ -200,7 +206,7 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
           onSelect={selectPreset}
         />
       </fieldset>
-      {selectedPreset?.helpText ? <p className="notice notice-info">{selectedPreset.helpText}</p> : null}
+      {selectedHelp ? <p className="notice notice-info">{selectedHelp}</p> : null}
       <div className="model-form-grid">
         <label htmlFor={`model-id-${instance.instanceId}`}>{copy.models.model}</label>
         <input
@@ -258,7 +264,7 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
         <Button onClick={() => { void startValidation(); }} disabled={disabled || validationBusy || configurationQuery.data?.state !== "CONFIGURED"}>
           {validationBusy ? copy.models.testing : copy.models.testConnection}
         </Button>
-        {validationBusy ? <Button onClick={() => { void cancelValidation(); }} disabled={busy}>{copy.models.cancelTest}</Button> : null}
+        {validationBusy ? <Button onClick={() => { void cancelValidation(); }} disabled={disabled}>{copy.models.cancelTest}</Button> : null}
         {configured ? <Button variant="danger" onClick={() => { void deleteCredential(); }} disabled={disabled}>{copy.models.deleteCredential}</Button> : null}
       </div>
       {notice ? <p className="notice notice-info" role="status">{notice}</p> : null}

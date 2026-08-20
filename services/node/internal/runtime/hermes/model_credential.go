@@ -170,6 +170,7 @@ func (s credentialStore) Set(nativeID, presetID string, secret []byte) (ModelCre
 	if err != nil {
 		return ModelCredentialStatus{}, err
 	}
+	defer clearCredentialBytes(updated)
 	if bytes.Equal(updated, snapshot.data) {
 		return ModelCredentialStatus{ProviderPresetID: presetID, Configured: true}, nil
 	}
@@ -276,11 +277,7 @@ func (s credentialStore) commit(path string, expected credentialSnapshot, payloa
 		_ = temp.Close()
 		_ = os.Remove(tempPath)
 	}()
-	mode := os.FileMode(0o600)
-	if expected.exists {
-		mode = expected.mode
-	}
-	if err := temp.Chmod(mode); err != nil {
+	if err := temp.Chmod(0o600); err != nil {
 		return errModelCredentialWrite
 	}
 	if _, err := temp.Write(payload); err != nil {
@@ -317,7 +314,7 @@ func snapshotsEqual(left, right credentialSnapshot) bool {
 }
 
 func validateModelCredential(secret []byte) error {
-	if len(secret) < 4 || len(secret) > modelCredentialMaxValue || !utf8.Valid(secret) {
+	if len(secret) < 4 || len(secret) > modelCredentialMaxValue || !utf8.Valid(secret) || bytes.Contains(secret, []byte("${")) {
 		return errModelCredentialInvalid
 	}
 	value := string(secret)
@@ -497,8 +494,17 @@ func assignmentHasValue(value []byte) (bool, error) {
 			}
 		}
 	}
+	if bytes.Contains(value, []byte("${")) {
+		return false, errModelCredentialUnsafe
+	}
 	cleaned := strings.TrimSpace(string(value))
 	return len(cleaned) >= 4 && !isCredentialPlaceholder(cleaned), nil
+}
+
+func clearCredentialBytes(value []byte) {
+	for index := range value {
+		value[index] = 0
+	}
 }
 
 func isCredentialPlaceholder(value string) bool {

@@ -14,7 +14,10 @@ import (
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
-const maxModelConfigRequestBytes = 4096
+const (
+	maxModelConfigRequestBytes     = 4096
+	maxModelCredentialRequestBytes = 128 * 1024
+)
 
 type ModelConfigurationService interface {
 	ListModelProviderPresets(context.Context) ([]yorvaruntime.ModelProviderPreset, error)
@@ -255,8 +258,8 @@ func decodeClosedModelCredential(r *http.Request) (string, string, []byte, error
 		return "", "", nil, io.EOF
 	}
 	defer r.Body.Close()
-	payload, err := io.ReadAll(io.LimitReader(r.Body, 24*1024+1))
-	if err != nil || len(payload) == 0 || len(payload) > 24*1024 {
+	payload, err := io.ReadAll(io.LimitReader(r.Body, maxModelCredentialRequestBytes+1))
+	if err != nil || len(payload) == 0 || len(payload) > maxModelCredentialRequestBytes {
 		clearBytes(payload)
 		return "", "", nil, io.ErrUnexpectedEOF
 	}
