@@ -19,6 +19,7 @@ type fakeModelConfigurator struct {
 	setCalls          int
 	config            yorvaruntime.ModelConfiguration
 	err               error
+	applyErr          error
 	selectionErr      error
 	credential        yorvaruntime.ModelCredentialStatus
 	secret            []byte
@@ -77,6 +78,9 @@ func (f *fakeModelConfigurator) ReadModelConfig(_ context.Context, _ yorvaruntim
 
 func (f *fakeModelConfigurator) ApplyModelConfig(_ context.Context, _ yorvaruntime.ModelInstallation, nativeID, presetID, modelID string) (yorvaruntime.ModelConfiguration, error) {
 	f.applyNativeID, f.applyPresetID, f.applyModelID = nativeID, presetID, modelID
+	if f.applyErr != nil {
+		return f.config, f.applyErr
+	}
 	return f.config, f.err
 }
 
@@ -195,6 +199,24 @@ func TestCredentialSaveValidatesSelectionBeforeSecretMutation(t *testing.T) {
 	}
 	if models.setCalls != 0 || len(models.secret) != 0 || models.applyNativeID != "" {
 		t.Fatalf("credential mutated before validation: %#v", models)
+	}
+}
+
+func TestCredentialSaveReportsIncompleteAfterCredentialWrite(t *testing.T) {
+	inventory, _ := newTestInventory(t, []ProfileSnapshot{{NativeID: "coder"}}, nil)
+	models := &fakeModelConfigurator{
+		applyErr: yorvaruntime.ErrModelConfigQueryFailed,
+	}
+	registerTestModels(t, inventory, models)
+	instanceID := firstTestInstanceID(t, inventory)
+
+	secret := []byte("written-before-config-failure")
+	configuration, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "deepseek-v4-pro", secret)
+	if !errors.Is(err, yorvaruntime.ErrModelConfigIncomplete) {
+		t.Fatalf("save error = %v", err)
+	}
+	if configuration.State != yorvaruntime.ModelConfigurationUnconfigured || models.setCalls != 1 || string(models.secret) != string(secret) {
+		t.Fatalf("save = %#v fake=%#v", configuration, models)
 	}
 }
 

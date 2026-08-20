@@ -7,6 +7,9 @@ import (
 )
 
 func TestModelConfigCommandContract(t *testing.T) {
+	if got, want := modelConfigGetArgs("coder", modelConfigRootKey), []string{"--profile", "coder", "config", "get", "model", "--json"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("aggregate get args = %#v, want %#v", got, want)
+	}
 	if got, want := modelConfigGetArgs("coder", modelProviderConfigKey), []string{"--profile", "coder", "config", "get", "model.provider", "--json"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("get args = %#v, want %#v", got, want)
 	}

@@ -216,6 +216,24 @@ func TestModelCredentialHTTPAcceptsOpenAPIMaximumEscapedValue(t *testing.T) {
 	}
 }
 
+func TestModelCredentialHTTPReturnsSafeIncompleteAfterWrite(t *testing.T) {
+	const secret = "sk-partial-save-must-not-echo"
+	models := &fakeModelsAPI{
+		configuration: app.ModelConfigurationView{State: yorvaruntime.ModelConfigurationUnconfigured, ObservedAt: time.Now()},
+		err:           yorvaruntime.ErrModelConfigIncomplete,
+	}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+	payload := `{"providerPresetId":"deepseek","modelId":"deepseek-v4-pro","value":"` + secret + `"}`
+	result := httptest.NewRecorder()
+	handler.ServeHTTP(result, authorizedRequest(http.MethodPut, "/api/v1/instances/inst_public/credentials/model-provider", payload))
+	if result.Code != http.StatusConflict ||
+		!strings.Contains(result.Body.String(), string(yorvaruntime.ErrorModelConfigIncomplete)) ||
+		!strings.Contains(result.Body.String(), `"state":"UNCONFIGURED"`) ||
+		strings.Contains(result.Body.String(), secret) || strings.Contains(result.Body.String(), `"value"`) {
+		t.Fatalf("partial save = %d %s", result.Code, result.Body.String())
+	}
+}
+
 func TestModelValidationHTTPStartsExplicitOperationWithClosedBody(t *testing.T) {
 	models := &fakeModelsAPI{}
 	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")

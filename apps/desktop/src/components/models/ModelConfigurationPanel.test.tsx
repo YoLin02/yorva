@@ -106,6 +106,29 @@ describe("ModelConfigurationPanel", () => {
     expect(JSON.stringify(window.sessionStorage)).not.toContain(secret);
   });
 
+  it("clears the password and shows the stable incomplete code after a partial save", async () => {
+    const secret = "sk-partial-desktop-do-not-persist";
+    const client = modelClient({
+      saveModelCredential: vi.fn().mockRejectedValue(new YorvaApiError({
+        code: "MODEL_CONFIG_INCOMPLETE",
+        message: "The credential was saved but the model configuration is incomplete.",
+        retryable: true,
+        details: { configuration: unconfigured },
+      })),
+    });
+    renderPanel(client);
+    fireEvent.click(await screen.findByRole("radio", { name: "DeepSeek" }));
+    const password = screen.getByLabelText("API Key") as HTMLInputElement;
+    fireEvent.change(password, { target: { value: secret } });
+    fireEvent.click(screen.getByRole("button", { name: "Save configuration" }));
+
+    await waitFor(() => expect(client.saveModelCredential).toHaveBeenCalled());
+    await waitFor(() => expect(password.value).toBe(""));
+    expect(screen.getByRole("alert")).toHaveTextContent("MODEL_CONFIG_INCOMPLETE");
+    expect(JSON.stringify(window.localStorage)).not.toContain(secret);
+    expect(JSON.stringify(window.sessionStorage)).not.toContain(secret);
+  });
+
   it("starts validation only from the explicit button and shows local-time result metadata", async () => {
     const configured: ModelConfiguration = {
       providerPresetId: "deepseek",

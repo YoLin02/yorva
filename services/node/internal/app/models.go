@@ -97,6 +97,15 @@ func (s *InstanceInventory) SaveModelCredentialConfiguration(ctx context.Context
 		return ModelConfigurationView{}, err
 	}
 	configuration, err := models.ApplyModelConfig(ctx, installation, row.NativeID, presetID, modelID)
+	if err != nil && configuration.State == "" {
+		configuration.State = yorvaruntime.ModelConfigurationUnconfigured
+	}
+	if err != nil && !errors.Is(err, context.Canceled) &&
+		!errors.Is(err, yorvaruntime.ErrInstanceConfigConflict) &&
+		!errors.Is(err, yorvaruntime.ErrModelConfigInvalid) &&
+		!errors.Is(err, yorvaruntime.ErrModelProviderUnsupported) {
+		err = yorvaruntime.ErrModelConfigIncomplete
+	}
 	return s.modelConfigurationView(ctx, instanceID, configuration, err)
 }
 

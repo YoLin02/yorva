@@ -2,11 +2,13 @@ package hermes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
@@ -22,8 +24,31 @@ func TestModelManagerReadsNormalizedConfiguration(t *testing.T) {
 		got.State != yorvaruntime.ModelConfigurationConfigured || !got.CredentialConfigured {
 		t.Fatalf("configuration = %#v", got)
 	}
-	if *state == (nativeModelConfig{}) || len(*calls) != 4 {
+	if *state == (nativeModelConfig{}) || len(*calls) != 2 {
 		t.Fatalf("state/calls = %#v %#v", *state, *calls)
+	}
+}
+
+func TestModelManagerTreatsFreshAndPartialProfilesAsUnconfigured(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		provider string
+		modelID  string
+	}{
+		{name: "fresh"},
+		{name: "provider-only", provider: "deepseek"},
+		{name: "model-only", modelID: "deepseek-v4-pro"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			manager, _, _ := newTestModelManager(t, test.provider, test.modelID)
+			got, err := manager.ReadModelConfig(context.Background(), testModelInstallation(), "coder")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.State != yorvaruntime.ModelConfigurationUnconfigured {
+				t.Fatalf("configuration = %#v", got)
+			}
+		})
 	}
 }
 
@@ -64,6 +89,21 @@ func TestModelManagerAppliesThroughOfficialConfigSurfaceAndReadsBack(t *testing.
 	}
 }
 
+func TestModelManagerAppliesFreshProfileThroughOfficialConfigSurface(t *testing.T) {
+	manager, state, calls := newTestModelManager(t, "", "")
+	got, err := manager.ApplyModelConfig(context.Background(), testModelInstallation(), "coder", "deepseek", "deepseek-v4-pro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ProviderPresetID != "deepseek" || got.ModelID != "deepseek-v4-pro" || got.State != yorvaruntime.ModelConfigurationConfigured {
+		t.Fatalf("configuration = %#v", got)
+	}
+	if state.provider != "deepseek" || state.modelID != "deepseek-v4-pro" ||
+		!containsArgs(*calls, modelConfigGetArgs("coder", modelConfigRootKey)) {
+		t.Fatalf("state/calls = %#v %#v", *state, *calls)
+	}
+}
+
 func TestModelManagerRequiresCredentialAndValidatesClosedInputs(t *testing.T) {
 	manager, _, calls := newTestModelManager(t, "alibaba", "qwen3.7-plus")
 	if _, err := manager.ApplyModelConfig(context.Background(), testModelInstallation(), "coder", "qwen", "qwen3.7-max"); !errors.Is(err, yorvaruntime.ErrModelCredentialRequired) {
@@ -91,7 +131,7 @@ func TestModelManagerReadFailsClosedOnChangingNativeConfig(t *testing.T) {
 	baseRun := manager.run
 	manager.run = func(ctx context.Context, executable, home string, args []string, mutation bool) commandResult {
 		result := baseRun(ctx, executable, home, args, mutation)
-		if reflect.DeepEqual(args, modelConfigGetArgs("coder", modelDefaultConfigKey)) {
+		if reflect.DeepEqual(args, modelConfigGetArgs("coder", modelConfigRootKey)) {
 			modelReads++
 			if modelReads == 1 {
 				state.provider = "openrouter"
@@ -110,7 +150,7 @@ func TestModelManagerDetectsExternalChangeAndPartialApply(t *testing.T) {
 	readCount := 0
 	baseRun := manager.run
 	manager.run = func(ctx context.Context, executable, home string, args []string, mutation bool) commandResult {
-		if reflect.DeepEqual(args, modelConfigGetArgs("coder", modelProviderConfigKey)) {
+		if reflect.DeepEqual(args, modelConfigGetArgs("coder", modelConfigRootKey)) {
 			readCount++
 			if readCount == 2 {
 				state.provider = "openrouter"
@@ -155,6 +195,35 @@ func TestModelManagerRejectsUnsupportedVersionAndMalformedOutput(t *testing.T) {
 	}
 }
 
+func TestParseNativeModelConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		output  string
+		want    nativeModelConfig
+		wantErr bool
+	}{
+		{name: "fresh", output: `""`},
+		{name: "empty-object", output: `{}`},
+		{name: "configured", output: `{"provider":"deepseek","default":"deepseek-v4-pro"}`, want: nativeModelConfig{provider: "deepseek", modelID: "deepseek-v4-pro"}},
+		{name: "partial", output: `{"provider":"deepseek"}`, want: nativeModelConfig{provider: "deepseek"}},
+		{name: "ignores-hermes-fields", output: `{"provider":"deepseek","default":"model","base_url":"https://example.test"}`, want: nativeModelConfig{provider: "deepseek", modelID: "model"}},
+		{name: "non-empty-scalar", output: `"deepseek"`, wantErr: true},
+		{name: "null", output: `null`, wantErr: true},
+		{name: "array", output: `[]`, wantErr: true},
+		{name: "invalid-provider-type", output: `{"provider":1}`, wantErr: true},
+		{name: "malformed", output: `{`, wantErr: true},
+		{name: "oversized", output: `{"ignored":"` + strings.Repeat("x", modelConfigOutputMaxBytes) + `"}`, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := parseNativeModelConfig(test.output)
+			if (err != nil) != test.wantErr || got != test.want {
+				t.Fatalf("parse = %#v, %v", got, err)
+			}
+		})
+	}
+}
+
 func newTestModelManager(t *testing.T, provider, modelID string) (*ModelManager, *nativeModelConfig, *[][]string) {
 	t.Helper()
 	root := t.TempDir()
@@ -177,6 +246,23 @@ func newTestModelManager(t *testing.T, provider, modelID string) (*ModelManager,
 		case "get":
 			if mutation || len(args) != 6 || args[5] != "--json" {
 				return commandResult{exitCode: 1, err: errors.New("unexpected get")}
+			}
+			if args[4] == modelConfigRootKey {
+				if state.provider == "" && state.modelID == "" {
+					return commandResult{stdout: `""`}
+				}
+				fields := map[string]string{}
+				if state.provider != "" {
+					fields["provider"] = state.provider
+				}
+				if state.modelID != "" {
+					fields["default"] = state.modelID
+				}
+				encoded, err := json.Marshal(fields)
+				if err != nil {
+					return commandResult{exitCode: 1, err: err}
+				}
+				return commandResult{stdout: string(encoded)}
 			}
 			value := state.provider
 			if args[4] == modelDefaultConfigKey {

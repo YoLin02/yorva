@@ -1,6 +1,7 @@
 package hermes
 
 const (
+	modelConfigRootKey     = "model"
 	modelProviderConfigKey = "model.provider"
 	modelDefaultConfigKey  = "model.default"
 	contextEngineConfigKey = "context.engine"

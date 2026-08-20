@@ -11,7 +11,10 @@ import (
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
-const modelIDMaxLength = 200
+const (
+	modelIDMaxLength          = 200
+	modelConfigOutputMaxBytes = 8 * 1024
+)
 
 var modelIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$`)
 
@@ -137,15 +140,51 @@ type nativeModelConfig struct {
 }
 
 func (m *ModelManager) readNativeConfig(ctx context.Context, executable, home, nativeID string) (nativeModelConfig, error) {
-	provider, err := m.readScalar(ctx, executable, home, nativeID, modelProviderConfigKey)
-	if err != nil {
-		return nativeModelConfig{}, err
+	result := m.run(ctx, executable, home, modelConfigGetArgs(nativeID, modelConfigRootKey), false)
+	if result.err != nil || result.exitCode != 0 || result.limited || result.timedOut {
+		return nativeModelConfig{}, yorvaruntime.ErrModelConfigQueryFailed
 	}
-	modelID, err := m.readScalar(ctx, executable, home, nativeID, modelDefaultConfigKey)
+	config, err := parseNativeModelConfig(result.stdout)
 	if err != nil {
-		return nativeModelConfig{}, err
+		return nativeModelConfig{}, yorvaruntime.ErrModelConfigQueryFailed
 	}
-	return nativeModelConfig{provider: provider, modelID: modelID}, nil
+	return config, nil
+}
+
+func parseNativeModelConfig(output string) (nativeModelConfig, error) {
+	trimmed := strings.TrimSpace(output)
+	if len(trimmed) == 0 || len(trimmed) > modelConfigOutputMaxBytes {
+		return nativeModelConfig{}, errors.New("invalid model config output")
+	}
+
+	if trimmed == `""` {
+		return nativeModelConfig{}, nil
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(trimmed), &fields); err != nil || fields == nil {
+		return nativeModelConfig{}, errors.New("invalid model config output")
+	}
+	config := nativeModelConfig{}
+	for key, target := range map[string]*string{
+		"provider": &config.provider,
+		"default":  &config.modelID,
+	} {
+		raw, ok := fields[key]
+		if !ok {
+			continue
+		}
+		var value any
+		if err := json.Unmarshal(raw, &value); err != nil {
+			return nativeModelConfig{}, errors.New("invalid model config output")
+		}
+		stringValue, ok := value.(string)
+		if !ok {
+			return nativeModelConfig{}, errors.New("invalid model config output")
+		}
+		*target = stringValue
+	}
+	return config, nil
 }
 
 func (m *ModelManager) readScalar(ctx context.Context, executable, home, nativeID, key string) (string, error) {
