@@ -824,9 +824,18 @@ Stop and return to Owner review if:
 
 ## 30. Completion Evidence
 
-To be completed only after implementation:
+Implementation candidate recorded in
+`docs/phases/evidence/PHASE-006-BATCHES-2-8-IMPLEMENTATION.md`:
 
-- implementation and audit-accepted commit;
+- lifecycle implementation commits: `2e03a78`, `acf4139`;
+- Channel implementation commits: `28b6f0f`, `b415f79`;
+- local Go, OpenAPI, Desktop and Tauri no-bundle verification: passed;
+- built Windows Desktop read-only Channel UX check: passed;
+- real owner-authenticated Weixin/WeCom smoke: pending;
+- independent audit, merge/freeze and annotated Phase 6 tag: pending.
+
+The remaining completion evidence is:
+
 - exact-commit CI run;
 - Windows lifecycle and Channel smoke record;
 - migration evidence;

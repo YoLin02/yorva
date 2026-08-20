@@ -824,9 +824,18 @@ Phase 6 只有在以下条件全部满足时才可通过：
 
 ## 30. 完成证据
 
-仅在实现后填写：
+实现候选已记录在
+`docs/phases/evidence/PHASE-006-BATCHES-2-8-IMPLEMENTATION.md`：
 
-- implementation 和 audit-accepted commit；
+- 生命周期实现提交：`2e03a78`、`acf4139`；
+- 通道实现提交：`28b6f0f`、`b415f79`；
+- 本地 Go、OpenAPI、Desktop 与 Tauri no-bundle 验证：通过；
+- 已构建 Windows Desktop 的只读通道 UX 检查：通过；
+- 真实 Owner 认证的微信/企业微信 smoke：待完成；
+- 独立审计、merge/freeze 与 Phase 6 annotated tag：待完成。
+
+剩余完成证据：
+
 - exact-commit CI run；
 - Windows lifecycle 和 Channel smoke record；
 - migration evidence；
