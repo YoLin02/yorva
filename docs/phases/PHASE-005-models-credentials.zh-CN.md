@@ -1,6 +1,6 @@
 # YORVA Phase 5 — 模型与凭据
 
-> 状态：AUDIT_PENDING — Batch 1-5 已完成
+> 状态：AUDIT_PASS — 待合并/冻结/tag
 > 语言：中文 Owner 审核源
 > Owner：仓库 Owner
 > Owner 指定的设计快照：`089a58005edc8f8f6a72b4fb44276be7c322eb1d`
@@ -14,6 +14,9 @@
 > Batch 3：已完成
 > Batch 4：已完成
 > Batch 5：已完成
+> Phase 5 审计：`AUDIT-005` — FAIL（不可变）；`AUDIT-005R1` — **PASS**
+> 审计接受的候选 commit：`dd7c6c2f47a2b3c7331ebc810b1eb2b003ab59a9`
+> Exact-candidate CI：GitHub Actions run `32343964969` — SUCCESS
 
 本文档与英文镜像共同定义同一份合同。Owner 审核中文版。2026-08-19，Owner 已批准 D1–D6、ADR-0007、同步治理变更、真实 Phase 4 基线，并批准中英文 Spec 标记为 `READY`。首次 Batch 1 资格检查在确认 pinned 官方 CLI 通过 argv 泄露秘密且 Web/TUI setter 需要常驻服务后正确 STOP。随后 Owner 批准 D3 中的狭窄 compatibility fallback，并一次性授权 Batch 1-5、审计、CI、合并/冻结/tag 与 Windows release build 连续执行。该历史 STOP 证据继续保留在资格记录中。
 
@@ -554,17 +557,17 @@ Phase 5 完成要求：
 
 - [x] 确认真实 Phase 4 re-freeze baseline；
 - [x] D1–D6 与 credential-authority ADR 获批；
-- [ ] pinned Hermes 至少有一个中国市场 ProviderPreset 通过资格验证；
-- [ ] 用户可保存 provider/model/key，且看不到 config/env/.env/argv 细节；
-- [ ] YORVA 退出后 Hermes 可继续使用同一 Profile 配置；
-- [ ] SQLite、HTTP read、log、event、error、argv 与 Desktop persistence 无 Key 明文；
-- [ ] 不修改 Windows global/user env；
-- [ ] `CONFIGURED` 与 validation result 和 `AVAILABLE` 保持分离；
-- [ ] exact candidate 的完整 local/CI verification PASS；
-- [ ] 正式审计达到可接受 Gate；
+- [x] pinned Hermes 至少有一个中国市场 ProviderPreset 通过资格验证；
+- [x] 用户可保存 provider/model/key，且看不到 config/env/.env/argv 细节；
+- [x] YORVA 退出后 Hermes 可继续使用同一 Profile 配置；
+- [x] SQLite、HTTP read、log、event、error、argv 与 Desktop persistence 无 Key 明文；
+- [x] 不修改 Windows global/user env；
+- [x] `CONFIGURED` 与 validation result 和 `AVAILABLE` 保持分离；
+- [x] exact candidate 的完整 local/CI verification PASS；
+- [x] 正式审计达到可接受 Gate；
 - [x] Owner 授权在审计与 CI PASS 后 merge/freeze/tag。
 
-当前状态为 `AUDIT_PENDING`。Batch 1-5 已完成，后续审计/CI/合并/冻结/tag/Windows build 序列均已授权，但每个既定 Gate 必须在下一不可逆步骤前 PASS。
+当前状态为 `AUDIT_PASS`。Batch 1-5 已完成，`AUDIT-005R1` 为 PASS，exact-candidate CI run `32343964969` 为 SUCCESS。已授权的合并/final-main CI/Windows MSI/冻结/tag 序列仍待执行，每个既定 Gate 必须在下一不可逆步骤前 PASS。
 
 ## 24. 强制停止条件
 

@@ -1,6 +1,6 @@
 # YORVA Phase 5 — Models and Credentials
 
-> Status: AUDIT_PENDING — Batches 1-5 complete
+> Status: AUDIT_PASS — merge/freeze/tag pending
 > Language: English execution mirror for the implementation Agent
 > Owner: Repository owner
 > Owner-designated repository snapshot: `089a58005edc8f8f6a72b4fb44276be7c322eb1d`
@@ -14,6 +14,9 @@
 > Batch 3: complete
 > Batch 4: complete
 > Batch 5: complete
+> Phase 5 audit: `AUDIT-005` — FAIL (immutable); `AUDIT-005R1` — **PASS**
+> Audit-accepted candidate: `dd7c6c2f47a2b3c7331ebc810b1eb2b003ab59a9`
+> Exact-candidate CI: GitHub Actions run `32343964969` — SUCCESS
 
 This document and its Chinese mirror define one contract. The Owner reviews the Chinese version. On 2026-08-19 the Owner approved D1-D6, ADR-0007, the synchronized governance update, the actual Phase 4 baseline and both specifications as `READY`. The initial Batch 1 qualification correctly stopped after proving that the pinned official CLI leaks secrets through argv and that the Web/TUI setters require a long-running service. The Owner then approved the narrow compatibility fallback in D3 and one continuous authorization through Batches 1-5, audit, CI, merge/freeze/tag and the Windows release build. That historical STOP evidence remains part of the qualification record.
 
@@ -554,17 +557,17 @@ Phase 5 completion requires:
 
 - [x] actual Phase 4 re-freeze baseline confirmed;
 - [x] D1-D6 and the credential-authority ADR approved;
-- [ ] at least one China-market ProviderPreset qualifies on pinned Hermes;
-- [ ] user saves provider/model/key without seeing config/env/.env/argv details;
-- [ ] Hermes can use the same Profile configuration after YORVA exits;
-- [ ] SQLite, HTTP reads, logs, events, errors, argv and Desktop persistence contain no key plaintext;
-- [ ] no Windows global/user env mutation;
-- [ ] `CONFIGURED` and validation result remain separate from `AVAILABLE`;
-- [ ] full local/CI verification passes on the exact candidate;
-- [ ] formal audit reaches an acceptable Gate;
+- [x] at least one China-market ProviderPreset qualifies on pinned Hermes;
+- [x] user saves provider/model/key without seeing config/env/.env/argv details;
+- [x] Hermes can use the same Profile configuration after YORVA exits;
+- [x] SQLite, HTTP reads, logs, events, errors, argv and Desktop persistence contain no key plaintext;
+- [x] no Windows global/user env mutation;
+- [x] `CONFIGURED` and validation result remain separate from `AVAILABLE`;
+- [x] full local/CI verification passes on the exact candidate;
+- [x] formal audit reaches an acceptable Gate;
 - [x] Owner authorizes merge/freeze/tag after audit and CI pass.
 
-The current state is `AUDIT_PENDING`. Batches 1-5 are complete and the subsequent audit/CI/merge/freeze/tag/Windows-build sequence is authorized, but every stated Gate must pass before the next irreversible step.
+The current state is `AUDIT_PASS`. Batches 1-5 are complete, `AUDIT-005R1` is PASS and exact-candidate CI run `32343964969` is SUCCESS. The authorized merge/final-main CI/Windows MSI/freeze/tag sequence remains pending, and every stated Gate must pass before the next irreversible step.
 
 ## 24. Mandatory Stop Conditions
 
