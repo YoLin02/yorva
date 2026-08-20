@@ -1,6 +1,6 @@
 # YORVA Phase 5 — 模型与凭据
 
-> 状态：AUDIT_PASS — 待合并/冻结/tag
+> 状态：COMPLETE / FROZEN
 > 语言：中文 Owner 审核源
 > Owner：仓库 Owner
 > Owner 指定的设计快照：`089a58005edc8f8f6a72b4fb44276be7c322eb1d`
@@ -17,6 +17,10 @@
 > Phase 5 审计：`AUDIT-005` — FAIL（不可变）；`AUDIT-005R1` — **PASS**
 > 审计接受的候选 commit：`dd7c6c2f47a2b3c7331ebc810b1eb2b003ab59a9`
 > Exact-candidate CI：GitHub Actions run `32343964969` — SUCCESS
+> Main merge：`c45a231060400cf21e41730f88ccdeab443b8a4f`
+> Final-main CI：GitHub Actions run `32346079074` — SUCCESS
+> Windows MSI：GitHub Actions run `32346079072` — SUCCESS；artifact `yorva-msi`（`9398271244`）
+> 冻结基线 tag：`phase-005-models-credentials-baseline`
 
 本文档与英文镜像共同定义同一份合同。Owner 审核中文版。2026-08-19，Owner 已批准 D1–D6、ADR-0007、同步治理变更、真实 Phase 4 基线，并批准中英文 Spec 标记为 `READY`。首次 Batch 1 资格检查在确认 pinned 官方 CLI 通过 argv 泄露秘密且 Web/TUI setter 需要常驻服务后正确 STOP。随后 Owner 批准 D3 中的狭窄 compatibility fallback，并一次性授权 Batch 1-5、审计、CI、合并/冻结/tag 与 Windows release build 连续执行。该历史 STOP 证据继续保留在资格记录中。
 
@@ -567,7 +571,7 @@ Phase 5 完成要求：
 - [x] 正式审计达到可接受 Gate；
 - [x] Owner 授权在审计与 CI PASS 后 merge/freeze/tag。
 
-当前状态为 `AUDIT_PASS`。Batch 1-5 已完成，`AUDIT-005R1` 为 PASS，exact-candidate CI run `32343964969` 为 SUCCESS。已授权的合并/final-main CI/Windows MSI/冻结/tag 序列仍待执行，每个既定 Gate 必须在下一不可逆步骤前 PASS。
+当前状态为 `COMPLETE / FROZEN`。Batch 1-5 已完成，`AUDIT-005R1` 为 PASS，exact-candidate CI run `32343964969` 为 SUCCESS，且 `main` merge `c45a231` 已通过 final-main CI run `32346079074` 与 Windows MSI run `32346079072`。Annotated `phase-005-models-credentials-baseline` tag 标识本次冻结收口。Phase 6 尚未开始，仍需单独获批的 Phase Spec 与执行授权。
 
 ## 24. 强制停止条件
 

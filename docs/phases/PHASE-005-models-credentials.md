@@ -1,6 +1,6 @@
 # YORVA Phase 5 — Models and Credentials
 
-> Status: AUDIT_PASS — merge/freeze/tag pending
+> Status: COMPLETE / FROZEN
 > Language: English execution mirror for the implementation Agent
 > Owner: Repository owner
 > Owner-designated repository snapshot: `089a58005edc8f8f6a72b4fb44276be7c322eb1d`
@@ -17,6 +17,10 @@
 > Phase 5 audit: `AUDIT-005` — FAIL (immutable); `AUDIT-005R1` — **PASS**
 > Audit-accepted candidate: `dd7c6c2f47a2b3c7331ebc810b1eb2b003ab59a9`
 > Exact-candidate CI: GitHub Actions run `32343964969` — SUCCESS
+> Main merge: `c45a231060400cf21e41730f88ccdeab443b8a4f`
+> Final-main CI: GitHub Actions run `32346079074` — SUCCESS
+> Windows MSI: GitHub Actions run `32346079072` — SUCCESS; artifact `yorva-msi` (`9398271244`)
+> Frozen baseline tag: `phase-005-models-credentials-baseline`
 
 This document and its Chinese mirror define one contract. The Owner reviews the Chinese version. On 2026-08-19 the Owner approved D1-D6, ADR-0007, the synchronized governance update, the actual Phase 4 baseline and both specifications as `READY`. The initial Batch 1 qualification correctly stopped after proving that the pinned official CLI leaks secrets through argv and that the Web/TUI setters require a long-running service. The Owner then approved the narrow compatibility fallback in D3 and one continuous authorization through Batches 1-5, audit, CI, merge/freeze/tag and the Windows release build. That historical STOP evidence remains part of the qualification record.
 
@@ -567,7 +571,7 @@ Phase 5 completion requires:
 - [x] formal audit reaches an acceptable Gate;
 - [x] Owner authorizes merge/freeze/tag after audit and CI pass.
 
-The current state is `AUDIT_PASS`. Batches 1-5 are complete, `AUDIT-005R1` is PASS and exact-candidate CI run `32343964969` is SUCCESS. The authorized merge/final-main CI/Windows MSI/freeze/tag sequence remains pending, and every stated Gate must pass before the next irreversible step.
+The current state is `COMPLETE / FROZEN`. Batches 1-5 are complete, `AUDIT-005R1` is PASS, exact-candidate CI run `32343964969` is SUCCESS, and `main` merge `c45a231` passed final-main CI run `32346079074` plus Windows MSI run `32346079072`. The annotated `phase-005-models-credentials-baseline` tag identifies this frozen closeout. Phase 6 has not started and requires its own approved Phase Spec and authorization.
 
 ## 24. Mandatory Stop Conditions
 

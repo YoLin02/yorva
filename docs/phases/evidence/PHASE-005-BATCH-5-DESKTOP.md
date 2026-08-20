@@ -1,16 +1,17 @@
 # Phase 5 Batch 5 — Desktop Integration Evidence
 
-- Date: 2026-08-19
+- Date: 2026-08-20
 - Surface: existing Instances experience
 - Gate: PASS
 
 ## Delivered contract
 
 - The existing Instances page exposes a Models panel only for an `AVAILABLE`
-  Instance. No top-level navigation, client state store or date formatter was
-  added.
+  Instance and disables model mutations when the pinned model surface version
+  is unsupported. No top-level navigation, client state store or date
+  formatter was added.
 - The panel presents all eight qualified presets in China-first and global
-  groups, displays adapter-owned safe help text, and supports recommended or
+  groups, displays localized safe help text, and supports recommended or
   bounded manual model IDs without exposing Hermes config keys, environment
   names, paths, endpoints or command arguments.
 - Save uses the single write-only credential request when a new key is present
@@ -30,7 +31,7 @@
 ```text
 pnpm --filter @yorva/desktop typecheck    PASS
 pnpm --filter @yorva/desktop lint         PASS
-pnpm --filter @yorva/desktop test         PASS (19 files, 79 tests)
+pnpm --filter @yorva/desktop test         PASS (19 files, 80 tests)
 pnpm --filter @yorva/desktop build        PASS
 git diff --check                          PASS
 ```
@@ -39,5 +40,8 @@ Tests cover the China-first bilingual catalog, explicit-only validation,
 local-time metadata, safe failed-validation guidance, generated client request
 shape, Instance availability gating and password clearing/non-persistence.
 
-Full repository, dependency, Windows smoke and exact-candidate checks continue
-under the Phase 5 audit gate.
+Full repository, dependency and Windows smoke checks passed locally. Immutable
+candidate `dd7c6c2f47a2b3c7331ebc810b1eb2b003ab59a9` passed exact-candidate CI
+run `32343964969`. Main merge `c45a231060400cf21e41730f88ccdeab443b8a4f`
+passed final-main CI run `32346079074` and Windows MSI run `32346079072`.
+`AUDIT-005R1` is PASS.
