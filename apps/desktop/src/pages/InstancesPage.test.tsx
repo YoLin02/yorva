@@ -53,6 +53,7 @@ describe("InstancesPage", () => {
         copy={messages["en-US"]}
         locale="en-US"
         onRefresh={() => undefined}
+        onPrepareCreate={() => undefined}
         onCreateNameChange={() => undefined}
         onCreate={() => undefined}
         onCancelCreate={() => undefined}
@@ -85,6 +86,7 @@ describe("InstancesPage", () => {
         copy={messages["en-US"]}
         locale="en-US"
         onRefresh={onRefresh}
+        onPrepareCreate={() => undefined}
         onCreateNameChange={() => undefined}
         onCreate={() => undefined}
         onCancelCreate={() => undefined}
@@ -120,6 +122,7 @@ describe("InstancesPage", () => {
         copy={messages["zh-CN"]}
         locale="zh-CN"
         onRefresh={() => undefined}
+        onPrepareCreate={() => undefined}
         onCreateNameChange={() => undefined}
         onCreate={() => undefined}
         onCancelCreate={() => undefined}
@@ -137,6 +140,45 @@ describe("InstancesPage", () => {
     expect(screen.getByText("受保护")).toBeInTheDocument();
   });
 
+  it("filters the real inventory and opens create in a dialog", () => {
+    const onPrepareCreate = vi.fn();
+    render(
+      <InstancesPage
+        supported
+        loading={false}
+        error={false}
+        inventory={inventory}
+        createName=""
+        createBusy={false}
+        createOperation={null}
+        copy={messages["en-US"]}
+        locale="en-US"
+        onRefresh={() => undefined}
+        onPrepareCreate={onPrepareCreate}
+        onCreateNameChange={() => undefined}
+        onCreate={() => undefined}
+        onCancelCreate={() => undefined}
+        deleteTarget={null}
+        deleteConfirmation=""
+        deleteBusy={false}
+        deleteOperation={null}
+        onDeleteTargetChange={() => undefined}
+        onDeleteConfirmationChange={() => undefined}
+        onDelete={() => undefined}
+        onCancelDelete={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search instances" }), { target: { value: "coder" } });
+    expect(screen.getByText("coder")).toBeInTheDocument();
+    expect(screen.queryByText("default")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
+    expect(onPrepareCreate).toHaveBeenCalledOnce();
+    expect(screen.getByRole("dialog", { name: "Create instance" })).toBeInTheDocument();
+    expect(screen.getByLabelText("New instance name")).toHaveFocus();
+  });
+
   it("opens a modal confirmation when Delete is clicked", () => {
     const onDeleteTargetChange = vi.fn();
     const { rerender } = render(
@@ -151,6 +193,7 @@ describe("InstancesPage", () => {
         copy={messages["en-US"]}
         locale="en-US"
         onRefresh={() => undefined}
+        onPrepareCreate={() => undefined}
         onCreateNameChange={() => undefined}
         onCreate={() => undefined}
         onCancelCreate={() => undefined}
@@ -180,6 +223,7 @@ describe("InstancesPage", () => {
         copy={messages["en-US"]}
         locale="en-US"
         onRefresh={() => undefined}
+        onPrepareCreate={() => undefined}
         onCreateNameChange={() => undefined}
         onCreate={() => undefined}
         onCancelCreate={() => undefined}
@@ -225,6 +269,7 @@ describe("InstancesPage", () => {
         copy={messages["en-US"]}
         locale="en-US"
         onRefresh={() => undefined}
+        onPrepareCreate={() => undefined}
         onCreateNameChange={() => undefined}
         onCreate={() => undefined}
         onCancelCreate={() => undefined}
@@ -240,8 +285,8 @@ describe("InstancesPage", () => {
     );
     expect(screen.getByText("coder")).toBeInTheDocument();
     expect(screen.getByText("notes")).toBeInTheDocument();
-    expect(screen.getByText("Missing")).toBeInTheDocument();
-    expect(screen.getByText("Unknown")).toBeInTheDocument();
+    expect(screen.getAllByText("Missing").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
     const modelButtons = screen.getAllByRole("button", { name: "Models" });
     expect(modelButtons.filter((button) => button.hasAttribute("disabled"))).toHaveLength(2);

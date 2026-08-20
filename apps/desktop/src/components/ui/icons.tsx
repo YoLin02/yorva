@@ -12,9 +12,15 @@ import {
   Info,
   Layers,
   Loader2,
+  MoreHorizontal,
   Monitor,
+  Plus,
   RotateCw,
+  Search,
   Settings,
+  SlidersHorizontal,
+  Trash2,
+  X,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -44,6 +50,30 @@ export function IconSettings(props: LucideProps) {
 
 export function IconRotateCw(props: LucideProps) {
   return glyph(RotateCw, 16, props);
+}
+
+export function IconSearch(props: LucideProps) {
+  return glyph(Search, 15, props);
+}
+
+export function IconPlus(props: LucideProps) {
+  return glyph(Plus, 15, props);
+}
+
+export function IconMore(props: LucideProps) {
+  return glyph(MoreHorizontal, 17, props);
+}
+
+export function IconSliders(props: LucideProps) {
+  return glyph(SlidersHorizontal, 15, props);
+}
+
+export function IconTrash(props: LucideProps) {
+  return glyph(Trash2, 15, props);
+}
+
+export function IconClose(props: LucideProps) {
+  return glyph(X, 17, props);
 }
 
 export function IconGlobe(props: LucideProps) {

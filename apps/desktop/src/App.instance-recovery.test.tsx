@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { InstanceList, Operation } from "./api/types";
@@ -197,7 +197,9 @@ describe("App instance operation recovery", () => {
     expect(screen.queryByText("Instance created")).not.toBeInTheDocument();
     expect(screen.queryByText("Create queued")).not.toBeInTheDocument();
     expect(clientMocks.getOperation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
+    const dialog = screen.getByRole("dialog", { name: "Create instance" });
     fireEvent.change(screen.getByLabelText("New instance name"), { target: { value: "notes" } });
-    expect(screen.getByRole("button", { name: "Create instance" })).toBeEnabled();
+    expect(within(dialog).getByRole("button", { name: "Create instance" })).toBeEnabled();
   });
 });

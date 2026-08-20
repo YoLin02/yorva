@@ -78,25 +78,42 @@ export function HermesInstallPanel({
   }
   if (confirmOpen) {
     return (
-      <Card className="runtime-card" aria-labelledby="install-confirm-title">
-        <h3 id="install-confirm-title">{install.confirmTitle}</h3>
-        <p className="panel-copy">{install.confirmDescription}</p>
-        <dl className="detail-list">
-          <div><dt>{install.source}</dt><dd>NousResearch/hermes-agent @ df4b65147d7ddd74dd449f9067aabbca5aef0ec7</dd></div>
-          <div><dt>{install.version}</dt><dd>0.20.2 / v2026.8.16</dd></div>
-          <div><dt>{install.destination}</dt><dd className="mono">%LOCALAPPDATA%\hermes\hermes-agent</dd></div>
-        </dl>
-        <p className="panel-copy">{install.hostChanges}</p>
-        <ul className="plain-list">
-          {install.hostChangeItems.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-        <p className="panel-copy">{install.bundledSourceNote}</p>
-        <p className="notice notice-info">{install.noProfileNote}</p>
-        <div className="inline-actions">
-          <Button onClick={onCloseConfirm} disabled={busy}>{install.back}</Button>
-          <Button variant="primary" onClick={onConfirm} disabled={busy}>{install.confirm}</Button>
-        </div>
-      </Card>
+      <div
+        className="instance-modal-backdrop"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !busy) onCloseConfirm();
+        }}
+      >
+        <Card
+          className="instance-modal install-confirm-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="install-confirm-title"
+          aria-describedby="install-confirm-description"
+        >
+          <div className="install-confirm-heading">
+            <h3 id="install-confirm-title">{install.confirmTitle}</h3>
+            <p id="install-confirm-description" className="panel-copy">{install.confirmDescription}</p>
+          </div>
+          <dl className="detail-list install-confirm-details">
+            <div><dt>{install.source}</dt><dd>NousResearch/hermes-agent @ df4b65147d7ddd74dd449f9067aabbca5aef0ec7</dd></div>
+            <div><dt>{install.version}</dt><dd>0.20.2 / v2026.8.16</dd></div>
+            <div><dt>{install.destination}</dt><dd className="mono">%LOCALAPPDATA%\hermes\hermes-agent</dd></div>
+          </dl>
+          <div className="install-confirm-changes">
+            <p className="panel-copy">{install.hostChanges}</p>
+            <ul className="plain-list">
+              {install.hostChangeItems.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+          <p className="panel-copy">{install.bundledSourceNote}</p>
+          <p className="notice notice-info">{install.noProfileNote}</p>
+          <div className="instance-modal-actions">
+            <Button onClick={onCloseConfirm} disabled={busy}>{install.back}</Button>
+            <Button variant="primary" onClick={onConfirm} disabled={busy}>{install.confirm}</Button>
+          </div>
+        </Card>
+      </div>
     );
   }
   if (!canStart) {

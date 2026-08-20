@@ -8,6 +8,7 @@ import type { AppMessages, Locale } from "../../i18n";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { IconClose } from "../ui/icons";
 
 type ModelConfigurationPanelProps = {
   client: DaemonClient;
@@ -186,7 +187,9 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
           <h3>{copy.models.title}</h3>
           <p className="panel-copy">{copy.models.description}</p>
         </div>
-        <Button variant="ghost" onClick={onClose}>{copy.models.close}</Button>
+        <Button className="model-modal-close" variant="ghost" onClick={onClose} aria-label={copy.models.close}>
+          <IconClose />
+        </Button>
       </div>
       {!available ? <p role="status" className="notice notice-warn">{copy.models.unavailable}</p> : null}
       {unsupported ? <p role="status" className="notice notice-warn">{copy.models.unsupported}</p> : null}

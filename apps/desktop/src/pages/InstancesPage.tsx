@@ -1,14 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { formatDateTime } from "../formatDateTime";
 import type { DaemonClient } from "../api/client";
 import type { Instance, InstanceList, Operation } from "../api/types";
 import type { AppMessages, Locale } from "../i18n";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
-import { IconRotateCw } from "../components/ui/icons";
+import {
+  IconAlert,
+  IconClose,
+  IconPlus,
+  IconRefresh,
+  IconSearch,
+  IconSliders,
+  IconTrash,
+} from "../components/ui/icons";
 import { ModelConfigurationPanel } from "../components/models/ModelConfigurationPanel";
 
 const createNamePattern = /^[a-z][a-z0-9_-]{0,63}$/;
+type AvailabilityFilter = "ALL" | Instance["availability"];
 
 type InstancesPageProps = {
   supported: boolean;
@@ -21,6 +30,7 @@ type InstancesPageProps = {
   copy: AppMessages;
   locale: Locale;
   onRefresh: () => void;
+  onPrepareCreate: () => void;
   onCreateNameChange: (value: string) => void;
   onCreate: () => void;
   onCancelCreate: () => void;
@@ -46,6 +56,7 @@ export function InstancesPage({
   copy,
   locale,
   onRefresh,
+  onPrepareCreate,
   onCreateNameChange,
   onCreate,
   onCancelCreate,
@@ -59,114 +70,144 @@ export function InstancesPage({
   onCancelDelete,
   client,
 }: InstancesPageProps) {
-  const items = inventory?.instances ?? [];
+  const items = useMemo(() => inventory?.instances ?? [], [inventory?.instances]);
   const named = items.filter((item) => !item.default);
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
   const [modelInstanceId, setModelInstanceId] = useState<string | null>(null);
+  const modelInstance = items.find((item) => item.instanceId === modelInstanceId) ?? null;
+
+  const createOperationActive = createOperation?.status === "PENDING" || createOperation?.status === "RUNNING";
+
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase(locale);
+    return items.filter((item) => {
+      const matchesAvailability = availabilityFilter === "ALL" || item.availability === availabilityFilter;
+      const matchesQuery = query === ""
+        || item.name.toLocaleLowerCase(locale).includes(query)
+        || item.instanceId.toLocaleLowerCase(locale).includes(query);
+      return matchesAvailability && matchesQuery;
+    });
+  }, [availabilityFilter, items, locale, searchQuery]);
+
+  const availabilityCounts = useMemo(() => ({
+    ALL: items.length,
+    AVAILABLE: items.filter((item) => item.availability === "AVAILABLE").length,
+    MISSING: items.filter((item) => item.availability === "MISSING").length,
+    UNKNOWN: items.filter((item) => item.availability === "UNKNOWN").length,
+  }), [items]);
+
+  const openCreate = () => {
+    onPrepareCreate();
+    setCreateOpen(true);
+  };
 
   return (
-    <section className="page-stack" aria-label={copy.pages.instances.title}>
+    <section className="page-stack instances-page" aria-label={copy.pages.instances.title}>
       {!supported ? (
-        <div className="card instance-card">
-          <h2 className="instance-card-title">{copy.instances.unsupportedTitle}</h2>
-          <p className="page-copy">{copy.instances.unsupportedDescription}</p>
+        <div className="card empty-state-card">
+          <div className="empty-state-icon"><IconAlert /></div>
+          <div>
+            <h2 className="instance-card-title">{copy.instances.unsupportedTitle}</h2>
+            <p className="page-copy">{copy.instances.unsupportedDescription}</p>
+          </div>
         </div>
       ) : (
         <>
-          <div className="instance-toolbar">
-            <Button type="button" onClick={onRefresh} disabled={loading}>
-              <IconRotateCw />
-              {copy.instances.refresh}
-            </Button>
-            {inventory?.lastSyncedAt ? (
-              <p className="page-copy">
-                {copy.instances.lastSynced}: {formatDateTime(inventory.lastSyncedAt, locale)}
-              </p>
-            ) : null}
-          </div>
+          <div className="instance-control-bar">
+            <div className="instance-filter-tabs" role="group" aria-label={copy.instances.tableAvailability}>
+              {(["ALL", "AVAILABLE", "MISSING", "UNKNOWN"] as const).map((filter) => (
+                <button
+                  type="button"
+                  key={filter}
+                  className={availabilityFilter === filter ? "instance-filter is-active" : "instance-filter"}
+                  aria-pressed={availabilityFilter === filter}
+                  onClick={() => setAvailabilityFilter(filter)}
+                >
+                  {filter !== "ALL" ? <span className={`availability-dot is-${filter.toLowerCase()}`} /> : null}
+                  <span>{filter === "ALL" ? copy.instances.allFilter : copy.instances.availability[filter]}</span>
+                  <span className="instance-filter-count">{availabilityCounts[filter]}</span>
+                </button>
+              ))}
+            </div>
 
-          {loading && !inventory ? <p className="page-copy">{copy.instances.loading}</p> : null}
-          {error && !inventory ? <p className="page-copy">{copy.instances.loadFailure}</p> : null}
-          {inventory?.freshness === "UNKNOWN" ? (
-            <p className="page-copy" role="status">
-              {copy.instances.freshnessUnknown}
-            </p>
-          ) : null}
-          {inventory?.errorCode ? <p className="page-copy">{copy.instances.queryFailed}</p> : null}
-
-          <form
-            className="instance-create"
-            onSubmit={(event) => {
-              event.preventDefault();
-              onCreate();
-            }}
-          >
-            <label className="instance-create-label" htmlFor="instance-name">
-              {copy.instances.createLabel}
-            </label>
-            <input
-              id="instance-name"
-              className="instance-create-input"
-              value={createName}
-              onChange={(event) => onCreateNameChange(event.target.value)}
-              placeholder={copy.instances.createPlaceholder}
-              autoComplete="off"
-              spellCheck={false}
-              disabled={createBusy}
-            />
-            {createName !== "" && !createNamePattern.test(createName) ? (
-              <p className="page-copy">{copy.instances.createInvalid}</p>
-            ) : null}
-            <div className="instance-toolbar">
-              <Button type="submit" disabled={createBusy || !createNamePattern.test(createName)}>
+            <div className="instance-control-actions">
+              <label className="instance-search">
+                <span className="sr-only">{copy.instances.searchLabel}</span>
+                <IconSearch />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={copy.instances.searchPlaceholder}
+                  spellCheck={false}
+                />
+              </label>
+              <Button type="button" onClick={onRefresh} disabled={loading} className="button-compact">
+                <IconRefresh className={loading ? "spin" : undefined} />
+                {copy.instances.refresh}
+              </Button>
+              <Button type="button" variant="primary" onClick={openCreate} className="button-compact">
+                <IconPlus />
                 {copy.instances.createAction}
               </Button>
-              {createOperation && (createOperation.status === "PENDING") ? (
-                <Button type="button" onClick={onCancelCreate} disabled={createBusy}>
-                  {copy.instances.cancelCreate}
-                </Button>
-              ) : null}
             </div>
-            {createOperation ? (
-              <p className="page-copy" role="status">
-                {createOperation.status === "PENDING"
-                  ? copy.instances.createPending
-                  : createOperation.status === "RUNNING"
-                    ? copy.instances.createRunning
-                    : createOperation.status === "SUCCEEDED"
-                      ? copy.instances.createSucceeded
-                      : copy.instances.createFailed}
-              </p>
-            ) : null}
-          </form>
+          </div>
 
-          <ul className="instance-list">
-            {items.map((item) => (
-              <li key={item.instanceId}>
-                <InstanceRow
-                  item={item}
-                  copy={copy}
-                  locale={locale}
-                  onDelete={() => onDeleteTargetChange(item)}
-                  onOpenModels={() => setModelInstanceId(item.instanceId)}
-                />
-                {client && modelInstanceId === item.instanceId ? (
-                  <ModelConfigurationPanel
-                    client={client}
-                    instance={item}
-                    copy={copy}
-                    locale={locale}
-                    onClose={() => setModelInstanceId(null)}
-                  />
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <InventoryNotices inventory={inventory} loading={loading} error={error} copy={copy} />
 
-          {supported && !loading && named.length === 0 && items.some((item) => item.default) ? (
-            <p className="page-copy">{copy.instances.emptyNamed}</p>
+          <div className="instance-table-card">
+            <div className="instance-table-scroll">
+              <table className="instance-table">
+                <thead>
+                  <tr>
+                    <th>{copy.instances.tableInstance}</th>
+                    <th>{copy.instances.tableAvailability}</th>
+                    <th>{copy.instances.tableLastSynced}</th>
+                    <th>{copy.instances.tableCapabilities}</th>
+                    <th className="instance-actions-column">{copy.instances.tableActions}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredItems.map((item) => (
+                    <InstanceRow
+                      key={item.instanceId}
+                      item={item}
+                      copy={copy}
+                      locale={locale}
+                      onDelete={() => onDeleteTargetChange(item)}
+                      onOpenModels={() => setModelInstanceId(item.instanceId)}
+                    />
+                  ))}
+                  {!loading && filteredItems.length === 0 ? (
+                    <tr><td className="instance-table-empty" colSpan={5}>{copy.instances.noMatches}</td></tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            <div className="instance-table-footer">
+              <span>{copy.instances.totalCount.replace("{count}", String(filteredItems.length))}</span>
+              <span>{copy.instances.lifecycleUnavailable}</span>
+            </div>
+          </div>
+
+          {!loading && named.length === 0 && items.some((item) => item.default) ? (
+            <p className="notice notice-info">{copy.instances.emptyNamed}</p>
           ) : null}
 
-          <p className="page-copy">{copy.instances.lifecycleUnavailable}</p>
+          {createOpen || createOperationActive ? (
+            <CreateInstanceDialog
+              name={createName}
+              busy={createBusy}
+              operation={createOperation}
+              copy={copy}
+              onNameChange={onCreateNameChange}
+              onCreate={onCreate}
+              onCancelOperation={onCancelCreate}
+              onDismiss={() => setCreateOpen(false)}
+            />
+          ) : null}
 
           {deleteTarget && !deleteTarget.protected && !deleteTarget.default ? (
             <DeleteConfirmDialog
@@ -181,23 +222,106 @@ export function InstancesPage({
               onDismiss={() => onDeleteTargetChange(null)}
             />
           ) : null}
+
+          {client && modelInstance ? (
+            <div className="instance-modal-backdrop model-modal-backdrop">
+              <div className="model-modal" role="dialog" aria-modal="true" aria-label={`${copy.models.title}: ${modelInstance.name}`}>
+                <ModelConfigurationPanel
+                  client={client}
+                  instance={modelInstance}
+                  copy={copy}
+                  locale={locale}
+                  onClose={() => setModelInstanceId(null)}
+                />
+              </div>
+            </div>
+          ) : null}
         </>
       )}
     </section>
   );
 }
 
-function DeleteConfirmDialog({
-  target,
-  confirmation,
-  busy,
-  operation,
-  copy,
-  onConfirmationChange,
-  onConfirm,
-  onCancelOperation,
-  onDismiss,
-}: {
+function InventoryNotices({ inventory, loading, error, copy }: {
+  inventory: InstanceList | null;
+  loading: boolean;
+  error: boolean;
+  copy: AppMessages;
+}) {
+  if (loading && !inventory) return <p className="notice notice-info">{copy.instances.loading}</p>;
+  if (error && !inventory) return <p className="notice notice-error">{copy.instances.loadFailure}</p>;
+  if (inventory?.freshness === "UNKNOWN") return <p className="notice notice-warn" role="status">{copy.instances.freshnessUnknown}</p>;
+  if (inventory?.errorCode) return <p className="notice notice-warn">{copy.instances.queryFailed}</p>;
+  return null;
+}
+
+function CreateInstanceDialog({ name, busy, operation, copy, onNameChange, onCreate, onCancelOperation, onDismiss }: {
+  name: string;
+  busy: boolean;
+  operation: Operation | null;
+  copy: AppMessages;
+  onNameChange: (value: string) => void;
+  onCreate: () => void;
+  onCancelOperation: () => void;
+  onDismiss: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const status = operation?.status;
+  const locked = busy || status === "RUNNING";
+  const canCancelOperation = status === "PENDING";
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+  useDialogDismiss({ locked, canCancelOperation, onCancelOperation, onDismiss });
+
+  return (
+    <div className="instance-modal-backdrop" onMouseDown={(event) => dismissFromBackdrop(event, locked, canCancelOperation, onCancelOperation, onDismiss)}>
+      <div className="instance-modal" role="dialog" aria-modal="true" aria-labelledby="create-instance-title" aria-describedby="create-instance-description">
+        <ModalHeader
+          icon={<IconPlus />}
+          title={copy.instances.createAction}
+          description={copy.instances.createDescription}
+          titleId="create-instance-title"
+          descriptionId="create-instance-description"
+          closeLabel={copy.instances.dismissDelete}
+          onClose={canCancelOperation ? onCancelOperation : onDismiss}
+          closeDisabled={locked}
+        />
+        <form onSubmit={(event) => { event.preventDefault(); onCreate(); }}>
+          <label className="instance-create-label" htmlFor="instance-name">{copy.instances.createLabel}</label>
+          <input
+            ref={inputRef}
+            id="instance-name"
+            className="instance-create-input"
+            value={name}
+            onChange={(event) => onNameChange(event.target.value)}
+            placeholder={copy.instances.createPlaceholder}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={locked || canCancelOperation}
+          />
+          {name !== "" && !createNamePattern.test(name) ? <p className="field-error">{copy.instances.createInvalid}</p> : null}
+          {operation ? <p className="modal-operation-status" role="status">{operationStatus(operation, copy, "create")}</p> : null}
+          <div className="instance-modal-actions">
+            {canCancelOperation ? (
+              <Button type="button" onClick={onCancelOperation} disabled={busy}>{copy.instances.cancelCreate}</Button>
+            ) : (
+              <Button type="button" onClick={onDismiss} disabled={locked}>{copy.instances.dismissDelete}</Button>
+            )}
+            <Button type="submit" variant="primary" disabled={locked || canCancelOperation || !createNamePattern.test(name)}>
+              <IconPlus />
+              {copy.instances.createAction}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmDialog({ target, confirmation, busy, operation, copy, onConfirmationChange, onConfirm, onCancelOperation, onDismiss }: {
   target: Instance;
   confirmation: string;
   busy: boolean;
@@ -217,55 +341,24 @@ function DeleteConfirmDialog({
     inputRef.current?.focus();
     inputRef.current?.select();
   }, []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") {
-        return;
-      }
-      if (locked) {
-        return;
-      }
-      if (canCancelOperation) {
-        onCancelOperation();
-        return;
-      }
-      onDismiss();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [canCancelOperation, locked, onCancelOperation, onDismiss]);
+  useDialogDismiss({ locked, canCancelOperation, onCancelOperation, onDismiss });
 
   return (
-    <div
-      className="instance-modal-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !locked) {
-          if (canCancelOperation) {
-            onCancelOperation();
-            return;
-          }
-          onDismiss();
-        }
-      }}
-    >
-      <div
-        className="instance-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="delete-instance-title"
-        aria-describedby="delete-instance-warning"
-      >
-        <h2 id="delete-instance-title" className="instance-modal-title">
-          {copy.instances.deleteTitle}
-        </h2>
+    <div className="instance-modal-backdrop" onMouseDown={(event) => dismissFromBackdrop(event, locked, canCancelOperation, onCancelOperation, onDismiss)}>
+      <div className="instance-modal" role="dialog" aria-modal="true" aria-labelledby="delete-instance-title" aria-describedby="delete-instance-warning">
+        <ModalHeader
+          icon={<IconAlert />}
+          danger
+          title={copy.instances.deleteTitle}
+          description={copy.instances.deleteWarning}
+          titleId="delete-instance-title"
+          descriptionId="delete-instance-warning"
+          closeLabel={copy.instances.dismissDelete}
+          onClose={canCancelOperation ? onCancelOperation : onDismiss}
+          closeDisabled={locked}
+        />
         <p className="instance-modal-name">{target.name}</p>
-        <p id="delete-instance-warning" className="page-copy">
-          {copy.instances.deleteWarning}
-        </p>
-        <label className="instance-create-label" htmlFor="delete-confirm">
-          {copy.instances.deleteConfirmLabel}
-        </label>
+        <label className="instance-create-label" htmlFor="delete-confirm">{copy.instances.deleteConfirmLabel}</label>
         <input
           ref={inputRef}
           id="delete-confirm"
@@ -274,50 +367,74 @@ function DeleteConfirmDialog({
           onChange={(event) => onConfirmationChange(event.target.value)}
           autoComplete="off"
           spellCheck={false}
-          disabled={locked}
+          disabled={locked || canCancelOperation}
         />
+        {operation ? <p className="modal-operation-status" role="status">{operationStatus(operation, copy, "delete")}</p> : null}
         <div className="instance-modal-actions">
-          <Button
-            type="button"
-            variant="danger"
-            disabled={locked || confirmation !== target.name}
-            onClick={onConfirm}
-          >
+          {canCancelOperation ? (
+            <Button type="button" onClick={onCancelOperation} disabled={busy}>{copy.instances.cancelDelete}</Button>
+          ) : (
+            <Button type="button" onClick={onDismiss} disabled={locked}>{copy.instances.dismissDelete}</Button>
+          )}
+          <Button type="button" variant="danger" disabled={locked || canCancelOperation || confirmation !== target.name} onClick={onConfirm}>
+            <IconTrash />
             {copy.instances.deleteAction}
           </Button>
-          {canCancelOperation ? (
-            <Button type="button" onClick={onCancelOperation} disabled={busy}>
-              {copy.instances.cancelDelete}
-            </Button>
-          ) : (
-            <Button type="button" onClick={onDismiss} disabled={locked}>
-              {copy.instances.dismissDelete}
-            </Button>
-          )}
         </div>
-        {operation ? (
-          <p className="page-copy" role="status">
-            {operation.status === "PENDING"
-              ? copy.instances.deletePending
-              : operation.status === "RUNNING"
-                ? copy.instances.deleteRunning
-                : operation.status === "SUCCEEDED"
-                  ? copy.instances.deleteSucceeded
-                  : copy.instances.deleteFailed}
-          </p>
-        ) : null}
       </div>
     </div>
   );
 }
 
-function InstanceRow({
-  item,
-  copy,
-  locale,
-  onDelete,
-  onOpenModels,
-}: {
+function ModalHeader({ icon, title, description, titleId, descriptionId, danger = false, closeLabel, onClose, closeDisabled }: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  titleId: string;
+  descriptionId: string;
+  danger?: boolean;
+  closeLabel: string;
+  onClose: () => void;
+  closeDisabled: boolean;
+}) {
+  return (
+    <div className="instance-modal-header">
+      <div className={danger ? "modal-icon is-danger" : "modal-icon"}>{icon}</div>
+      <div className="instance-modal-heading">
+        <h2 id={titleId} className="instance-modal-title">{title}</h2>
+        <p id={descriptionId} className="page-copy">{description}</p>
+      </div>
+      <button type="button" className="modal-close" onClick={onClose} disabled={closeDisabled} aria-label={closeLabel}>
+        <IconClose />
+      </button>
+    </div>
+  );
+}
+
+function useDialogDismiss({ locked, canCancelOperation, onCancelOperation, onDismiss }: {
+  locked: boolean;
+  canCancelOperation: boolean;
+  onCancelOperation: () => void;
+  onDismiss: () => void;
+}) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || locked) return;
+      if (canCancelOperation) onCancelOperation();
+      else onDismiss();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canCancelOperation, locked, onCancelOperation, onDismiss]);
+}
+
+function dismissFromBackdrop(event: MouseEvent<HTMLDivElement>, locked: boolean, canCancelOperation: boolean, onCancelOperation: () => void, onDismiss: () => void) {
+  if (event.target !== event.currentTarget || locked) return;
+  if (canCancelOperation) onCancelOperation();
+  else onDismiss();
+}
+
+function InstanceRow({ item, copy, locale, onDelete, onOpenModels }: {
   item: Instance;
   copy: AppMessages;
   locale: Locale;
@@ -326,31 +443,66 @@ function InstanceRow({
 }) {
   const availability = item.availability;
   return (
-    <article className="card instance-card">
-      <div className="instance-card-head">
-        <h2 className="instance-card-title">{item.name}</h2>
-        <div className="instance-tags">
-          {item.default ? <Badge tone="info">{copy.instances.defaultLabel}</Badge> : null}
-          {item.protected ? <Badge tone="neutral">{copy.instances.protectedLabel}</Badge> : null}
-          <span className={`instance-availability is-${availability.toLowerCase()}`}>
-            {copy.instances.availability[availability]}
-          </span>
+    <tr>
+      <td>
+        <div className="instance-identity">
+          <span className="instance-avatar">{item.name.slice(0, 2).toUpperCase()}</span>
+          <div className="instance-identity-copy">
+            <div className="instance-name-row">
+              <strong>{item.name}</strong>
+              {item.default ? <Badge tone="info">{copy.instances.defaultLabel}</Badge> : null}
+              {item.protected ? <Badge tone="neutral">{copy.instances.protectedLabel}</Badge> : null}
+            </div>
+            <span className="mono muted">{item.instanceId}</span>
+          </div>
         </div>
-      </div>
-      <p className="page-copy">{copy.instances.availabilityHint[availability]}</p>
-      {item.lastSyncedAt ? (
-        <p className="page-copy">
-          {copy.instances.lastSynced}: {formatDateTime(item.lastSyncedAt, locale)}
-        </p>
-      ) : null}
-      {!item.default && !item.protected && item.availability === "AVAILABLE" ? (
-        <Button type="button" variant="danger" onClick={onDelete}>
-          {copy.instances.deleteAction}
-        </Button>
-      ) : null}
-      <Button type="button" onClick={onOpenModels} disabled={item.availability !== "AVAILABLE"}>
-        {copy.models.open}
-      </Button>
-    </article>
+      </td>
+      <td>
+        <span className={`instance-availability is-${availability.toLowerCase()}`} title={copy.instances.availabilityHint[availability]}>
+          <span className={`availability-dot is-${availability.toLowerCase()}`} />
+          {copy.instances.availability[availability]}
+        </span>
+      </td>
+      <td className="instance-sync-time">{item.lastSyncedAt ? formatDateTime(item.lastSyncedAt, locale) : "—"}</td>
+      <td>
+        <div className="instance-capabilities">
+          <span>{copy.instances.instanceCapability}: <b>{item.capabilities.instances ? copy.instances.capabilityAvailable : copy.instances.capabilityUnavailable}</b></span>
+          <span>{copy.instances.lifecycleCapability}: <b>{item.capabilities.lifecycle ? copy.instances.capabilityAvailable : copy.instances.capabilityUnavailable}</b></span>
+        </div>
+      </td>
+      <td>
+        <div className="instance-row-actions">
+          <Button type="button" variant="ghost" onClick={onOpenModels} disabled={availability !== "AVAILABLE"}>
+            <IconSliders />
+            {copy.models.open}
+          </Button>
+          {!item.default && !item.protected && availability === "AVAILABLE" ? (
+            <Button type="button" variant="ghost" className="button-danger-ghost" onClick={onDelete}>
+              <IconTrash />
+              {copy.instances.deleteAction}
+            </Button>
+          ) : null}
+        </div>
+      </td>
+    </tr>
   );
+}
+
+function operationStatus(operation: Operation, copy: AppMessages, kind: "create" | "delete") {
+  const statusCopy = kind === "create"
+    ? {
+        PENDING: copy.instances.createPending,
+        RUNNING: copy.instances.createRunning,
+        SUCCEEDED: copy.instances.createSucceeded,
+        FAILED: copy.instances.createFailed,
+        CANCELLED: copy.instances.createFailed,
+      }
+    : {
+        PENDING: copy.instances.deletePending,
+        RUNNING: copy.instances.deleteRunning,
+        SUCCEEDED: copy.instances.deleteSucceeded,
+        FAILED: copy.instances.deleteFailed,
+        CANCELLED: copy.instances.deleteFailed,
+      };
+  return statusCopy[operation.status];
 }

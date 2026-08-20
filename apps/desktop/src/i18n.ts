@@ -65,6 +65,9 @@ type Messages = {
     compatibility: string;
     supportedRange: string;
     lastChecked: string;
+    managedInstances: string;
+    viewInstances: string;
+    unavailableValue: string;
     candidates: string;
     candidateCount: string;
     warnings: string;
@@ -122,6 +125,13 @@ type Messages = {
       continueWithoutNode: string;
       logTitle: string;
       cancel: string;
+      nodeLabel: string;
+      npmLabel: string;
+      dependenciesLabel: string;
+      lastChecked: string;
+      ready: string;
+      unavailable: string;
+      needsAttention: string;
     };
   };
   settings: {
@@ -135,6 +145,11 @@ type Messages = {
     unsupportedDescription: string;
     loading: string;
     refresh: string;
+    allFilter: string;
+    searchLabel: string;
+    searchPlaceholder: string;
+    noMatches: string;
+    totalCount: string;
     lastSynced: string;
     freshnessUnknown: string;
     emptyNamed: string;
@@ -146,6 +161,7 @@ type Messages = {
     loadFailure: string;
     queryFailed: string;
     createLabel: string;
+    createDescription: string;
     createPlaceholder: string;
     createAction: string;
     createPending: string;
@@ -164,6 +180,15 @@ type Messages = {
     deleteFailed: string;
     cancelDelete: string;
     dismissDelete: string;
+    tableInstance: string;
+    tableAvailability: string;
+    tableLastSynced: string;
+    tableCapabilities: string;
+    tableActions: string;
+    instanceCapability: string;
+    lifecycleCapability: string;
+    capabilityAvailable: string;
+    capabilityUnavailable: string;
   };
   models: {
     open: string;
@@ -283,6 +308,9 @@ const english: Messages = {
     compatibility: "Compatibility",
     supportedRange: "Supported range",
     lastChecked: "Last checked",
+    managedInstances: "Managed instances",
+    viewInstances: "View instances",
+    unavailableValue: "—",
     candidates: "Hermes candidates",
     candidateCount: "Candidates found: {count}",
     warnings: "Warnings",
@@ -390,6 +418,13 @@ const english: Messages = {
       continueWithoutNode: "Node.js / npm can be installed before Hermes. That step installs only the managed Node and npm. Install Hermes after it finishes; the two Operations cannot run at the same time. If this stays on Installing, cancel first. Do not wait on the official hermes command in a terminal; close that session with Ctrl+C.",
       logTitle: "Install log",
       cancel: "Cancel",
+      nodeLabel: "Node.js",
+      npmLabel: "npm",
+      dependenciesLabel: "Hermes Node dependencies",
+      lastChecked: "Last checked",
+      ready: "Ready",
+      unavailable: "Not ready",
+      needsAttention: "Needs attention",
     },
   },
   settings: {
@@ -403,6 +438,11 @@ const english: Messages = {
     unsupportedDescription: "Instance management is available only when Hermes discovery is SUPPORTED.",
     loading: "Refreshing instance inventory",
     refresh: "Refresh",
+    allFilter: "All",
+    searchLabel: "Search instances",
+    searchPlaceholder: "Search by name or instance ID",
+    noMatches: "No instances match the current filters.",
+    totalCount: "{count} instances",
     lastSynced: "Last successful sync",
     freshnessUnknown: "The latest Hermes query did not succeed. Showing last known rows as unknown, not missing.",
     emptyNamed: "No named Instances yet. The built-in default Profile remains visible and protected.",
@@ -422,6 +462,7 @@ const english: Messages = {
     loadFailure: "YORVA could not load Instances.",
     queryFailed: "Hermes Profile query failed. Inventory freshness is unknown.",
     createLabel: "New instance name",
+    createDescription: "Initialize an isolated Hermes Profile. Model configuration can be added after creation.",
     createPlaceholder: "coder",
     createAction: "Create instance",
     createPending: "Create queued",
@@ -440,6 +481,15 @@ const english: Messages = {
     deleteFailed: "Instance delete failed",
     cancelDelete: "Cancel delete",
     dismissDelete: "Cancel",
+    tableInstance: "Instance",
+    tableAvailability: "Availability",
+    tableLastSynced: "Last synced",
+    tableCapabilities: "Capabilities",
+    tableActions: "Actions",
+    instanceCapability: "Instance management",
+    lifecycleCapability: "Lifecycle",
+    capabilityAvailable: "Available",
+    capabilityUnavailable: "Not available",
   },
   models: {
     open: "Models",
@@ -562,6 +612,9 @@ const simplifiedChinese: Messages = {
     compatibility: "兼容性",
     supportedRange: "支持范围",
     lastChecked: "上次检测",
+    managedInstances: "管理实例",
+    viewInstances: "查看实例",
+    unavailableValue: "—",
     candidates: "Hermes 候选项",
     candidateCount: "发现 {count} 个候选项",
     warnings: "警告",
@@ -669,6 +722,13 @@ const simplifiedChinese: Messages = {
       continueWithoutNode: "可以先安装 Node.js / npm，这一步只安装托管的 Node 和 npm。完成后再安装 Hermes；这两项操作不能同时进行。若一直停在「正在安装」，请先取消。不要在终端里等待官方 hermes 命令；用 Ctrl+C 结束那个会话。",
       logTitle: "安装日志",
       cancel: "取消",
+      nodeLabel: "Node.js",
+      npmLabel: "npm",
+      dependenciesLabel: "Hermes Node 依赖",
+      lastChecked: "上次检查",
+      ready: "就绪",
+      unavailable: "未就绪",
+      needsAttention: "需要处理",
     },
   },
   settings: {
@@ -682,6 +742,11 @@ const simplifiedChinese: Messages = {
     unsupportedDescription: "仅在 Hermes 检测结果为 SUPPORTED 时可以管理实例。",
     loading: "正在刷新实例清单",
     refresh: "刷新",
+    allFilter: "全部",
+    searchLabel: "搜索实例",
+    searchPlaceholder: "按名称或实例 ID 搜索",
+    noMatches: "没有符合当前筛选条件的实例。",
+    totalCount: "共 {count} 个实例",
     lastSynced: "最近一次成功同步",
     freshnessUnknown: "最近一次 Hermes 查询未成功。正在显示上次已知记录，状态为未知，不是缺失。",
     emptyNamed: "还没有命名实例。内置 default Profile 仍然可见且受保护。",
@@ -701,6 +766,7 @@ const simplifiedChinese: Messages = {
     loadFailure: "无法加载实例。",
     queryFailed: "Hermes Profile 查询失败。清单新鲜度为未知。",
     createLabel: "新实例名称",
+    createDescription: "初始化一个隔离的 Hermes Profile。创建后可继续配置模型。",
     createPlaceholder: "coder",
     createAction: "创建实例",
     createPending: "创建已排队",
@@ -719,6 +785,15 @@ const simplifiedChinese: Messages = {
     deleteFailed: "删除实例失败",
     cancelDelete: "取消删除",
     dismissDelete: "取消",
+    tableInstance: "实例",
+    tableAvailability: "可用性",
+    tableLastSynced: "最近同步",
+    tableCapabilities: "能力",
+    tableActions: "操作",
+    instanceCapability: "实例管理",
+    lifecycleCapability: "生命周期",
+    capabilityAvailable: "可用",
+    capabilityUnavailable: "不可用",
   },
   models: {
     open: "模型",

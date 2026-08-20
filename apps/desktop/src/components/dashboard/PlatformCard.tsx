@@ -21,7 +21,6 @@ export function PlatformCard({
 }) {
   const status = discoveryStatus(discoveryState, copy);
   const lastChecked = status.checkedAt ? formatDateTime(status.checkedAt, locale) : copy.dashboard.unavailableValue;
-  const range = status.range ?? copy.dashboard.unavailableValue;
   const platform = `${node.platform} / ${node.architecture}`;
 
   return (
@@ -38,10 +37,6 @@ export function PlatformCard({
         <div>
           <dt>{copy.hermes.lastChecked}</dt>
           <dd className="mono">{lastChecked}</dd>
-        </div>
-        <div>
-          <dt>{copy.hermes.supportedRange}</dt>
-          <dd className="mono">{range}</dd>
         </div>
       </dl>
     </Card>

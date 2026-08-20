@@ -75,6 +75,37 @@ describe("HermesDiscoveryView", () => {
     expect(container.querySelector("script")).toBeNull();
   });
 
+  it("renders the real managed instance count and opens the instance inventory", () => {
+    const onOpenInstances = vi.fn();
+    render(
+      <HermesDiscoveryView
+        state={{ kind: "complete", discovery: discovery("SUPPORTED"), onRetry: vi.fn() }}
+        copy={copy}
+        locale="en-US"
+        instanceCount={3}
+        onOpenInstances={onOpenInstances}
+      />,
+    );
+    expect(screen.getByText("Managed instances")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /view instances/i }));
+    expect(onOpenInstances).toHaveBeenCalledOnce();
+  });
+
+  it("shows one compatibility state and omits the support range from the runtime card", () => {
+    render(
+      <HermesDiscoveryView
+        state={{ kind: "complete", discovery: discovery("SUPPORTED"), onRetry: vi.fn() }}
+        copy={copy}
+        locale="en-US"
+      />,
+    );
+    expect(screen.getAllByText("Hermes ready")).toHaveLength(1);
+    expect(screen.queryByText("Supported range")).not.toBeInTheDocument();
+    expect(screen.getByText("Version")).toBeInTheDocument();
+    expect(screen.getByText("Last checked")).toBeInTheDocument();
+  });
+
   it("shows an ambiguous candidate count and list without selected details", () => {
     const result = discovery("AMBIGUOUS");
     result.candidates = [

@@ -33,6 +33,8 @@ export function RuntimePage({
   onConfirmInstall,
   onCancelInstall,
   onRetryInstall,
+  instanceCount,
+  onOpenInstances,
 }: {
   discoveryState: HermesDiscoveryViewState;
   discoveryReady: boolean;
@@ -61,13 +63,22 @@ export function RuntimePage({
   onConfirmInstall: () => void;
   onCancelInstall: () => void;
   onRetryInstall: () => void;
+  instanceCount: number | null;
+  onOpenInstances: () => void;
 }) {
   return (
-    <div className="page-stack">
-      <HermesDiscoveryView state={discoveryState} copy={copy} locale={locale} />
+    <div className="page-stack runtime-page">
+      <HermesDiscoveryView
+        state={discoveryState}
+        copy={copy}
+        locale={locale}
+        instanceCount={instanceCount}
+        onOpenInstances={onOpenInstances}
+      />
       {discoveryReady && (
         <HermesPrerequisitePanel
           copy={copy}
+          locale={locale}
           status={prerequisites}
           operation={prereqOperation}
           liveLog={prereqLog}

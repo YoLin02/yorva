@@ -9,7 +9,6 @@ export type DiscoveryPresentation = {
   description: string;
   tone: DiscoveryTone;
   version?: string;
-  range?: string;
   checkedAt?: string;
   state?: RuntimeDiscoveryState;
 };
@@ -31,7 +30,6 @@ export function discoveryStatus(state: HermesDiscoveryViewState, copy: AppMessag
     description: copy.hermes.states[state.discovery.state].description,
     tone: ready ? "ready" : pending ? "pending" : "error",
     version: state.discovery.selected?.version,
-    range: state.discovery.supportedRange,
     checkedAt: state.discovery.detectedAt,
     state: state.discovery.state,
   };

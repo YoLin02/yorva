@@ -320,7 +320,10 @@ export function App() {
   const instancesQuery = useQuery({
     queryKey: ["hermes-instances", sessionQuery.data?.baseUrl],
     queryFn: ({ signal }) => client!.listHermesInstances(signal),
-    enabled: client !== undefined && nodeQuery.isSuccess && hermesSupported && activePage === "instances",
+    enabled: client !== undefined
+      && nodeQuery.isSuccess
+      && hermesSupported
+      && (activePage === "instances" || activePage === "runtimes"),
     retry: false,
   });
   const instanceOperationsQuery = useQuery({
@@ -494,6 +497,8 @@ export function App() {
         onConfirmInstall={() => { void startInstall(); }}
         onCancelInstall={() => { void cancelInstall(); }}
         onRetryInstall={retryInstall}
+        instanceCount={instancesQuery.data?.instances.length ?? null}
+        onOpenInstances={() => setActivePage("instances")}
       />
     );
   } else if (activePage === "instances") {
@@ -510,6 +515,11 @@ export function App() {
         locale={locale}
         onRefresh={() => {
           void instancesQuery.refetch();
+        }}
+        onPrepareCreate={() => {
+          setCreateName("");
+          setCreateKey(null);
+          setCreateOperationId(null);
         }}
         onCreateNameChange={setCreateName}
         onCreate={() => {
