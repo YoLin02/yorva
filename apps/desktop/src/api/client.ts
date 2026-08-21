@@ -1,4 +1,4 @@
-import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, Instance, InstanceList, ModelConfiguration, ModelCredential, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
+import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, ModelConfiguration, ModelCredential, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -227,6 +227,23 @@ export function createDaemonClient(session: DaemonSession) {
           "Idempotency-Key": idempotencyKey,
         },
         body: "{}",
+      }),
+    getHermesDownloadSources: (signal?: AbortSignal) =>
+      request<HermesDownloadSources>("/api/v1/settings/hermes/download-sources", {
+        signal: withDesktopTimeout(signal),
+        cache: "no-store",
+      }),
+    saveHermesDownloadSources: (sources: HermesDownloadSources, signal?: AbortSignal) =>
+      request<HermesDownloadSources>("/api/v1/settings/hermes/download-sources", {
+        method: "PUT",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sources),
+      }),
+    resetHermesDownloadSources: (signal?: AbortSignal) =>
+      request<HermesDownloadSources>("/api/v1/settings/hermes/download-sources", {
+        method: "DELETE",
+        signal: withDesktopTimeout(signal),
       }),
     startHermesInstall: (idempotencyKey: string, signal?: AbortSignal) =>
       request<Operation>("/api/v1/runtimes/hermes/install", {

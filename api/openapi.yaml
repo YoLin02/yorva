@@ -22,6 +22,8 @@ tags:
     description: Safe model Provider presets, configuration, credentials, and explicit validation.
   - name: Channels
     description: Instance-scoped Weixin and WeCom connection state and Operations.
+  - name: Settings
+    description: Non-secret local management settings.
   - name: Operations
     description: Durable local management Operations.
 paths:
@@ -274,6 +276,82 @@ paths:
       operationId: optionsHermesPrerequisitesInstall
       summary: Validate CORS access for Hermes prerequisite installation
       tags: [Runtimes]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/settings/hermes/download-sources:
+    get:
+      operationId: getHermesDownloadSources
+      summary: Read the effective Hermes artifact and dependency sources
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The complete effective source configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HermesDownloadSources"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      operationId: putHermesDownloadSources
+      summary: Replace the Hermes artifact and dependency sources
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HermesDownloadSources"
+      responses:
+        "200":
+          description: The validated saved source configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HermesDownloadSources"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: resetHermesDownloadSources
+      summary: Restore the compiled mainland China source defaults
+      tags: [Settings]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The restored default source configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HermesDownloadSources"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    options:
+      operationId: optionsHermesDownloadSources
+      summary: Validate CORS access for Hermes download source settings
+      tags: [Settings]
       security: []
       responses:
         "204":
@@ -1506,6 +1584,31 @@ components:
           format: date-time
         activeOperationId:
           type: ["string", "null"]
+    HermesDownloadSources:
+      type: object
+      additionalProperties: false
+      required: [hermesArchiveUrl, nodeArchiveUrl, npmArchiveUrl, pythonIndexUrl, npmRegistryUrl]
+      properties:
+        hermesArchiveUrl:
+          type: string
+          format: uri
+          pattern: ^https://
+        nodeArchiveUrl:
+          type: string
+          format: uri
+          pattern: ^https://
+        npmArchiveUrl:
+          type: string
+          format: uri
+          pattern: ^https://
+        pythonIndexUrl:
+          type: string
+          format: uri
+          pattern: ^https://
+        npmRegistryUrl:
+          type: string
+          format: uri
+          pattern: ^https://
     Operation:
       type: object
       additionalProperties: false

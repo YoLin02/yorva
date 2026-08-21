@@ -89,6 +89,15 @@ Amendment 003A3: official `node` / `node-deps` PowerShell stages are never spawn
 
 Amendment 003A2 keeps dependency distribution inside the same Hermes adapter. The owned installer environment removes inherited Python/uv/pip/npm registry settings and injects fixed HTTPS PyPI and npm endpoints for the China Demo. The official `uv.lock` and `package-lock.json` remain unchanged; no generic mirror contract, user-selected registry or Runtime plugin abstraction is introduced.
 
+Amendment 003A7 supersedes only the fixed/online-first transport decisions in 003A1,
+003A2 and 003A3. Packaged Hermes, Node.js and npm artifacts are verified and used first;
+when a corresponding artifact is absent, the adapter downloads from the start-time
+snapshot of the Hermes download-source settings. Archive versions, sizes and SHA-256
+pins remain compiled and immutable. Python and npm registry URLs are configurable
+credential-free HTTPS transports passed through the existing allowlisted environment;
+they do not authorize a generic Runtime source plugin, lockfile rewrite or executable
+override.
+
 Amendment 003A4: installation is one Install Transaction (`CREATED` → `COMMITTED`) with a sealed generation tree and `control/active.json` as the sole activation pointer. SQLite Operation remains the Desktop/API projection and does not authorize retry or recovery. Retry always starts a new transaction and new generation id.
 
 Amendment 003A6: a new Hermes generation is constructed directly at its final

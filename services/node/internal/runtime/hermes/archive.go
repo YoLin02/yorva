@@ -33,7 +33,11 @@ type archiveClient struct {
 	diskFree  func(string) (uint64, error)
 }
 
-func newArchiveClient() archiveClient {
+func newArchiveClient(sourceURL ...string) archiveClient {
+	url := officialArchiveURL
+	if len(sourceURL) > 0 && strings.TrimSpace(sourceURL[0]) != "" {
+		url = strings.TrimSpace(sourceURL[0])
+	}
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -55,7 +59,7 @@ func newArchiveClient() archiveClient {
 				return nil
 			},
 		},
-		url:      officialArchiveURL,
+		url:      url,
 		limit:    archiveDownloadLimit,
 		diskFree: volumeFreeBytes,
 	}
@@ -65,12 +69,7 @@ func approvedArchiveRedirect(req *http.Request) bool {
 	if req == nil || req.URL == nil {
 		return false
 	}
-	host := strings.ToLower(req.URL.Hostname())
-	if host != "github.com" && host != "codeload.github.com" {
-		return false
-	}
-	path := req.URL.Path
-	return strings.Contains(path, officialRepository) && strings.Contains(path, officialCommit)
+	return req.URL.Scheme == "https" && req.URL.Hostname() != "" && req.URL.User == nil
 }
 
 func verifyArchiveFile(path string) error {

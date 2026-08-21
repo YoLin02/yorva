@@ -170,6 +170,16 @@ activated by recovery.
 
 Amendment 003A3: YORVA never executes official PowerShell `-Stage node` or `-Stage node-deps`. Those stages include unpinned `irm | iex` of `raw.githubusercontent.com/trycua/cua/main` and other best-effort browser installs. Managed Node `v22.23.1` and npm `12.0.2` are verified archives. Node dependency installation is `node.exe npm-cli.js ci --workspaces=false --omit=dev --ignore-scripts` only. Amendment 003A5 raises only the per-member Node/npm archive extraction cap to 96 MiB so the pinned 86,989,128-byte `node.exe` can be extracted; exact archive size/SHA-256, the 256 MiB total Node ZIP limit and all traversal/reparse protections remain enforced.
 
+Amendment 003A7 supersedes the Phase 3 fixed/online-first transport details without
+weakening artifact identity. Verified MSI-packaged Hermes, Node.js and npm bytes are
+primary. A missing packaged artifact may use a configured absolute HTTPS URL, but the
+download must still match the compiled exact size and SHA-256 before extraction.
+Python/npm registry URLs may also be configured. Every stored URL must have a host and
+must not contain user information, a query or fragment; credentials, local paths,
+versions, hashes, commands and environment keys remain outside the API. Each Operation
+uses one start-time snapshot, inherited secret/registry variables remain stripped, and
+source URLs are never written to ordinary logs or Operation messages.
+
 ## 10. Privilege model
 
 `yorvad` runs as the normal user by default.

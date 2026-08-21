@@ -121,9 +121,11 @@ Amendments:
 - `AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED
 - `AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED
 - `AMENDMENT-003A6-final-path-hermes-generation-build.md` — ACCEPTED / FROZEN (Owner 2026-08-21; frozen-baseline correctness correction)
+- `AMENDMENT-003A7-configurable-download-sources.md` — ACCEPTED FOR IMPLEMENTATION (Owner 2026-08-21; post-freeze product correction)
 Architecture: `docs/phases/PHASE-003-generation-installation-architecture.md` — Owner-approved 2026-08-18
 ADR: `ADR-0006-generation-install-transaction.md` — Accepted
 Correction ADR: `ADR-0009-final-path-generation-build.md` — Accepted 2026-08-21
+Download-source ADR: `ADR-0010-configurable-hermes-download-sources.md` — Accepted 2026-08-21
 Audit: `AUDIT-003`–`R7` — **FAIL** (immutable); `AUDIT-003R8` — **PASS WITH CONDITIONS**; `AUDIT-003R9` — **PASS**
 
 Goal: install a supported official Hermes Runtime without requiring terminal use.
@@ -204,9 +206,16 @@ Exit criteria:
 
 ## Phase 6 — Runtime lifecycle and messaging channels
 
-Status: **DRAFT — OWNER REVIEW REQUIRED — IMPLEMENTATION NOT AUTHORIZED**
+Status: **IMPLEMENTATION CANDIDATE COMPLETE — AUDIT AND OWNER-AUTHENTICATED SMOKE PENDING**
 Specs: `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.zh-CN.md` (Owner review) and `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.md` (Agent execution mirror)
 Target baseline: `phase-005-models-credentials-baseline`
+Execution authorization: **Owner authorized 2026-08-20**
+Implementation handoff: `docs/phases/evidence/PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md`
+
+The code candidate implements the scoped lifecycle, Weixin, WeCom, sender-pairing and
+Desktop continuity batches. Phase 6 is not frozen: it still requires an independent
+audit plus owner-authenticated Windows smoke against real Weixin/WeCom accounts. Those
+external results must not be inferred from deterministic repository tests.
 
 Goal: make a configured Instance operational, then deliver the key YORVA promise of one-click channel connection.
 
