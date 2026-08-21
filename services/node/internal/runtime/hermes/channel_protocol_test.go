@@ -57,7 +57,7 @@ func TestWeComConnectVerifiesBeforeProfileScopedCommit(t *testing.T) {
 		},
 	}
 	secret := []byte("wecom-secret-value")
-	status, err := manager.BeginConnect(context.Background(), yorvaruntime.ChannelInstallation{Executable: `C:\hermes\bin\hermes.exe`, Version: "0.20.2"}, "alpha", yorvaruntime.ChannelConnectRequest{Type: channel.WeCom, BotID: "bot-alpha", Secret: secret}, nil)
+	status, err := manager.BeginConnect(context.Background(), yorvaruntime.ChannelInstallation{Executable: filepath.Join(root, "hermes"), Version: "0.20.2"}, "alpha", yorvaruntime.ChannelConnectRequest{Type: channel.WeCom, BotID: "bot-alpha", Secret: secret}, nil)
 	if err != nil || !verified || status.State != channel.Connected {
 		t.Fatalf("connect = %#v, verified=%v, error=%v", status, verified, err)
 	}

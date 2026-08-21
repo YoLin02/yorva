@@ -185,6 +185,8 @@ func (h *HostInstaller) resolveArchive(ctx context.Context, workDir string, sour
 	}
 	if !isTransportArchiveError(err) {
 		h.debug("source.archive.integrity", archiveLogFields(err, sourceOriginOfficial)...)
+	} else {
+		h.debug("source.archive.configured_unavailable", archiveLogFields(err, sourceOriginOfficial)...)
 	}
 	return "", "", err
 }
