@@ -3,16 +3,20 @@ import { getDesktopPreferences, setDesktopPreferences, type DesktopPreferences }
 import type { AppMessages, Locale } from "../i18n";
 import { messages, supportedLocales } from "../i18n";
 import { IconMonitor, IconMoon, IconSun } from "./ui/icons";
+import type { DaemonClient } from "../api/client";
+import { HermesDownloadSourcesPanel } from "./settings/HermesDownloadSourcesPanel";
 
 type SettingsTab = "general" | "advanced" | "diagnostics" | "about";
 
 export function SettingsView({
   copy,
   locale,
+  client,
   onLocaleChange,
 }: {
   copy: AppMessages;
   locale: Locale;
+  client?: DaemonClient;
   onLocaleChange: (locale: Locale) => void;
 }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
@@ -165,6 +169,15 @@ export function SettingsView({
               <p className="settings-save-error" role="alert">{copy.settings.desktopPreferencesFailed}</p>
             ) : null}
           </section>
+        </div>
+      ) : activeTab === "advanced" ? (
+        <div
+          id="settings-panel-advanced"
+          className="settings-advanced"
+          role="tabpanel"
+          aria-labelledby="settings-tab-advanced"
+        >
+          <HermesDownloadSourcesPanel copy={copy} client={client} />
         </div>
       ) : (
         <div

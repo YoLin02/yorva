@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
 const (
@@ -57,11 +59,14 @@ func newInstallCommandRunner(timeout time.Duration, home string) commandRunner {
 		timeout:     timeout,
 		waitDelay:   commandWaitDelay,
 		outputLimit: installCommandOutputLimit,
-		environment: func() []string { return installerEnvironment(home) },
+		environment: func() []string { return installerEnvironment(home, downloadsources.Default()) },
 	}
 }
 
 func runInstallInvocation(ctx context.Context, runner commandRunner, invocation installInvocation) commandResult {
+	if invocation.Environment != nil {
+		runner.environment = func() []string { return append([]string(nil), invocation.Environment...) }
+	}
 	return runner.run(ctx, commandInvocation{
 		path:       invocation.Executable,
 		executable: invocation.Executable,

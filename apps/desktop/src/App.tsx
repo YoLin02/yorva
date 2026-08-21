@@ -422,7 +422,7 @@ export function App() {
 
   let content;
   if (activePage === "settings") {
-    content = <SettingsPage copy={copy} locale={locale} onLocaleChange={changeLocale} />;
+    content = <SettingsPage copy={copy} locale={locale} client={client} onLocaleChange={changeLocale} />;
   } else if (sessionQuery.isError) {
     content = (
       <DashboardPage

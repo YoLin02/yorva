@@ -10,7 +10,7 @@ import (
 )
 
 func TestClosedEmptyObjectContract(t *testing.T) {
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, nil, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, nil, "", nil)
 	endpoints := []string{
 		"/api/v1/runtimes/hermes/install",
 		"/api/v1/runtimes/hermes/prerequisites/install",

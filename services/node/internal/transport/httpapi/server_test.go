@@ -51,7 +51,7 @@ func newTestHandler(services ...RuntimeDiscoveryService) http.Handler {
 	if len(services) == 1 {
 		service = services[0]
 	}
-	return NewHandler(testToken, testNode, events.NewBroker(), service, nil, nil, "")
+	return NewHandler(testToken, testNode, events.NewBroker(), service, nil, nil, "", nil)
 }
 
 func TestHealthIsMinimalAndUnauthenticated(t *testing.T) {
@@ -118,7 +118,7 @@ func TestEventsRequiresAuthentication(t *testing.T) {
 
 func TestEventStreamCancellationReleasesSubscriber(t *testing.T) {
 	broker := events.NewBroker()
-	server := httptest.NewServer(NewHandler(testToken, testNode, broker, fakeRuntimeDiscovery{}, nil, nil, ""))
+	server := httptest.NewServer(NewHandler(testToken, testNode, broker, fakeRuntimeDiscovery{}, nil, nil, "", nil))
 	defer server.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())

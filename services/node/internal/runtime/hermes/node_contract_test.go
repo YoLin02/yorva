@@ -11,6 +11,7 @@ import (
 	"time"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
 func TestExactNodeZipMaterialization(t *testing.T) {
@@ -100,7 +101,7 @@ func TestDependencyInstallArgvEnvironmentAndStamp(t *testing.T) {
 		}
 		return commandResult{stdout: "12.0.2\n"}
 	}
-	if err := host.installDependencies(context.Background()); err != nil {
+	if err := host.installDependencies(context.Background(), downloadsources.Default()); err != nil {
 		t.Fatal(err)
 	}
 	if saw.Executable != filepath.Join(nodeDir, "node.exe") || saw.Dir != installDir {
@@ -117,7 +118,7 @@ func TestDependencyInstallArgvEnvironmentAndStamp(t *testing.T) {
 	host.run = func(context.Context, installInvocation, time.Duration) commandResult {
 		return commandResult{exitCode: 1}
 	}
-	if err := host.installDependencies(context.Background()); installErrorCode(err) != yorvaruntime.ErrorHermesNodeDepsFailed {
+	if err := host.installDependencies(context.Background(), downloadsources.Default()); installErrorCode(err) != yorvaruntime.ErrorHermesNodeDepsFailed {
 		t.Fatalf("failure = %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(installDir, nodeDepsStampName)); err == nil {
@@ -130,7 +131,7 @@ func TestDependencyInstallArgvEnvironmentAndStamp(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(installDir, nodeDepsStampName), []byte("stale"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := host.installDependencies(context.Background()); installErrorCode(err) != yorvaruntime.ErrorHermesNodeDepsTimeout {
+	if err := host.installDependencies(context.Background(), downloadsources.Default()); installErrorCode(err) != yorvaruntime.ErrorHermesNodeDepsTimeout {
 		t.Fatalf("timeout = %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(installDir, nodeDepsStampName)); err == nil {
@@ -143,7 +144,7 @@ func TestDependencyInstallArgvEnvironmentAndStamp(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(installDir, nodeDepsStampName), []byte("stale"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := host.installDependencies(context.Background()); !errorsIsCanceled(err) {
+	if err := host.installDependencies(context.Background(), downloadsources.Default()); !errorsIsCanceled(err) {
 		t.Fatalf("cancel = %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(installDir, nodeDepsStampName)); err == nil {
@@ -152,10 +153,12 @@ func TestDependencyInstallArgvEnvironmentAndStamp(t *testing.T) {
 }
 
 func TestInstallerEnvironmentPinsNpmRegistry(t *testing.T) {
-	env := installerEnvironment(`C:\Users\a\AppData\Local\hermes`)
+	sources := downloadsources.Default()
+	sources.NPMRegistryURL = "https://mirror.example/npm"
+	env := installerEnvironment(`C:\Users\a\AppData\Local\hermes`, sources)
 	found := false
 	for _, entry := range env {
-		if entry == "NPM_CONFIG_REGISTRY="+hermesNPMRegistry {
+		if entry == "NPM_CONFIG_REGISTRY="+sources.NPMRegistryURL {
 			found = true
 		}
 		if strings.Contains(strings.ToUpper(entry), "TOKEN") || strings.Contains(entry, "secret") {

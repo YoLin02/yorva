@@ -27,6 +27,7 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 	"github.com/YoLin02/yorva/services/node/internal/transport/httpapi"
 )
 
@@ -89,7 +90,8 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	requestCtx, cancelRequests := context.WithCancel(context.Background())
 	defer cancelRequests()
 	discovery := app.NewRuntimeDiscovery(registry, logger)
-	host := hermes.NewHostInstaller(message.DataDir).WithLogger(logger).WithEmbeddedSource(message.HermesEmbeddedSourcePath)
+	sourceSettings := downloadsources.NewService(database)
+	host := hermes.NewHostInstaller(message.DataDir).WithLogger(logger).WithEmbeddedSource(message.HermesEmbeddedSourcePath).WithDownloadSources(sourceSettings)
 	installGate := install.NewGateHolder()
 	managedRoot := ""
 	if root, err := install.DefaultManagedRoot(); err != nil {
@@ -101,7 +103,7 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 			logger.Error("install recovery failed", "error", recErr, "gate", installGate.Get())
 		}
 	}
-	nodeHost := hermes.NewNodeHost(message.DataDir, message.HermesNodeArchivePath, message.HermesNpmArchivePath)
+	nodeHost := hermes.NewNodeHost(message.DataDir, message.HermesNodeArchivePath, message.HermesNpmArchivePath).WithDownloadSources(sourceSettings)
 	broker := events.NewBroker()
 	installs := app.NewRuntimeInstall(discovery, database).WithLogger(logger).WithHost(host, database, localNode.ID).WithPrerequisite(app.HermesPrerequisiteHost{Host: nodeHost}).WithEvents(broker).WithInstallGate(installGate).WithManagedRoot(managedRoot)
 	if _, err := installs.InterruptStale(ctx); err != nil {
@@ -121,7 +123,7 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 		logger.Warn("failed to recover stale channel operations", "error", err)
 	}
 	server := &http.Server{
-		Handler:           httpapi.NewHandler(message.Token, localNode, broker, discovery, installs, instances, message.DataDir),
+		Handler:           httpapi.NewHandler(message.Token, localNode, broker, discovery, installs, instances, message.DataDir, sourceSettings),
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       30 * time.Second,

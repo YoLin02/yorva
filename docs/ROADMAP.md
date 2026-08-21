@@ -121,9 +121,11 @@ Amendments:
 - `AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED
 - `AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED
 - `AMENDMENT-003A6-final-path-hermes-generation-build.md` — ACCEPTED / FROZEN (Owner 2026-08-21; frozen-baseline correctness correction)
+- `AMENDMENT-003A7-configurable-download-sources.md` — ACCEPTED FOR IMPLEMENTATION (Owner 2026-08-21; post-freeze product correction)
 Architecture: `docs/phases/PHASE-003-generation-installation-architecture.md` — Owner-approved 2026-08-18
 ADR: `ADR-0006-generation-install-transaction.md` — Accepted
 Correction ADR: `ADR-0009-final-path-generation-build.md` — Accepted 2026-08-21
+Download-source ADR: `ADR-0010-configurable-hermes-download-sources.md` — Accepted 2026-08-21
 Audit: `AUDIT-003`–`R7` — **FAIL** (immutable); `AUDIT-003R8` — **PASS WITH CONDITIONS**; `AUDIT-003R9` — **PASS**
 
 Goal: install a supported official Hermes Runtime without requiring terminal use.

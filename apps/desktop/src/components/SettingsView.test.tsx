@@ -19,13 +19,14 @@ describe("SettingsView", () => {
     preferenceMocks.set.mockReset().mockImplementation(async (preferences) => preferences);
   });
 
-  it("switches between clickable tabs and keeps unfinished panels empty", () => {
+  it("switches from general settings to Hermes download sources", () => {
     render(<SettingsView copy={messages["en-US"]} locale="en-US" onLocaleChange={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "Interface language" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Advanced" }));
     expect(screen.getByRole("tab", { name: "Advanced" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("heading", { name: "Interface language" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Hermes download sources" })).toBeInTheDocument();
   });
 
   it("changes the interface language from the segmented control", () => {

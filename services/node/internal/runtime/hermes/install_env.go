@@ -3,13 +3,8 @@ package hermes
 import (
 	"os"
 	"strings"
-)
 
-const (
-	// These endpoints are adapter-owned Phase 3 distribution policy. They
-	// cannot be supplied by a request or inherited from the launching shell.
-	hermesPythonIndex = "https://pypi.tuna.tsinghua.edu.cn/simple"
-	hermesNPMRegistry = "https://registry.npmmirror.com"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
 var installerAllowedEnv = map[string]struct{}{
@@ -27,7 +22,7 @@ var installerBlockedPrefixes = []string{
 	"PYTHON", "PIP_", "UV_", "NPM_", "NODE_", "OPENAI_", "ANTHROPIC_", "GOOGLE_", "GEMINI_", "HERMES_",
 }
 
-func installerEnvironment(home string) []string {
+func installerEnvironment(home string, sources downloadsources.Config) []string {
 	result := make([]string, 0, 32)
 	for _, entry := range os.Environ() {
 		name, _, ok := strings.Cut(entry, "=")
@@ -45,12 +40,12 @@ func installerEnvironment(home string) []string {
 	}
 	result = append(result,
 		"HERMES_HOME="+home,
-		"UV_DEFAULT_INDEX="+hermesPythonIndex,
+		"UV_DEFAULT_INDEX="+sources.PythonIndexURL,
 		"UV_INDEX_STRATEGY=first-index",
-		"PIP_INDEX_URL="+hermesPythonIndex,
+		"PIP_INDEX_URL="+sources.PythonIndexURL,
 		"PIP_CONFIG_FILE=NUL",
 		"PIP_DISABLE_PIP_VERSION_CHECK=1",
-		"NPM_CONFIG_REGISTRY="+hermesNPMRegistry,
+		"NPM_CONFIG_REGISTRY="+sources.NPMRegistryURL,
 		"NPM_CONFIG_AUDIT=false",
 		"NPM_CONFIG_FUND=false",
 	)

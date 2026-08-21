@@ -13,6 +13,7 @@ import (
 
 	"github.com/YoLin02/yorva/services/node/internal/applog"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
 func TestArchiveFailureLogsExcludeSentinelSecrets(t *testing.T) {
@@ -36,7 +37,9 @@ func TestArchiveFailureLogsExcludeSentinelSecrets(t *testing.T) {
 	installer.archive.url = server.URL + "/hermes.zip?token=super-secret-token"
 	installer.embeddedSourcePath = ""
 
-	_, _, err := installer.resolveArchive(context.Background(), t.TempDir())
+	sources := downloadsources.Default()
+	sources.HermesArchiveURL = server.URL + "/hermes.zip"
+	_, _, err := installer.resolveArchive(context.Background(), t.TempDir(), sources)
 	if err == nil {
 		t.Fatal("expected archive failure")
 	}

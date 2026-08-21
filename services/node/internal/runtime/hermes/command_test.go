@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
 func TestReadBounded(t *testing.T) {
@@ -194,7 +196,7 @@ func testInstallCommandRunner(mode, pidFile string, timeout time.Duration, home 
 		waitDelay:   time.Second,
 		outputLimit: installCommandOutputLimit,
 		environment: func() []string {
-			return append(installerEnvironment(home),
+			return append(installerEnvironment(home, downloadsources.Default()),
 				"YORVA_FAKE_HERMES_MODE="+mode,
 				"YORVA_FAKE_HERMES_PID_FILE="+pidFile,
 			)

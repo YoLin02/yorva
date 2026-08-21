@@ -71,7 +71,7 @@ func TestModelHTTPContractIsAuthenticatedSafeAndClosed(t *testing.T) {
 		ProviderPresetID: "deepseek", ModelID: "deepseek-v4-pro", State: yorvaruntime.ModelConfigurationConfigured,
 		CredentialConfigured: true, ObservedAt: now,
 	}}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "", nil)
 
 	unauthorized := httptest.NewRequest(http.MethodGet, "/api/v1/runtimes/hermes/model-provider-presets", nil)
 	unauthorizedResult := httptest.NewRecorder()
@@ -114,7 +114,7 @@ func TestModelHTTPReturnsStableObservedIncompleteError(t *testing.T) {
 		configuration: app.ModelConfigurationView{ProviderPresetID: "deepseek", ModelID: "old-model", State: yorvaruntime.ModelConfigurationConfigured, CredentialConfigured: true, ObservedAt: time.Now()},
 		err:           yorvaruntime.ErrModelConfigIncomplete,
 	}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "", nil)
 	req := authorizedRequest(http.MethodPatch, "/api/v1/instances/inst_public/config", `{"providerPresetId":"deepseek","modelId":"new-model"}`)
 	res := httptest.NewRecorder()
 	handler.ServeHTTP(res, req)
@@ -135,7 +135,7 @@ func TestModelHTTPReturnsStableObservedIncompleteError(t *testing.T) {
 }
 
 func TestModelRoutesAdvertisePatchAndCorsPut(t *testing.T) {
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, &fakeModelsAPI{}, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, &fakeModelsAPI{}, "", nil)
 	options := httptest.NewRequest(http.MethodOptions, "/api/v1/instances/inst_public/config", nil)
 	options.Header.Set("Origin", "http://127.0.0.1:1420")
 	result := httptest.NewRecorder()
@@ -152,7 +152,7 @@ func TestModelCredentialHTTPIsMetadataOnlyWriteOnlyAndClosed(t *testing.T) {
 		configuration: app.ModelConfigurationView{ProviderPresetID: "deepseek", ModelID: "deepseek-v4-pro", State: yorvaruntime.ModelConfigurationConfigured, CredentialConfigured: true, ObservedAt: now},
 		credential:    app.ModelCredentialView{ProviderPresetID: "deepseek", Configured: true, ObservedAt: now},
 	}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "", nil)
 
 	get := authorizedRequest(http.MethodGet, "/api/v1/instances/inst_public/credentials/model-provider", "")
 	getResult := httptest.NewRecorder()
@@ -196,7 +196,7 @@ func TestModelCredentialHTTPAcceptsOpenAPIMaximumEscapedValue(t *testing.T) {
 		ProviderPresetID: "deepseek", ModelID: "deepseek-v4-pro", State: yorvaruntime.ModelConfigurationConfigured,
 		CredentialConfigured: true, ObservedAt: time.Now(),
 	}}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "", nil)
 	secret := strings.Repeat("\"", 16*1024)
 	payload, err := json.Marshal(map[string]string{
 		"providerPresetId": "deepseek",
@@ -222,7 +222,7 @@ func TestModelCredentialHTTPReturnsSafeIncompleteAfterWrite(t *testing.T) {
 		configuration: app.ModelConfigurationView{State: yorvaruntime.ModelConfigurationUnconfigured, ObservedAt: time.Now()},
 		err:           yorvaruntime.ErrModelConfigIncomplete,
 	}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "", nil)
 	payload := `{"providerPresetId":"deepseek","modelId":"deepseek-v4-pro","value":"` + secret + `"}`
 	result := httptest.NewRecorder()
 	handler.ServeHTTP(result, authorizedRequest(http.MethodPut, "/api/v1/instances/inst_public/credentials/model-provider", payload))
@@ -236,7 +236,7 @@ func TestModelCredentialHTTPReturnsSafeIncompleteAfterWrite(t *testing.T) {
 
 func TestModelValidationHTTPStartsExplicitOperationWithClosedBody(t *testing.T) {
 	models := &fakeModelsAPI{}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "", nil)
 
 	req := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_public/model-validation", `{}`)
 	req.Header.Set("Idempotency-Key", "validate-http")
@@ -273,7 +273,7 @@ func TestOperationCancelDispatchesModelValidationToInstanceModelService(t *testi
 	models := &fakeModelsAPI{}
 	operationValue := operation.Operation{ID: "op_validate", Type: operation.TypeModelValidate, TargetType: operation.TargetInstance, TargetID: "inst_public", Status: operation.StatusRunning, Stage: operation.StageModelValidate, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	installs := fakeInstallService{started: app.InstallStartResult{Operation: operationValue}}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, installs, models, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, installs, models, "", nil)
 	req := authorizedRequest(http.MethodPost, "/api/v1/operations/op_validate/cancel", "")
 	res := httptest.NewRecorder()
 	handler.ServeHTTP(res, req)

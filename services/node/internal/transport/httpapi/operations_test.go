@@ -52,7 +52,7 @@ func (f fakeInstallService) Cancel(context.Context, string) (operation.Operation
 }
 
 func TestInstallRequiresIdempotencyKeyAndRejectsCommandFields(t *testing.T) {
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, nil, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, nil, "", nil)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/runtimes/hermes/install", bytes.NewBufferString(`{"url":"https://evil"}`))
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("Content-Type", "application/json")
@@ -78,7 +78,7 @@ func TestOperationLogHTTPOmitsSentinelSecrets(t *testing.T) {
 	logger, closer := applog.New(nil, dataDir)
 	defer closer()
 	logger.Info("runtime install", "event", "source.archive.integrity", "operationId", "op_test", "errorCode", "RUNTIME_INSTALL_INTEGRITY_FAILED", "integrityMismatch", true)
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, nil, dataDir)
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, nil, dataDir, nil)
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/operations/op_test/log", nil)
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	response := httptest.NewRecorder()
@@ -95,7 +95,7 @@ func TestOperationLogHTTPOmitsSentinelSecrets(t *testing.T) {
 }
 
 func TestInstallStartGetAndCancel(t *testing.T) {
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, nil, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, fakeInstallService{started: testInstallOperation()}, nil, "", nil)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/runtimes/hermes/install", bytes.NewBufferString(`{}`))
 	request.Header.Set("Authorization", "Bearer "+testToken)
 	request.Header.Set("Idempotency-Key", "install-key")

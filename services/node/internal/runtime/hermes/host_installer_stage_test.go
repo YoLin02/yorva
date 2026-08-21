@@ -10,6 +10,7 @@ import (
 	"time"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
 func TestOptionalStageTimeoutDoesNotFailInstall(t *testing.T) {
@@ -24,7 +25,7 @@ func TestOptionalStageTimeoutDoesNotFailInstall(t *testing.T) {
 			return commandResult{timedOut: true}
 		},
 	}
-	if err := installer.runStage(context.Background(), "powershell", "install.ps1", "system-packages", "C:\\hermes", "C:\\hermes\\hermes-agent"); err != nil {
+	if err := installer.runStage(context.Background(), "powershell", "install.ps1", "system-packages", "C:\\hermes", "C:\\hermes\\hermes-agent", downloadsources.Default()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -35,7 +36,7 @@ func TestOptionalStageHardFailureDoesNotFailInstall(t *testing.T) {
 			return commandResult{stdout: "{\"stage\":\"system-packages\",\"ok\":false,\"skipped\":false}\n", exitCode: 1, err: errPlatform}
 		},
 	}
-	if err := installer.runStage(context.Background(), "powershell", "install.ps1", "system-packages", "C:\\hermes", "C:\\hermes\\hermes-agent"); err != nil {
+	if err := installer.runStage(context.Background(), "powershell", "install.ps1", "system-packages", "C:\\hermes", "C:\\hermes\\hermes-agent", downloadsources.Default()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -65,7 +66,7 @@ func TestRequiredStageTimeoutFailsInstall(t *testing.T) {
 			return commandResult{timedOut: true}
 		},
 	}
-	if err := installer.runStage(context.Background(), "powershell", "install.ps1", "python", "C:\\hermes", "C:\\hermes\\hermes-agent"); err == nil {
+	if err := installer.runStage(context.Background(), "powershell", "install.ps1", "python", "C:\\hermes", "C:\\hermes\\hermes-agent", downloadsources.Default()); err == nil {
 		t.Fatal("required stage timeout was ignored")
 	}
 }

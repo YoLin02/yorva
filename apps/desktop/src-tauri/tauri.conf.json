@@ -13,10 +13,11 @@
     "windows": [
       {
         "title": "Yorva",
-        "width": 1180,
-        "height": 780,
-        "minWidth": 980,
-        "minHeight": 640,
+        "width": 1080,
+        "height": 720,
+        "minWidth": 860,
+        "minHeight": 560,
+        "center": true,
         "resizable": true
       }
     ],

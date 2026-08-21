@@ -102,7 +102,7 @@ func TestListAndGetInstancesContract(t *testing.T) {
 			CreatedAt: now, UpdatedAt: now,
 		},
 	}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
 
 	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/runtimes/hermes/instances", nil)
 	listReq.Header.Set("Authorization", "Bearer "+testToken)
@@ -145,7 +145,7 @@ func TestLifecycleStatusAndMutationContracts(t *testing.T) {
 		view:      app.LifecycleView{State: yorvaruntime.LifecycleStopped, ObservedAt: now},
 		operation: operation.Operation{ID: "op_life", Type: operation.TypeInstanceStart, TargetType: operation.TargetInstance, TargetID: "inst_1", Status: operation.StatusPending, Stage: operation.StagePreflight, IdempotencyKey: "life-key", CreatedAt: now, UpdatedAt: now},
 	}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
 	statusReq := authorizedRequest(http.MethodGet, "/api/v1/instances/inst_1/lifecycle", "")
 	statusRes := httptest.NewRecorder()
 	handler.ServeHTTP(statusRes, statusReq)
@@ -182,7 +182,7 @@ func TestLifecycleStatusAndMutationContracts(t *testing.T) {
 }
 
 func TestListInstancesRequiresAuthAndRejectsUnknownRuntime(t *testing.T) {
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, fakeInstanceInventory{}, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, fakeInstanceInventory{}, "", nil)
 	unauth := httptest.NewRequest(http.MethodGet, "/api/v1/runtimes/hermes/instances", nil)
 	unauthRes := httptest.NewRecorder()
 	handler.ServeHTTP(unauthRes, unauth)
@@ -200,7 +200,7 @@ func TestListInstancesRequiresAuthAndRejectsUnknownRuntime(t *testing.T) {
 }
 
 func TestDeleteInstanceQueryFailureIsStableError(t *testing.T) {
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, fakeInstanceInventory{deleteErr: app.ErrInstanceQueryFailed}, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, fakeInstanceInventory{deleteErr: app.ErrInstanceQueryFailed}, "", nil)
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/instances/inst_1", strings.NewReader(`{"confirmationName":"coder"}`))
 	req.Header.Set("Authorization", "Bearer "+testToken)
 	req.Header.Set("Idempotency-Key", "del-query-fail")

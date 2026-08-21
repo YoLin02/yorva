@@ -71,7 +71,7 @@ func TestChannelRoutesAreTypedAndDoNotEchoSecrets(t *testing.T) {
 		views:     []app.ChannelView{{Type: channel.Weixin, State: channel.NotConfigured, LastCheckedAt: &now}},
 		operation: operation.Operation{ID: "op_channel", Type: operation.TypeChannelConnect, TargetType: operation.TargetInstance, TargetID: "inst_1", Status: operation.StatusPending, Stage: operation.StageChannelPreparing, CorrelationID: "cor_1", CreatedAt: now, UpdatedAt: now},
 	}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
 
 	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/instances/inst_1/channels", nil)
 	listRequest.Header.Set("Authorization", "Bearer "+testToken)
@@ -100,7 +100,7 @@ func TestChannelRoutesAreTypedAndDoNotEchoSecrets(t *testing.T) {
 func TestChannelQRRequiresInitiatingSessionAndIsNoStore(t *testing.T) {
 	expires := time.Now().UTC().Add(time.Minute)
 	inventory := &fakeChannelInventory{qrOwner: "desktop_session_owner_123456", qrPayload: app.ChannelQRPayload{Data: []byte("qr-source"), ExpiresAt: expires}}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
 
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/operations/op_1/channel-qr", nil)
 	request.Header.Set("Authorization", "Bearer "+testToken)
@@ -128,7 +128,7 @@ func TestChannelQRRequiresInitiatingSessionAndIsNoStore(t *testing.T) {
 func TestChannelPairingRoutesExposeOnlyCountAndApproveWithoutEcho(t *testing.T) {
 	checked := time.Date(2026, 8, 21, 9, 0, 0, 0, time.UTC)
 	inventory := &fakeChannelInventory{pairing: app.ChannelPairingView{PendingCount: 2, CheckedAt: checked}}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
 
 	statusRequest := httptest.NewRequest(http.MethodGet, "/api/v1/instances/inst_1/channels/weixin/pairings", nil)
 	statusRequest.Header.Set("Authorization", "Bearer "+testToken)
@@ -172,7 +172,7 @@ func TestChannelPairingApprovalMapsInvalidAndLockedWithoutEcho(t *testing.T) {
 				pairingErr = yorvaruntime.ErrChannelPairingLocked
 			}
 			inventory := &fakeChannelInventory{pairingErr: pairingErr}
-			handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "")
+			handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
 			request := httptest.NewRequest(http.MethodPost, "/api/v1/instances/inst_1/channels/weixin/pairings/approve", strings.NewReader(`{"code":"`+test.code+`"}`))
 			request.Header.Set("Authorization", "Bearer "+testToken)
 			response := httptest.NewRecorder()
