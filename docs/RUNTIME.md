@@ -162,10 +162,17 @@ type ChannelManager interface {
     ListChannels(ctx context.Context, installation Installation, nativeID string) ([]ChannelState, error)
     BeginConnect(ctx context.Context, installation Installation, nativeID string, req ChannelConnectRequest, events ChannelEventSink) error
     Disconnect(ctx context.Context, installation Installation, nativeID string, channel string) error
+    PairingStatus(ctx context.Context, installation Installation, nativeID string, channel string) (PairingStatus, error)
+    ApprovePairing(ctx context.Context, installation Installation, nativeID string, channel string, code SecretValue) error
 }
 ```
 
 QR and login state is emitted through the operation/event path. The adapter must not persist QR images as durable application data.
+
+Phase 6 sender pairing remains a small Channel capability rather than a generic identity
+or RBAC subsystem. Hermes `0.20.2` maps it to the official Profile-scoped pairing surface.
+Core receives only a pending count and a normalized approval result; Hermes request IDs,
+files, user rows and command output do not cross the adapter boundary.
 
 ### Skills / MCP / Backup
 

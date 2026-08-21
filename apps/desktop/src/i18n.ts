@@ -244,6 +244,21 @@ type Messages = {
     failureMessages: Record<string, string>;
     safeIdentity: string;
     noIdentity: string;
+    pairingTitle: string;
+    pairingDescription: string;
+    pairingChecking: string;
+    pendingPairings: string;
+    noPendingPairings: string;
+    pairingCode: string;
+    pairingCodePlaceholder: string;
+    approvePairing: string;
+    approvingPairing: string;
+    pairingApproved: string;
+    pairingInvalid: string;
+    pairingLocked: string;
+    pairingCheckFailed: string;
+    pairingApprovalFailed: string;
+    pairingRefresh: string;
     connecting: string;
 	disconnecting: string;
     revocationNote: string;
@@ -615,6 +630,21 @@ const english: Messages = {
     },
     safeIdentity: "Connected identity",
     noIdentity: "No verified identity",
+    pairingTitle: "Sender pairing",
+    pairingDescription: "When Weixin sends a pairing code, enter it here to approve this sender for the current instance.",
+    pairingChecking: "Checking pending requests…",
+    pendingPairings: "{count} pending pairing request(s)",
+    noPendingPairings: "No pending pairing requests",
+    pairingCode: "Pairing code",
+    pairingCodePlaceholder: "8-character code",
+    approvePairing: "Approve",
+    approvingPairing: "Approving…",
+    pairingApproved: "Sender approved. New messages can now reach Hermes.",
+    pairingInvalid: "The code is invalid, expired, or does not match a pending request.",
+    pairingLocked: "Approval is temporarily locked after too many failed attempts. Wait before retrying.",
+    pairingCheckFailed: "Pending pairing requests could not be checked. Refresh and try again.",
+    pairingApprovalFailed: "The pairing request could not be approved. Refresh and try again.",
+    pairingRefresh: "Refresh pairing requests",
     connecting: "Connecting",
 	disconnecting: "Disconnecting",
     revocationNote: "Disconnect removes only this instance's local Hermes binding. It does not delete or revoke the remote account or bot identity.",
@@ -997,6 +1027,21 @@ const simplifiedChinese: Messages = {
     },
     safeIdentity: "已连接身份",
     noIdentity: "尚无已验证身份",
+    pairingTitle: "发送者配对",
+    pairingDescription: "微信返回配对码后，在这里输入并批准，让该发送者可与当前实例中的 Hermes 对话。",
+    pairingChecking: "正在检查待配对请求…",
+    pendingPairings: "有 {count} 个待配对请求",
+    noPendingPairings: "当前没有待配对请求",
+    pairingCode: "配对码",
+    pairingCodePlaceholder: "输入 8 位配对码",
+    approvePairing: "批准配对",
+    approvingPairing: "正在批准…",
+    pairingApproved: "发送者已批准，现在发送的新消息可以到达 Hermes。",
+    pairingInvalid: "配对码无效、已过期，或与待处理请求不匹配。",
+    pairingLocked: "连续失败次数过多，配对批准已暂时锁定，请稍后再试。",
+    pairingCheckFailed: "无法检查待配对请求，请刷新后重试。",
+    pairingApprovalFailed: "未能批准配对请求，请刷新后重试。",
+    pairingRefresh: "刷新配对请求",
     connecting: "正在连接",
 	disconnecting: "正在断开",
     revocationNote: "断开连接只会移除此实例在 Hermes 中的本地绑定，不会删除或撤销远端账号或机器人身份。",

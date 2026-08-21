@@ -33,6 +33,8 @@ function channelClient(overrides: Partial<DaemonClient> = {}) {
     connectWeCom: vi.fn().mockResolvedValue({ id: "op_wecom", type: "channel.connect", targetType: "instance", targetId: "inst_coder", status: "PENDING", stage: "preparing", progress: null, message: "", errorCode: null, retryable: false, correlationId: "cor_1", createdAt: "2026-08-20T12:00:00Z", startedAt: null, completedAt: null, updatedAt: "2026-08-20T12:00:00Z" }),
     disconnectChannel: vi.fn(),
     getChannelQr: vi.fn(),
+    getWeixinPairingStatus: vi.fn().mockResolvedValue({ pendingCount: 0, checkedAt: "2026-08-20T12:00:00Z" }),
+    approveWeixinPairing: vi.fn().mockResolvedValue({ approved: true }),
     getOperation: vi.fn().mockResolvedValue({ id: "op_wecom", type: "channel.connect", targetType: "instance", targetId: "inst_coder", status: "PENDING", stage: "preparing", progress: null, message: "", errorCode: null, retryable: false, correlationId: "cor_1", createdAt: "2026-08-20T12:00:00Z", startedAt: null, completedAt: null, updatedAt: "2026-08-20T12:00:00Z" }),
     cancelOperation: vi.fn(),
     ...overrides,
@@ -100,5 +102,29 @@ describe("ChannelPanel", () => {
     expect(screen.getAllByText("CHANNEL_AUTH_CANCELLED").length).toBeGreaterThan(0);
     expect(screen.getByText("已取消")).toBeInTheDocument();
     expect(screen.queryByText(/^失败$/)).not.toBeInTheDocument();
+  });
+
+  it("approves a pending Weixin sender without retaining the pairing code", async () => {
+    const approveWeixinPairing = vi.fn().mockResolvedValue({ approved: true });
+    const client = channelClient({
+      listInstanceChannels: vi.fn().mockResolvedValue({ channels: [
+        { type: "weixin", state: "CONNECTED", accountLabel: "wechat-user", externalId: "wx-1", lastCheckedAt: "2026-08-20T12:00:00Z", activeOperationId: null },
+        { type: "wecom", state: "NOT_CONFIGURED", accountLabel: "", externalId: "", lastCheckedAt: "2026-08-20T12:00:00Z", activeOperationId: null },
+      ] }),
+      getWeixinPairingStatus: vi.fn().mockResolvedValue({ pendingCount: 1, checkedAt: "2026-08-20T12:00:00Z" }),
+      approveWeixinPairing,
+    });
+    renderPanel(client);
+
+    expect(await screen.findByText("有 1 个待配对请求")).toBeInTheDocument();
+    const input = screen.getByLabelText("配对码");
+    fireEvent.change(input, { target: { value: "abcd2345" } });
+    fireEvent.click(screen.getByRole("button", { name: "批准配对" }));
+
+    await waitFor(() => expect(approveWeixinPairing).toHaveBeenCalledWith("inst_coder", "ABCD2345"));
+    expect(await screen.findByText("发送者已批准，现在发送的新消息可以到达 Hermes。")).toBeInTheDocument();
+    expect(input).toHaveValue("");
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
   });
 });

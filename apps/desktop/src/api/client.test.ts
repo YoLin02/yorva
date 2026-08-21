@@ -136,4 +136,21 @@ describe("daemon client", () => {
 		expect(qrHeaders["Yorva-Session-Id"]).toBe(connectHeaders["Yorva-Session-Id"]);
 		expect(JSON.parse(String(connectInit.body))).toEqual({ botId: "bot-one", secret });
 	});
+
+  it("sends a pairing code only in the no-store approval body", async () => {
+    const code = "ABCD2345";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ approved: true }), { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createDaemonClient(session).approveWeixinPairing("inst_coder", code);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://127.0.0.1:49152/api/v1/instances/inst_coder/channels/weixin/pairings/approve");
+    expect(url).not.toContain(code);
+    expect(JSON.stringify(init.headers)).not.toContain(code);
+    expect(init.cache).toBe("no-store");
+    expect(JSON.parse(String(init.body))).toEqual({ code });
+  });
 });

@@ -53,6 +53,7 @@ Qualification evidence is recorded in `evidence/PHASE-006-BATCH-1-QUALIFICATION.
 - [x] **D7 — Ephemeral QR delivery.** Initiating-session-only delivery is approved. Shared SSE contains readiness metadata only.
 - [x] **D8 — Messaging dependency materialization.** The qualified installed bytes may be used. Missing bytes require a new ADR-0006 sealed generation and never an in-place repair.
 - [x] **D9 — Meaning of `CONNECTED`.** Channel `CONNECTED` means an authenticated binding was verified; lifecycle `RUNNING` independently means the gateway is online.
+- [x] **D10 — Sender pairing completion.** Owner direction on 2026-08-21 requires the normal Weixin path to list pending sender-pairing requests and approve the eight-character code in Desktop. Hermes-native pairing state remains authoritative; YORVA persists no code, request or grant copy.
 
 Any rejected decision must update the in-scope list, test matrix and exit criteria before implementation authorization.
 
@@ -140,6 +141,7 @@ Instance
 - safe Channel metadata persistence;
 - approved credential authority and redaction;
 - localized Desktop UX.
+- Weixin sender-pairing pending count and one-time code approval without a terminal.
 
 ### 6.4 Lifecycle-related crash/recovery UX moved from Phase 7
 
@@ -435,6 +437,8 @@ type ChannelManager interface {
     ListChannels(ctx context.Context, installation Installation, nativeID string) ([]ChannelState, error)
     BeginConnect(ctx context.Context, installation Installation, nativeID string, req ChannelConnectRequest, events ChannelEventSink) error
     Disconnect(ctx context.Context, installation Installation, nativeID string, channel string) error
+    PairingStatus(ctx context.Context, installation Installation, nativeID string, channel string) (PairingStatus, error)
+    ApprovePairing(ctx context.Context, installation Installation, nativeID string, channel string, code SecretValue) error
 }
 ```
 
@@ -601,6 +605,8 @@ Required Channel presentation:
 - unsupported Runtime/version and missing dependency explanations;
 - keyboard-accessible modal and status announcements;
 - no QR/token persistence in localStorage, sessionStorage or Zustand.
+- pending Weixin sender-pairing count, an eight-character pairing-code input and an explicit Approve action;
+- no pairing code in browser storage, query keys, error text, Operation rows, logs or durable YORVA state.
 
 TanStack Query owns daemon resources. Local React state may hold the currently displayed expiring QR only for the modal lifetime.
 
@@ -631,6 +637,10 @@ CHANNEL_AUTH_CANCELLED
 CHANNEL_STATE_UNKNOWN
 CHANNEL_DISCONNECT_FAILED
 CHANNEL_DEPENDENCY_MISSING
+CHANNEL_PAIRING_QUERY_FAILED
+CHANNEL_PAIRING_CODE_INVALID
+CHANNEL_PAIRING_LOCKED
+CHANNEL_PAIRING_APPROVAL_FAILED
 ```
 
 Public errors contain user-safe text only. Desktop behavior depends on codes and typed state, never message matching.
@@ -693,6 +703,13 @@ Public errors contain user-safe text only. Desktop behavior depends on codes and
 - collect immutable candidate evidence;
 - enter Phase 6 audit and stop feature work.
 
+### Batch 8A — Owner-required sender-pairing completion
+
+- add typed pending-count and approve-code APIs for Weixin only;
+- keep Hermes-native pairing data authoritative and Profile-exact;
+- add localized Desktop pending/request approval UX;
+- verify code redaction, invalid/expired code, lockout and cross-Profile isolation.
+
 No batch automatically authorizes the next. A blocking qualification, security or architecture finding stops execution.
 
 ## 25. Test Matrix
@@ -725,6 +742,10 @@ No batch automatically authorizes the next. A blocking qualification, security o
 | Channel credential redaction | no plaintext in DB/API/log/event/audit/diagnostics | security/integration |
 | Profile A vs Profile B | lifecycle and Channel actions never cross identity/secret scope | adapter/application |
 | Disconnect | only target Channel material removed; remote revocation truth is accurate | adapter/application/Desktop |
+| Weixin pending sender pairing | exact Profile pending count is shown without exposing code material | adapter/API/Desktop |
+| Valid Weixin pairing code | exact Profile grant is approved and the code is never persisted or returned | adapter/API/Desktop/security |
+| Invalid/expired pairing code | stable invalid-code error; no grant and no code disclosure | adapter/API/Desktop/security |
+| Pairing approval lockout | stable locked error; no bypass or retry loop | adapter/API/Desktop/security |
 | Sealed generation dependency attempt | in-place mutation rejected; approved new-generation path used | install/integrity |
 | Migration from Phase 5 DB | succeeds with uniqueness/FK and no secret columns | persistence |
 
@@ -797,6 +818,7 @@ Phase 6 can pass only when:
 - manual-only lifecycle and lifecycle recovery behave exactly as approved;
 - Desktop close does not stop managed Hermes gateways;
 - Weixin and the D6-approved WeCom path complete their mandatory auth flows;
+- a Weixin sender can complete the required Hermes pairing approval from Desktop without a terminal;
 - Channel and lifecycle status are both visible and semantically distinct;
 - no QR or channel credential plaintext appears in SQLite, logs, Operations, events, diagnostics or ordinary API responses;
 - no sealed generation was changed in place;
@@ -810,7 +832,7 @@ Phase 7 implementation remains prohibited until that freeze.
 
 Stop and return to Owner review if:
 
-- D3-D9 remain unresolved;
+- D3-D10 remain unresolved;
 - the official Hermes lifecycle surface cannot be made non-interactive, Profile-exact and fail-closed;
 - Start/Stop/Restart requires a generic shell or imports Hermes internals;
 - Windows service management requires hidden or automatic elevation;

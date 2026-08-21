@@ -258,6 +258,16 @@ Rules:
   localStorage, sessionStorage, Zustand or backups;
 - shared SSE may announce only the Operation ID and expiry metadata.
 
+Weixin sender-pairing codes are short-lived authorization proofs. They are accepted only
+in an authenticated loopback JSON body, validated against the fixed eight-character
+Hermes alphabet, held only for the synchronous approval call, and never returned,
+persisted, logged, placed in a URL/query key/event/Operation or copied into browser
+storage. Hermes `0.20.2` exposes approval through its official CLI but not stdin; the
+version-pinned adapter may therefore pass this one-time code as one fixed-position argv
+value to the exact validated Profile command. This narrow local-user tradeoff does not
+authorize channel tokens, Bot secrets, API keys, arbitrary arguments or a generic shell
+surface. Output is bounded, discarded after stable-result parsing and never exposed.
+
 Hermes `0.20.2` Channel integration is version-pinned. Weixin permits only the fixed
 qualified HTTPS iLink host, disables redirects, bounds responses to 64 KiB and fails
 closed on unknown states/hosts. WeCom permits only the fixed official WSS host and writes

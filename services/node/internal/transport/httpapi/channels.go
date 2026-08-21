@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/app"
@@ -17,11 +18,15 @@ import (
 
 const channelSessionHeader = "Yorva-Session-Id"
 
+var channelPairingCodePattern = regexp.MustCompile(`^[A-HJ-NP-Z2-9]{8}$`)
+
 type ChannelService interface {
 	ListChannels(context.Context, string) ([]app.ChannelView, error)
 	StartChannelConnect(context.Context, string, string, string, app.ChannelConnectInput) (app.InstallStartResult, error)
 	StartChannelDisconnect(context.Context, string, string, channel.Type) (app.InstallStartResult, error)
 	GetChannelQR(context.Context, string, string) (app.ChannelQRPayload, error)
+	GetChannelPairingStatus(context.Context, string, channel.Type) (app.ChannelPairingView, error)
+	ApproveChannelPairing(context.Context, string, channel.Type, []byte) error
 	CancelChannel(context.Context, string) (operation.Operation, error)
 }
 
@@ -41,6 +46,15 @@ type ChannelListResponse struct {
 type ChannelQRResponse struct {
 	Payload   string    `json:"payload"`
 	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+type ChannelPairingResponse struct {
+	PendingCount int       `json:"pendingCount"`
+	CheckedAt    time.Time `json:"checkedAt"`
+}
+
+type ChannelPairingApprovalResponse struct {
+	Approved bool `json:"approved"`
 }
 
 func listInstanceChannels(service ChannelService) http.Handler {
@@ -132,6 +146,70 @@ func getChannelQR(service ChannelService) http.Handler {
 	})
 }
 
+func getChannelPairingStatus(service ChannelService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if service == nil {
+			writeChannelUnsupported(w)
+			return
+		}
+		view, err := service.GetChannelPairingStatus(r.Context(), r.PathValue("instanceId"), channel.Type(r.PathValue("channelType")))
+		if err != nil {
+			writeChannelError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(ChannelPairingResponse{PendingCount: view.PendingCount, CheckedAt: view.CheckedAt})
+	})
+}
+
+func approveChannelPairing(service ChannelService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if service == nil {
+			writeChannelUnsupported(w)
+			return
+		}
+		code, err := decodePairingCode(r)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorChannelPairingCodeInvalid), Message: "The pairing code is invalid or expired."})
+			return
+		}
+		defer clearRequestSecret(code)
+		err = service.ApproveChannelPairing(r.Context(), r.PathValue("instanceId"), channel.Type(r.PathValue("channelType")), code)
+		if err != nil {
+			writeChannelError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(ChannelPairingApprovalResponse{Approved: true})
+	})
+}
+
+func decodePairingCode(r *http.Request) ([]byte, error) {
+	if r.Body == nil {
+		return nil, errors.New("missing body")
+	}
+	defer r.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(r.Body, 2049))
+	if err != nil || len(payload) == 0 || len(payload) > 2048 {
+		return nil, errors.New("invalid body")
+	}
+	defer clearRequestSecret(payload)
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	var body struct {
+		Code string `json:"code"`
+	}
+	if decoder.Decode(&body) != nil || !channelPairingCodePattern.MatchString(body.Code) {
+		return nil, errors.New("invalid body")
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return nil, errors.New("trailing body")
+	}
+	return []byte(body.Code), nil
+}
+
 func decodeChannelConnect(r *http.Request, kind channel.Type) (app.ChannelConnectInput, error) {
 	if kind == channel.Weixin {
 		if err := decodeClosedEmptyObject(r); err != nil {
@@ -173,6 +251,14 @@ func writeChannelError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorChannelConflict), Message: "Another lifecycle or channel operation is active."})
 	case errors.Is(err, app.ErrChannelSession):
 		writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_CHANNEL_SESSION", Message: "A valid initiating session is required."})
+	case errors.Is(err, yorvaruntime.ErrChannelPairingCode):
+		writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorChannelPairingCodeInvalid), Message: "The pairing code is invalid or expired."})
+	case errors.Is(err, yorvaruntime.ErrChannelPairingLocked):
+		writeError(w, http.StatusTooManyRequests, ErrorBody{Code: string(yorvaruntime.ErrorChannelPairingLocked), Message: "Pairing approval is temporarily locked after too many failed attempts."})
+	case errors.Is(err, yorvaruntime.ErrChannelPairingQuery):
+		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorChannelPairingQueryFailed), Message: "Pending pairing requests could not be checked.", Retryable: true})
+	case errors.Is(err, yorvaruntime.ErrChannelPairingApproval):
+		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorChannelPairingApprovalFailed), Message: "The pairing request could not be approved.", Retryable: true})
 	case errors.Is(err, app.ErrInstanceNotAvailable):
 		writeInstanceError(w, err)
 	case errors.Is(err, context.Canceled):

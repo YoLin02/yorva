@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useMemo, useState } from "react";
-import type { DaemonClient } from "../../api/client";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { YorvaApiError, type DaemonClient } from "../../api/client";
 import type { Channel, Instance, Operation } from "../../api/types";
 import type { AppMessages } from "../../i18n";
 import { Badge } from "../ui/Badge";
@@ -24,6 +24,9 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
   const [requestFailed, setRequestFailed] = useState(false);
   const [disconnectTarget, setDisconnectTarget] = useState<ChannelKind | null>(null);
   const [dismissedQrOperationId, setDismissedQrOperationId] = useState<string | null>(null);
+  const [pairingCode, setPairingCode] = useState("");
+  const [pairingApprovalState, setPairingApprovalState] = useState<"idle" | "submitting" | "approved">("idle");
+  const [pairingErrorCode, setPairingErrorCode] = useState<string | null>(null);
 
   const channelsQuery = useQuery({
     queryKey: ["instance-channels", instance.instanceId, client.scope],
@@ -58,6 +61,14 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
     enabled: activeKind === "weixin" && operationActive && operation?.stage === "channel.qr-ready",
     retry: false,
     refetchInterval: 2000,
+  });
+  const weixinConnected = channelsQuery.data?.channels.some((item) => item.type === "weixin" && item.state === "CONNECTED") ?? false;
+  const pairingQuery = useQuery({
+    queryKey: ["channel-pairings", instance.instanceId, client.scope],
+    queryFn: ({ signal }) => client.getWeixinPairingStatus(instance.instanceId, signal),
+    enabled: weixinConnected,
+    retry: false,
+    refetchInterval: weixinConnected ? 5000 : false,
   });
 
   useEffect(() => {
@@ -108,6 +119,26 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
     }
   };
 
+  const approvePairing = async () => {
+    const code = pairingCode.trim().toUpperCase();
+    if (!/^[A-HJ-NP-Z2-9]{8}$/.test(code)) {
+      setPairingErrorCode("CHANNEL_PAIRING_CODE_INVALID");
+      return;
+    }
+    setPairingApprovalState("submitting");
+    setPairingErrorCode(null);
+    try {
+      await client.approveWeixinPairing(instance.instanceId, code);
+      setPairingApprovalState("approved");
+      await pairingQuery.refetch();
+    } catch (error) {
+      setPairingApprovalState("idle");
+      setPairingErrorCode(error instanceof YorvaApiError ? error.code : "CHANNEL_PAIRING_APPROVAL_FAILED");
+    } finally {
+      setPairingCode("");
+    }
+  };
+
   const gatewayLabel = lifecycleQuery.data?.state === "RUNNING"
     ? copy.channels.gatewayRunning
     : lifecycleQuery.data?.state === "STOPPED"
@@ -149,6 +180,24 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
               onDisconnect={() => setDisconnectTarget(kind)}
               onCancel={() => { void cancel(); }}
               onRefresh={() => { void channelsQuery.refetch(); }}
+              pairingPanel={kind === "weixin" && state.state === "CONNECTED" ? (
+                <WeixinPairing
+                  code={pairingCode}
+                  pendingCount={pairingQuery.data?.pendingCount}
+                  checking={pairingQuery.isLoading || pairingQuery.isFetching}
+                  submitting={pairingApprovalState === "submitting"}
+                  approved={pairingApprovalState === "approved"}
+                  errorCode={pairingQuery.isError ? "CHANNEL_PAIRING_QUERY_FAILED" : pairingErrorCode}
+                  copy={copy}
+                  onCodeChange={(value) => {
+                    setPairingCode(value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, "").slice(0, 8));
+                    setPairingApprovalState("idle");
+                    setPairingErrorCode(null);
+                  }}
+                  onApprove={() => { void approvePairing(); }}
+                  onRefresh={() => { void pairingQuery.refetch(); }}
+                />
+              ) : null}
             />
           );
         })}
@@ -185,13 +234,14 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
   );
 }
 
-function ChannelCard({ kind, channel, operation, botId, secret, copy, onBotIdChange, onSecretChange, onConnect, onDisconnect, onCancel, onRefresh }: {
+function ChannelCard({ kind, channel, operation, botId, secret, copy, pairingPanel, onBotIdChange, onSecretChange, onConnect, onDisconnect, onCancel, onRefresh }: {
   kind: ChannelKind;
   channel: Channel;
   operation?: Operation;
   botId: string;
   secret: string;
   copy: AppMessages;
+  pairingPanel?: ReactNode;
   onBotIdChange: (value: string) => void;
   onSecretChange: (value: string) => void;
   onConnect: () => void;
@@ -221,6 +271,7 @@ function ChannelCard({ kind, channel, operation, botId, secret, copy, onBotIdCha
         <strong>{channel.accountLabel || channel.externalId || copy.channels.noIdentity}</strong>
       </div>
       {isFailed(operation) ? <ChannelOperationAlert operation={operation!} copy={copy} compact /> : null}
+      {pairingPanel}
       {kind === "wecom" && !connected ? (
         <div className="channel-fields">
           <label>{copy.channels.botId}<input value={botId} onChange={(event) => onBotIdChange(event.target.value)} placeholder={copy.channels.botIdPlaceholder} disabled={busy} autoComplete="off" /></label>
@@ -235,6 +286,69 @@ function ChannelCard({ kind, channel, operation, botId, secret, copy, onBotIdCha
       </div>
     </article>
   );
+}
+
+function WeixinPairing({ code, pendingCount, checking, submitting, approved, errorCode, copy, onCodeChange, onApprove, onRefresh }: {
+  code: string;
+  pendingCount: number | undefined;
+  checking: boolean;
+  submitting: boolean;
+  approved: boolean;
+  errorCode: string | null;
+  copy: AppMessages;
+  onCodeChange: (value: string) => void;
+  onApprove: () => void;
+  onRefresh: () => void;
+}) {
+  const message = errorCode ? pairingErrorMessage(errorCode, copy) : null;
+  return (
+    <section className="channel-pairing" aria-labelledby="weixin-pairing-title">
+      <div className="channel-pairing-heading">
+        <div>
+          <h4 id="weixin-pairing-title">{copy.channels.pairingTitle}</h4>
+          <p>{copy.channels.pairingDescription}</p>
+        </div>
+        <button type="button" className="channel-pairing-refresh" onClick={onRefresh} disabled={checking} aria-label={copy.channels.pairingRefresh}><IconRefresh /></button>
+      </div>
+      <p className="channel-pairing-count" role="status">
+        {checking && pendingCount === undefined
+          ? copy.channels.pairingChecking
+          : pendingCount === 0
+            ? copy.channels.noPendingPairings
+            : copy.channels.pendingPairings.replace("{count}", String(pendingCount ?? 0))}
+      </p>
+      <label className="channel-pairing-field">
+        <span>{copy.channels.pairingCode}</span>
+        <div>
+          <input
+            value={code}
+            onChange={(event) => onCodeChange(event.target.value)}
+            placeholder={copy.channels.pairingCodePlaceholder}
+            maxLength={8}
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            inputMode="text"
+            disabled={submitting}
+          />
+          <Button variant="primary" onClick={onApprove} disabled={submitting || code.length !== 8}>
+            {submitting ? copy.channels.approvingPairing : copy.channels.approvePairing}
+          </Button>
+        </div>
+      </label>
+      {approved ? <p className="channel-pairing-feedback is-success">{copy.channels.pairingApproved}</p> : null}
+      {message ? <p className="channel-pairing-feedback is-error" role="alert">{message}</p> : null}
+    </section>
+  );
+}
+
+function pairingErrorMessage(code: string, copy: AppMessages): string {
+  switch (code) {
+    case "CHANNEL_PAIRING_CODE_INVALID": return copy.channels.pairingInvalid;
+    case "CHANNEL_PAIRING_LOCKED": return copy.channels.pairingLocked;
+    case "CHANNEL_PAIRING_QUERY_FAILED": return copy.channels.pairingCheckFailed;
+    default: return copy.channels.pairingApprovalFailed;
+  }
 }
 
 function WeixinQrModal({ qr, operation, copy, onCancel, onDismiss }: {

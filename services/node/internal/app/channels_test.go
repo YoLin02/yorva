@@ -40,6 +40,14 @@ func (f *fakeChannelManager) Disconnect(context.Context, yorvaruntime.ChannelIns
 	return yorvaruntime.ChannelStatus{Type: channel.Weixin, State: channel.NotConfigured}, nil
 }
 
+func (f *fakeChannelManager) PairingStatus(context.Context, yorvaruntime.ChannelInstallation, string, channel.Type) (yorvaruntime.ChannelPairingStatus, error) {
+	return yorvaruntime.ChannelPairingStatus{PendingCount: 1}, nil
+}
+
+func (f *fakeChannelManager) ApprovePairing(context.Context, yorvaruntime.ChannelInstallation, string, channel.Type, []byte) error {
+	return nil
+}
+
 func TestChannelQRIsAvailableOnlyToInitiatingSessionAndClearedOnCancel(t *testing.T) {
 	manager := &fakeChannelManager{
 		statuses: []yorvaruntime.ChannelStatus{{Type: channel.Weixin, State: channel.NotConfigured}, {Type: channel.WeCom, State: channel.NotConfigured}},

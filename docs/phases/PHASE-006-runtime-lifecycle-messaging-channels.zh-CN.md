@@ -53,6 +53,7 @@ Owner 已于 2026-08-20 批准以下方向：
 - [x] **D7 — 短时 QR 投递。** 批准仅限发起 session 的投递；共享 SSE 只含 readiness 元数据。
 - [x] **D8 — 消息依赖物化。** 可使用已资格确认的安装字节；若缺少依赖，必须创建新的 ADR-0006 sealed generation，禁止原地修复。
 - [x] **D9 — `CONNECTED` 的含义。** Channel `CONNECTED` 表示 binding 已通过认证验证；lifecycle `RUNNING` 独立表示 gateway 在线。
+- [x] **D10 — 消息发送者配对闭环。** Owner 于 2026-08-21 要求微信正常流程能够在 Desktop 查看待配对数量并批准八位一次性配对码。Hermes-native pairing 状态仍为唯一权威；YORVA 不持久化配对码、请求或授权副本。
 
 任何被拒绝的决策都必须在授权实现前同步修改 in-scope、测试矩阵和退出标准。
 
@@ -140,6 +141,7 @@ Instance
 - 安全 Channel metadata 持久化；
 - 获批 credential authority 与 redaction；
 - 本地化 Desktop UX。
+- 无需终端的微信发送者待配对数量与一次性配对码批准。
 
 ### 6.4 从 Phase 7 前移的生命周期 crash/recovery UX
 
@@ -435,6 +437,8 @@ type ChannelManager interface {
     ListChannels(ctx context.Context, installation Installation, nativeID string) ([]ChannelState, error)
     BeginConnect(ctx context.Context, installation Installation, nativeID string, req ChannelConnectRequest, events ChannelEventSink) error
     Disconnect(ctx context.Context, installation Installation, nativeID string, channel string) error
+    PairingStatus(ctx context.Context, installation Installation, nativeID string, channel string) (PairingStatus, error)
+    ApprovePairing(ctx context.Context, installation Installation, nativeID string, channel string, code SecretValue) error
 }
 ```
 
@@ -601,6 +605,8 @@ Lifecycle UX 在实现顺序上先于 Channel UX。
 - unsupported Runtime/version 与 missing dependency 提示；
 - keyboard-accessible modal 与 status announcement；
 - 不在 localStorage、sessionStorage 或 Zustand 持久化 QR/token。
+- 显示微信发送者待配对数量、八位配对码输入与显式批准操作；
+- 配对码不得进入浏览器存储、query key、错误文本、Operation、日志或任何 YORVA 持久状态。
 
 TanStack Query 持有 daemon resource。React local state 只可在 modal lifetime 内保存当前显示的短时 QR。
 
@@ -631,6 +637,10 @@ CHANNEL_AUTH_CANCELLED
 CHANNEL_STATE_UNKNOWN
 CHANNEL_DISCONNECT_FAILED
 CHANNEL_DEPENDENCY_MISSING
+CHANNEL_PAIRING_QUERY_FAILED
+CHANNEL_PAIRING_CODE_INVALID
+CHANNEL_PAIRING_LOCKED
+CHANNEL_PAIRING_APPROVAL_FAILED
 ```
 
 Public error 只包含 user-safe text。Desktop behavior 依赖 error code 和 typed state，绝不匹配 message。
@@ -693,6 +703,13 @@ Public error 只包含 user-safe text。Desktop behavior 依赖 error code 和 t
 - 收集 immutable candidate evidence；
 - 进入 Phase 6 audit 并停止 feature work。
 
+### Batch 8A — Owner 要求的发送者配对闭环
+
+- 仅为微信添加 typed 待配对数量和批准配对码 API；
+- 保持 Hermes-native pairing 数据为权威并严格限定 Profile；
+- 增加本地化 Desktop 待配对/批准 UX；
+- 验证配对码脱敏、无效/过期、锁定与跨 Profile 隔离。
+
 任何 batch 都不会自动授权下一批。出现阻塞 qualification、security 或 architecture finding 时停止执行。
 
 ## 25. 测试矩阵
@@ -725,6 +742,10 @@ Public error 只包含 user-safe text。Desktop behavior 依赖 error code 和 t
 | Channel credential redaction | DB/API/log/event/audit/diagnostics 无 plaintext | security/integration |
 | Profile A vs Profile B | lifecycle 与 Channel action 不跨 identity/secret scope | adapter/application |
 | Disconnect | 只移除目标 Channel material；remote revoke truth 准确 | adapter/application/Desktop |
+| 微信发送者待配对 | 显示准确 Profile 的待配对数量，不暴露配对码材料 | adapter/API/Desktop |
+| 有效微信配对码 | 批准准确 Profile 的授权，配对码不持久化也不返回 | adapter/API/Desktop/security |
+| 无效/过期配对码 | 稳定无效码错误，不产生授权且不泄漏输入 | adapter/API/Desktop/security |
+| 配对批准锁定 | 稳定锁定错误，不绕过、不自动重试 | adapter/API/Desktop/security |
 | Sealed generation dependency attempt | 原地 mutation 被拒；使用获批 new-generation path | install/integrity |
 | 从 Phase 5 DB migration | uniqueness/FK 正确且无 secret column | persistence |
 
@@ -797,6 +818,7 @@ Phase 6 只有在以下条件全部满足时才可通过：
 - 仅手动 lifecycle 和 lifecycle recovery 严格按获批方案工作；
 - 关闭 Desktop 不停止已管理的 Hermes gateway；
 - Weixin 与 D6 获批的 WeCom path 完成 mandatory auth flow；
+- 微信发送者可在 Desktop 完成 Hermes 要求的配对批准，无需终端；
 - Channel 与 lifecycle status 均可见，且语义相互独立；
 - SQLite、log、Operation、event、diagnostics 或普通 API response 中无 QR 或 channel credential plaintext；
 - 未原地改变 sealed generation；
@@ -810,7 +832,7 @@ Phase 6 只有在以下条件全部满足时才可通过：
 
 出现以下任一情况时停止并返回 Owner review：
 
-- D3-D9 仍未解决；
+- D3-D10 仍未解决；
 - official Hermes lifecycle surface 无法做到 non-interactive、Profile-exact 和 fail-closed；
 - Start/Stop/Restart 需要 generic shell 或 import Hermes internals；
 - Windows service management 需要 hidden 或 automatic elevation；

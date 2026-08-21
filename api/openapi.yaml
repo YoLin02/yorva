@@ -1138,6 +1138,106 @@ paths:
           $ref: "#/components/responses/PreflightAccepted"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /api/v1/instances/{instanceId}/channels/{channelType}/pairings:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/ChannelType"
+    get:
+      operationId: getChannelPairingStatus
+      summary: Check the pending sender-pairing count for one Instance Channel
+      description: P6 supports this resource for Weixin only. Sender identities and pairing codes are never returned.
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The current safe pending-pairing projection.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelPairingStatus"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsChannelPairingStatus
+      summary: Validate CORS access for Channel pairing state
+      tags: [Channels]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /api/v1/instances/{instanceId}/channels/{channelType}/pairings/approve:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/ChannelType"
+    post:
+      operationId: approveChannelPairing
+      summary: Approve one pending sender-pairing request with its one-time code
+      description: P6 supports this mutation for Weixin only. The code is never persisted, logged, returned, or placed in a URL.
+      tags: [Channels]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChannelPairingApproveRequest"
+      responses:
+        "200":
+          description: The sender pairing was approved.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChannelPairingApproval"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          description: Pairing approval is temporarily locked after repeated failures.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsApproveChannelPairing
+      summary: Validate CORS access for Channel pairing approval
+      tags: [Channels]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /api/v1/operations/{operationId}/channel-qr:
     parameters:
       - $ref: "#/components/parameters/OperationId"
@@ -1539,6 +1639,37 @@ components:
         expiresAt:
           type: string
           format: date-time
+    ChannelPairingStatus:
+      type: object
+      additionalProperties: false
+      required: [pendingCount, checkedAt]
+      properties:
+        pendingCount:
+          type: integer
+          minimum: 0
+          maximum: 1000
+        checkedAt:
+          type: string
+          format: date-time
+    ChannelPairingApproveRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 8
+          maxLength: 8
+          pattern: "^[A-HJ-NP-Z2-9]{8}$"
+          writeOnly: true
+    ChannelPairingApproval:
+      type: object
+      additionalProperties: false
+      required: [approved]
+      properties:
+        approved:
+          type: boolean
+          const: true
     InstanceDeleteRequest:
       type: object
       additionalProperties: false

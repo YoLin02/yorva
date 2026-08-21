@@ -1,4 +1,4 @@
-import type { ChannelList, ChannelQr, DaemonSession, ErrorResponse, Health, Instance, InstanceList, ModelConfiguration, ModelCredential, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
+import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, Instance, InstanceList, ModelConfiguration, ModelCredential, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -152,6 +152,19 @@ export function createDaemonClient(session: DaemonSession) {
       request<ChannelQr>(`/api/v1/operations/${encodeURIComponent(operationId)}/channel-qr`, {
         signal: withDesktopTimeout(signal),
         headers: { "Yorva-Session-Id": channelSessionId },
+      }),
+    getWeixinPairingStatus: (instanceId: string, signal?: AbortSignal) =>
+      request<ChannelPairingStatus>(`/api/v1/instances/${encodeURIComponent(instanceId)}/channels/weixin/pairings`, {
+        signal: withDesktopTimeout(signal),
+        cache: "no-store",
+      }),
+    approveWeixinPairing: (instanceId: string, code: string, signal?: AbortSignal) =>
+      request<ChannelPairingApproval>(`/api/v1/instances/${encodeURIComponent(instanceId)}/channels/weixin/pairings/approve`, {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
       }),
     deleteInstance: (instanceId: string, confirmationName: string, idempotencyKey: string, signal?: AbortSignal) =>
       request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}`, {

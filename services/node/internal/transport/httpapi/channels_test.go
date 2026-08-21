@@ -13,6 +13,7 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/app"
 	"github.com/YoLin02/yorva/services/node/internal/domain/channel"
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
 type fakeChannelInventory struct {
@@ -24,6 +25,9 @@ type fakeChannelInventory struct {
 	qrOwner      string
 	qrPayload    app.ChannelQRPayload
 	disconnected channel.Type
+	pairing      app.ChannelPairingView
+	pairingCode  []byte
+	pairingErr   error
 }
 
 func (f *fakeChannelInventory) ListChannels(context.Context, string) ([]app.ChannelView, error) {
@@ -46,6 +50,15 @@ func (f *fakeChannelInventory) GetChannelQR(_ context.Context, _ string, owner s
 		return app.ChannelQRPayload{}, errors.New("not owner")
 	}
 	return f.qrPayload, nil
+}
+
+func (f *fakeChannelInventory) GetChannelPairingStatus(context.Context, string, channel.Type) (app.ChannelPairingView, error) {
+	return f.pairing, f.pairingErr
+}
+
+func (f *fakeChannelInventory) ApproveChannelPairing(_ context.Context, _ string, _ channel.Type, code []byte) error {
+	f.pairingCode = append([]byte(nil), code...)
+	return f.pairingErr
 }
 
 func (f *fakeChannelInventory) CancelChannel(context.Context, string) (operation.Operation, error) {
@@ -109,5 +122,67 @@ func TestChannelQRRequiresInitiatingSessionAndIsNoStore(t *testing.T) {
 	handler.ServeHTTP(denied, other)
 	if denied.Code != http.StatusNotFound || strings.Contains(denied.Body.String(), "qr-source") {
 		t.Fatalf("non-owner response = %d %s", denied.Code, denied.Body.String())
+	}
+}
+
+func TestChannelPairingRoutesExposeOnlyCountAndApproveWithoutEcho(t *testing.T) {
+	checked := time.Date(2026, 8, 21, 9, 0, 0, 0, time.UTC)
+	inventory := &fakeChannelInventory{pairing: app.ChannelPairingView{PendingCount: 2, CheckedAt: checked}}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "")
+
+	statusRequest := httptest.NewRequest(http.MethodGet, "/api/v1/instances/inst_1/channels/weixin/pairings", nil)
+	statusRequest.Header.Set("Authorization", "Bearer "+testToken)
+	statusResponse := httptest.NewRecorder()
+	handler.ServeHTTP(statusResponse, statusRequest)
+	if statusResponse.Code != http.StatusOK || statusResponse.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("status = %d headers=%v body=%s", statusResponse.Code, statusResponse.Header(), statusResponse.Body.String())
+	}
+	var status ChannelPairingResponse
+	if err := json.Unmarshal(statusResponse.Body.Bytes(), &status); err != nil || status.PendingCount != 2 || !status.CheckedAt.Equal(checked) {
+		t.Fatalf("pairing status = %#v, %v", status, err)
+	}
+
+	const code = "ABCD2345"
+	approveRequest := httptest.NewRequest(http.MethodPost, "/api/v1/instances/inst_1/channels/weixin/pairings/approve", strings.NewReader(`{"code":"`+code+`"}`))
+	approveRequest.Header.Set("Authorization", "Bearer "+testToken)
+	approveRequest.Header.Set("Content-Type", "application/json")
+	approveResponse := httptest.NewRecorder()
+	handler.ServeHTTP(approveResponse, approveRequest)
+	if approveResponse.Code != http.StatusOK || approveResponse.Header().Get("Cache-Control") != "no-store" || strings.Contains(approveResponse.Body.String(), code) {
+		t.Fatalf("approve = %d headers=%v body=%s", approveResponse.Code, approveResponse.Header(), approveResponse.Body.String())
+	}
+	if string(inventory.pairingCode) != code {
+		t.Fatalf("pairing code = %q", inventory.pairingCode)
+	}
+}
+
+func TestChannelPairingApprovalMapsInvalidAndLockedWithoutEcho(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		err  error
+		want int
+		code string
+	}{
+		{name: "invalid", err: errors.New("unused"), want: http.StatusBadRequest, code: "short"},
+		{name: "locked", err: errors.New("locked wrapper: " + yorvaruntime.ErrChannelPairingLocked.Error()), want: http.StatusServiceUnavailable, code: "ABCD2345"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			pairingErr := test.err
+			if test.name == "locked" {
+				pairingErr = yorvaruntime.ErrChannelPairingLocked
+			}
+			inventory := &fakeChannelInventory{pairingErr: pairingErr}
+			handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "")
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/instances/inst_1/channels/weixin/pairings/approve", strings.NewReader(`{"code":"`+test.code+`"}`))
+			request.Header.Set("Authorization", "Bearer "+testToken)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if test.name == "locked" {
+				test.want = http.StatusTooManyRequests
+			}
+			if response.Code != test.want || strings.Contains(response.Body.String(), test.code) {
+				t.Fatalf("response = %d %s", response.Code, response.Body.String())
+			}
+		})
 	}
 }

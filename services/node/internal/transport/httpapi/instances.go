@@ -368,6 +368,18 @@ func instancePathKind(path string) string {
 		if strings.Contains(rest, "/channels/") {
 			instanceID, tail, ok := strings.Cut(rest, "/channels/")
 			if instanceID != "" && ok && !strings.Contains(instanceID, "/") {
+				if strings.HasSuffix(tail, "/pairings/approve") {
+					kind := strings.TrimSuffix(tail, "/pairings/approve")
+					if kind != "" && !strings.Contains(kind, "/") {
+						return "channel-pairing-approve"
+					}
+				}
+				if strings.HasSuffix(tail, "/pairings") {
+					kind := strings.TrimSuffix(tail, "/pairings")
+					if kind != "" && !strings.Contains(kind, "/") {
+						return "channel-pairings"
+					}
+				}
 				if strings.HasSuffix(tail, "/connect") {
 					kind := strings.TrimSuffix(tail, "/connect")
 					if kind != "" && !strings.Contains(kind, "/") {

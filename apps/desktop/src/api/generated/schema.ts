@@ -481,6 +481,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/channels/{channelType}/pairings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Check the pending sender-pairing count for one Instance Channel
+         * @description P6 supports this resource for Weixin only. Sender identities and pairing codes are never returned.
+         */
+        get: operations["getChannelPairingStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Channel pairing state */
+        options: operations["optionsChannelPairingStatus"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/channels/{channelType}/pairings/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve one pending sender-pairing request with its one-time code
+         * @description P6 supports this mutation for Weixin only. The code is never persisted, logged, returned, or placed in a URL.
+         */
+        post: operations["approveChannelPairing"];
+        delete?: never;
+        /** Validate CORS access for Channel pairing approval */
+        options: operations["optionsApproveChannelPairing"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/operations/{operationId}/channel-qr": {
         parameters: {
             query?: never;
@@ -621,6 +669,18 @@ export interface components {
             payload: string;
             /** Format: date-time */
             expiresAt: string;
+        };
+        ChannelPairingStatus: {
+            pendingCount: number;
+            /** Format: date-time */
+            checkedAt: string;
+        };
+        ChannelPairingApproveRequest: {
+            code: string;
+        };
+        ChannelPairingApproval: {
+            /** @constant */
+            approved: true;
         };
         InstanceDeleteRequest: {
             confirmationName: string;
@@ -1997,6 +2057,110 @@ export interface operations {
         };
     };
     optionsDisconnectInstanceChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getChannelPairingStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current safe pending-pairing projection. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelPairingStatus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsChannelPairingStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    approveChannelPairing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                channelType: components["parameters"]["ChannelType"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChannelPairingApproveRequest"];
+            };
+        };
+        responses: {
+            /** @description The sender pairing was approved. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelPairingApproval"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            /** @description Pairing approval is temporarily locked after repeated failures. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsApproveChannelPairing: {
         parameters: {
             query?: never;
             header?: never;

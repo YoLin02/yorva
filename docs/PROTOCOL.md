@@ -213,6 +213,8 @@ GET  /api/v1/instances/{instanceId}/channels
 POST /api/v1/instances/{instanceId}/channels/{channel}/connect
 DELETE /api/v1/instances/{instanceId}/channels/{channel}
 GET  /api/v1/operations/{operationId}/channel-qr
+GET  /api/v1/instances/{instanceId}/channels/weixin/pairings
+POST /api/v1/instances/{instanceId}/channels/weixin/pairings/approve
 ```
 
 Phase 6 supports the closed Channel identifiers `weixin` and `wecom`. Connect and
@@ -233,6 +235,12 @@ memory only and complements bearer authentication; it is not a replacement crede
 The response is `Cache-Control: no-store`, bounded to 8 KiB and explicitly expiring.
 Shared SSE publishes only `channel.qr.ready` with `operationId` and `expiresAt`; QR
 content is never included or replayed.
+
+The pairing status response exposes only `pendingCount` and `checkedAt`; it does not expose
+pairing codes, request IDs or sender identifiers. Approval accepts exactly
+`{ "code": "XXXXXXXX" }`, where the code is the eight-character value delivered by the
+bot. The code is write-only, is never echoed, and is not placed in URLs, logs, Operations,
+events or durable YORVA state. These endpoints are Weixin-only in Phase 6.
 
 ### Runtime installation
 

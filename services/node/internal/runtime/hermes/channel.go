@@ -13,6 +13,7 @@ type ChannelManager struct {
 	credentials channelCredentialStore
 	weixin      *weixinClient
 	verifyWeCom func(context.Context, string, []byte) error
+	runPairing  func(context.Context, string, []string) commandResult
 }
 
 func NewChannelManager() *ChannelManager {
@@ -20,6 +21,7 @@ func NewChannelManager() *ChannelManager {
 		credentials: newChannelCredentialStore(),
 		weixin:      newWeixinClient(),
 		verifyWeCom: verifyWeComCredentials,
+		runPairing:  runChannelPairingCommand,
 	}
 }
 

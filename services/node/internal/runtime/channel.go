@@ -36,10 +36,16 @@ type ChannelEventSink interface {
 	Publish(ChannelEvent) error
 }
 
+type ChannelPairingStatus struct {
+	PendingCount int
+}
+
 type ChannelManager interface {
 	ListChannels(context.Context, ChannelInstallation, string) ([]ChannelStatus, error)
 	BeginConnect(context.Context, ChannelInstallation, string, ChannelConnectRequest, ChannelEventSink) (ChannelStatus, error)
 	Disconnect(context.Context, ChannelInstallation, string, channel.Type) (ChannelStatus, error)
+	PairingStatus(context.Context, ChannelInstallation, string, channel.Type) (ChannelPairingStatus, error)
+	ApprovePairing(context.Context, ChannelInstallation, string, channel.Type, []byte) error
 }
 
 var (
@@ -49,4 +55,8 @@ var (
 	ErrChannelAuthTimeout      = errors.New("channel authentication timed out")
 	ErrChannelDependency       = errors.New("channel dependency is missing")
 	ErrChannelDisconnectFailed = errors.New("channel disconnect failed")
+	ErrChannelPairingQuery     = errors.New("channel pairing query failed")
+	ErrChannelPairingCode      = errors.New("channel pairing code is invalid or expired")
+	ErrChannelPairingLocked    = errors.New("channel pairing approval is locked")
+	ErrChannelPairingApproval  = errors.New("channel pairing approval failed")
 )

@@ -49,6 +49,15 @@ The following rules are mandatory:
 - source and destination files are rejected when their safe-path and reparse-point checks
   fail.
 
+Owner amendment 2026-08-21 adds the missing sender-pairing completion path. Hermes-native
+Profile pairing state remains the sole authority. YORVA may query only a normalized pending
+count and approve only a Weixin eight-character one-time code. Hermes `0.20.2` has a
+documented official pairing CLI and Dashboard API, but the Dashboard is not part of a
+normal gateway process and the CLI has no stdin form. The pinned adapter may pass the
+validated one-time code in the fixed final argv position to the exact Profile-scoped
+`pairing approve weixin` command. The code is never persisted, returned or logged, and this
+exception does not apply to reusable channel credentials or arbitrary CLI input.
+
 This is the same explicit local-user at-rest tradeoff as ADR-0007: Hermes-native files may
 not provide an OS credential vault. YORVA does not describe them as OS-secure and does not
 broaden the exception beyond these exact channel fields and pinned storage contracts.

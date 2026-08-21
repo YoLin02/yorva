@@ -35,6 +35,11 @@ type ChannelConnectInput struct {
 	Secret []byte
 }
 
+type ChannelPairingView struct {
+	PendingCount int
+	CheckedAt    time.Time
+}
+
 type channelEventSink struct {
 	inventory   *InstanceInventory
 	operationID string
@@ -118,6 +123,36 @@ func (s *InstanceInventory) ListChannels(ctx context.Context, instanceID string)
 		views = append(views, view)
 	}
 	return views, nil
+}
+
+func (s *InstanceInventory) GetChannelPairingStatus(ctx context.Context, instanceID string, kind channel.Type) (ChannelPairingView, error) {
+	row, manager, installation, err := s.resolveChannelTarget(ctx, instanceID)
+	if err != nil {
+		return ChannelPairingView{}, err
+	}
+	status, err := manager.PairingStatus(ctx, installation, row.NativeID, kind)
+	if err != nil {
+		if errors.Is(err, yorvaruntime.ErrChannelNotSupported) {
+			return ChannelPairingView{}, ErrChannelNotSupported
+		}
+		return ChannelPairingView{}, err
+	}
+	return ChannelPairingView{PendingCount: status.PendingCount, CheckedAt: s.now()}, nil
+}
+
+func (s *InstanceInventory) ApproveChannelPairing(ctx context.Context, instanceID string, kind channel.Type, code []byte) error {
+	defer clearBytes(code)
+	row, manager, installation, err := s.resolveChannelTarget(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+	if err := manager.ApprovePairing(ctx, installation, row.NativeID, kind, code); err != nil {
+		if errors.Is(err, yorvaruntime.ErrChannelNotSupported) {
+			return ErrChannelNotSupported
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *InstanceInventory) StartChannelConnect(ctx context.Context, instanceID, idempotencyKey, owner string, input ChannelConnectInput) (InstallStartResult, error) {

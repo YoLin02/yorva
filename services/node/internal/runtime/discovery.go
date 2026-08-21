@@ -104,6 +104,10 @@ const (
 	ErrorChannelStateUnknown          ErrorCode = "CHANNEL_STATE_UNKNOWN"
 	ErrorChannelDisconnectFailed      ErrorCode = "CHANNEL_DISCONNECT_FAILED"
 	ErrorChannelDependencyMissing     ErrorCode = "CHANNEL_DEPENDENCY_MISSING"
+	ErrorChannelPairingQueryFailed    ErrorCode = "CHANNEL_PAIRING_QUERY_FAILED"
+	ErrorChannelPairingCodeInvalid    ErrorCode = "CHANNEL_PAIRING_CODE_INVALID"
+	ErrorChannelPairingLocked         ErrorCode = "CHANNEL_PAIRING_LOCKED"
+	ErrorChannelPairingApprovalFailed ErrorCode = "CHANNEL_PAIRING_APPROVAL_FAILED"
 )
 
 type Candidate struct {

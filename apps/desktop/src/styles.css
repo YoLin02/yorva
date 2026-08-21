@@ -1649,6 +1649,104 @@ p {
   white-space: nowrap;
 }
 
+.channel-pairing {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid #dce8e2;
+  border-radius: 11px;
+  background: #f8fbf9;
+}
+
+.channel-pairing-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.channel-pairing-heading h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.channel-pairing-heading p,
+.channel-pairing-count,
+.channel-pairing-feedback {
+  margin: 0;
+  color: var(--yorva-text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.channel-pairing-refresh {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border: 1px solid var(--yorva-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--yorva-text-muted);
+  cursor: pointer;
+}
+
+.channel-pairing-refresh:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.channel-pairing-count {
+  color: #237655;
+  font-weight: 560;
+}
+
+.channel-pairing-field {
+  display: grid;
+  gap: 6px;
+  color: var(--yorva-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.channel-pairing-field > div {
+  display: flex;
+  gap: 8px;
+}
+
+.channel-pairing-field input {
+  min-width: 0;
+  flex: 1;
+  box-sizing: border-box;
+  padding: 9px 10px;
+  border: 1px solid var(--yorva-border);
+  border-radius: 9px;
+  outline: none;
+  background: #fff;
+  color: var(--yorva-text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.channel-pairing-field input:focus {
+  border-color: var(--yorva-accent);
+  box-shadow: 0 0 0 3px rgb(0 166 111 / 10%);
+}
+
+.channel-pairing-feedback.is-success {
+  color: #147a4b;
+}
+
+.channel-pairing-feedback.is-error {
+  color: #a43333;
+}
+
 .channel-fields {
   display: grid;
   gap: 12px;

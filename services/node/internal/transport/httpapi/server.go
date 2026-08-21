@@ -85,6 +85,8 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("GET /api/v1/instances/{instanceId}/channels", requireBearer(token, listInstanceChannels(channels)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/channels/{channelType}/connect", requireBearer(token, connectInstanceChannel(channels)))
 	mux.Handle("DELETE /api/v1/instances/{instanceId}/channels/{channelType}", requireBearer(token, disconnectInstanceChannel(channels)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/channels/{channelType}/pairings", requireBearer(token, getChannelPairingStatus(channels)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/channels/{channelType}/pairings/approve", requireBearer(token, approveChannelPairing(channels)))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
 	mux.Handle("GET /api/v1/operations/{operationId}/channel-qr", requireBearer(token, getChannelQR(channels)))
 	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
@@ -190,6 +192,10 @@ func allowedMethods(path string) (string, bool) {
 		return "POST, OPTIONS", true
 	case "channel-binding":
 		return "DELETE, OPTIONS", true
+	case "channel-pairings":
+		return "GET, OPTIONS", true
+	case "channel-pairing-approve":
+		return "POST, OPTIONS", true
 	}
 	return "", false
 }
