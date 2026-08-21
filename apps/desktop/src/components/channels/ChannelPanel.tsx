@@ -23,6 +23,7 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
   const [secret, setSecret] = useState("");
   const [requestFailed, setRequestFailed] = useState(false);
   const [disconnectTarget, setDisconnectTarget] = useState<ChannelKind | null>(null);
+  const [dismissedQrOperationId, setDismissedQrOperationId] = useState<string | null>(null);
 
   const channelsQuery = useQuery({
     queryKey: ["instance-channels", instance.instanceId, client.scope],
@@ -54,7 +55,7 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
   const qrQuery = useQuery({
     queryKey: ["channel-qr", followedOperationId, client.scope],
     queryFn: ({ signal }) => client.getChannelQr(followedOperationId!, signal),
-    enabled: activeKind === "weixin" && operationActive && operation?.stage === "qr_ready",
+    enabled: activeKind === "weixin" && operationActive && operation?.stage === "channel.qr-ready",
     retry: false,
     refetchInterval: 2000,
   });
@@ -67,6 +68,7 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
 
   const startConnect = async (kind: ChannelKind) => {
     setRequestFailed(false);
+    setDismissedQrOperationId(null);
     try {
       const next = kind === "weixin"
         ? await client.connectWeixin(instance.instanceId, crypto.randomUUID())
@@ -152,8 +154,14 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
         })}
       </div>
 
-		{activeKind === "weixin" && operationActive && operation ? (
-			<WeixinQrModal qr={qrQuery.data} operation={operation} copy={copy} onCancel={() => { void cancel(); }} />
+		{activeKind === "weixin" && operation && dismissedQrOperationId !== operation.id && (operationActive || isFailed(operation)) ? (
+			<WeixinQrModal
+            qr={qrQuery.data}
+            operation={operation}
+            copy={copy}
+            onCancel={() => { void cancel(); }}
+            onDismiss={() => setDismissedQrOperationId(operation.id)}
+          />
       ) : null}
 
       {disconnectTarget ? (
@@ -192,10 +200,11 @@ function ChannelCard({ kind, channel, operation, botId, secret, copy, onBotIdCha
   onRefresh: () => void;
 }) {
   const busy = isActive(operation);
-  const failed = operation?.status === "FAILED" || operation?.status === "CANCELLED";
+  const failed = operation?.status === "FAILED";
+  const cancelled = operation?.status === "CANCELLED";
   const connected = channel.state === "CONNECTED" && !failed;
-  const presentedState = busy ? "CONNECTING" : failed ? "FAILED" : channel.state;
-  const tone = presentedState === "CONNECTED" ? "ok" : presentedState === "FAILED" ? "error" : presentedState === "NOT_CONFIGURED" ? "neutral" : "warn";
+  const presentedState = busy ? "CONNECTING" : failed ? "FAILED" : cancelled ? "CANCELLED" : channel.state;
+  const tone = presentedState === "CONNECTED" ? "ok" : presentedState === "FAILED" ? "error" : presentedState === "NOT_CONFIGURED" || presentedState === "CANCELLED" ? "neutral" : "warn";
   const validWeCom = botId.trim() !== "" && secret !== "";
   return (
     <article className="channel-card">
@@ -211,6 +220,7 @@ function ChannelCard({ kind, channel, operation, botId, secret, copy, onBotIdCha
         <span>{copy.channels.safeIdentity}</span>
         <strong>{channel.accountLabel || channel.externalId || copy.channels.noIdentity}</strong>
       </div>
+      {isFailed(operation) ? <ChannelOperationAlert operation={operation!} copy={copy} compact /> : null}
       {kind === "wecom" && !connected ? (
         <div className="channel-fields">
           <label>{copy.channels.botId}<input value={botId} onChange={(event) => onBotIdChange(event.target.value)} placeholder={copy.channels.botIdPlaceholder} disabled={busy} autoComplete="off" /></label>
@@ -220,18 +230,19 @@ function ChannelCard({ kind, channel, operation, botId, secret, copy, onBotIdCha
       <div className="channel-card-actions">
         {busy ? <Button onClick={onCancel}>{copy.channels.cancel}</Button> : null}
         {connected ? <Button variant="danger" onClick={onDisconnect}>{copy.channels.disconnect}</Button> : null}
-        {!busy && !connected ? <Button variant="primary" onClick={onConnect} disabled={kind === "wecom" && !validWeCom}>{failed ? copy.channels.retry : copy.channels.connect}</Button> : null}
+        {!busy && !connected ? <Button variant="primary" onClick={onConnect} disabled={kind === "wecom" && !validWeCom}>{failed || cancelled ? copy.channels.retry : copy.channels.connect}</Button> : null}
         {channel.state === "UNKNOWN" && !busy ? <Button onClick={onRefresh}>{copy.channels.refresh}</Button> : null}
       </div>
     </article>
   );
 }
 
-function WeixinQrModal({ qr, operation, copy, onCancel }: {
+function WeixinQrModal({ qr, operation, copy, onCancel, onDismiss }: {
   qr: { payload: string; expiresAt: string } | undefined;
   operation: Operation;
   copy: AppMessages;
   onCancel: () => void;
+  onDismiss: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -239,16 +250,18 @@ function WeixinQrModal({ qr, operation, copy, onCancel }: {
     return () => window.clearInterval(interval);
   }, []);
   const seconds = useMemo(() => qr ? Math.max(0, Math.ceil((new Date(qr.expiresAt).getTime() - now) / 1000)) : 0, [now, qr]);
+  const terminal = isFailed(operation);
   return (
     <div className="channel-confirm" role="dialog" aria-modal="true" aria-labelledby="weixin-qr-title">
       <div className="instance-modal channel-qr-card">
         <h3 id="weixin-qr-title" className="instance-modal-title">{copy.channels.qrTitle}</h3>
         <p>{copy.channels.qrDescription}</p>
         <div className="channel-qr-code">
-          {qr && seconds > 0 ? <QRCodeSVG value={qr.payload} size={220} level="M" marginSize={2} /> : <span>{qr ? copy.channels.qrExpired : copy.channels.qrWaiting}</span>}
+          {!terminal && qr && seconds > 0 ? <QRCodeSVG value={qr.payload} size={220} level="M" marginSize={2} /> : <span>{terminal ? (operation.status === "CANCELLED" ? copy.channels.cancelledTitle : copy.channels.failureTitle) : qr ? copy.channels.qrExpired : copy.channels.qrWaiting}</span>}
         </div>
-        <p className="channel-qr-countdown" role="status">{qr && seconds > 0 ? copy.channels.expiresIn.replace("{seconds}", String(seconds)) : operation.stage}</p>
-        <div className="instance-modal-actions"><Button onClick={onCancel}>{copy.channels.cancel}</Button></div>
+        {!terminal ? <p className="channel-qr-countdown" role="status">{qr && seconds > 0 ? copy.channels.expiresIn.replace("{seconds}", String(seconds)) : copy.channels.qrWaiting}</p> : null}
+        {terminal ? <ChannelOperationAlert operation={operation} copy={copy} /> : null}
+        <div className="instance-modal-actions"><Button onClick={terminal ? onDismiss : onCancel}>{terminal ? copy.channels.dismiss : copy.channels.cancel}</Button></div>
       </div>
     </div>
   );
@@ -260,4 +273,20 @@ function emptyChannel(kind: ChannelKind): Channel {
 
 function isActive(operation: Operation | undefined): boolean {
   return operation?.status === "PENDING" || operation?.status === "RUNNING";
+}
+
+function isFailed(operation: Operation | undefined): operation is Operation {
+  return operation?.status === "FAILED" || operation?.status === "CANCELLED";
+}
+
+function ChannelOperationAlert({ operation, copy, compact = false }: { operation: Operation; copy: AppMessages; compact?: boolean }) {
+  const code = operation.errorCode ?? "UNKNOWN";
+  const message = copy.channels.failureMessages[code] ?? copy.channels.unknownFailure;
+  return (
+    <div className={`channel-operation-alert${compact ? " is-compact" : ""}`} role="alert">
+      <strong>{operation.status === "CANCELLED" ? copy.channels.cancelledTitle : copy.channels.failureTitle}</strong>
+      <span><b>{copy.channels.failureReason}:</b> {message}</span>
+      <span><b>{copy.channels.errorCode}:</b> <code>{code}</code></span>
+    </div>
+  );
 }

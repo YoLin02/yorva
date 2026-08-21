@@ -67,7 +67,7 @@ describe("ChannelPanel", () => {
   });
 
   it("fetches the expiring Weixin QR only while the connect Operation is active", async () => {
-    const operation = { id: "op_weixin", type: "channel.connect", targetType: "instance", targetId: "inst_coder", status: "RUNNING", stage: "qr_ready", progress: null, message: "", errorCode: null, retryable: false, correlationId: "cor_2", createdAt: "2026-08-20T12:00:00Z", startedAt: "2026-08-20T12:00:01Z", completedAt: null, updatedAt: "2026-08-20T12:00:01Z" } as const;
+    const operation = { id: "op_weixin", type: "channel.connect", targetType: "instance", targetId: "inst_coder", status: "RUNNING", stage: "channel.qr-ready", progress: null, message: "", errorCode: null, retryable: false, correlationId: "cor_2", createdAt: "2026-08-20T12:00:00Z", startedAt: "2026-08-20T12:00:01Z", completedAt: null, updatedAt: "2026-08-20T12:00:01Z" } as const;
     const getChannelQr = vi.fn().mockResolvedValue({ payload: "https://safe.example/ephemeral", expiresAt: new Date(Date.now() + 60_000).toISOString() });
     const client = channelClient({
       listInstanceChannels: vi.fn().mockResolvedValue({ channels: [
@@ -82,5 +82,23 @@ describe("ChannelPanel", () => {
     await waitFor(() => expect(getChannelQr).toHaveBeenCalledWith("op_weixin", expect.any(AbortSignal)));
     expect(rendered.container.querySelector("svg")).toBeInTheDocument();
     expect(screen.queryByText("https://safe.example/ephemeral")).not.toBeInTheDocument();
+  });
+
+  it("keeps a terminal Weixin dialog visible and explains a cancelled operation", async () => {
+    const operation = { id: "op_cancelled", type: "channel.connect", targetType: "instance", targetId: "inst_coder", status: "CANCELLED", stage: "channel.qr-ready", progress: null, message: "", errorCode: "CHANNEL_AUTH_CANCELLED", retryable: false, correlationId: "cor_3", createdAt: "2026-08-20T12:00:00Z", startedAt: "2026-08-20T12:00:01Z", completedAt: "2026-08-20T12:00:03Z", updatedAt: "2026-08-20T12:00:03Z" } as const;
+    const client = channelClient({
+      listInstanceChannels: vi.fn().mockResolvedValue({ channels: [
+        { type: "weixin", state: "NOT_CONFIGURED", accountLabel: "", externalId: "", lastCheckedAt: "2026-08-20T12:00:00Z", activeOperationId: "op_cancelled" },
+        { type: "wecom", state: "NOT_CONFIGURED", accountLabel: "", externalId: "", lastCheckedAt: "2026-08-20T12:00:00Z", activeOperationId: null },
+      ] }),
+      getOperation: vi.fn().mockResolvedValue(operation),
+    });
+    renderPanel(client);
+
+    expect(await screen.findByRole("dialog", { name: "使用微信扫码" })).toBeInTheDocument();
+    expect(screen.getAllByText("连接已取消").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("CHANNEL_AUTH_CANCELLED").length).toBeGreaterThan(0);
+    expect(screen.getByText("已取消")).toBeInTheDocument();
+    expect(screen.queryByText(/^失败$/)).not.toBeInTheDocument();
   });
 });

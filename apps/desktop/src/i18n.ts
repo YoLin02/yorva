@@ -223,6 +223,7 @@ type Messages = {
     disconnect: string;
     retry: string;
     cancel: string;
+    dismiss: string;
     refresh: string;
     loading: string;
     requestFailed: string;
@@ -235,13 +236,19 @@ type Messages = {
     qrWaiting: string;
     qrExpired: string;
     expiresIn: string;
+    failureTitle: string;
+    cancelledTitle: string;
+    failureReason: string;
+    errorCode: string;
+    unknownFailure: string;
+    failureMessages: Record<string, string>;
     safeIdentity: string;
     noIdentity: string;
     connecting: string;
 	disconnecting: string;
     revocationNote: string;
     disconnectConfirm: string;
-    state: Record<"NOT_CONFIGURED" | "CONNECTING" | "CONNECTED" | "DISCONNECTED" | "FAILED" | "UNKNOWN", string>;
+    state: Record<"NOT_CONFIGURED" | "CONNECTING" | "CONNECTED" | "DISCONNECTED" | "FAILED" | "CANCELLED" | "UNKNOWN", string>;
   };
   models: {
     open: string;
@@ -577,6 +584,7 @@ const english: Messages = {
     disconnect: "Disconnect locally",
     retry: "Retry",
     cancel: "Cancel",
+    dismiss: "Close",
     refresh: "Refresh",
     loading: "Loading channel state",
     requestFailed: "The channel request could not be completed.",
@@ -589,6 +597,22 @@ const english: Messages = {
     qrWaiting: "Preparing the expiring QR code…",
     qrExpired: "This QR code has expired. Cancel and retry.",
     expiresIn: "Expires in {seconds}s",
+    failureTitle: "Connection failed",
+    cancelledTitle: "Connection cancelled",
+    failureReason: "Reason",
+    errorCode: "Error code",
+    unknownFailure: "The channel operation could not be completed.",
+    failureMessages: {
+      CHANNEL_AUTH_FAILED: "Weixin or WeCom rejected the authentication request. Check the account or credential and retry.",
+      CHANNEL_AUTH_TIMEOUT: "The authorization timed out before it was confirmed. Generate a new QR code and retry.",
+      CHANNEL_AUTH_CANCELLED: "The authorization was cancelled before it completed.",
+      CHANNEL_STATE_UNKNOWN: "YORVA could not confirm the final channel state. Refresh the channel state before retrying.",
+      CHANNEL_DISCONNECT_FAILED: "The local channel binding could not be removed.",
+      CHANNEL_DEPENDENCY_MISSING: "A required Hermes channel dependency is unavailable.",
+      CHANNEL_NOT_SUPPORTED: "This Hermes installation does not support the requested channel.",
+      CHANNEL_CONFLICT: "Another operation for this instance is still running.",
+      OPERATION_INTERRUPTED: "The operation was interrupted when the local service restarted.",
+    },
     safeIdentity: "Connected identity",
     noIdentity: "No verified identity",
     connecting: "Connecting",
@@ -601,6 +625,7 @@ const english: Messages = {
       CONNECTED: "Connected",
       DISCONNECTED: "Disconnected",
       FAILED: "Failed",
+      CANCELLED: "Cancelled",
       UNKNOWN: "Unknown",
     },
   },
@@ -941,6 +966,7 @@ const simplifiedChinese: Messages = {
     disconnect: "断开本地连接",
     retry: "重试",
     cancel: "取消",
+    dismiss: "关闭",
     refresh: "刷新",
     loading: "正在加载通道状态",
     requestFailed: "无法完成通道请求。",
@@ -953,6 +979,22 @@ const simplifiedChinese: Messages = {
     qrWaiting: "正在准备有时效的二维码…",
     qrExpired: "二维码已过期，请取消后重试。",
     expiresIn: "{seconds} 秒后过期",
+    failureTitle: "连接失败",
+    cancelledTitle: "连接已取消",
+    failureReason: "原因",
+    errorCode: "错误码",
+    unknownFailure: "通道操作未能完成。",
+    failureMessages: {
+      CHANNEL_AUTH_FAILED: "微信或企业微信拒绝了认证请求，请检查账号或凭据后重试。",
+      CHANNEL_AUTH_TIMEOUT: "授权确认已超时，请生成新的二维码后重试。",
+      CHANNEL_AUTH_CANCELLED: "授权在完成前被取消。",
+      CHANNEL_STATE_UNKNOWN: "YORVA 无法确认通道的最终状态，请先刷新通道状态再重试。",
+      CHANNEL_DISCONNECT_FAILED: "无法移除本地通道绑定。",
+      CHANNEL_DEPENDENCY_MISSING: "Hermes 所需的通道依赖不可用。",
+      CHANNEL_NOT_SUPPORTED: "当前 Hermes 安装不支持此消息通道。",
+      CHANNEL_CONFLICT: "此实例仍有另一项操作正在进行。",
+      OPERATION_INTERRUPTED: "本地服务重启时中断了此操作。",
+    },
     safeIdentity: "已连接身份",
     noIdentity: "尚无已验证身份",
     connecting: "正在连接",
@@ -965,6 +1007,7 @@ const simplifiedChinese: Messages = {
       CONNECTED: "已连接",
       DISCONNECTED: "已断开",
       FAILED: "失败",
+      CANCELLED: "已取消",
       UNKNOWN: "未知",
     },
   },

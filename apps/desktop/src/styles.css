@@ -1743,6 +1743,33 @@ p {
   text-align: center;
 }
 
+.channel-operation-alert {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff7f7;
+  color: #9f3030;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.channel-operation-alert strong {
+  color: #8f2424;
+  font-size: 13px;
+}
+
+.channel-operation-alert code {
+  color: inherit;
+  font-size: 11px;
+}
+
+.channel-operation-alert.is-compact {
+  margin: 0 0 16px;
+}
+
 @media (max-width: 820px) {
   .channel-card-grid {
     grid-template-columns: 1fr;
