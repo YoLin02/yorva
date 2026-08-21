@@ -13,33 +13,50 @@ export function SettingsView({
   onLocaleChange: (locale: Locale) => void;
 }) {
   return (
-    <Card className="settings-card" aria-labelledby="language-title">
-      <div className="panel-heading">
-        <div className="icon-tile icon-tile-ok">
-          <IconGlobe size={24} />
-        </div>
-        <div>
-          <p className="page-kicker">{copy.settings.savedAutomatically}</p>
-          <h2 id="language-title">{copy.settings.language}</h2>
-          <p className="panel-copy">{copy.settings.languageDescription}</p>
-        </div>
+    <div className="settings-page">
+      <div className="settings-tabs" role="tablist" aria-label={copy.pages.settings.title}>
+        <button type="button" className="settings-tab is-active" role="tab" aria-selected="true">
+          {copy.settings.generalTab}
+        </button>
+        <button type="button" className="settings-tab" role="tab" aria-selected="false" disabled>
+          {copy.settings.advancedTab}
+        </button>
+        <button type="button" className="settings-tab" role="tab" aria-selected="false" disabled>
+          {copy.settings.diagnosticsTab}
+        </button>
+        <button type="button" className="settings-tab" role="tab" aria-selected="false" disabled>
+          {copy.settings.aboutTab}
+        </button>
       </div>
-      <fieldset className="language-options">
-        <legend>{copy.settings.languageLegend}</legend>
-        {supportedLocales.map((option) => (
-          <label key={option} className={locale === option ? "language-option is-active" : "language-option"}>
-            <input
-              type="radio"
-              name="locale"
-              value={option}
-              checked={locale === option}
-              onChange={() => onLocaleChange(option)}
-            />
-            <span>{messages[option].languageName}</span>
-            <small>{option}</small>
-          </label>
-        ))}
-      </fieldset>
-    </Card>
+
+      <Card className="settings-card" aria-labelledby="language-title">
+        <div className="panel-heading">
+          <div className="icon-tile icon-tile-ok">
+            <IconGlobe size={24} />
+          </div>
+          <div>
+            <p className="page-kicker">{copy.settings.savedAutomatically}</p>
+            <h2 id="language-title">{copy.settings.language}</h2>
+            <p className="panel-copy">{copy.settings.languageDescription}</p>
+          </div>
+        </div>
+        <fieldset className="language-options">
+          <legend>{copy.settings.languageLegend}</legend>
+          {supportedLocales.map((option) => (
+            <label key={option} className={locale === option ? "language-option is-active" : "language-option"}>
+              <input
+                type="radio"
+                name="locale"
+                value={option}
+                checked={locale === option}
+                onChange={() => onLocaleChange(option)}
+              />
+              <span>{messages[option].languageName}</span>
+              <small>{option}</small>
+            </label>
+          ))}
+        </fieldset>
+      </Card>
+    </div>
   );
 }

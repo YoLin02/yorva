@@ -57,6 +57,9 @@ export function HermesPrerequisitePanel({
   const showInstall = nodeState !== "READY" || npmState !== "READY";
   const showRetryDeps = nodeState === "READY" && npmState === "READY" && depsState !== "READY";
   const errorCode = operation?.errorCode ?? requestError?.code ?? status?.node.errorCode;
+  const hasMissingComponents = status !== null && (
+    nodeState !== "READY" || npmState !== "READY" || depsState !== "READY"
+  );
 
   return (
     <Card className="runtime-support-card" aria-live="polite">
@@ -73,11 +76,13 @@ export function HermesPrerequisitePanel({
         ) : null}
       </div>
 
-      <div className="prerequisite-grid">
-        <PrerequisiteItem label={text.nodeLabel} state={nodeState} version={status?.node.version} copy={copy} />
-        <PrerequisiteItem label={text.npmLabel} state={npmState} version={status?.npm.version} copy={copy} />
-        <PrerequisiteItem label={text.dependenciesLabel} state={depsState} version={status?.nodeDependencies.version} copy={copy} />
-      </div>
+      {hasMissingComponents ? (
+        <div className="prerequisite-grid">
+          {nodeState !== "READY" ? <PrerequisiteItem label={text.nodeLabel} state={nodeState} version={status?.node.version} copy={copy} /> : null}
+          {npmState !== "READY" ? <PrerequisiteItem label={text.npmLabel} state={npmState} version={status?.npm.version} copy={copy} /> : null}
+          {depsState !== "READY" ? <PrerequisiteItem label={text.dependenciesLabel} state={depsState} version={status?.nodeDependencies.version} copy={copy} /> : null}
+        </div>
+      ) : null}
 
       {hermesNotInstalled && (running || failed || showInstall) ? <p className="notice notice-info">{text.continueWithoutNode}</p> : null}
       {!failed && status?.node.errorCode ? <p className="panel-copy">{copy.hermes.install.errorCode}: {status.node.errorCode}</p> : null}

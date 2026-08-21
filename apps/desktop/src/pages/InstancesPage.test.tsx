@@ -103,10 +103,15 @@ describe("InstancesPage", () => {
       />,
     );
     expect(screen.getByText("default")).toBeInTheDocument();
-    expect(screen.getByText("Protected")).toBeInTheDocument();
+    expect(screen.getByText("Default")).toBeInTheDocument();
+    expect(screen.queryByText("Protected")).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Capabilities" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Instance management")).not.toBeInTheDocument();
     expect(screen.getAllByText("Available").length).toBeGreaterThan(0);
     expect(screen.queryByText(messages["en-US"].instances.emptyNamed)).not.toBeInTheDocument();
-    expect(screen.getByText(messages["en-US"].instances.lifecycleUnavailable)).toBeInTheDocument();
+    expect(screen.queryByText(messages["en-US"].instances.lifecycleUnavailable)).not.toBeInTheDocument();
+    expect(screen.queryByText(messages["en-US"].instances.totalCount.replace("{count}", "2"))).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     expect(onRefresh).toHaveBeenCalled();
   });
@@ -139,7 +144,8 @@ describe("InstancesPage", () => {
       />,
     );
     expect(screen.getByText(messages["zh-CN"].instances.freshnessUnknown)).toBeInTheDocument();
-    expect(screen.getByText("受保护")).toBeInTheDocument();
+    expect(screen.getByText("默认")).toBeInTheDocument();
+    expect(screen.queryByText("受保护")).not.toBeInTheDocument();
   });
 
   it("filters the real inventory and opens create in a dialog", () => {
@@ -290,7 +296,7 @@ describe("InstancesPage", () => {
     );
     expect(screen.getByText("coder")).toBeInTheDocument();
     expect(screen.getByText("notes")).toBeInTheDocument();
-    expect(screen.getAllByText("Missing").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Deleted").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
     const moreButtons = screen.getAllByRole("button", { name: "More actions" });

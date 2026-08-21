@@ -3,7 +3,7 @@ import { formatDateTime } from "../formatDateTime";
 import type { AppMessages, Locale } from "../i18n";
 import { Button } from "./ui/Button";
 import { Card } from "./ui/Card";
-import { IconRefresh } from "./ui/icons";
+import { HermesMark, IconRefresh } from "./ui/icons";
 import { StatusLabel } from "./NodeStatusView";
 
 export type HermesDiscoveryViewState =
@@ -65,7 +65,7 @@ export function HermesDiscoveryView({
     >
       <div className="runtime-overview-primary">
         <RuntimeIdentity copy={copy} />
-        <p className="runtime-overview-description">{stateCopy.description}</p>
+        {!isSupported ? <p className="runtime-overview-description">{stateCopy.description}</p> : null}
         <dl className="runtime-overview-meta">
           {candidate?.version ? (
             <div>
@@ -88,7 +88,7 @@ export function HermesDiscoveryView({
             <span className="runtime-field-label">{copy.hermes.compatibility}</span>
             <strong className={isSupported ? "runtime-compatibility is-ready" : "runtime-compatibility"}>{stateCopy.title}</strong>
           </div>
-          <Button variant="secondary" onClick={state.onRetry} className="button-compact">
+          <Button variant="secondary" onClick={state.onRetry} className="button-compact button-neutral">
             <IconRefresh />
             {copy.hermes.checkAgain}
           </Button>
@@ -97,7 +97,7 @@ export function HermesDiscoveryView({
         {candidate?.path ? (
           <div className="runtime-path-field">
             <span className="runtime-field-label">{copy.hermes.executable}</span>
-            <code>{candidate.path}</code>
+            <code title={candidate.path}>{candidate.path}</code>
           </div>
         ) : null}
 
@@ -146,7 +146,7 @@ export function HermesDiscoveryView({
 function RuntimeIdentity({ copy }: { copy: AppMessages }) {
   return (
     <div className="runtime-identity">
-      <span className="runtime-brand-mark" aria-hidden="true">H</span>
+      <span className="runtime-brand-mark" aria-hidden="true"><HermesMark size={48} /></span>
       <div>
         <h2 id="hermes-title">{copy.hermes.summaryTitle}</h2>
         <p>{copy.hermes.summaryDescription}</p>

@@ -1,7 +1,6 @@
-import { useState } from "react";
 import type { AppMessages, Locale, PageId } from "../../i18n";
 import { messages } from "../../i18n";
-import { IconBox, IconChevronDown, IconChevronUp, IconGlobe, IconHome, IconLayers, IconSettings } from "../ui/icons";
+import { IconBox, IconGlobe, IconHome, IconLayers, IconSettings } from "../ui/icons";
 import { YorvaLogo } from "./YorvaLogo";
 
 type SidebarProps = {
@@ -28,8 +27,6 @@ export function Sidebar({
   onNavigate,
   onLocaleChange,
 }: SidebarProps) {
-  const [languageOpen, setLanguageOpen] = useState(true);
-
   return (
     <aside className="sidebar">
       <div className="sidebar-top">
@@ -59,37 +56,28 @@ export function Sidebar({
 
       <div className="sidebar-footer">
         <div className="language-switch">
-          <button
-            type="button"
-            className="language-switch-label"
-            aria-expanded={languageOpen}
-            aria-label={copy.switchLanguage}
-            onClick={() => setLanguageOpen((open) => !open)}
-          >
+          <div className="language-switch-label">
             <span className="language-switch-title">
               <IconGlobe />
               <span>{copy.settings.language}</span>
             </span>
-            {languageOpen ? <IconChevronUp /> : <IconChevronDown />}
-          </button>
-          {languageOpen && (
-            <div className="language-switch-options">
-              <button
-                type="button"
-                className={locale === "en-US" ? "language-chip is-active" : "language-chip"}
-                onClick={() => onLocaleChange("en-US")}
-              >
-                {messages["en-US"].languageShort}
-              </button>
-              <button
-                type="button"
-                className={locale === "zh-CN" ? "language-chip is-active" : "language-chip"}
-                onClick={() => onLocaleChange("zh-CN")}
-              >
-                {messages["zh-CN"].languageShort}
-              </button>
-            </div>
-          )}
+          </div>
+          <div className="language-switch-options" role="group" aria-label={copy.switchLanguage}>
+            <button
+              type="button"
+              className={locale === "en-US" ? "language-chip is-active" : "language-chip"}
+              onClick={() => onLocaleChange("en-US")}
+            >
+              {messages["en-US"].languageShort}
+            </button>
+            <button
+              type="button"
+              className={locale === "zh-CN" ? "language-chip is-active" : "language-chip"}
+              onClick={() => onLocaleChange("zh-CN")}
+            >
+              {messages["zh-CN"].languageShort}
+            </button>
+          </div>
         </div>
       </div>
     </aside>

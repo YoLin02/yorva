@@ -93,6 +93,7 @@ describe("App Desktop navigation and locale", () => {
     fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
     expect(await screen.findByRole("heading", { name: "Hermes Runtime" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Local Node" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Node.js / npm components" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Instances" }));
     expect(await screen.findByRole("heading", { name: "Instances" })).toBeInTheDocument();

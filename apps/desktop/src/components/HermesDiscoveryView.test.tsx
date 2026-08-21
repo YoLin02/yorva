@@ -55,7 +55,7 @@ describe("HermesDiscoveryView", () => {
 
   it.each([
     ["cancelled", "The Hermes check was cancelled"],
-    ["failure", "YORVA could not complete Hermes discovery"],
+    ["failure", "Yorva could not complete Hermes discovery"],
   ] as const)("renders retry for the %s request state", (kind, message) => {
     const onRetry = vi.fn();
     const { container } = render(<HermesDiscoveryView state={{ kind, onRetry }} copy={copy} locale="en-US" />);
@@ -71,7 +71,7 @@ describe("HermesDiscoveryView", () => {
     const { container } = render(
       <HermesDiscoveryView state={{ kind: "complete", discovery: unsafe, onRetry: vi.fn() }} copy={copy} locale="en-US" />,
     );
-    expect(screen.getByText("<script>unsafe()</script>")).toBeInTheDocument();
+    expect(screen.getByText("<script>unsafe()</script>")).toHaveAttribute("title", "<script>unsafe()</script>");
     expect(container.querySelector("script")).toBeNull();
   });
 
@@ -101,6 +101,8 @@ describe("HermesDiscoveryView", () => {
       />,
     );
     expect(screen.getAllByText("Hermes ready")).toHaveLength(1);
+    expect(screen.getByText(copy.hermes.summaryDescription)).toBeInTheDocument();
+    expect(screen.queryByText(copy.hermes.states.SUPPORTED.description)).not.toBeInTheDocument();
     expect(screen.queryByText("Supported range")).not.toBeInTheDocument();
     expect(screen.getByText("Version")).toBeInTheDocument();
     expect(screen.getByText("Last checked")).toBeInTheDocument();

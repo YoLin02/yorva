@@ -1,6 +1,6 @@
 # Desktop components
 
-Visual language follows the provided YORVA reference: light slate canvas, white rounded cards, emerald accent `#10B981` / `#1b7a48`.
+Visual language follows the provided Yorva reference: light slate canvas, white rounded cards, emerald accent `#10B981` / `#1b7a48`.
 
 Daemon state is not stored in a React context. Pages receive query-backed props from `App.tsx`.
 

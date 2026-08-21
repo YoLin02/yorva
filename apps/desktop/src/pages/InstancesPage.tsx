@@ -8,6 +8,7 @@ import type { AppMessages, Locale } from "../i18n";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import {
+  HermesMark,
   IconAlert,
   IconClose,
   IconMessage,
@@ -159,7 +160,7 @@ export function InstancesPage({
                   spellCheck={false}
                 />
               </label>
-              <Button type="button" onClick={onRefresh} disabled={loading} className="button-compact">
+              <Button type="button" onClick={onRefresh} disabled={loading} className="button-compact button-neutral">
                 <IconRefresh className={loading ? "spin" : undefined} />
                 {copy.instances.refresh}
               </Button>
@@ -180,7 +181,6 @@ export function InstancesPage({
                     <th>{copy.instances.tableInstance}</th>
                     <th>{copy.instances.tableAvailability}</th>
                     <th>{copy.instances.tableLastSynced}</th>
-                    <th>{copy.instances.tableCapabilities}</th>
                     <th className="instance-actions-column">{copy.instances.tableActions}</th>
                   </tr>
                 </thead>
@@ -199,14 +199,10 @@ export function InstancesPage({
                     />
                   ))}
                   {!loading && filteredItems.length === 0 ? (
-                    <tr><td className="instance-table-empty" colSpan={5}>{copy.instances.noMatches}</td></tr>
+                    <tr><td className="instance-table-empty" colSpan={4}>{copy.instances.noMatches}</td></tr>
                   ) : null}
                 </tbody>
               </table>
-            </div>
-            <div className="instance-table-footer">
-              <span>{copy.instances.totalCount.replace("{count}", String(filteredItems.length))}</span>
-              <span>{inventory?.capabilities.lifecycle ? copy.instances.lifecycleReady : copy.instances.lifecycleUnavailable}</span>
             </div>
           </div>
 
@@ -471,50 +467,73 @@ function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, 
   onOpenChannels: () => void;
 }) {
   const availability = item.availability;
+  const canLifecycle = Boolean(client && item.capabilities.lifecycle && availability === "AVAILABLE");
+  const synced = <td className="instance-sync-time">{item.lastSyncedAt ? formatRelativeTime(item.lastSyncedAt, locale, now) : "—"}</td>;
+  const moreActions = (
+    <InstanceMoreActions
+      copy={copy}
+      disabled={availability !== "AVAILABLE"}
+      canDelete={!item.default && !item.protected}
+      onOpenModels={onOpenModels}
+      onOpenChannels={onOpenChannels}
+      onDelete={onDelete}
+    />
+  );
   return (
     <tr>
       <td>
         <div className="instance-identity">
-          <span className="instance-avatar">{item.name.slice(0, 2).toUpperCase()}</span>
+          <span className="instance-avatar" aria-hidden="true"><HermesMark size={36} /></span>
           <div className="instance-identity-copy">
             <div className="instance-name-row">
               <strong>{item.name}</strong>
-              {item.default ? <Badge tone="info">{copy.instances.defaultLabel}</Badge> : null}
-              {item.protected ? <Badge tone="neutral">{copy.instances.protectedLabel}</Badge> : null}
+              {item.default ? <Badge tone="neutral">{copy.instances.defaultLabel}</Badge> : null}
             </div>
-            <span className="mono muted">{item.instanceId}</span>
           </div>
         </div>
       </td>
-      <td>
-        <span className={`instance-availability is-${availability.toLowerCase()}`} title={copy.instances.availabilityHint[availability]}>
-          <span className={`availability-dot is-${availability.toLowerCase()}`} />
-          {copy.instances.availability[availability]}
-        </span>
-      </td>
-      <td className="instance-sync-time">{item.lastSyncedAt ? formatRelativeTime(item.lastSyncedAt, locale, now) : "—"}</td>
-      <td>
-        <div className="instance-capabilities">
-          <span>{copy.instances.instanceCapability}: <b>{item.capabilities.instances ? copy.instances.capabilityAvailable : copy.instances.capabilityUnavailable}</b></span>
-          <span>{copy.instances.lifecycleCapability}: <b>{item.capabilities.lifecycle ? copy.instances.capabilityAvailable : copy.instances.capabilityUnavailable}</b></span>
-        </div>
-      </td>
-      <td>
-        <div className="instance-row-actions">
-          {client && item.capabilities.lifecycle && availability === "AVAILABLE" ? (
-            <LifecycleControls client={client} item={item} copy={copy} />
-          ) : null}
-          <InstanceMoreActions
-            copy={copy}
-            disabled={availability !== "AVAILABLE"}
-            canDelete={!item.default && !item.protected}
-            onOpenModels={onOpenModels}
-            onOpenChannels={onOpenChannels}
-            onDelete={onDelete}
-          />
-        </div>
-      </td>
+      {canLifecycle ? (
+        <LifecycleControls client={client!} item={item} copy={copy}>
+          {(presentation, controls) => (
+            <>
+              <td>
+                <InstanceStatusChip kind={presentation.kind} label={presentation.label} />
+              </td>
+              {synced}
+              <td>
+                <div className="instance-row-actions">
+                  {controls}
+                  {moreActions}
+                </div>
+              </td>
+            </>
+          )}
+        </LifecycleControls>
+      ) : (
+        <>
+          <td>
+            <InstanceStatusChip
+              kind={availability === "MISSING" ? "deleted" : "unknown"}
+              label={availability === "AVAILABLE" ? copy.instances.lifecycleUnknown : copy.instances.availability[availability]}
+              hint={copy.instances.availabilityHint[availability]}
+            />
+          </td>
+          {synced}
+          <td>
+            <div className="instance-row-actions">{moreActions}</div>
+          </td>
+        </>
+      )}
     </tr>
+  );
+}
+
+function InstanceStatusChip({ kind, label, hint }: { kind: string; label: string; hint?: string }) {
+  return (
+    <span className={`instance-availability is-${kind}`} title={hint}>
+      <span className={`availability-dot is-${kind}`} />
+      {label}
+    </span>
   );
 }
 
@@ -608,7 +627,12 @@ function InstanceMoreActions({ copy, disabled, canDelete, onOpenModels, onOpenCh
   );
 }
 
-function LifecycleControls({ client, item, copy }: { client: DaemonClient; item: Instance; copy: AppMessages }) {
+function LifecycleControls({ client, item, copy, children }: {
+  client: DaemonClient;
+  item: Instance;
+  copy: AppMessages;
+  children: (presentation: ReturnType<typeof lifecyclePresentation>, controls: ReactNode) => ReactNode;
+}) {
   const queryClient = useQueryClient();
   const [submittedOperationId, setSubmittedOperationId] = useState<string | null>(null);
   const [lifecycleError, setLifecycleError] = useState(false);
@@ -660,9 +684,8 @@ function LifecycleControls({ client, item, copy }: { client: DaemonClient; item:
     setLifecycleError(false);
     void lifecycleQuery.refetch();
   };
-  return (
+  const controls = (
     <div className="instance-lifecycle-actions" title={lifecycleError ? copy.instances.lifecycleFailed : undefined}>
-      <Badge tone={presentation.tone}>{presentation.label}</Badge>
       {presentation.state === "STOPPED" ? (
         <Button type="button" variant="ghost" className="instance-icon-action" aria-label={copy.instances.lifecycleStart} title={copy.instances.lifecycleStart} disabled={lifecycleBusy} onClick={() => { void runLifecycle("start"); }}>
           <IconPlay />
@@ -702,24 +725,26 @@ function LifecycleControls({ client, item, copy }: { client: DaemonClient; item:
       ) : null}
     </div>
   );
+  return children(presentation, controls);
 }
 
 function lifecyclePresentation(lifecycle: Lifecycle | undefined, operation: Operation | undefined, copy: AppMessages): {
   state: Lifecycle["state"];
+  kind: "running" | "stopped" | "starting" | "stopping" | "restarting" | "unknown";
   label: string;
   tone: "ok" | "warn" | "neutral" | "info" | "error";
 } {
   if (operation?.status === "PENDING" || operation?.status === "RUNNING") {
-    if (operation.type === "instance.stop") return { state: "UNKNOWN", label: copy.instances.lifecycleStopping, tone: "info" };
-    if (operation.type === "instance.restart") return { state: "UNKNOWN", label: copy.instances.lifecycleRestarting, tone: "info" };
-    return { state: "UNKNOWN", label: copy.instances.lifecycleStarting, tone: "info" };
+    if (operation.type === "instance.stop") return { state: "UNKNOWN", kind: "stopping", label: copy.instances.lifecycleStopping, tone: "info" };
+    if (operation.type === "instance.restart") return { state: "UNKNOWN", kind: "restarting", label: copy.instances.lifecycleRestarting, tone: "info" };
+    return { state: "UNKNOWN", kind: "starting", label: copy.instances.lifecycleStarting, tone: "info" };
   }
   if (operation?.status === "FAILED" || operation?.status === "CANCELLED") {
-    return { state: "UNKNOWN", label: copy.instances.lifecycleFailed, tone: "error" };
+    return { state: "UNKNOWN", kind: "unknown", label: copy.instances.lifecycleFailed, tone: "error" };
   }
-  if (lifecycle?.state === "RUNNING") return { state: "RUNNING", label: copy.instances.lifecycleRunning, tone: "ok" };
-  if (lifecycle?.state === "STOPPED") return { state: "STOPPED", label: copy.instances.lifecycleStopped, tone: "warn" };
-  return { state: "UNKNOWN", label: copy.instances.lifecycleUnknown, tone: "neutral" };
+  if (lifecycle?.state === "RUNNING") return { state: "RUNNING", kind: "running", label: copy.instances.lifecycleRunning, tone: "ok" };
+  if (lifecycle?.state === "STOPPED") return { state: "STOPPED", kind: "stopped", label: copy.instances.lifecycleStopped, tone: "warn" };
+  return { state: "UNKNOWN", kind: "unknown", label: copy.instances.lifecycleUnknown, tone: "neutral" };
 }
 
 function operationStatus(operation: Operation, copy: AppMessages, kind: "create" | "delete") {

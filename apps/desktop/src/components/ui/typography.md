@@ -6,7 +6,7 @@ Native system font stacks and a two-part icon set. Do not bundle web fonts.
 
 English / Latin:
 
-- macOS / iOS: `-apple-system`, `SF Pro Text` (body), `SF Pro Display` (titles and the YORVA wordmark)
+- macOS / iOS: `-apple-system`, `SF Pro Text` (body), `SF Pro Display` (titles and the Yorva wordmark)
 - Windows: `Segoe UI`, `Segoe UI SC`
 - fallback: `Roboto`, `Helvetica Neue`, `Arial`, `sans-serif`
 
@@ -20,7 +20,7 @@ Monospace (Node ID, yorvad version, paths, install logs):
 
 - `ui-monospace`, `SFMono-Regular`, `Menlo`, `Monaco`, `Consolas`, `Liberation Mono`, `monospace`
 
-YORVA wordmark: `font-weight: 900` and `letter-spacing: 0.05em`.
+Yorva wordmark: `font-weight: 900` and `letter-spacing: 0.05em`.
 
 Tokens live in `src/styles.css` as `--yorva-font`, `--yorva-display`, and `--yorva-mono`.
 

@@ -66,6 +66,24 @@ export function RuntimePage({
   instanceCount: number | null;
   onOpenInstances: () => void;
 }) {
+  const prerequisiteMissing = prerequisites !== null && (
+    prerequisites.node.state !== "READY"
+    || prerequisites.npm.state !== "READY"
+    || prerequisites.nodeDependencies.state !== "READY"
+  );
+  const prerequisiteOperationVisible = prereqOperation !== null && (
+    prereqOperation.status === "PENDING"
+    || prereqOperation.status === "RUNNING"
+    || prereqOperation.status === "FAILED"
+    || prereqOperation.status === "CANCELLED"
+  );
+  const showPrerequisites = discoveryReady && (
+    prerequisiteMissing
+    || prerequisiteOperationVisible
+    || prereqBusy
+    || prereqRequestError !== null
+  );
+
   return (
     <div className="page-stack runtime-page">
       <HermesDiscoveryView
@@ -75,7 +93,7 @@ export function RuntimePage({
         instanceCount={instanceCount}
         onOpenInstances={onOpenInstances}
       />
-      {discoveryReady && (
+      {showPrerequisites && (
         <HermesPrerequisitePanel
           copy={copy}
           locale={locale}

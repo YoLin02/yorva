@@ -1,4 +1,3 @@
-import { DiscoveryBanner } from "../components/dashboard/DiscoveryBanner";
 import { HermesStatusCard } from "../components/dashboard/HermesStatusCard";
 import { LocalNodeCard } from "../components/dashboard/LocalNodeCard";
 import { NodeInfoCard } from "../components/dashboard/NodeInfoCard";
@@ -30,7 +29,7 @@ export function DashboardPage({
     <div className="dashboard">
       <div className="card-grid-2">
         <LocalNodeCard eventStatus={nodeState.eventStatus} copy={copy} />
-        <HermesStatusCard state={discoveryState} copy={copy} />
+        <HermesStatusCard state={discoveryState} copy={copy} onOpenRuntimes={onOpenRuntimes} />
         <NodeInfoCard
           node={nodeState.node}
           eventStatus={nodeState.eventStatus}
@@ -45,7 +44,6 @@ export function DashboardPage({
           onOpen={onOpenRuntimes}
         />
       </div>
-      <DiscoveryBanner state={discoveryState} copy={copy} onOpenRuntimes={onOpenRuntimes} />
     </div>
   );
 }

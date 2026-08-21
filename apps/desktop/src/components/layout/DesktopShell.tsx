@@ -33,7 +33,6 @@ export function DesktopShell({
       <main className="page">
         <header className="page-header">
           <h1 className="page-title">{page.title}</h1>
-          <p className="page-copy">{page.description}</p>
         </header>
         {children}
       </main>

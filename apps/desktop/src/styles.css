@@ -7,11 +7,13 @@
   --yorva-text-muted: #64748b;
   --yorva-text-soft: #94a3b8;
   --yorva-heading: #0f172a;
-  --yorva-accent: #10b981;
-  --yorva-accent-strong: #059669;
-  --yorva-accent-deep: #1b7a48;
-  --yorva-accent-soft: #edf8f1;
-  --yorva-accent-border: #d4ede0;
+  --yorva-accent: #d93600;
+  --yorva-accent-strong: #c83200;
+  --yorva-accent-deep: #a82900;
+  --yorva-accent-soft: #fff1ec;
+  --yorva-accent-border: #f3c3b2;
+  --yorva-brand: #d93600;
+  --yorva-brand-hover: #c83200;
   --yorva-danger: #dc2626;
   --yorva-shadow: 0 1px 2px rgb(15 23 42 / 3%);
   --yorva-radius: 16px;
@@ -114,7 +116,7 @@ p {
   gap: 10px;
 }
 
-.yorva-logo svg {
+.yorva-logo img {
   display: block;
   flex-shrink: 0;
 }
@@ -140,7 +142,7 @@ p {
   width: 100%;
   height: 40px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 0 14px;
   background: transparent;
   color: #475569;
@@ -156,10 +158,16 @@ p {
 }
 
 .sidebar-link.is-active {
-  background: #edf8f1;
-  border: 1px solid #d4ede0;
-  color: #1b7a48;
+  background: var(--yorva-brand);
+  border: 1px solid var(--yorva-brand);
+  color: #fff;
   font-weight: 600;
+}
+
+.sidebar-link.is-active:hover {
+  background: var(--yorva-brand-hover);
+  border-color: var(--yorva-brand-hover);
+  color: #fff;
 }
 
 .sidebar-footer {
@@ -172,8 +180,8 @@ p {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
-  margin-bottom: 8px;
+  width: auto;
+  margin: 0;
   border: 0;
   padding: 0;
   background: transparent;
@@ -193,7 +201,7 @@ p {
   gap: 4px;
   padding: 4px;
   border: 1px solid rgb(226 232 240 / 70%);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgb(248 250 252 / 80%);
 }
 
@@ -211,11 +219,23 @@ p {
 }
 
 .language-chip.is-active {
-  background: #fff;
-  border-color: rgb(226 232 240 / 80%);
-  color: #065f46;
+  background: var(--yorva-brand);
+  border-color: var(--yorva-brand);
+  color: #fff;
   font-weight: 600;
-  box-shadow: var(--yorva-shadow);
+  box-shadow: 0 1px 2px rgb(217 54 0 / 18%);
+}
+
+.language-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.language-switch-options {
+  width: 96px;
+  flex-shrink: 0;
 }
 
 .page {
@@ -310,16 +330,22 @@ p {
   font-weight: 600;
 }
 
-.instance-availability.is-available {
+.instance-availability.is-available,
+.instance-availability.is-running {
   color: #047857;
 }
 
-.instance-availability.is-missing {
-  color: #b45309;
-}
-
+.instance-availability.is-stopped,
+.instance-availability.is-missing,
+.instance-availability.is-deleted,
 .instance-availability.is-unknown {
   color: #475569;
+}
+
+.instance-availability.is-starting,
+.instance-availability.is-stopping,
+.instance-availability.is-restarting {
+  color: #1d4ed8;
 }
 
 .instance-modal-backdrop {
@@ -376,7 +402,7 @@ p {
   gap: 16px;
   margin-top: 12px;
   padding: 18px 20px;
-  border-color: rgb(16 185 129 / 35%);
+  border-color: rgb(217 54 0 / 28%);
   background: rgb(248 250 252 / 85%);
 }
 
@@ -430,8 +456,8 @@ p {
 }
 
 .model-provider-option.is-active {
-  border-color: #10b981;
-  box-shadow: 0 0 0 1px #10b981;
+  border-color: var(--yorva-accent);
+  box-shadow: 0 0 0 1px var(--yorva-accent);
 }
 
 .model-form-grid {
@@ -508,6 +534,17 @@ p {
 
 .status-strip .button {
   flex-shrink: 0;
+}
+
+.status-strip-clickable {
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.status-strip-clickable:hover {
+  border-color: var(--yorva-accent-border);
+  box-shadow: 0 3px 12px rgb(217 54 0 / 8%);
+  transform: translateY(-1px);
 }
 
 .status-strip-main {
@@ -590,6 +627,7 @@ p {
 }
 
 .icon-tile svg,
+.icon-tile img,
 .sidebar-link svg,
 .language-switch-label svg,
 .legend-chip svg,
@@ -635,6 +673,42 @@ p {
 }
 
 .status-label-error {
+  color: #dc2626;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.badge-neutral {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.badge-info {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.badge-ok {
+  background: #edf8f1;
+  color: #047857;
+}
+
+.badge-warn {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.badge-error {
+  background: #fef2f2;
   color: #dc2626;
 }
 
@@ -686,25 +760,25 @@ p {
 }
 
 .button-primary {
-  background: #059669;
+  background: var(--yorva-accent);
   color: #fff;
-  box-shadow: 0 1px 2px rgb(5 150 105 / 20%);
+  box-shadow: 0 1px 2px rgb(217 54 0 / 22%);
 }
 
 .button-primary:hover:not(:disabled) {
-  background: #047857;
+  background: var(--yorva-accent-strong);
 }
 
 .button-secondary {
   background: #fff;
-  border-color: rgb(5 150 105 / 40%);
+  border-color: rgb(217 54 0 / 40%);
   color: #334155;
   font-weight: 500;
 }
 
 .button-secondary:hover:not(:disabled) {
-  border-color: #059669;
-  background: #f8fafc;
+  border-color: var(--yorva-accent);
+  background: var(--yorva-accent-soft);
 }
 
 .button-ghost {
@@ -986,9 +1060,9 @@ p {
 }
 
 .language-option.is-active {
-  background: rgb(236 253 245 / 80%);
-  border-color: #10b981;
-  box-shadow: 0 0 0 1px #10b981;
+  background: var(--yorva-accent-soft);
+  border-color: var(--yorva-accent);
+  box-shadow: 0 0 0 1px var(--yorva-accent);
 }
 
 .language-option span {
@@ -1134,9 +1208,9 @@ p {
 }
 
 .instance-search input:focus {
-  border-color: #10b981;
+  border-color: var(--yorva-accent);
   background: #fff;
-  box-shadow: 0 0 0 3px rgb(16 185 129 / 10%);
+  box-shadow: 0 0 0 3px rgb(217 54 0 / 10%);
 }
 
 .instance-table-card {
@@ -1209,13 +1283,17 @@ p {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  border: 1px solid #cfeadd;
-  border-radius: 50%;
-  background: #edf8f1;
-  color: #1b7a48;
-  font-family: var(--yorva-mono);
-  font-size: 11px;
-  font-weight: 700;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.instance-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #fff;
 }
 
 .instance-identity-copy {
@@ -1240,8 +1318,14 @@ p {
   background: #94a3b8;
 }
 
-.availability-dot.is-available { background: #10b981; }
-.availability-dot.is-missing { background: #f59e0b; }
+.availability-dot.is-available,
+.availability-dot.is-running { background: #10b981; }
+.availability-dot.is-stopped { background: #64748b; }
+.availability-dot.is-starting,
+.availability-dot.is-stopping,
+.availability-dot.is-restarting { background: #2563eb; }
+.availability-dot.is-missing,
+.availability-dot.is-deleted { background: #94a3b8; }
 .availability-dot.is-unknown { background: #94a3b8; }
 
 .instance-availability {
@@ -1256,14 +1340,29 @@ p {
   font-weight: 600;
 }
 
-.instance-availability.is-available {
+.instance-availability.is-available,
+.instance-availability.is-running {
   border-color: #cfeadd;
   background: #edf8f1;
 }
 
-.instance-availability.is-missing {
-  border-color: #fde6b3;
-  background: #fffbeb;
+.instance-availability.is-stopped {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+.instance-availability.is-starting,
+.instance-availability.is-stopping,
+.instance-availability.is-restarting {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.instance-availability.is-missing,
+.instance-availability.is-deleted {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
 }
 
 .instance-sync-time {
@@ -1316,13 +1415,13 @@ p {
 }
 
 .instance-icon-action:hover:not(:disabled) {
-  border-color: #dbe5ec;
-  background: #f7fafc;
-  color: #0f766e;
+  border-color: var(--yorva-accent-border);
+  background: var(--yorva-accent-soft);
+  color: var(--yorva-accent-deep);
 }
 
 .instance-icon-action:focus-visible {
-  outline: 2px solid rgb(16 185 129 / 38%);
+  outline: 2px solid rgb(217 54 0 / 38%);
   outline-offset: 1px;
 }
 
@@ -1368,8 +1467,8 @@ p {
 .instance-actions-menu button:hover,
 .instance-actions-menu button:focus-visible {
   outline: none;
-  background: #f1f7f4;
-  color: #087a54;
+  background: var(--yorva-accent-soft);
+  color: var(--yorva-accent-deep);
 }
 
 .instance-actions-menu button.is-danger {
@@ -1537,8 +1636,8 @@ p {
 }
 
 .instance-create-input:focus {
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgb(16 185 129 / 10%);
+  border-color: var(--yorva-accent);
+  box-shadow: 0 0 0 3px rgb(217 54 0 / 10%);
 }
 
 .instance-modal-actions {
@@ -1822,7 +1921,7 @@ p {
 
 .channel-pairing-field input:focus {
   border-color: var(--yorva-accent);
-  box-shadow: 0 0 0 3px rgb(0 166 111 / 10%);
+  box-shadow: 0 0 0 3px rgb(217 54 0 / 10%);
 }
 
 .channel-pairing-feedback.is-success {
@@ -1862,7 +1961,7 @@ p {
 
 .channel-fields input:focus {
   border-color: var(--yorva-accent);
-  box-shadow: 0 0 0 3px rgb(0 166 111 / 10%);
+  box-shadow: 0 0 0 3px rgb(217 54 0 / 10%);
 }
 
 .channel-card-actions {
@@ -2049,19 +2148,30 @@ p {
   min-width: 0;
 }
 
-.runtime-brand-mark {
+.runtime-brand-mark,
+.hermes-brand-mark {
   width: 48px;
   height: 48px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  border: 1px solid #fed7aa;
-  border-radius: 50%;
-  background: #fff7ed;
-  color: #ea580c;
-  font-family: var(--yorva-display);
-  font-size: 18px;
-  font-weight: 800;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.hermes-brand-mark-lg {
+  width: 52px;
+  height: 52px;
+}
+
+.runtime-brand-mark img,
+.hermes-brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #fff;
 }
 
 .runtime-identity h2 {
@@ -2171,7 +2281,63 @@ p {
 }
 
 .runtime-instance-summary .button {
-  color: #047857;
+  color: var(--yorva-accent-deep);
+}
+
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.settings-tab {
+  position: relative;
+  min-width: 64px;
+  border: 0;
+  padding: 0 14px 12px;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.settings-tab.is-active {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.settings-tab.is-active::after {
+  position: absolute;
+  right: 8px;
+  bottom: -1px;
+  left: 8px;
+  height: 2px;
+  background: var(--yorva-brand);
+  content: "";
+}
+
+.settings-tab:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.button.button-neutral {
+  color: #475569;
+  background: #ffffff;
+  border-color: #dbe3ec;
+}
+
+.button.button-neutral:hover:not(:disabled) {
+  color: #334155;
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 .runtime-wide-notice {

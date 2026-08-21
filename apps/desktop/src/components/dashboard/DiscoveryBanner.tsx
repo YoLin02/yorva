@@ -23,9 +23,15 @@ export function DiscoveryBanner({
       <h2 id="discovery-banner-title" className="discovery-banner-kicker">{copy.dashboard.discoveryTitle}</h2>
       <div className="discovery-banner-grid">
         <div className="discovery-banner-main">
-          <div className={tileClass(status.tone)}>
-            {status.tone === "ready" ? <IconCheckCircle /> : <HermesMark size={28} />}
-          </div>
+          {status.tone === "ready" ? (
+            <div className={tileClass(status.tone)}>
+              <IconCheckCircle />
+            </div>
+          ) : (
+            <div className="hermes-brand-mark hermes-brand-mark-lg" aria-hidden="true">
+              <HermesMark size={52} />
+            </div>
+          )}
           <div>
             <p className={`discovery-title discovery-title-${status.tone}`}>{status.label}</p>
             <p className="discovery-copy">{status.description}</p>

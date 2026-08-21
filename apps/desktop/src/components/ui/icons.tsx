@@ -1,4 +1,6 @@
 import type { LucideProps } from "lucide-react";
+import hermesIcon from "../../assets/hermes-icon.png";
+import yorvaIcon from "../../assets/yorva-icon.png";
 import {
   AlertTriangle,
   Box,
@@ -143,23 +145,10 @@ export function IconZap(props: LucideProps) {
   return glyph(Zap, 14, props);
 }
 
+export function AppMark({ size = 24, className }: { size?: number; className?: string }) {
+  return <img src={yorvaIcon} width={size} height={size} className={className} alt="" draggable={false} />;
+}
+
 export function HermesMark({ size = 24, className }: { size?: number; className?: string }) {
-  return (
-    <svg
-      className={className}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={ICON_STROKE}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
-      <path d="m8 19 4-4 4 4" />
-      <path d="M12 15v6" />
-    </svg>
-  );
+  return <img src={hermesIcon} width={size} height={size} className={className} alt="" draggable={false} />;
 }

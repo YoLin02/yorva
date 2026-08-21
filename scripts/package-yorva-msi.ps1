@@ -64,7 +64,7 @@ finally {
     [System.IO.File]::WriteAllText($configPath, $configBackup)
 }
 
-$msi = Get-ChildItem -Path (Join-Path $repoRoot "apps\desktop\src-tauri\target\release\bundle\msi") -Filter "YORVA_*.msi" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+$msi = Get-ChildItem -Path (Join-Path $repoRoot "apps\desktop\src-tauri\target\release\bundle\msi") -Filter "Yorva_*.msi" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $msi) {
     throw "MSI output was not produced"
 }

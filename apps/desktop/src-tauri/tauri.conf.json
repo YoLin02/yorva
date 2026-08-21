@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "YORVA",
+  "productName": "Yorva",
   "version": "0.3.1",
   "identifier": "com.yorva.desktop.dev",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "YORVA",
+        "title": "Yorva",
         "width": 1180,
         "height": 780,
         "minWidth": 980,

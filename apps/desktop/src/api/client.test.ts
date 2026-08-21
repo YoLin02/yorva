@@ -32,7 +32,7 @@ describe("daemon client", () => {
     expect(fetchMock.mock.calls[0][0]).not.toContain(session.token);
   });
 
-  it("decodes the stable YORVA error envelope", async () => {
+  it("decodes the stable Yorva error envelope", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
