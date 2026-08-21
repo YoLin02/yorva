@@ -1,6 +1,6 @@
 [package]
 name = "yorva-desktop"
-version = "0.3.1"
+version = "0.3.2"
 description = "YORVA local-first desktop shell"
 authors = ["yolin"]
 edition = "2024"
@@ -18,8 +18,12 @@ base64 = "0.22"
 getrandom = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri = { version = "2.11.5", features = [] }
+tauri = { version = "2.11.5", features = ["tray-icon"] }
 tauri-plugin-shell = "2.3.5"
+
+[target.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))'.dependencies]
+tauri-plugin-autostart = "2.5.1"
+tauri-plugin-single-instance = "2.4.3"
 
 [profile.release]
 panic = "abort"

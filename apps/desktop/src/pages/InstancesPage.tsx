@@ -210,7 +210,7 @@ export function InstancesPage({
             <p className="notice notice-info">{copy.instances.emptyNamed}</p>
           ) : null}
 
-          {createOpen || createOperationActive ? (
+          {(createOpen || createOperationActive) && createOperation?.status !== "SUCCEEDED" ? (
             <CreateInstanceDialog
               name={createName}
               busy={createBusy}
@@ -307,6 +307,7 @@ function CreateInstanceDialog({ name, busy, operation, copy, onNameChange, onCre
           description={copy.instances.createDescription}
           titleId="create-instance-title"
           descriptionId="create-instance-description"
+          showIcon={false}
           closeLabel={copy.instances.dismissDelete}
           onClose={canCancelOperation ? onCancelOperation : onDismiss}
           closeDisabled={locked}
@@ -408,20 +409,21 @@ function DeleteConfirmDialog({ target, confirmation, busy, operation, copy, onCo
   );
 }
 
-function ModalHeader({ icon, title, description, titleId, descriptionId, danger = false, closeLabel, onClose, closeDisabled }: {
+function ModalHeader({ icon, title, description, titleId, descriptionId, danger = false, showIcon = true, closeLabel, onClose, closeDisabled }: {
   icon: ReactNode;
   title: string;
   description: string;
   titleId: string;
   descriptionId: string;
   danger?: boolean;
+  showIcon?: boolean;
   closeLabel: string;
   onClose: () => void;
   closeDisabled: boolean;
 }) {
   return (
-    <div className="instance-modal-header">
-      <div className={danger ? "modal-icon is-danger" : "modal-icon"}>{icon}</div>
+    <div className={showIcon ? "instance-modal-header" : "instance-modal-header without-icon"}>
+      {showIcon ? <div className={danger ? "modal-icon is-danger" : "modal-icon"}>{icon}</div> : null}
       <div className="instance-modal-heading">
         <h2 id={titleId} className="instance-modal-title">{title}</h2>
         <p id={descriptionId} className="page-copy">{description}</p>

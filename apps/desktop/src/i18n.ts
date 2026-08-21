@@ -142,6 +142,19 @@ type Messages = {
     language: string;
     languageDescription: string;
     languageLegend: string;
+    appearance: string;
+    appearanceDescription: string;
+    lightTheme: string;
+    darkTheme: string;
+    systemTheme: string;
+    themeUnavailable: string;
+    windowBehavior: string;
+    windowBehaviorDescription: string;
+    launchOnLogin: string;
+    launchOnLoginDescription: string;
+    closeToTray: string;
+    closeToTrayDescription: string;
+    desktopPreferencesFailed: string;
     savedAutomatically: string;
   };
   instances: {
@@ -515,6 +528,19 @@ const english: Messages = {
     language: "Language",
     languageDescription: "Yorva applies your language choice immediately and remembers it on this device.",
     languageLegend: "Interface language",
+    appearance: "Appearance",
+    appearanceDescription: "Choose the interface appearance. Yorva currently supports the light theme.",
+    lightTheme: "Light",
+    darkTheme: "Dark",
+    systemTheme: "System",
+    themeUnavailable: "This appearance option is not available yet.",
+    windowBehavior: "Window behavior",
+    windowBehaviorDescription: "Choose how Yorva starts and what happens when its main window is closed.",
+    launchOnLogin: "Launch Yorva when I sign in",
+    launchOnLoginDescription: "The packaged app starts hidden in the system tray without starting a Hermes instance.",
+    closeToTray: "Minimize to tray when closing",
+    closeToTrayDescription: "Closing the main window keeps Yorva available in the system tray.",
+    desktopPreferencesFailed: "Yorva could not update the window behavior setting. Please try again.",
     savedAutomatically: "Saved automatically",
   },
   instances: {
@@ -917,6 +943,19 @@ const simplifiedChinese: Messages = {
     language: "语言",
     languageDescription: "Yorva 会立即应用语言选择，并在此设备上记住该设置。",
     languageLegend: "界面语言",
+    appearance: "外观主题",
+    appearanceDescription: "选择界面外观主题。Yorva 当前支持浅色模式。",
+    lightTheme: "浅色",
+    darkTheme: "深色",
+    systemTheme: "跟随系统",
+    themeUnavailable: "该外观选项暂未开放。",
+    windowBehavior: "窗口行为",
+    windowBehaviorDescription: "设置 Yorva 的启动方式以及关闭主窗口时的行为。",
+    launchOnLogin: "登录后自动启动 Yorva",
+    launchOnLoginDescription: "安装版将隐藏启动到系统托盘，不会自动启动 Hermes 实例。",
+    closeToTray: "关闭时最小化到托盘",
+    closeToTrayDescription: "关闭主窗口后 Yorva 继续在系统托盘中运行。",
+    desktopPreferencesFailed: "无法更新窗口行为设置，请重试。",
     savedAutomatically: "已自动保存",
   },
   instances: {

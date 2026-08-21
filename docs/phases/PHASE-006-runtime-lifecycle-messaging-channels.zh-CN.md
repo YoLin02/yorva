@@ -54,6 +54,7 @@ Owner 已于 2026-08-20 批准以下方向：
 - [x] **D8 — 消息依赖物化。** 可使用已资格确认的安装字节；若缺少依赖，必须创建新的 ADR-0006 sealed generation，禁止原地修复。
 - [x] **D9 — `CONNECTED` 的含义。** Channel `CONNECTED` 表示 binding 已通过认证验证；lifecycle `RUNNING` 独立表示 gateway 在线。
 - [x] **D10 — 消息发送者配对闭环。** Owner 于 2026-08-21 要求微信正常流程能够在 Desktop 查看待配对数量并批准八位一次性配对码。Hermes-native pairing 状态仍为唯一权威；YORVA 不持久化配对码、请求或授权副本。
+- [x] **D11 — Desktop 常驻闭环。** Owner 于 2026-08-21 要求用户 session 托盘、关闭到托盘、release build 登录自启到托盘和单实例恢复。该行为只启动 YORVA Desktop 及其持有的 daemon shell；不改变已拒绝的 Hermes `ON_LOGIN` 策略，不启动 Instance、不提权，也不创建通用 service-management surface。
 
 任何被拒绝的决策都必须在授权实现前同步修改 in-scope、测试矩阵和退出标准。
 
@@ -63,7 +64,7 @@ Owner 已于 2026-08-20 批准以下方向：
 
 - Phase 5 继续冻结在所要求的 tag 和 commit；
 - Phase 6 中英文 Spec 已同步；
-- D3-D9 已获得明确 Owner 决策；
+- D3-D11 已获得明确 Owner 决策；
 - 必需 ADR 已接受；
 - 固定 Hermes 生命周期、微信和企业微信接口已有资格证据；
 - Spec 状态改为 `READY`；
@@ -142,6 +143,15 @@ Instance
 - 获批 credential authority 与 redaction；
 - 本地化 Desktop UX。
 - 无需终端的微信发送者待配对数量与一次性配对码批准。
+
+### 6.4 Desktop shell 常驻
+
+- 用户 session 系统托盘，并提供明确的打开和退出操作；
+- 关闭主窗口只隐藏窗口，不停止 Tauri 持有的 daemon；
+- packaged release build 注册用户登录自启，并以隐藏窗口方式进入托盘；
+- development build 绝不把自身注册为登录自启项；
+- 第二次启动恢复既有主窗口，不再启动第二个 daemon；
+- 不改变 Hermes Instance 启动策略、不提权、不注册 machine-wide service。
 
 ### 6.4 从 Phase 7 前移的生命周期 crash/recovery UX
 
@@ -710,6 +720,14 @@ Public error 只包含 user-safe text。Desktop behavior 依赖 error code 和 t
 - 增加本地化 Desktop 待配对/批准 UX；
 - 验证配对码脱敏、无效/过期、锁定与跨 Profile 隔离。
 
+### Batch 8B — Owner 要求的 Desktop 常驻闭环
+
+- 添加用户 session 托盘与关闭到托盘行为；
+- 为 packaged release 注册带隐藏启动参数的登录自启；
+- development build 不写入 OS 启动项；
+- 强制单实例恢复和托盘明确退出时的 shutdown；
+- 验证该能力不会启用 Hermes `ON_LOGIN` 或启动 Instance。
+
 任何 batch 都不会自动授权下一批。出现阻塞 qualification、security 或 architecture finding 时停止执行。
 
 ## 25. 测试矩阵
@@ -748,6 +766,10 @@ Public error 只包含 user-safe text。Desktop behavior 依赖 error code 和 t
 | 配对批准锁定 | 稳定锁定错误，不绕过、不自动重试 | adapter/API/Desktop/security |
 | Sealed generation dependency attempt | 原地 mutation 被拒；使用获批 new-generation path | install/integrity |
 | 从 Phase 5 DB migration | uniqueness/FK 正确且无 secret column | persistence |
+| 关闭主窗口 | 窗口隐藏；托盘可恢复；daemon 继续由 Desktop 持有并运行 | Rust/Windows smoke |
+| 托盘退出 | 应用退出并执行有界 daemon shutdown | Rust/Windows smoke |
+| packaged 登录自启 | 单个用户级启动项隐藏启动；不提权、不启动 Instance | packaged Windows smoke |
+| 第二次启动应用 | 恢复既有窗口，不启动第二个 daemon | Rust/Windows smoke |
 
 ## 26. 完整验证
 
@@ -782,6 +804,7 @@ Tauri no-bundle release build
 
 - Windows 上默认与命名 Profile 的 Start/Stop/Restart；
 - gateway 继续运行时关闭 Desktop；
+- 关闭到托盘恢复、托盘明确退出、packaged 登录自启和单实例行为；
 - 真实微信 scan/confirm/connect/disconnect；
 - 真实企业微信获批 auth path；
 - 检查 log 和 SQLite，确认无 plaintext secret/QR；
@@ -817,6 +840,7 @@ Phase 6 只有在以下条件全部满足时才可通过：
 - 默认与命名 Profile 的 Start、Stop、Restart 和 live status 无需终端即可工作；
 - 仅手动 lifecycle 和 lifecycle recovery 严格按获批方案工作；
 - 关闭 Desktop 不停止已管理的 Hermes gateway；
+- 关闭到托盘、托盘恢复/退出、packaged 用户登录自启和单实例行为可用，且不改变 Hermes 启动策略；
 - Weixin 与 D6 获批的 WeCom path 完成 mandatory auth flow；
 - 微信发送者可在 Desktop 完成 Hermes 要求的配对批准，无需终端；
 - Channel 与 lifecycle status 均可见，且语义相互独立；
@@ -832,7 +856,7 @@ Phase 6 只有在以下条件全部满足时才可通过：
 
 出现以下任一情况时停止并返回 Owner review：
 
-- D3-D10 仍未解决；
+- D3-D11 仍未解决；
 - official Hermes lifecycle surface 无法做到 non-interactive、Profile-exact 和 fail-closed；
 - Start/Stop/Restart 需要 generic shell 或 import Hermes internals；
 - Windows service management 需要 hidden 或 automatic elevation；

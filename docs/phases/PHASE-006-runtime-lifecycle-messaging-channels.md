@@ -54,6 +54,7 @@ Qualification evidence is recorded in `evidence/PHASE-006-BATCH-1-QUALIFICATION.
 - [x] **D8 — Messaging dependency materialization.** The qualified installed bytes may be used. Missing bytes require a new ADR-0006 sealed generation and never an in-place repair.
 - [x] **D9 — Meaning of `CONNECTED`.** Channel `CONNECTED` means an authenticated binding was verified; lifecycle `RUNNING` independently means the gateway is online.
 - [x] **D10 — Sender pairing completion.** Owner direction on 2026-08-21 requires the normal Weixin path to list pending sender-pairing requests and approve the eight-character code in Desktop. Hermes-native pairing state remains authoritative; YORVA persists no code, request or grant copy.
+- [x] **D11 — Desktop continuity.** Owner direction on 2026-08-21 requires a user-session tray, close-to-tray behavior, release-build login autostart into the tray and single-instance restoration. This starts only the YORVA Desktop/owned daemon shell; it does not change the rejected Hermes `ON_LOGIN` policy, start an Instance, elevate, or create a generic service-management surface.
 
 Any rejected decision must update the in-scope list, test matrix and exit criteria before implementation authorization.
 
@@ -63,7 +64,7 @@ Implementation may begin only when all of the following are true:
 
 - Phase 5 remains frozen at the required tag and commit;
 - the English and Chinese Phase 6 Specs are synchronized;
-- D3-D9 have explicit Owner decisions;
+- D3-D11 have explicit Owner decisions;
 - required ADRs are accepted;
 - pinned Hermes lifecycle, Weixin and WeCom surfaces have qualification evidence;
 - the Spec status is changed to `READY`;
@@ -142,6 +143,15 @@ Instance
 - approved credential authority and redaction;
 - localized Desktop UX.
 - Weixin sender-pairing pending count and one-time code approval without a terminal.
+
+### 6.4 Desktop shell continuity
+
+- a user-session system tray with explicit Open and Quit actions;
+- closing the main window hides it without stopping the Tauri-owned daemon;
+- packaged release builds register user-login autostart and start hidden in the tray;
+- development builds never register themselves for login autostart;
+- a second launch restores the existing main window instead of starting another daemon;
+- no Hermes Instance startup-policy change, elevation or machine-wide service registration.
 
 ### 6.4 Lifecycle-related crash/recovery UX moved from Phase 7
 
@@ -710,6 +720,14 @@ Public errors contain user-safe text only. Desktop behavior depends on codes and
 - add localized Desktop pending/request approval UX;
 - verify code redaction, invalid/expired code, lockout and cross-Profile isolation.
 
+### Batch 8B — Owner-required Desktop continuity
+
+- add the user-session tray and close-to-tray behavior;
+- register packaged release login autostart with a hidden-start argument;
+- keep development builds out of OS startup registration;
+- enforce single-instance restore and explicit tray Quit shutdown;
+- verify that this does not enable Hermes `ON_LOGIN` or start an Instance.
+
 No batch automatically authorizes the next. A blocking qualification, security or architecture finding stops execution.
 
 ## 25. Test Matrix
@@ -748,6 +766,10 @@ No batch automatically authorizes the next. A blocking qualification, security o
 | Pairing approval lockout | stable locked error; no bypass or retry loop | adapter/API/Desktop/security |
 | Sealed generation dependency attempt | in-place mutation rejected; approved new-generation path used | install/integrity |
 | Migration from Phase 5 DB | succeeds with uniqueness/FK and no secret columns | persistence |
+| Main-window close | window hides; tray restores it; daemon remains owned and running | Rust/Windows smoke |
+| Tray Quit | app exits and performs bounded daemon shutdown | Rust/Windows smoke |
+| Packaged login autostart | one user-scope entry launches hidden; no elevation or Instance start | packaged Windows smoke |
+| Second application launch | existing window is restored; no second daemon is spawned | Rust/Windows smoke |
 
 ## 26. Full Verification
 
@@ -782,6 +804,7 @@ Required manual evidence:
 
 - default and named Profile Start/Stop/Restart on Windows;
 - Desktop close while gateway remains running;
+- close-to-tray restore, explicit tray Quit, packaged login autostart and single-instance behavior;
 - real Weixin scan/confirm/connect/disconnect;
 - real WeCom approved auth path;
 - no plaintext secret/QR in inspected logs and SQLite;
@@ -817,6 +840,7 @@ Phase 6 can pass only when:
 - Start, Stop, Restart and live status work for default and named Profiles without a terminal;
 - manual-only lifecycle and lifecycle recovery behave exactly as approved;
 - Desktop close does not stop managed Hermes gateways;
+- close-to-tray, tray restore/Quit, packaged user-login autostart and single-instance behavior work without changing Hermes startup policy;
 - Weixin and the D6-approved WeCom path complete their mandatory auth flows;
 - a Weixin sender can complete the required Hermes pairing approval from Desktop without a terminal;
 - Channel and lifecycle status are both visible and semantically distinct;
@@ -832,7 +856,7 @@ Phase 7 implementation remains prohibited until that freeze.
 
 Stop and return to Owner review if:
 
-- D3-D10 remain unresolved;
+- D3-D11 remain unresolved;
 - the official Hermes lifecycle surface cannot be made non-interactive, Profile-exact and fail-closed;
 - Start/Stop/Restart requires a generic shell or imports Hermes internals;
 - Windows service management requires hidden or automatic elevation;

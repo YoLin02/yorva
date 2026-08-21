@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { DaemonClient } from "../api/client";
-import type { InstanceList } from "../api/types";
+import type { InstanceList, Operation } from "../api/types";
 import { messages } from "../i18n";
 import { InstancesPage } from "./InstancesPage";
 
@@ -185,6 +185,61 @@ describe("InstancesPage", () => {
     expect(onPrepareCreate).toHaveBeenCalledOnce();
     expect(screen.getByRole("dialog", { name: "Create instance" })).toBeInTheDocument();
     expect(screen.getByLabelText("New instance name")).toHaveFocus();
+    const createDialog = screen.getByRole("dialog", { name: "Create instance" });
+    expect(within(createDialog).queryByText("＋")).not.toBeInTheDocument();
+    expect(createDialog.querySelector(".modal-icon")).not.toBeInTheDocument();
+    expect(within(createDialog).getAllByRole("button", { name: "Cancel" })).toHaveLength(2);
+  });
+
+  it("closes the create dialog after the operation succeeds", async () => {
+    const baseProps = {
+      supported: true,
+      loading: false,
+      error: false,
+      inventory,
+      createName: "coder-two",
+      createBusy: false,
+      createOperation: null as Operation | null,
+      copy: messages["en-US"],
+      locale: "en-US" as const,
+      onRefresh: () => undefined,
+      onPrepareCreate: () => undefined,
+      onCreateNameChange: () => undefined,
+      onCreate: () => undefined,
+      onCancelCreate: () => undefined,
+      deleteTarget: null,
+      deleteConfirmation: "",
+      deleteBusy: false,
+      deleteOperation: null,
+      onDeleteTargetChange: () => undefined,
+      onDeleteConfirmationChange: () => undefined,
+      onDelete: () => undefined,
+      onCancelDelete: () => undefined,
+    };
+    const { rerender } = render(<InstancesPage {...baseProps} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Create instance" }));
+    expect(screen.getByRole("dialog", { name: "Create instance" })).toBeInTheDocument();
+
+    rerender(<InstancesPage {...baseProps} createOperation={{
+      id: "op_create",
+      type: "instance.create",
+      targetType: "runtime-installation",
+      targetId: "rtinst_test",
+      status: "SUCCEEDED",
+      stage: "completed",
+      progress: 100,
+      message: "",
+      errorCode: null,
+      retryable: false,
+      correlationId: "cor_create",
+      createdAt: "2026-08-21T12:00:00Z",
+      startedAt: "2026-08-21T12:00:01Z",
+      completedAt: "2026-08-21T12:00:02Z",
+      updatedAt: "2026-08-21T12:00:02Z",
+    }} />);
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Create instance" })).not.toBeInTheDocument());
   });
 
   it("opens a modal confirmation when Delete is clicked", () => {

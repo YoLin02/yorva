@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { DaemonClient } from "../../api/client";
 import type { Instance } from "../../api/types";
@@ -57,9 +57,10 @@ describe("ChannelPanel", () => {
     expect(await screen.findByText("通道连接与网关运行是两个独立状态。通道已连接不代表网关正在运行。")).toBeInTheDocument();
 		await waitFor(() => expect(screen.getByText(/网关状态/)).toHaveTextContent("已停止"));
 
+    fireEvent.click(screen.getByRole("tab", { name: "企业微信" }));
     fireEvent.change(screen.getByLabelText("Bot ID"), { target: { value: "bot-one" } });
     fireEvent.change(screen.getByLabelText("Secret"), { target: { value: "secret-one" } });
-    const enterpriseCard = screen.getByText("企业微信").closest("article")!;
+    const enterpriseCard = screen.getByRole("tabpanel", { name: "企业微信" }).querySelector("article")!;
     fireEvent.click(enterpriseCard.querySelector("button.button-primary")!);
 
     await waitFor(() => expect(client.connectWeCom).toHaveBeenCalledWith("inst_coder", "bot-one", "secret-one", expect.any(String)));
@@ -84,6 +85,11 @@ describe("ChannelPanel", () => {
     await waitFor(() => expect(getChannelQr).toHaveBeenCalledWith("op_weixin", expect.any(AbortSignal)));
     expect(rendered.container.querySelector("svg")).toBeInTheDocument();
     expect(screen.queryByText("https://safe.example/ephemeral")).not.toBeInTheDocument();
+
+    const qrDialog = screen.getByRole("dialog", { name: "使用微信扫码" });
+    fireEvent.click(within(qrDialog).getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(client.cancelOperation).toHaveBeenCalledWith("op_weixin"));
+    expect(screen.queryByRole("dialog", { name: "使用微信扫码" })).not.toBeInTheDocument();
   });
 
   it("keeps a terminal Weixin dialog visible and explains a cancelled operation", async () => {

@@ -107,7 +107,7 @@ describe("App Desktop navigation and locale", () => {
     fireEvent.click(screen.getByRole("radio", { name: /简体中文/ }));
 
     expect(screen.getByRole("button", { name: "仪表盘" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "语言" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "界面语言" })).toBeInTheDocument();
     expect(window.localStorage.getItem(localeStorageKey)).toBe("zh-CN");
 
     first.unmount();

@@ -22,6 +22,8 @@ import {
   RotateCw,
   Search,
   Settings,
+  Sun,
+  Moon,
   SlidersHorizontal,
   Square,
   Trash2,
@@ -99,6 +101,14 @@ export function IconGlobe(props: LucideProps) {
 
 export function IconMonitor(props: LucideProps) {
   return glyph(Monitor, 24, props);
+}
+
+export function IconSun(props: LucideProps) {
+  return glyph(Sun, 15, props);
+}
+
+export function IconMoon(props: LucideProps) {
+  return glyph(Moon, 15, props);
 }
 
 export function IconRefresh(props: LucideProps) {

@@ -27,6 +27,7 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
   const [pairingCode, setPairingCode] = useState("");
   const [pairingApprovalState, setPairingApprovalState] = useState<"idle" | "submitting" | "approved">("idle");
   const [pairingErrorCode, setPairingErrorCode] = useState<string | null>(null);
+  const [selectedKind, setSelectedKind] = useState<ChannelKind>("weixin");
 
   const channelsQuery = useQuery({
     queryKey: ["instance-channels", instance.instanceId, client.scope],
@@ -53,7 +54,9 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
 	const operationId = operation?.id;
 	const operationActive = isActive(operation);
 	const refetchChannels = channelsQuery.refetch;
-  const recoveredKind = channelsQuery.data?.channels.find((item) => item.activeOperationId === followedOperationId)?.type ?? null;
+  const recoveredKind = followedOperationId
+    ? channelsQuery.data?.channels.find((item) => item.activeOperationId === followedOperationId)?.type ?? null
+    : null;
   const activeKind = submittedKind ?? recoveredKind;
   const qrQuery = useQuery({
     queryKey: ["channel-qr", followedOperationId, client.scope],
@@ -145,6 +148,9 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
       ? copy.channels.gatewayStopped
       : copy.channels.gatewayUnknown;
 
+  const visibleKind = activeKind ?? selectedKind;
+  const selectedChannel = channelsQuery.data?.channels.find((item) => item.type === visibleKind) ?? emptyChannel(visibleKind);
+
   return (
     <section className="channel-panel">
       <header className="channel-panel-header">
@@ -158,49 +164,59 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
         </div>
       </header>
 
-      <p className="channel-independence-note">{copy.channels.independenceNote}</p>
       {channelsQuery.isLoading ? <p className="notice notice-info">{copy.channels.loading}</p> : null}
       {channelsQuery.isError || requestFailed ? <p className="notice notice-error" role="alert">{copy.channels.requestFailed}</p> : null}
 
-      <div className="channel-card-grid" aria-live="polite">
-        {(["weixin", "wecom"] as const).map((kind) => {
-          const state = channelsQuery.data?.channels.find((item) => item.type === kind) ?? emptyChannel(kind);
-          return (
-            <ChannelCard
-              key={kind}
-              kind={kind}
-              channel={state}
-              operation={activeKind === kind ? operation : undefined}
-              botId={botId}
-              secret={secret}
+      <div className="channel-switcher" role="tablist" aria-label={copy.channels.title}>
+        {(["weixin", "wecom"] as const).map((kind) => (
+          <button
+            type="button"
+            key={kind}
+            role="tab"
+            aria-selected={visibleKind === kind}
+            className={visibleKind === kind ? `channel-switch is-active is-${kind}` : `channel-switch is-${kind}`}
+            onClick={() => setSelectedKind(kind)}
+          >
+            <span aria-hidden="true">{kind === "weixin" ? "微" : "企"}</span>
+            {kind === "weixin" ? copy.channels.weixin : copy.channels.wecom}
+          </button>
+        ))}
+      </div>
+
+      <div className="channel-card-list" role="tabpanel" aria-label={visibleKind === "weixin" ? copy.channels.weixin : copy.channels.wecom} aria-live="polite">
+        <ChannelCard
+          key={visibleKind}
+          kind={visibleKind}
+          channel={selectedChannel}
+          operation={activeKind === visibleKind ? operation : undefined}
+          botId={botId}
+          secret={secret}
+          copy={copy}
+          onBotIdChange={setBotId}
+          onSecretChange={setSecret}
+          onConnect={() => { void startConnect(visibleKind); }}
+          onDisconnect={() => setDisconnectTarget(visibleKind)}
+          onCancel={() => { void cancel(); }}
+          onRefresh={() => { void channelsQuery.refetch(); }}
+          pairingPanel={visibleKind === "weixin" && selectedChannel.state === "CONNECTED" ? (
+            <WeixinPairing
+              code={pairingCode}
+              pendingCount={pairingQuery.data?.pendingCount}
+              checking={pairingQuery.isLoading || pairingQuery.isFetching}
+              submitting={pairingApprovalState === "submitting"}
+              approved={pairingApprovalState === "approved"}
+              errorCode={pairingQuery.isError ? "CHANNEL_PAIRING_QUERY_FAILED" : pairingErrorCode}
               copy={copy}
-              onBotIdChange={setBotId}
-              onSecretChange={setSecret}
-              onConnect={() => { void startConnect(kind); }}
-              onDisconnect={() => setDisconnectTarget(kind)}
-              onCancel={() => { void cancel(); }}
-              onRefresh={() => { void channelsQuery.refetch(); }}
-              pairingPanel={kind === "weixin" && state.state === "CONNECTED" ? (
-                <WeixinPairing
-                  code={pairingCode}
-                  pendingCount={pairingQuery.data?.pendingCount}
-                  checking={pairingQuery.isLoading || pairingQuery.isFetching}
-                  submitting={pairingApprovalState === "submitting"}
-                  approved={pairingApprovalState === "approved"}
-                  errorCode={pairingQuery.isError ? "CHANNEL_PAIRING_QUERY_FAILED" : pairingErrorCode}
-                  copy={copy}
-                  onCodeChange={(value) => {
-                    setPairingCode(value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, "").slice(0, 8));
-                    setPairingApprovalState("idle");
-                    setPairingErrorCode(null);
-                  }}
-                  onApprove={() => { void approvePairing(); }}
-                  onRefresh={() => { void pairingQuery.refetch(); }}
-                />
-              ) : null}
+              onCodeChange={(value) => {
+                setPairingCode(value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, "").slice(0, 8));
+                setPairingApprovalState("idle");
+                setPairingErrorCode(null);
+              }}
+              onApprove={() => { void approvePairing(); }}
+              onRefresh={() => { void pairingQuery.refetch(); }}
             />
-          );
-        })}
+          ) : null}
+        />
       </div>
 
 		{activeKind === "weixin" && operation && dismissedQrOperationId !== operation.id && (operationActive || isFailed(operation)) ? (
@@ -208,7 +224,10 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
             qr={qrQuery.data}
             operation={operation}
             copy={copy}
-            onCancel={() => { void cancel(); }}
+            onCancel={() => {
+              setDismissedQrOperationId(operation.id);
+              void cancel();
+            }}
             onDismiss={() => setDismissedQrOperationId(operation.id)}
           />
       ) : null}
@@ -227,7 +246,7 @@ export function ChannelPanel({ client, instance, copy, onClose }: {
       ) : null}
 
       <footer className="channel-panel-footer">
-        <p>{copy.channels.revocationNote}</p>
+        <p><span>{copy.channels.independenceNote}</span><span>{copy.channels.revocationNote}</span></p>
         <Button onClick={() => { void channelsQuery.refetch(); }}><IconRefresh />{copy.channels.refresh}</Button>
       </footer>
     </section>
