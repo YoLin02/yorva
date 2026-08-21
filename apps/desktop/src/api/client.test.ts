@@ -153,4 +153,37 @@ describe("daemon client", () => {
     expect(init.cache).toBe("no-store");
     expect(JSON.parse(String(init.body))).toEqual({ code });
   });
+
+  it("reads, saves, and resets Hermes download sources through the authenticated settings route", async () => {
+    const sources = {
+      hermesArchiveUrl: "https://github.com/example/hermes.zip",
+      nodeArchiveUrl: "https://npmmirror.com/mirrors/node/node.zip",
+      npmArchiveUrl: "https://registry.npmmirror.com/npm/-/npm.tgz",
+      pythonIndexUrl: "https://pypi.tuna.tsinghua.edu.cn/simple",
+      npmRegistryUrl: "https://registry.npmmirror.com",
+    };
+    const fetchMock = vi.fn().mockImplementation(async () =>
+      new Response(JSON.stringify(sources), { status: 200, headers: { "Content-Type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createDaemonClient(session);
+
+    await client.getHermesDownloadSources();
+    await client.saveHermesDownloadSources(sources);
+    await client.resetHermesDownloadSources();
+
+    const [getURL, getInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [putURL, putInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    const [deleteURL, deleteInit] = fetchMock.mock.calls[2] as [string, RequestInit];
+    expect(getURL).toBe("http://127.0.0.1:49152/api/v1/settings/hermes/download-sources");
+    expect(getInit.cache).toBe("no-store");
+    expect(putURL).toBe(getURL);
+    expect(putInit.method).toBe("PUT");
+    expect(JSON.parse(String(putInit.body))).toEqual(sources);
+    expect(deleteURL).toBe(getURL);
+    expect(deleteInit.method).toBe("DELETE");
+    for (const init of [getInit, putInit, deleteInit]) {
+      expect(init.headers).toEqual(expect.objectContaining({ Authorization: "Bearer session-secret" }));
+    }
+  });
 });

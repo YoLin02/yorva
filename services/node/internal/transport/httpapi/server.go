@@ -52,7 +52,7 @@ type RuntimeWarningResponse struct {
 	Message string `json:"message"`
 }
 
-func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService, instances InstanceInventoryService, dataDir string) http.Handler {
+func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService, instances InstanceInventoryService, dataDir string, sourceSettings HermesDownloadSourceSettingsService) http.Handler {
 	mux := http.NewServeMux()
 	models, _ := instances.(ModelConfigurationService)
 	lifecycle, _ := instances.(InstanceLifecycleService)
@@ -67,6 +67,9 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("POST /api/v1/runtimes/hermes/install", requireBearer(token, startHermesInstall(installs)))
 	mux.Handle("GET /api/v1/runtimes/hermes/prerequisites", requireBearer(token, getHermesPrerequisites(installs)))
 	mux.Handle("POST /api/v1/runtimes/hermes/prerequisites/install", requireBearer(token, startHermesPrerequisites(installs)))
+	mux.Handle("GET /api/v1/settings/hermes/download-sources", requireBearer(token, getHermesDownloadSources(sourceSettings)))
+	mux.Handle("PUT /api/v1/settings/hermes/download-sources", requireBearer(token, putHermesDownloadSources(sourceSettings)))
+	mux.Handle("DELETE /api/v1/settings/hermes/download-sources", requireBearer(token, deleteHermesDownloadSources(sourceSettings)))
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, listRuntimeInstances(instances)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, createRuntimeInstance(instances)))
 	mux.Handle("GET /api/v1/runtimes/hermes/model-provider-presets", requireBearer(token, listModelProviderPresets(models)))
@@ -138,6 +141,8 @@ func allowedMethods(path string) (string, bool) {
 		return "POST, OPTIONS", true
 	case "/api/v1/runtimes/hermes/model-provider-presets":
 		return "GET, OPTIONS", true
+	case "/api/v1/settings/hermes/download-sources":
+		return "GET, PUT, DELETE, OPTIONS", true
 	}
 	if strings.HasPrefix(path, "/api/v1/operations/") {
 		rest := strings.TrimPrefix(path, "/api/v1/operations/")

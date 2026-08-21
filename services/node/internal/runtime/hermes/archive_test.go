@@ -124,19 +124,19 @@ func TestOfficialScriptFromArchiveNormalizesCRLF(t *testing.T) {
 }
 
 func TestApprovedArchiveRedirect(t *testing.T) {
-	ok, err := http.NewRequest(http.MethodGet, officialArchiveURL, nil)
+	ok, err := http.NewRequest(http.MethodGet, "https://cdn.example.com/hermes.zip?signature=ephemeral", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !approvedArchiveRedirect(ok) {
-		t.Fatal("official archive URL should be allowed")
+		t.Fatal("HTTPS artifact redirect should be allowed")
 	}
-	bad, err := http.NewRequest(http.MethodGet, "https://example.com/NousResearch/hermes-agent/"+officialCommit+".zip", nil)
+	bad, err := http.NewRequest(http.MethodGet, "http://cdn.example.com/hermes.zip", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if approvedArchiveRedirect(bad) {
-		t.Fatal("unapproved host was allowed")
+		t.Fatal("HTTPS downgrade was allowed")
 	}
 }
 

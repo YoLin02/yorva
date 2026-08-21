@@ -270,6 +270,11 @@ updated_at     ... NOT NULL
 
 Do not use this table for secrets or high-cardinality domain state.
 
+Amendment 003A7 uses the namespaced key `hermes.download-sources.v1` for one closed
+non-secret JSON document containing the Hermes/Node/npm artifact fallback URLs and the
+Python/npm dependency registry URLs. Deleting the row restores compiled defaults.
+Credential-bearing URLs are rejected before persistence.
+
 ## 13. `audit_log`
 
 Security/management-relevant local actions.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
 type NodeHost struct {
@@ -22,6 +23,12 @@ type NodeHost struct {
 	run         func(context.Context, installInvocation, time.Duration) commandResult
 	operationID string
 	diskFree    func(string) (uint64, error)
+	downloadSources downloadsources.Provider
+}
+
+func (h *NodeHost) WithDownloadSources(provider downloadsources.Provider) *NodeHost {
+	h.downloadSources = provider
+	return h
 }
 
 func NewNodeHost(stateRoot, nodeArchive, npmArchive string) *NodeHost {
@@ -47,16 +54,24 @@ func managedNpmCLI(nodeDir string) string {
 
 func (h *NodeHost) Apply(ctx context.Context, operationID string, report func(operation.Stage, string)) error {
 	h.operationID = operationID
+	sources := downloadsources.Default()
+	var err error
+	if h.downloadSources != nil {
+		sources, err = h.downloadSources.Get(ctx)
+		if err != nil {
+			return installError(yorvaruntime.ErrorRuntimeInstallSourceUnavailable, err)
+		}
+	}
 	if report != nil {
 		report(operation.StageInstallNode, "")
 	}
-	if err := h.ensureNode(ctx); err != nil {
+	if err := h.ensureNode(ctx, sources); err != nil {
 		return err
 	}
 	if report != nil {
 		report("install.npm", "")
 	}
-	if err := h.ensureNPM(ctx); err != nil {
+	if err := h.ensureNPM(ctx, sources); err != nil {
 		return err
 	}
 	if !isRegularFile(filepath.Join(h.installDir(), "package-lock.json")) {
@@ -65,18 +80,12 @@ func (h *NodeHost) Apply(ctx context.Context, operationID string, report func(op
 	if report != nil {
 		report(operation.StageInstallNodeDeps, "")
 	}
-	return h.installDependencies(ctx)
+	return h.installDependencies(ctx, sources)
 }
 
-func (h *NodeHost) ensureNode(ctx context.Context) error {
+func (h *NodeHost) ensureNode(ctx context.Context, sources downloadsources.Config) error {
 	if status := h.inspectNode(); status.State == PrereqReady {
 		return nil
-	}
-	if h.nodeArchive == "" {
-		return installError(yorvaruntime.ErrorHermesNodeMissing, errors.New("bundled Node archive is not available"))
-	}
-	if err := verifySizedDigest(h.nodeArchive, officialNodeArchiveSize, officialNodeArchiveSHA); err != nil {
-		return installError(yorvaruntime.ErrorHermesNodeArchiveIntegrityFailed, err)
 	}
 	staging, err := operationPrivateDir(h.stateRoot, h.operationID+"-node")
 	if err != nil {
@@ -86,8 +95,17 @@ func (h *NodeHost) ensureNode(ctx context.Context) error {
 	if err := requireExtractBudget(staging, h.diskFree); err != nil {
 		return err
 	}
+	archivePath := h.nodeArchive
+	if archivePath == "" {
+		archivePath = filepath.Join(staging, "node.zip")
+		if err := downloadPinnedArtifact(ctx, sources.NodeArchiveURL, archivePath, archiveDownloadLimit, officialNodeArchiveSize, officialNodeArchiveSHA); err != nil {
+			return err
+		}
+	} else if err := verifySizedDigest(archivePath, officialNodeArchiveSize, officialNodeArchiveSHA); err != nil {
+		return installError(yorvaruntime.ErrorHermesNodeArchiveIntegrityFailed, err)
+	}
 	extracted := filepath.Join(staging, "tree")
-	if err := extractPrefixedZip(ctx, h.nodeArchive, extracted, officialNodeZipRoot); err != nil {
+	if err := extractPrefixedZip(ctx, archivePath, extracted, officialNodeZipRoot); err != nil {
 		return installError(yorvaruntime.ErrorHermesNodeArchiveIntegrityFailed, err)
 	}
 	if !isRegularFile(filepath.Join(extracted, "node.exe")) {
@@ -100,23 +118,26 @@ func (h *NodeHost) ensureNode(ctx context.Context) error {
 	return placeMaterializedTree(extracted, target)
 }
 
-func (h *NodeHost) ensureNPM(ctx context.Context) error {
+func (h *NodeHost) ensureNPM(ctx context.Context, sources downloadsources.Config) error {
 	if status := h.inspectNPM(); status.State == PrereqReady {
 		return nil
-	}
-	if h.npmArchive == "" {
-		return installError(yorvaruntime.ErrorHermesNPMMissing, errors.New("bundled npm archive is not available"))
-	}
-	if err := verifySizedDigest(h.npmArchive, officialNpmArchiveSize, officialNpmArchiveSHA); err != nil {
-		return installError(yorvaruntime.ErrorHermesNPMArchiveIntegrityFailed, err)
 	}
 	staging, err := operationPrivateDir(h.stateRoot, h.operationID+"-npm")
 	if err != nil {
 		return err
 	}
 	defer func() { _ = os.RemoveAll(staging) }()
+	archivePath := h.npmArchive
+	if archivePath == "" {
+		archivePath = filepath.Join(staging, "npm.tgz")
+		if err := downloadPinnedArtifact(ctx, sources.NPMArchiveURL, archivePath, archiveDownloadLimit, officialNpmArchiveSize, officialNpmArchiveSHA); err != nil {
+			return err
+		}
+	} else if err := verifySizedDigest(archivePath, officialNpmArchiveSize, officialNpmArchiveSHA); err != nil {
+		return installError(yorvaruntime.ErrorHermesNPMArchiveIntegrityFailed, err)
+	}
 	extracted := filepath.Join(staging, "npm")
-	if err := extractNpmTarball(ctx, h.npmArchive, extracted); err != nil {
+	if err := extractNpmTarball(ctx, archivePath, extracted); err != nil {
 		return installError(yorvaruntime.ErrorHermesNPMArchiveIntegrityFailed, err)
 	}
 	target := filepath.Join(h.nodeDir(), "node_modules", "npm")

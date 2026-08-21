@@ -40,7 +40,7 @@ func TestCreateInstanceClosedBodyAndIdempotency(t *testing.T) {
 			Message: "coder", CreatedAt: now, UpdatedAt: now,
 		},
 	}}
-	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "")
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
 
 	valid := httptest.NewRequest(http.MethodPost, "/api/v1/runtimes/hermes/instances", bytes.NewReader([]byte(`{"name":"coder"}`)))
 	valid.Header.Set("Authorization", "Bearer "+testToken)

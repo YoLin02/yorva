@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phase 1, Phase 2, Phase 3 and Phase 4 frozen; current Phase 4 baseline `phase-004-instance-profile-baseline`
+> Status: Phases 1–5 frozen; Phase 6 implementation candidate complete with audit and owner-authenticated channel smoke pending; Phase 3 amendment 003A7 in implementation
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**

@@ -135,6 +135,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/hermes/download-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the effective Hermes artifact and dependency sources */
+        get: operations["getHermesDownloadSources"];
+        /** Replace the Hermes artifact and dependency sources */
+        put: operations["putHermesDownloadSources"];
+        post?: never;
+        /** Restore the compiled mainland China source defaults */
+        delete: operations["resetHermesDownloadSources"];
+        /** Validate CORS access for Hermes download source settings */
+        options: operations["optionsHermesDownloadSources"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/operations": {
         parameters: {
             query?: never;
@@ -615,6 +635,18 @@ export interface components {
             /** Format: date-time */
             checkedAt: string;
             activeOperationId: string | null;
+        };
+        HermesDownloadSources: {
+            /** Format: uri */
+            hermesArchiveUrl: string;
+            /** Format: uri */
+            nodeArchiveUrl: string;
+            /** Format: uri */
+            npmArchiveUrl: string;
+            /** Format: uri */
+            pythonIndexUrl: string;
+            /** Format: uri */
+            npmRegistryUrl: string;
         };
         Operation: {
             id: string;
@@ -1147,6 +1179,93 @@ export interface operations {
         };
     };
     optionsHermesPrerequisitesInstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getHermesDownloadSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The complete effective source configuration. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HermesDownloadSources"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    putHermesDownloadSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HermesDownloadSources"];
+            };
+        };
+        responses: {
+            /** @description The validated saved source configuration. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HermesDownloadSources"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    resetHermesDownloadSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The restored default source configuration. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HermesDownloadSources"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    optionsHermesDownloadSources: {
         parameters: {
             query?: never;
             header?: never;

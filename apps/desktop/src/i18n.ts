@@ -156,6 +156,33 @@ type Messages = {
     closeToTrayDescription: string;
     desktopPreferencesFailed: string;
     savedAutomatically: string;
+    hermesSourcesTitle: string;
+    hermesSourcesDescription: string;
+    hermesSourcesChinaDefault: string;
+    bundledFirstTitle: string;
+    bundledFirstDescription: string;
+    artifactSourcesTitle: string;
+    artifactSourcesDescription: string;
+    dependencySourcesTitle: string;
+    dependencySourcesDescription: string;
+    hermesArchiveLabel: string;
+    hermesArchiveHelp: string;
+    nodeArchiveLabel: string;
+    nodeArchiveHelp: string;
+    npmArchiveLabel: string;
+    npmArchiveHelp: string;
+    pythonIndexLabel: string;
+    pythonIndexHelp: string;
+    npmRegistryLabel: string;
+    npmRegistryHelp: string;
+    sourcePolicyHint: string;
+    sourcesLoading: string;
+    sourcesSaved: string;
+    sourcesInvalid: string;
+    sourcesFailed: string;
+    restoreChinaDefaults: string;
+    saveSources: string;
+    sourcesSaving: string;
   };
   instances: {
     unsupportedTitle: string;
@@ -455,8 +482,8 @@ const english: Messages = {
       destination: "User-scope destination",
       hostChanges: "This official installer may:",
       hostChangeItems: [
-        "Download Hermes and required official dependencies",
-        "If the official GitHub source archive cannot be downloaded, use the verified copy packaged in this Yorva installer",
+        "Use the verified Hermes, Node.js and npm files packaged in this Yorva installer when present",
+        "Use the configured fallback sources only when a corresponding packaged file is absent",
         "Create an isolated Python environment and install Node dependencies",
         "Install Hermes-managed uv and PortableGit when needed",
         "Use approved Windows package sources for reviewed prerequisites",
@@ -542,6 +569,33 @@ const english: Messages = {
     closeToTrayDescription: "Closing the main window keeps Yorva available in the system tray.",
     desktopPreferencesFailed: "Yorva could not update the window behavior setting. Please try again.",
     savedAutomatically: "Saved automatically",
+    hermesSourcesTitle: "Hermes download sources",
+    hermesSourcesDescription: "Configure the artifact fallbacks and package registries used by new Hermes installation operations.",
+    hermesSourcesChinaDefault: "Mainland China defaults",
+    bundledFirstTitle: "Verified bundled artifacts are used first",
+    bundledFirstDescription: "The packaged Hermes, Node.js, and npm archives are preferred. Artifact URLs below are used only when the corresponding bundled file is unavailable.",
+    artifactSourcesTitle: "Artifact fallback URLs",
+    artifactSourcesDescription: "Downloaded archives must still match Yorva's pinned size and SHA-256 before they can be extracted.",
+    dependencySourcesTitle: "Dependency registries",
+    dependencySourcesDescription: "These registries are applied to Python/uv/pip and npm dependency work for the next operation.",
+    hermesArchiveLabel: "Hermes source archive",
+    hermesArchiveHelp: "Pinned Hermes 0.20.2 commit archive fallback.",
+    nodeArchiveLabel: "Node.js archive",
+    nodeArchiveHelp: "Pinned Node.js 22.23.1 Windows x64 archive fallback.",
+    npmArchiveLabel: "npm archive",
+    npmArchiveHelp: "Pinned npm 12.0.2 tarball fallback.",
+    pythonIndexLabel: "Python package index",
+    pythonIndexHelp: "Used by uv and pip. The default is the Tsinghua TUNA PyPI mirror.",
+    npmRegistryLabel: "npm registry",
+    npmRegistryHelp: "Used for Hermes Node dependencies. The default is npmmirror.",
+    sourcePolicyHint: "HTTPS URLs without usernames, passwords, query strings, or fragments are accepted. Changes apply only to operations started after saving.",
+    sourcesLoading: "Loading source settings…",
+    sourcesSaved: "Download sources saved.",
+    sourcesInvalid: "Enter a credential-free HTTPS URL in every field.",
+    sourcesFailed: "Yorva could not read or save the download sources. Please try again.",
+    restoreChinaDefaults: "Restore China defaults",
+    saveSources: "Save changes",
+    sourcesSaving: "Saving…",
   },
   instances: {
     unsupportedTitle: "Instances unavailable",
@@ -870,8 +924,8 @@ const simplifiedChinese: Messages = {
       destination: "当前用户安装位置",
       hostChanges: "该官方安装程序可能会：",
       hostChangeItems: [
-        "下载 Hermes 及官方依赖",
-        "若无法下载官方 GitHub 源码归档，则使用本安装包内已校验的官方源码副本",
+        "优先使用本安装包内已校验的 Hermes、Node.js 和 npm 文件",
+        "仅在对应内置文件缺失时使用高级设置中的备用来源",
         "创建隔离的 Python 环境并安装 Node 依赖",
         "在需要时安装 Hermes 管理的 uv 和 PortableGit",
         "通过已审核的 Windows 软件源安装必要前置组件",
@@ -957,6 +1011,33 @@ const simplifiedChinese: Messages = {
     closeToTrayDescription: "关闭主窗口后 Yorva 继续在系统托盘中运行。",
     desktopPreferencesFailed: "无法更新窗口行为设置，请重试。",
     savedAutomatically: "已自动保存",
+    hermesSourcesTitle: "Hermes 下载与依赖源",
+    hermesSourcesDescription: "配置后续 Hermes 安装操作使用的安装包备用地址和依赖仓库。",
+    hermesSourcesChinaDefault: "中国大陆默认配置",
+    bundledFirstTitle: "优先使用已校验的内置安装包",
+    bundledFirstDescription: "安装版会优先使用内置的 Hermes、Node.js 和 npm 文件；只有对应内置文件不可用时，才会访问下方备用地址。",
+    artifactSourcesTitle: "安装包备用地址",
+    artifactSourcesDescription: "下载后的文件仍须匹配 Yorva 固定的大小和 SHA-256，校验通过后才能解压。",
+    dependencySourcesTitle: "依赖仓库",
+    dependencySourcesDescription: "这些地址会用于下一次安装中的 Python/uv/pip 与 npm 依赖下载。",
+    hermesArchiveLabel: "Hermes 源码归档",
+    hermesArchiveHelp: "固定 Hermes 0.20.2 提交归档的备用地址。",
+    nodeArchiveLabel: "Node.js 安装包",
+    nodeArchiveHelp: "固定 Node.js 22.23.1 Windows x64 压缩包的备用地址。",
+    npmArchiveLabel: "npm 安装包",
+    npmArchiveHelp: "固定 npm 12.0.2 压缩包的备用地址。",
+    pythonIndexLabel: "Python 软件源",
+    pythonIndexHelp: "供 uv 和 pip 使用，默认采用清华 TUNA PyPI 镜像。",
+    npmRegistryLabel: "npm 软件源",
+    npmRegistryHelp: "供 Hermes Node 依赖使用，默认采用 npmmirror。",
+    sourcePolicyHint: "仅支持不包含用户名、密码、查询参数或片段的 HTTPS 地址。保存后只影响新启动的安装操作。",
+    sourcesLoading: "正在读取下载源配置…",
+    sourcesSaved: "下载源配置已保存。",
+    sourcesInvalid: "请为每一项填写不含凭据的 HTTPS 地址。",
+    sourcesFailed: "无法读取或保存下载源配置，请重试。",
+    restoreChinaDefaults: "恢复国内默认值",
+    saveSources: "保存更改",
+    sourcesSaving: "正在保存…",
   },
   instances: {
     unsupportedTitle: "实例不可用",

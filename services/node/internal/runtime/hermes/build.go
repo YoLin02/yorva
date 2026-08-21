@@ -8,6 +8,7 @@ import (
 	"time"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
 // BuildGeneration runs official stages directly in the inactive final generation
@@ -30,7 +31,14 @@ func (h *HostInstaller) BuildGeneration(ctx context.Context, operationID, genera
 		return err
 	}
 	defer func() { _ = os.RemoveAll(workDir) }()
-	archivePath, origin, err := h.resolveArchive(ctx, workDir)
+	sources := downloadsources.Default()
+	if h.downloadSources != nil {
+		sources, err = h.downloadSources.Get(ctx)
+		if err != nil {
+			return installError(yorvaruntime.ErrorRuntimeInstallSourceUnavailable, err)
+		}
+	}
+	archivePath, origin, err := h.resolveArchive(ctx, workDir, sources)
 	if err != nil {
 		return err
 	}
@@ -53,10 +61,10 @@ func (h *HostInstaller) BuildGeneration(ctx context.Context, operationID, genera
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := h.probe(ctx, powershell, script.Path, "ProtocolVersion", hermesHome, generationDir, 30*time.Second, parseProtocolOutput); err != nil {
+	if err := h.probe(ctx, powershell, script.Path, "ProtocolVersion", hermesHome, generationDir, sources, 30*time.Second, parseProtocolOutput); err != nil {
 		return err
 	}
-	if err := h.probe(ctx, powershell, script.Path, "Manifest", hermesHome, generationDir, 30*time.Second, parseAndValidateManifest); err != nil {
+	if err := h.probe(ctx, powershell, script.Path, "Manifest", hermesHome, generationDir, sources, 30*time.Second, parseAndValidateManifest); err != nil {
 		return err
 	}
 	if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
@@ -79,7 +87,7 @@ func (h *HostInstaller) BuildGeneration(ctx context.Context, operationID, genera
 			}
 			continue
 		case "config-templates":
-			if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, generationDir); err != nil {
+			if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, generationDir, sources); err != nil {
 				h.debug("installer.stage.warning", "stage", stage, "reason", "config-templates-nonblocking")
 			}
 			if h.afterStage != nil {
@@ -87,7 +95,7 @@ func (h *HostInstaller) BuildGeneration(ctx context.Context, operationID, genera
 			}
 			continue
 		}
-		if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, generationDir); err != nil {
+		if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, generationDir, sources); err != nil {
 			return err
 		}
 		if h.afterStage != nil {

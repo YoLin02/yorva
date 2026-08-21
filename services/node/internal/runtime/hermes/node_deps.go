@@ -11,9 +11,10 @@ import (
 	"strings"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
-func (h *NodeHost) installDependencies(ctx context.Context) error {
+func (h *NodeHost) installDependencies(ctx context.Context, sources downloadsources.Config) error {
 	installDir := h.installDir()
 	if !isRegularFile(filepath.Join(installDir, "package-lock.json")) {
 		return installError(yorvaruntime.ErrorHermesNodeDepsFailed, errors.New("official package-lock.json is missing"))
@@ -26,7 +27,12 @@ func (h *NodeHost) installDependencies(ctx context.Context) error {
 	stamp := filepath.Join(installDir, nodeDepsStampName)
 	_ = os.Remove(stamp)
 	args := []string{cli, "ci", "--workspaces=false", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--progress=false"}
-	result := h.run(ctx, installInvocation{Executable: node, Args: args, Dir: installDir}, nodeDepsTimeout)
+	result := h.run(ctx, installInvocation{
+		Executable: node,
+		Args: args,
+		Dir: installDir,
+		Environment: installerEnvironment(h.home(), sources),
+	}, nodeDepsTimeout)
 	if result.timedOut {
 		return installError(yorvaruntime.ErrorHermesNodeDepsTimeout, errors.New("npm ci timed out"))
 	}

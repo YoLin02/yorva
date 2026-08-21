@@ -13,6 +13,7 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	"github.com/YoLin02/yorva/services/node/internal/install"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
 type processRun func(context.Context, installInvocation, time.Duration) commandResult
@@ -33,6 +34,7 @@ type HostInstaller struct {
 	verifyArchive      func(string) error
 	afterStage         func(stage, dir string)
 	env                install.EnvironmentStore
+	downloadSources    downloadsources.Provider
 }
 
 func NewHostInstaller(stateRoot string) *HostInstaller {
@@ -56,6 +58,11 @@ func (h *HostInstaller) WithLogger(logger *slog.Logger) *HostInstaller {
 
 func (h *HostInstaller) WithEmbeddedSource(path string) *HostInstaller {
 	h.embeddedSourcePath = strings.TrimSpace(path)
+	return h
+}
+
+func (h *HostInstaller) WithDownloadSources(provider downloadsources.Provider) *HostInstaller {
+	h.downloadSources = provider
 	return h
 }
 
@@ -157,29 +164,29 @@ func (h *HostInstaller) Apply(ctx context.Context, operationID string, report fu
 	return h.applyGeneration(ctx, operationID, report)
 }
 
-func (h *HostInstaller) resolveArchive(ctx context.Context, workDir string) (string, string, error) {
+func (h *HostInstaller) resolveArchive(ctx context.Context, workDir string, sources downloadsources.Config) (string, string, error) {
 	if h.acquireArchive != nil {
 		return h.acquireArchive(ctx, workDir)
 	}
+	if h.embeddedSourcePath != "" {
+		if err := h.checkArchive(h.embeddedSourcePath); err != nil {
+			return "", "", err
+		}
+		h.debug("source.archive.bundled", "origin", sourceOriginBundled)
+		return h.embeddedSourcePath, sourceOriginBundled, nil
+	}
 	downloaded := filepath.Join(workDir, "hermes-source.zip")
-	err := h.archive.download(ctx, downloaded)
+	archive := h.archive
+	archive.url = sources.HermesArchiveURL
+	err := archive.download(ctx, downloaded)
 	if err == nil {
 		h.debug("source.archive.official", "origin", sourceOriginOfficial)
 		return downloaded, sourceOriginOfficial, nil
 	}
 	if !isTransportArchiveError(err) {
 		h.debug("source.archive.integrity", archiveLogFields(err, sourceOriginOfficial)...)
-		return "", "", err
 	}
-	h.debug("source.archive.official_unavailable", archiveLogFields(err, sourceOriginOfficial)...)
-	if h.embeddedSourcePath == "" {
-		return "", "", err
-	}
-	if verifyErr := h.checkArchive(h.embeddedSourcePath); verifyErr != nil {
-		return "", "", verifyErr
-	}
-	h.debug("source.archive.bundled", "origin", sourceOriginBundled)
-	return h.embeddedSourcePath, sourceOriginBundled, nil
+	return "", "", err
 }
 
 func (h *HostInstaller) obtainScript(ctx context.Context, archivePath, workDir string) (fetchedScript, error) {
@@ -207,11 +214,12 @@ func (h *HostInstaller) checkArchive(path string) error {
 	return verifyArchiveFile(path)
 }
 
-func (h *HostInstaller) probe(ctx context.Context, powershell, script, probe, home, installDir string, timeout time.Duration, parse func(string) error) error {
+func (h *HostInstaller) probe(ctx context.Context, powershell, script, probe, home, installDir string, sources downloadsources.Config, timeout time.Duration, parse func(string) error) error {
 	invocation, err := probeInvocation(powershell, script, probe, home, installDir)
 	if err != nil {
 		return err
 	}
+	invocation.Environment = installerEnvironment(home, sources)
 	result := h.run(ctx, invocation, timeout)
 	h.logCommand("installer.probe", probe, "", result)
 	if result.limited {
@@ -233,11 +241,12 @@ func parseProtocolOutput(output string) error {
 	return parseProtocolVersion(output)
 }
 
-func (h *HostInstaller) runStage(ctx context.Context, powershell, script, stage, home, installDir string) error {
+func (h *HostInstaller) runStage(ctx context.Context, powershell, script, stage, home, installDir string, sources downloadsources.Config) error {
 	invocation, err := stageInvocation(powershell, script, stage, home, installDir)
 	if err != nil {
 		return err
 	}
+	invocation.Environment = installerEnvironment(home, sources)
 	result := h.run(ctx, invocation, stageTimeout(stage))
 	h.logCommand("installer.stage", stage, "", result)
 	if result.limited {

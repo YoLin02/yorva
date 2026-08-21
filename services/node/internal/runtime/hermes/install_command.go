@@ -14,6 +14,7 @@ type installInvocation struct {
 	Executable string
 	Args       []string
 	Dir        string
+	Environment []string
 }
 
 func probeInvocation(powershell, script string, probe string, home, installDir string) (installInvocation, error) {

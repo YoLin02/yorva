@@ -149,6 +149,21 @@ POST /api/v1/runtimes/{runtimeKind}/detect
 
 Phase 2 implements authenticated, read-only discovery for the registered `hermes` kind. Phase 3 adds one authenticated installation Operation. The install request accepts no version, URL, path, command or environment fields and requires an `Idempotency-Key`. Both Hermes install and Hermes prerequisite start share the same closed empty-object request body. Completed negative discovery outcomes remain HTTP `200` typed results.
 
+### Hermes download-source settings
+
+```text
+GET    /api/v1/settings/hermes/download-sources
+PUT    /api/v1/settings/hermes/download-sources
+DELETE /api/v1/settings/hermes/download-sources
+```
+
+Amendment 003A7 adds one authenticated, non-secret settings resource. GET returns the
+complete effective configuration, PUT atomically replaces all five fields, and DELETE
+removes the override and returns the compiled China defaults. The schema is closed and
+accepts only credential-free absolute HTTPS URLs. It does not accept versions, digests,
+paths, commands, environment names or credentials. Install and prerequisite Operations
+snapshot the effective settings once when their work starts.
+
 ### Instances
 
 Phase 4 implements authenticated GET list/get, POST create, and DELETE with typed confirmation. `{runtimeId}` is `hermes` for the single supported installation. Responses omit native filesystem paths and `nativeId`.
@@ -248,7 +263,7 @@ events or durable YORVA state. These endpoints are Weixin-only in Phase 6.
 POST /api/v1/runtimes/hermes/install
 ```
 
-Phase 3 starts one durable `runtime.install` Operation for Windows user-scope Hermes `0.20.2`. Amendment 003A1 may set `message` to a stable source-warning key such as `HERMES_SOURCE_BUNDLED_USED`. That field never contains a filesystem path, mirror URL or installer transcript.
+Phase 3 starts one durable `runtime.install` Operation for Windows user-scope Hermes `0.20.2`. Amendment 003A1 may set `message` to a stable source-warning key such as `HERMES_SOURCE_BUNDLED_USED`. Amendment 003A7 makes verified packaged artifacts primary and uses configured URLs only when the corresponding package artifact is absent. That field never contains a filesystem path, mirror URL or installer transcript.
 
 Hermes Node.js health is a separate live query and Operation:
 

@@ -11,16 +11,18 @@ import (
 	"testing"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
-func TestResolveArchiveFallsBackOnceOnTransportFailure(t *testing.T) {
+func TestResolveArchivePrefersVerifiedBundledSource(t *testing.T) {
 	bundled := writeOfficialSizedStub(t, []byte("bundled-bytes"))
+	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusBadGateway)
+		requests++
+		_, _ = w.Write([]byte("network-bytes"))
 	}))
 	t.Cleanup(server.Close)
 	installer := NewHostInstaller(t.TempDir()).WithEmbeddedSource(bundled)
-	installer.archive.url = server.URL
 	installer.archive.http = server.Client()
 	installer.verifyArchive = func(path string) error {
 		if path != bundled {
@@ -28,24 +30,58 @@ func TestResolveArchiveFallsBackOnceOnTransportFailure(t *testing.T) {
 		}
 		return nil
 	}
-	path, origin, err := installer.resolveArchive(context.Background(), t.TempDir())
+	sources := downloadsources.Default()
+	sources.HermesArchiveURL = server.URL + "/hermes.zip"
+	path, origin, err := installer.resolveArchive(context.Background(), t.TempDir(), sources)
 	if err != nil || path != bundled || origin != sourceOriginBundled {
 		t.Fatalf("path=%s origin=%s err=%v", path, origin, err)
 	}
+	if requests != 0 {
+		t.Fatalf("network requests = %d, want 0", requests)
+	}
 }
 
-func TestResolveArchiveDoesNotFallBackOnIntegrityFailure(t *testing.T) {
+func TestResolveArchiveDoesNotDownloadWhenBundledIntegrityFails(t *testing.T) {
 	bundled := writeOfficialSizedStub(t, []byte("bundled-bytes"))
+	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("tampered-archive"))
+		requests++
+		_, _ = w.Write([]byte("network-bytes"))
 	}))
 	t.Cleanup(server.Close)
 	installer := NewHostInstaller(t.TempDir()).WithEmbeddedSource(bundled)
-	installer.archive.url = server.URL
 	installer.archive.http = server.Client()
-	_, _, err := installer.resolveArchive(context.Background(), t.TempDir())
+	installer.verifyArchive = func(string) error {
+		return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, errPlatform)
+	}
+	sources := downloadsources.Default()
+	sources.HermesArchiveURL = server.URL + "/hermes.zip"
+	_, _, err := installer.resolveArchive(context.Background(), t.TempDir(), sources)
 	if installErrorCode(err) != yorvaruntime.ErrorRuntimeInstallIntegrityFailed {
 		t.Fatalf("error = %v", err)
+	}
+	if requests != 0 {
+		t.Fatalf("network requests = %d, want 0", requests)
+	}
+}
+
+func TestResolveArchiveRequestsConfiguredFallbackWhenBundleMissing(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		_, _ = w.Write([]byte("network-bytes"))
+	}))
+	t.Cleanup(server.Close)
+	installer := NewHostInstaller(t.TempDir()).WithEmbeddedSource("")
+	installer.archive.http = server.Client()
+	sources := downloadsources.Default()
+	sources.HermesArchiveURL = server.URL + "/hermes.zip"
+	_, _, err := installer.resolveArchive(context.Background(), t.TempDir(), sources)
+	if installErrorCode(err) != yorvaruntime.ErrorRuntimeInstallIntegrityFailed {
+		t.Fatalf("error = %v", err)
+	}
+	if requests != 1 {
+		t.Fatalf("network requests = %d, want 1", requests)
 	}
 }
 

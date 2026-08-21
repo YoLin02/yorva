@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
 )
 
 func TestParseAndValidateReviewedManifest(t *testing.T) {
@@ -112,7 +113,10 @@ func TestInstallerEnvironmentExcludesSentinelSecrets(t *testing.T) {
 	t.Setenv("UV_DEFAULT_INDEX", "http://evil-python")
 	t.Setenv("PIP_INDEX_URL", "http://evil-pip")
 	t.Setenv("NPM_CONFIG_REGISTRY", "http://evil-npm")
-	env := installerEnvironment(`C:\Users\a\AppData\Local\hermes`)
+	sources := downloadsources.Default()
+	sources.PythonIndexURL = "https://mirror.example/python/simple"
+	sources.NPMRegistryURL = "https://mirror.example/npm"
+	env := installerEnvironment(`C:\Users\a\AppData\Local\hermes`, sources)
 	joined := strings.Join(env, "\n")
 	for _, forbidden := range []string{"sk-secret", "hermes-secret", "http://evil", "OPENAI_API_KEY", "HERMES_TOKEN=", "PYTHONPATH=", "UV_INDEX="} {
 		if strings.Contains(joined, forbidden) {
@@ -123,11 +127,11 @@ func TestInstallerEnvironmentExcludesSentinelSecrets(t *testing.T) {
 		t.Fatalf("fixed HERMES_HOME missing: %s", joined)
 	}
 	for _, fixed := range []string{
-		"UV_DEFAULT_INDEX=" + hermesPythonIndex,
+		"UV_DEFAULT_INDEX=" + sources.PythonIndexURL,
 		"UV_INDEX_STRATEGY=first-index",
-		"PIP_INDEX_URL=" + hermesPythonIndex,
+		"PIP_INDEX_URL=" + sources.PythonIndexURL,
 		"PIP_CONFIG_FILE=NUL",
-		"NPM_CONFIG_REGISTRY=" + hermesNPMRegistry,
+		"NPM_CONFIG_REGISTRY=" + sources.NPMRegistryURL,
 	} {
 		if count := strings.Count(joined, fixed); count != 1 {
 			t.Fatalf("fixed environment %q count = %d: %s", fixed, count, joined)
