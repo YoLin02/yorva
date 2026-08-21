@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDateTime } from "./formatDateTime";
+import { formatDateTime, formatRelativeTime } from "./formatDateTime";
 
 describe("formatDateTime", () => {
   it("formats the same UTC value with an explicit locale and time zone", () => {
@@ -15,5 +15,19 @@ describe("formatDateTime", () => {
 
   it("preserves an invalid contract value for diagnostics", () => {
     expect(formatDateTime("invalid", "en-US", "UTC")).toBe("invalid");
+  });
+});
+
+describe("formatRelativeTime", () => {
+  const now = new Date("2026-08-21T10:00:00Z").getTime();
+
+  it("uses compact relative labels for recent syncs", () => {
+    expect(formatRelativeTime("2026-08-21T09:59:40Z", "zh-CN", now)).toBe("刚刚");
+    expect(formatRelativeTime("2026-08-21T09:55:00Z", "zh-CN", now)).toBe("5分钟前");
+    expect(formatRelativeTime("2026-08-21T07:00:00Z", "en-US", now)).toBe("3 hours ago");
+  });
+
+  it("falls back to a date without a detailed timestamp for older syncs", () => {
+    expect(formatRelativeTime("2026-06-01T07:08:09Z", "en-US", now)).toBe("Jun 1, 2026");
   });
 });

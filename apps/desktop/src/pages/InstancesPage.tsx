@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { formatDateTime } from "../formatDateTime";
+import { createPortal } from "react-dom";
+import { formatRelativeTime } from "../formatDateTime";
 import type { DaemonClient } from "../api/client";
 import type { Instance, InstanceList, Lifecycle, Operation } from "../api/types";
 import type { AppMessages, Locale } from "../i18n";
@@ -9,10 +10,14 @@ import { Button } from "../components/ui/Button";
 import {
   IconAlert,
   IconClose,
+  IconMessage,
+  IconMore,
+  IconPlay,
   IconPlus,
   IconRefresh,
   IconSearch,
   IconSliders,
+  IconStop,
   IconTrash,
 } from "../components/ui/icons";
 import { ModelConfigurationPanel } from "../components/models/ModelConfigurationPanel";
@@ -79,10 +84,16 @@ export function InstancesPage({
   const [createOpen, setCreateOpen] = useState(false);
   const [modelInstanceId, setModelInstanceId] = useState<string | null>(null);
   const [channelInstanceId, setChannelInstanceId] = useState<string | null>(null);
+  const [relativeNow, setRelativeNow] = useState(() => Date.now());
   const modelInstance = items.find((item) => item.instanceId === modelInstanceId) ?? null;
   const channelInstance = items.find((item) => item.instanceId === channelInstanceId) ?? null;
 
   const createOperationActive = createOperation?.status === "PENDING" || createOperation?.status === "RUNNING";
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setRelativeNow(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase(locale);
@@ -180,6 +191,7 @@ export function InstancesPage({
                       item={item}
                       copy={copy}
                       locale={locale}
+                      now={relativeNow}
                       client={client}
                       onDelete={() => onDeleteTargetChange(item)}
                       onOpenModels={() => setModelInstanceId(item.instanceId)}
@@ -448,10 +460,11 @@ function dismissFromBackdrop(event: MouseEvent<HTMLDivElement>, locked: boolean,
   else onDismiss();
 }
 
-function InstanceRow({ item, copy, locale, client, onDelete, onOpenModels, onOpenChannels }: {
+function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, onOpenChannels }: {
   item: Instance;
   copy: AppMessages;
   locale: Locale;
+  now: number;
   client?: DaemonClient;
   onDelete: () => void;
   onOpenModels: () => void;
@@ -479,7 +492,7 @@ function InstanceRow({ item, copy, locale, client, onDelete, onOpenModels, onOpe
           {copy.instances.availability[availability]}
         </span>
       </td>
-      <td className="instance-sync-time">{item.lastSyncedAt ? formatDateTime(item.lastSyncedAt, locale) : "—"}</td>
+      <td className="instance-sync-time">{item.lastSyncedAt ? formatRelativeTime(item.lastSyncedAt, locale, now) : "—"}</td>
       <td>
         <div className="instance-capabilities">
           <span>{copy.instances.instanceCapability}: <b>{item.capabilities.instances ? copy.instances.capabilityAvailable : copy.instances.capabilityUnavailable}</b></span>
@@ -491,22 +504,107 @@ function InstanceRow({ item, copy, locale, client, onDelete, onOpenModels, onOpe
           {client && item.capabilities.lifecycle && availability === "AVAILABLE" ? (
             <LifecycleControls client={client} item={item} copy={copy} />
           ) : null}
-          <Button type="button" variant="ghost" onClick={onOpenModels} disabled={availability !== "AVAILABLE"}>
-            <IconSliders />
-            {copy.models.open}
-          </Button>
-          <Button type="button" variant="ghost" onClick={onOpenChannels} disabled={availability !== "AVAILABLE"}>
-            {copy.channels.open}
-          </Button>
-          {!item.default && !item.protected && availability === "AVAILABLE" ? (
-            <Button type="button" variant="ghost" className="button-danger-ghost" onClick={onDelete}>
-              <IconTrash />
-              {copy.instances.deleteAction}
-            </Button>
-          ) : null}
+          <InstanceMoreActions
+            copy={copy}
+            disabled={availability !== "AVAILABLE"}
+            canDelete={!item.default && !item.protected}
+            onOpenModels={onOpenModels}
+            onOpenChannels={onOpenChannels}
+            onDelete={onDelete}
+          />
         </div>
       </td>
     </tr>
+  );
+}
+
+function InstanceMoreActions({ copy, disabled, canDelete, onOpenModels, onOpenChannels, onDelete }: {
+  copy: AppMessages;
+  disabled: boolean;
+  canDelete: boolean;
+  onOpenModels: () => void;
+  onOpenChannels: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeFromOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const closeFromKeyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    const closeFromViewport = () => setOpen(false);
+    document.addEventListener("pointerdown", closeFromOutside);
+    window.addEventListener("keydown", closeFromKeyboard);
+    window.addEventListener("resize", closeFromViewport);
+    window.addEventListener("scroll", closeFromViewport, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeFromOutside);
+      window.removeEventListener("keydown", closeFromKeyboard);
+      window.removeEventListener("resize", closeFromViewport);
+      window.removeEventListener("scroll", closeFromViewport, true);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = 176;
+    const estimatedHeight = canDelete ? 132 : 92;
+    setPosition({
+      left: Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width)),
+      top: window.innerHeight - rect.bottom >= estimatedHeight + 8
+        ? rect.bottom + 6
+        : Math.max(12, rect.top - estimatedHeight - 6),
+    });
+    setOpen(true);
+  };
+  const choose = (action: () => void) => {
+    setOpen(false);
+    action();
+  };
+
+  return (
+    <div className="instance-more-actions">
+      <button
+        ref={triggerRef}
+        type="button"
+        className="instance-icon-action instance-more-trigger"
+        aria-label={copy.instances.moreActions}
+        title={copy.instances.moreActions}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={toggle}
+      >
+        <IconMore />
+      </button>
+      {open ? createPortal(
+        <div ref={menuRef} className="instance-actions-menu" role="menu" style={position}>
+          <button type="button" role="menuitem" onClick={() => choose(onOpenModels)}><IconSliders />{copy.models.open}</button>
+          <button type="button" role="menuitem" onClick={() => choose(onOpenChannels)}><IconMessage />{copy.channels.open}</button>
+          {canDelete ? (
+            <button type="button" role="menuitem" className="is-danger" onClick={() => choose(onDelete)}><IconTrash />{copy.instances.deleteAction}</button>
+          ) : null}
+        </div>,
+        document.body,
+      ) : null}
+    </div>
   );
 }
 
@@ -566,23 +664,22 @@ function LifecycleControls({ client, item, copy }: { client: DaemonClient; item:
     <div className="instance-lifecycle-actions" title={lifecycleError ? copy.instances.lifecycleFailed : undefined}>
       <Badge tone={presentation.tone}>{presentation.label}</Badge>
       {presentation.state === "STOPPED" ? (
-        <Button type="button" variant="ghost" disabled={lifecycleBusy} onClick={() => { void runLifecycle("start"); }}>
-          {copy.instances.lifecycleStart}
+        <Button type="button" variant="ghost" className="instance-icon-action" aria-label={copy.instances.lifecycleStart} title={copy.instances.lifecycleStart} disabled={lifecycleBusy} onClick={() => { void runLifecycle("start"); }}>
+          <IconPlay />
         </Button>
       ) : null}
       {presentation.state === "RUNNING" ? (
         <>
-          <Button type="button" variant="ghost" disabled={lifecycleBusy} onClick={() => { setConfirmAction("stop"); }}>
-            {copy.instances.lifecycleStop}
+          <Button type="button" variant="ghost" className="instance-icon-action" aria-label={copy.instances.lifecycleStop} title={copy.instances.lifecycleStop} disabled={lifecycleBusy} onClick={() => { setConfirmAction("stop"); }}>
+            <IconStop />
           </Button>
-          <Button type="button" variant="ghost" disabled={lifecycleBusy} onClick={() => { setConfirmAction("restart"); }}>
+          <Button type="button" variant="ghost" className="instance-icon-action" aria-label={copy.instances.lifecycleRestart} title={copy.instances.lifecycleRestart} disabled={lifecycleBusy} onClick={() => { setConfirmAction("restart"); }}>
             <IconRefresh className={lifecycleBusy ? "spin" : undefined} />
-            {copy.instances.lifecycleRestart}
           </Button>
         </>
       ) : null}
       {presentation.state === "UNKNOWN" && !lifecycleBusy ? (
-        <Button type="button" variant="ghost" onClick={refreshLifecycle}>{copy.instances.refresh}</Button>
+        <Button type="button" variant="ghost" className="instance-icon-action" aria-label={copy.instances.refresh} title={copy.instances.refresh} onClick={refreshLifecycle}><IconRefresh /></Button>
       ) : null}
       {confirmAction ? (
         <div className="instance-modal-backdrop" onMouseDown={(event) => {

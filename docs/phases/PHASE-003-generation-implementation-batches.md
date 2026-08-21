@@ -1,5 +1,9 @@
 # YORVA Phase 3 — Generation Implementation Batches
 
+> Historical implementation note (2026-08-21): Batch staging-build and publish-rename
+> details are superseded by `ADR-0009` / `AMENDMENT-003A6`. New installation work
+> builds and validates the candidate at its final generation path.
+
 > Status: AUTHORIZED SPLIT / BATCH 8 COMPLETE  
 > Date: 2026-08-18  
 > Owner: D1–D5 approved 2026-08-18  

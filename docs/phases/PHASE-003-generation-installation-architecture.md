@@ -8,6 +8,11 @@
 > Amendments: `002A3` (Phase 2), `003A4` (Phase 3)  
 > ADR: `ADR-0006`  
 > Batches: `PHASE-003-generation-implementation-batches.md`  
+
+> Supersession note (2026-08-21): `ADR-0009` and `AMENDMENT-003A6` replace the
+> staging `InstallDir` and staging-to-generation rename described in this historical
+> architecture with a direct final-generation build and final-path executable gate.
+> The sole `active.json` pointer, Seal, CAS activation and retention rules remain.
 > Historical gates: `AUDIT-003` through `AUDIT-003R6` remain FAIL; `AUDIT-003R7` remains PENDING  
 > This document does not declare Phase 3 PASS, COMPLETE, FROZEN or ACCEPTED.
 

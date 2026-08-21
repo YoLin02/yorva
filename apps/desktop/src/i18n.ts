@@ -204,6 +204,7 @@ type Messages = {
     lifecycleCapability: string;
     capabilityAvailable: string;
     capabilityUnavailable: string;
+    moreActions: string;
   };
   channels: {
     open: string;
@@ -580,6 +581,7 @@ const english: Messages = {
     lifecycleCapability: "Lifecycle",
     capabilityAvailable: "Available",
     capabilityUnavailable: "Not available",
+    moreActions: "More actions",
   },
   channels: {
     open: "Channels",
@@ -977,6 +979,7 @@ const simplifiedChinese: Messages = {
     lifecycleCapability: "生命周期",
     capabilityAvailable: "可用",
     capabilityUnavailable: "不可用",
+    moreActions: "更多操作",
   },
   channels: {
     open: "通道",

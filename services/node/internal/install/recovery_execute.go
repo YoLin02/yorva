@@ -18,6 +18,11 @@ func Execute(ctx context.Context, store *Store, mgr *Manager, obs Observation, d
 			return err
 		}
 		return persistPrimaryState(store, obs, d)
+	case ActionRemoveEmptyGeneration:
+		if err := removeEmptyGeneration(store, obs); err != nil {
+			return err
+		}
+		return persistPrimaryState(store, obs, d)
 	case ActionMoveStagingToFailed:
 		if err := moveStagingToFailed(store, obs); err != nil {
 			return err
@@ -25,10 +30,8 @@ func Execute(ctx context.Context, store *Store, mgr *Manager, obs Observation, d
 		return persistPrimaryState(store, obs, d)
 	case ActionGCStaging:
 		return removeProvenStaging(store, obs)
-	case ActionPublish:
-		return invokeOnPrimary(store, obs, func(txn InstallTransaction) error {
-			return mgr.publish(&txn)
-		})
+	case ActionPersistPublished:
+		return persistPrimaryState(store, obs, d)
 	case ActionPersistActivating:
 		return persistActivating(store, obs)
 	case ActionActivate:
@@ -158,6 +161,28 @@ func removeEmptyStaging(store *Store, obs Observation) error {
 	}
 	if !empty {
 		return ErrStagingOccupied
+	}
+	return os.Remove(path)
+}
+
+func removeEmptyGeneration(store *Store, obs Observation) error {
+	primary := primaryTxn(obs.Transactions, obs.Active)
+	if !primary.Valid {
+		return nil
+	}
+	path, err := store.layout.GenerationPath(primary.GenerationID)
+	if err != nil {
+		return err
+	}
+	empty, err := dirEmpty(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if !empty {
+		return ErrGenerationOccupied
 	}
 	return os.Remove(path)
 }

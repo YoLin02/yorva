@@ -73,7 +73,7 @@ describe("App Hermes prerequisite start", () => {
       candidates: [],
       warnings: [],
       detectedAt: "2026-08-14T00:00:00Z",
-      supportedRange: ">=0.19.0 <0.21.0",
+      supportedRange: "=0.20.2",
     });
     clientMocks.getHermesPrerequisites.mockReset().mockResolvedValue({
       node: { state: "MISSING", version: "", errorCode: "RUNTIME_HERMES_NODE_MISSING", retryable: true },

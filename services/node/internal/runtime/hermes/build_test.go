@@ -15,75 +15,72 @@ import (
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
-func TestBuildStagingUsesStagingInstallDirAndOfficialHome(t *testing.T) {
+func TestBuildGenerationUsesFinalInstallDirAndOfficialHome(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("Hermes staging build is Windows user-scope")
 	}
-	env := newStagingBuildEnv(t)
-	if err := env.installer.BuildStaging(context.Background(), "op_stage", env.staging, env.home); err != nil {
+	env := newGenerationBuildEnv(t)
+	if err := env.installer.BuildGeneration(context.Background(), "op_stage", env.generation, env.home); err != nil {
 		t.Fatal(err)
 	}
 	if env.sawPathStage {
 		t.Fatal("official -Stage path must not run")
 	}
-	if !env.sawStagingInstallDir || !env.sawOfficialHome {
-		t.Fatalf("install flags not used: staging=%v home=%v args=%q", env.sawStagingInstallDir, env.sawOfficialHome, env.spawned)
+	if !env.sawGenerationInstallDir || !env.sawOfficialHome {
+		t.Fatalf("install flags not used: generation=%v home=%v args=%q", env.sawGenerationInstallDir, env.sawOfficialHome, env.spawned)
 	}
 	if isRegularFile(filepath.Join(env.home, "hermes-agent", "bin", "hermes.exe")) {
 		t.Fatal("live hermes-agent was written")
 	}
-	if _, err := os.Stat(filepath.Join(env.staging, ".yorva-phase3-install")); err == nil {
-		t.Fatal("ownership marker written into staging")
+	if _, err := os.Stat(filepath.Join(env.generation, ".yorva-phase3-install")); err == nil {
+		t.Fatal("obsolete ownership marker written into generation")
 	}
-	if !isRegularFile(filepath.Join(env.staging, "bin", "hermes.exe")) || !isRegularFile(filepath.Join(env.staging, "bin", "hermes-acp.exe")) {
+	if !isRegularFile(filepath.Join(env.generation, "bin", "hermes.exe")) || !isRegularFile(filepath.Join(env.generation, "bin", "hermes-acp.exe")) {
 		t.Fatal("required public launchers missing")
 	}
-	if err := ValidateStaging(env.staging, officialPackageVersion); err != nil {
+	if err := ValidateGenerationFiles(env.generation, officialPackageVersion); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestBuildStagingConfigTemplatesWarningDoesNotFail(t *testing.T) {
+func TestBuildGenerationConfigTemplatesWarningDoesNotFail(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("Hermes staging build is Windows user-scope")
 	}
-	env := newStagingBuildEnv(t)
+	env := newGenerationBuildEnv(t)
 	env.failStage = "config-templates"
-	if err := env.installer.BuildStaging(context.Background(), "op_d3", env.staging, env.home); err != nil {
+	if err := env.installer.BuildGeneration(context.Background(), "op_d3", env.generation, env.home); err != nil {
 		t.Fatalf("D3 should warn only: %v", err)
 	}
-	if err := ValidateStaging(env.staging, officialPackageVersion); err != nil {
+	if err := ValidateGenerationFiles(env.generation, officialPackageVersion); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestBuildStagingCancelDoesNotPublish(t *testing.T) {
+func TestBuildGenerationCancelDoesNotActivate(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("Hermes staging build is Windows user-scope")
 	}
-	env := newStagingBuildEnv(t)
+	env := newGenerationBuildEnv(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	env.installer.afterStage = func(stage, _ string) {
 		if stage == "uv" {
 			cancel()
 		}
 	}
-	err := env.installer.BuildStaging(ctx, "op_cancel", env.staging, env.home)
+	err := env.installer.BuildGeneration(ctx, "op_cancel", env.generation, env.home)
 	if err == nil {
 		t.Fatal("expected cancel")
 	}
-	if _, err := os.Stat(filepath.Join(env.home, "generations")); !os.IsNotExist(err) {
-		t.Fatal("cancel published generations")
-	}
 }
 
-func TestBuildStagingTimeoutFailsRequiredStage(t *testing.T) {
+func TestBuildGenerationTimeoutFailsRequiredStage(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("Hermes staging build is Windows user-scope")
 	}
-	env := newStagingBuildEnv(t)
+	env := newGenerationBuildEnv(t)
 	env.timeoutStage = "python"
-	err := env.installer.BuildStaging(context.Background(), "op_timeout", env.staging, env.home)
+	err := env.installer.BuildGeneration(context.Background(), "op_timeout", env.generation, env.home)
 	if err == nil {
 		t.Fatal("required timeout ignored")
 	}
@@ -92,38 +89,88 @@ func TestBuildStagingTimeoutFailsRequiredStage(t *testing.T) {
 	}
 }
 
-func TestValidateStagingRejectsMissingLauncherAndWrongVersion(t *testing.T) {
+func TestValidateGenerationFilesRejectsMissingLauncherAndWrongVersion(t *testing.T) {
 	root := t.TempDir()
 	writeStagingLayout(t, root, officialPackageVersion)
 	if err := os.Remove(filepath.Join(root, "bin", "hermes-acp.exe")); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateStaging(root, officialPackageVersion); err == nil {
+	if err := ValidateGenerationFiles(root, officialPackageVersion); err == nil {
 		t.Fatal("missing launcher accepted")
 	}
 	writeStagingLayout(t, root, officialPackageVersion)
 	if err := os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(`version = "0.18.0"`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateStaging(root, officialPackageVersion); err == nil {
+	if err := ValidateGenerationFiles(root, officialPackageVersion); err == nil {
 		t.Fatal("wrong version accepted")
 	}
 }
 
-type stagingBuildEnv struct {
-	t                    *testing.T
-	home                 string
-	staging              string
-	installer            *HostInstaller
-	failStage            string
-	timeoutStage         string
-	sawPathStage         bool
-	sawStagingInstallDir bool
-	sawOfficialHome      bool
-	spawned              []string
+func TestValidateGenerationExecutesBothFinalPathLaunchers(t *testing.T) {
+	root := t.TempDir()
+	writeStagingLayout(t, root, officialPackageVersion)
+	host := NewHostInstaller(t.TempDir())
+	canonicalRoot, ok := canonicalDirectory(root)
+	if !ok {
+		t.Fatal("test generation root is not canonical")
+	}
+	var executed []string
+	host.run = func(_ context.Context, invocation installInvocation, timeout time.Duration) commandResult {
+		if timeout != finalGenerationProbeTimeout {
+			t.Fatalf("timeout = %s", timeout)
+		}
+		if !pathWithin(canonicalRoot, invocation.Executable) || invocation.Dir != canonicalRoot || strings.Join(invocation.Args, " ") != "--version" {
+			t.Fatalf("unsafe final probe %#v", invocation)
+		}
+		executed = append(executed, filepath.Clean(invocation.Executable))
+		return commandResult{stdout: "Hermes Agent v" + officialPackageVersion + "\n"}
+	}
+	if err := host.ValidateGeneration(context.Background(), root, officialPackageVersion); err != nil {
+		t.Fatal(err)
+	}
+	if len(executed) != 2 || executed[0] == executed[1] {
+		t.Fatalf("executed = %#v", executed)
+	}
 }
 
-func newStagingBuildEnv(t *testing.T) *stagingBuildEnv {
+func TestValidateGenerationRejectsUnrunnableFinalLauncher(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		result commandResult
+	}{
+		{name: "uv trampoline failure", result: commandResult{exitCode: 1, err: errPlatform}},
+		{name: "timeout", result: commandResult{timedOut: true, err: context.DeadlineExceeded}},
+		{name: "wrong version", result: commandResult{stdout: "Hermes Agent v0.19.0\n"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeStagingLayout(t, root, officialPackageVersion)
+			host := NewHostInstaller(t.TempDir())
+			host.run = func(context.Context, installInvocation, time.Duration) commandResult {
+				return test.result
+			}
+			if err := host.ValidateGeneration(context.Background(), root, officialPackageVersion); err == nil {
+				t.Fatal("unrunnable final launcher accepted")
+			}
+		})
+	}
+}
+
+type generationBuildEnv struct {
+	t                       *testing.T
+	home                    string
+	generation              string
+	installer               *HostInstaller
+	failStage               string
+	timeoutStage            string
+	sawPathStage            bool
+	sawGenerationInstallDir bool
+	sawOfficialHome         bool
+	spawned                 []string
+}
+
+func newGenerationBuildEnv(t *testing.T) *generationBuildEnv {
 	t.Helper()
 	script := []byte("official-script\n")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -137,15 +184,15 @@ func newStagingBuildEnv(t *testing.T) *stagingBuildEnv {
 		officialArchiveRoot + "/hermes_cli/main.py":  "pass\n",
 	})
 	home := t.TempDir()
-	staging := filepath.Join(home, "staging", "txn_test")
-	if err := os.MkdirAll(staging, 0o700); err != nil {
+	generation := filepath.Join(home, "generations", "gen_test")
+	if err := os.MkdirAll(generation, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	manifest, err := json.Marshal(reviewedManifest())
 	if err != nil {
 		t.Fatal(err)
 	}
-	env := &stagingBuildEnv{t: t, home: home, staging: staging}
+	env := &generationBuildEnv{t: t, home: home, generation: generation}
 	installer := NewHostInstaller(t.TempDir())
 	installer.source = testSourceClient(server.URL, script)
 	installer.home = func() string { return home }
@@ -157,8 +204,11 @@ func newStagingBuildEnv(t *testing.T) *stagingBuildEnv {
 	installer.run = func(_ context.Context, invocation installInvocation, _ time.Duration) commandResult {
 		joined := strings.Join(invocation.Args, " ")
 		env.spawned = append(env.spawned, joined)
-		if strings.Contains(joined, "-InstallDir") && strings.Contains(joined, env.staging) {
-			env.sawStagingInstallDir = true
+		if filepath.Base(invocation.Executable) == "hermes.exe" && joined == "--version" {
+			return commandResult{stdout: "Hermes Agent v" + officialPackageVersion + "\n"}
+		}
+		if strings.Contains(joined, "-InstallDir") && strings.Contains(joined, env.generation) {
+			env.sawGenerationInstallDir = true
 		}
 		if strings.Contains(joined, "-HermesHome") && strings.Contains(joined, env.home) {
 			env.sawOfficialHome = true

@@ -8,16 +8,16 @@ import (
 )
 
 const (
-	FailBeforeStagingMkdir        = "before-staging-mkdir"
-	FailAfterStagingMkdir         = "after-staging-mkdir"
+	FailBeforeGenerationMkdir     = "before-generation-mkdir"
+	FailAfterGenerationMkdir      = "after-generation-mkdir"
 	FailAfterBuild                = "after-build"
 	FailBeforeValidate            = "before-validate"
 	FailDuringManifestWalk        = "during-manifest-walk"
 	FailAfterManifest             = "after-manifest"
 	FailBeforeGenerationJSON      = "before-generation-json"
 	FailAfterSealBeforeSecondWalk = "after-seal-before-second-walk"
-	FailBeforePublishRename       = "before-publish-rename"
-	FailAfterPublishRename        = "after-publish-rename"
+	FailBeforePublishVerify       = "before-publish-verify"
+	FailAfterPublishVerify        = "after-publish-verify"
 	FailAfterPublished            = "after-published"
 	FailBeforeActivatingPersist   = "before-activating-persist"
 	FailAfterActivatingPersist    = "after-activating-persist"
@@ -25,21 +25,30 @@ const (
 	FailAfterActiveWrite          = "after-active-write"
 )
 
-type StagingBuildFunc func(ctx context.Context, stagingAbs, hermesHome string) error
+// Legacy aliases keep older failpoint callers source-compatible while the
+// implementation no longer builds in staging or renames at publish.
+const (
+	FailBeforeStagingMkdir  = FailBeforeGenerationMkdir
+	FailAfterStagingMkdir   = FailAfterGenerationMkdir
+	FailBeforePublishRename = FailBeforePublishVerify
+	FailAfterPublishRename  = FailAfterPublishVerify
+)
 
-type StagingValidateFunc func(ctx context.Context, stagingAbs, expectedVersion string) error
+type CandidateBuildFunc func(ctx context.Context, generationAbs, hermesHome string) error
+
+type CandidateValidateFunc func(ctx context.Context, generationAbs, expectedVersion string) error
 
 // Manager runs CREATED → BUILDING → SEALED → PUBLISHED → ACTIVATING → COMMITTED.
 type Manager struct {
 	store    *Store
-	build    StagingBuildFunc
-	validate StagingValidateFunc
+	build    CandidateBuildFunc
+	validate CandidateValidateFunc
 	now      func() time.Time
 	failAt   string
 	env      EnvironmentStore
 }
 
-func NewManager(store *Store, build StagingBuildFunc, validate StagingValidateFunc) *Manager {
+func NewManager(store *Store, build CandidateBuildFunc, validate CandidateValidateFunc) *Manager {
 	return &Manager{
 		store:    store,
 		build:    build,
@@ -72,7 +81,8 @@ func (m *Manager) failpoint(name string) error {
 	return nil
 }
 
-// SealNew persists CREATED (unless already on disk), builds into a fresh staging/txn_* tree, validates, and seals.
+// SealNew persists CREATED (unless already on disk), builds directly in a fresh
+// inactive generations/gen_* directory, validates from that final path, and seals.
 func (m *Manager) SealNew(ctx context.Context, txn InstallTransaction) (InstallTransaction, error) {
 	if txn.State != StateCreated {
 		return txn, ErrInvalidRecord
@@ -97,21 +107,21 @@ func (m *Manager) SealNew(ctx context.Context, txn InstallTransaction) (InstallT
 	if err := m.persist(&txn); err != nil {
 		return txn, err
 	}
-	if err := m.failpoint(FailBeforeStagingMkdir); err != nil {
+	if err := m.failpoint(FailBeforeGenerationMkdir); err != nil {
 		return m.fail(txn, CodeInterrupted)
 	}
-	stagingAbs, err := m.createFreshStaging(txn.ID)
+	generationAbs, err := m.createFreshGenerationCandidate(txn)
 	if err != nil {
 		return m.fail(txn, CodeInterrupted)
 	}
-	if err := m.failpoint(FailAfterStagingMkdir); err != nil {
+	if err := m.failpoint(FailAfterGenerationMkdir); err != nil {
 		return m.fail(txn, CodeInterrupted)
 	}
 	if err := ctx.Err(); err != nil {
 		return m.fail(txn, CodeInterrupted)
 	}
 	if m.build != nil {
-		if err := m.build(ctx, stagingAbs, m.store.layout.Root); err != nil {
+		if err := m.build(ctx, generationAbs, m.store.layout.Root); err != nil {
 			return m.fail(txn, interruptCode(err))
 		}
 	}
@@ -122,12 +132,16 @@ func (m *Manager) SealNew(ctx context.Context, txn InstallTransaction) (InstallT
 		return m.fail(txn, CodeSealInvalid)
 	}
 	if m.validate != nil {
-		if err := m.validate(ctx, stagingAbs, txn.ExpectedVersion); err != nil {
+		if err := m.validate(ctx, generationAbs, txn.ExpectedVersion); err != nil {
 			return m.fail(txn, CodeSealInvalid)
 		}
 	}
-	sealed, err := SealStaging(m.store.ops, SealInput{
-		StagingAbs:             stagingAbs,
+	candidate, ok := readCandidateRecord(generationAbs)
+	if !ok || candidate.TransactionID != txn.ID || candidate.GenerationID != txn.GenerationID || candidate.RuntimeKind != txn.RuntimeKind {
+		return m.fail(txn, CodeSealInvalid)
+	}
+	sealed, err := SealGeneration(m.store.ops, SealInput{
+		RootAbs:                generationAbs,
 		TransactionID:          txn.ID,
 		GenerationID:           txn.GenerationID,
 		RuntimeKind:            txn.RuntimeKind,
@@ -153,7 +167,7 @@ func (m *Manager) SealNew(ctx context.Context, txn InstallTransaction) (InstallT
 	return txn, nil
 }
 
-// PublishAndActivate renames sealed staging to generations/gen_* and writes active.json.
+// PublishAndActivate verifies the sealed final-path generation and writes active.json.
 // Environment reconcile is Batch 5; this leaves the transaction ACTIVATING.
 func (m *Manager) PublishAndActivate(ctx context.Context, txn InstallTransaction) (InstallTransaction, error) {
 	if err := ctx.Err(); err != nil {
@@ -203,29 +217,34 @@ func (m *Manager) activateError(txn InstallTransaction, err error) (InstallTrans
 	return txn, err
 }
 
-func (m *Manager) createFreshStaging(txnID string) (string, error) {
-	if err := os.MkdirAll(m.store.layout.StagingRoot(), 0o700); err != nil {
+func (m *Manager) createFreshGenerationCandidate(txn InstallTransaction) (string, error) {
+	if err := os.MkdirAll(m.store.layout.GenerationsRoot(), 0o700); err != nil {
 		return "", err
 	}
-	if err := rejectReparse(m.store.layout.StagingRoot()); err != nil {
+	if err := rejectReparse(m.store.layout.GenerationsRoot()); err != nil {
 		return "", err
 	}
-	stagingAbs, err := m.store.layout.StagingPath(txnID)
+	generationAbs, err := m.store.layout.GenerationPath(txn.GenerationID)
 	if err != nil {
 		return "", err
 	}
-	if _, err := os.Lstat(stagingAbs); err == nil {
-		return "", ErrStagingOccupied
+	if _, err := os.Lstat(generationAbs); err == nil {
+		return "", ErrGenerationOccupied
 	} else if !os.IsNotExist(err) {
 		return "", err
 	}
-	if err := os.Mkdir(stagingAbs, 0o700); err != nil {
+	if err := os.Mkdir(generationAbs, 0o700); err != nil {
 		return "", err
 	}
-	if err := rejectReparse(stagingAbs); err != nil {
+	if err := rejectReparse(generationAbs); err != nil {
+		_ = os.Remove(generationAbs)
 		return "", err
 	}
-	return stagingAbs, nil
+	if err := writeCandidateRecord(m.store.ops, generationAbs, txn); err != nil {
+		_ = os.RemoveAll(generationAbs)
+		return "", err
+	}
+	return generationAbs, nil
 }
 
 func (m *Manager) persist(txn *InstallTransaction) error {

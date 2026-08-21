@@ -32,14 +32,14 @@ func TestGCKeepsD4RedCases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	staging, err := store.layout.StagingPath(failed.ID)
+	generation, err := store.layout.GenerationPath(failed.GenerationID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Dir(failedDir), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Rename(staging, failedDir); err != nil {
+	if err := os.Rename(generation, failedDir); err != nil {
 		t.Fatal(err)
 	}
 	loaded, err := store.LoadTransaction(failed.ID)
@@ -53,7 +53,7 @@ func TestGCKeepsD4RedCases(t *testing.T) {
 	}
 
 	olderFailed := mustSeal(t, mgr)
-	olderStaging, err := store.layout.StagingPath(olderFailed.ID)
+	olderGeneration, err := store.layout.GenerationPath(olderFailed.GenerationID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestGCKeepsD4RedCases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Rename(olderStaging, olderDest); err != nil {
+	if err := os.Rename(olderGeneration, olderDest); err != nil {
 		t.Fatal(err)
 	}
 	older, err := store.LoadTransaction(olderFailed.ID)

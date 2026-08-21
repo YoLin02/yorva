@@ -59,7 +59,7 @@ func TestVerifySealedTreeRejectsInsertAndDelete(t *testing.T) {
 	}
 }
 
-func TestPublishRejectsMutatedSealedStaging(t *testing.T) {
+func TestPublishRejectsMutatedSealedGeneration(t *testing.T) {
 	root := t.TempDir()
 	store, err := NewStore(root)
 	if err != nil {
@@ -76,11 +76,11 @@ func TestPublishRejectsMutatedSealedStaging(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	staging, err := store.layout.StagingPath(txn.ID)
+	generation, err := store.layout.GenerationPath(txn.GenerationID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(staging, "bin", "hermes.exe"), []byte("mutated"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(generation, "bin", "hermes.exe"), []byte("mutated"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := mgr.PublishAndActivate(context.Background(), txn); err == nil {

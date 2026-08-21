@@ -1,5 +1,9 @@
 # YORVA Phase 3 Amendment 003A4 — Generation Install Transaction
 
+> Supersession note (2026-08-21): `AMENDMENT-003A6` and `ADR-0009` replace only
+> staging construction and publish-by-rename. All unchanged transaction, Seal,
+> activation-pointer and recovery controls remain in force.
+
 > Status: ACCEPTED FOR IMPLEMENTATION  
 > Date: 2026-08-18  
 > Owner approval date: 2026-08-18  

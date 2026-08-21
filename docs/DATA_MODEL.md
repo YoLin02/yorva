@@ -144,6 +144,12 @@ UNIQUE(idempotency_key) WHERE idempotency_key IS NOT NULL
 
 `transaction_id` is a one-way projection of the filesystem InstallTransaction. Recovery and retry authority is the transaction record and `active.json`, not this column. `ownership_nonce` is not generated for generation installs and must not authorize retry. HTTP Operation responses still omit nonce and secret material.
 
+Amendment 003A6 does not add an SQLite activation field. A BUILDING candidate may exist
+at `generations/gen_<id>` and is bound to its filesystem InstallTransaction by a local
+candidate ownership record. It is not active or discoverable until the validated sealed
+generation is named by `control/active.json`. The schema-1 transaction
+`stagingRelativePath` remains a compatibility field and is not a new-install work path.
+
 Generation install state lives in `control/transactions/txn_*.json` and `control/active.json`. Automatic GC follows D4 retention and never deletes unknown directories, legacy `hermes-agent`, or official Hermes user data.
 
 Progress must be null when percentage has no meaningful interpretation. Do not invent fake percentages.

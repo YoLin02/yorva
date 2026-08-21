@@ -78,7 +78,13 @@ func decideOne(obs Observation, txn TransactionView) RecoveryDecision {
 }
 
 func decideCreated(obs Observation) RecoveryDecision {
-	if !obs.Staging.Present && obs.Generation.Present && (obs.Generation.LineageMatch || obs.Generation.Sealed) {
+	if !obs.Staging.Present && obs.Generation.Present {
+		if obs.Generation.Empty {
+			return failTxn("", ActionRemoveEmptyGeneration)
+		}
+		if obs.Generation.LineageMatch {
+			return failTxn("", ActionNone)
+		}
 		return failClosed(CodeInconsistent)
 	}
 	if !obs.Staging.Present && !obs.Generation.Present {
@@ -94,7 +100,13 @@ func decideCreated(obs Observation) RecoveryDecision {
 }
 
 func decideBuilding(obs Observation) RecoveryDecision {
-	if !obs.Staging.Present && obs.Generation.Present && obs.Generation.LineageMatch {
+	if !obs.Staging.Present && obs.Generation.Present {
+		if obs.Generation.Empty {
+			return failTxn(CodeInterrupted, ActionRemoveEmptyGeneration)
+		}
+		if obs.Generation.LineageMatch {
+			return failTxn(CodeInterrupted, ActionNone)
+		}
 		return failClosed(CodeInconsistent)
 	}
 	if !obs.Staging.Present && !obs.Generation.Present {
@@ -117,13 +129,13 @@ func decideSealed(obs Observation) RecoveryDecision {
 		return blocked("generation lineage does not match transaction")
 	}
 	if !obs.Staging.Present && obs.Generation.Present && obs.Generation.Sealed && obs.Generation.LineageMatch {
-		return RecoveryDecision{Gate: GateReconciling, NextState: StatePublished, Action: ActionNone}
+		return RecoveryDecision{Gate: GateReconciling, NextState: StatePublished, Action: ActionPersistPublished}
 	}
 	if obs.Staging.Present && obs.Staging.Empty && obs.Generation.Present && obs.Generation.Sealed && obs.Generation.LineageMatch {
 		return RecoveryDecision{Gate: GateReconciling, NextState: StatePublished, Action: ActionRemoveEmptyStaging}
 	}
 	if obs.Staging.Present && obs.Staging.Sealed && obs.Staging.LineageMatch && !obs.Generation.Present {
-		return RecoveryDecision{Gate: GateReconciling, NextState: StatePublished, Action: ActionPublish}
+		return failTxn(CodeInterrupted, ActionMoveStagingToFailed)
 	}
 	if obs.Staging.Present && !obs.Staging.Sealed && !obs.Generation.Present {
 		return failTxn(CodeSealInvalid, ActionMoveStagingToFailed)

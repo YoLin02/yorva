@@ -76,8 +76,8 @@ func TestPublishAndActivateRollsForwardIfAlreadyNamed(t *testing.T) {
 
 func TestPublishFailpointsLeavePredecessorPointer(t *testing.T) {
 	points := []string{
-		FailBeforePublishRename,
-		FailAfterPublishRename,
+		FailBeforePublishVerify,
+		FailAfterPublishVerify,
 		FailAfterPublished,
 		FailBeforeActivatingPersist,
 		FailAfterActivatingPersist,
@@ -112,11 +112,11 @@ func TestPublishFailpointsLeavePredecessorPointer(t *testing.T) {
 	}
 }
 
-func TestPublishResumesAfterRenameBeforePersist(t *testing.T) {
+func TestPublishResumesAfterVerifyBeforePersist(t *testing.T) {
 	store := mustStore(t)
 	mgr := NewManager(store, fakeBuild, nil)
 	txn := mustSeal(t, mgr)
-	_, err := mgr.withFailpoint(FailAfterPublishRename).PublishAndActivate(context.Background(), txn)
+	_, err := mgr.withFailpoint(FailAfterPublishVerify).PublishAndActivate(context.Background(), txn)
 	if err == nil {
 		t.Fatal("expected failpoint")
 	}
@@ -132,7 +132,7 @@ func TestPublishResumesAfterRenameBeforePersist(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(mustStaging(t, store, txn.ID)); !os.IsNotExist(err) {
-		t.Fatal("staging still present after rename")
+		t.Fatal("new flow unexpectedly created staging")
 	}
 	got, err := mgr.PublishAndActivate(context.Background(), loaded)
 	if err != nil {
@@ -151,9 +151,6 @@ func TestPublishDestExistsDifferentBytesFailClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(dest, 0o700); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.WriteFile(filepath.Join(dest, "foreign.txt"), []byte("nope"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -164,8 +161,8 @@ func TestPublishDestExistsDifferentBytesFailClosed(t *testing.T) {
 	if got.State != StateFailed || got.ErrorCode != CodePublishConflict {
 		t.Fatalf("got %#v", got)
 	}
-	if _, err := os.Stat(mustStaging(t, store, txn.ID)); err != nil {
-		t.Fatal("staging must remain")
+	if _, err := os.Stat(dest); err != nil {
+		t.Fatal("candidate evidence must remain")
 	}
 	if store.ReadActive().Valid {
 		t.Fatal("activated on conflict")

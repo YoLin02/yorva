@@ -17,7 +17,7 @@ func TestSealIncludesAllFilesExceptSealArtifacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	txn := mustCreated(t)
-	got, err := SealStaging(defaultAtomicOps(), sealInput(txn, staging), sealHooks{})
+	got, err := SealGeneration(defaultAtomicOps(), sealInput(txn, staging), sealHooks{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestSealSecondWalkMismatchRemovesSealFiles(t *testing.T) {
 	staging := t.TempDir()
 	writeMinimalStaging(t, staging)
 	txn := mustCreated(t)
-	_, err := SealStaging(defaultAtomicOps(), sealInput(txn, staging), sealHooks{
+	_, err := SealGeneration(defaultAtomicOps(), sealInput(txn, staging), sealHooks{
 		BeforeSecondWalk: func() error {
 			return os.WriteFile(filepath.Join(staging, "mutated-after-seal.txt"), []byte("x"), 0o600)
 		},
@@ -71,7 +71,7 @@ func TestSealStopsBeforeGenerationJSON(t *testing.T) {
 	staging := t.TempDir()
 	writeMinimalStaging(t, staging)
 	txn := mustCreated(t)
-	_, err := SealStaging(defaultAtomicOps(), sealInput(txn, staging), sealHooks{
+	_, err := SealGeneration(defaultAtomicOps(), sealInput(txn, staging), sealHooks{
 		BeforeGeneration: func() error { return errInjected },
 	})
 	if err == nil {
@@ -84,7 +84,7 @@ func TestSealStopsBeforeGenerationJSON(t *testing.T) {
 
 func sealInput(txn InstallTransaction, staging string) SealInput {
 	return SealInput{
-		StagingAbs:             staging,
+		RootAbs:                staging,
 		TransactionID:          txn.ID,
 		GenerationID:           txn.GenerationID,
 		RuntimeKind:            txn.RuntimeKind,

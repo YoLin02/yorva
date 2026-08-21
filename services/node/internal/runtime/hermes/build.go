@@ -10,16 +10,16 @@ import (
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
-// BuildStaging runs official stages into a YORVA staging InstallDir.
-// It does not promote hermes-agent, write PATH, or write an ownership marker.
-func (h *HostInstaller) BuildStaging(ctx context.Context, operationID, stagingDir, hermesHome string) error {
+// BuildGeneration runs official stages directly in the inactive final generation
+// directory. It does not activate the generation or write PATH.
+func (h *HostInstaller) BuildGeneration(ctx context.Context, operationID, generationDir, hermesHome string) error {
 	if !h.PlatformSupported() {
 		return installError(yorvaruntime.ErrorRuntimeInstallPlatformUnsupported, errPlatform)
 	}
-	if stagingDir == "" || hermesHome == "" {
-		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, fmt.Errorf("staging and Hermes home are required"))
+	if generationDir == "" || hermesHome == "" {
+		return installError(yorvaruntime.ErrorRuntimeInstallStageFailed, fmt.Errorf("generation and Hermes home are required"))
 	}
-	if err := rejectReparsePoint(stagingDir); err != nil {
+	if err := rejectReparsePoint(generationDir); err != nil {
 		return err
 	}
 	if h.operationID == "" {
@@ -53,10 +53,10 @@ func (h *HostInstaller) BuildStaging(ctx context.Context, operationID, stagingDi
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := h.probe(ctx, powershell, script.Path, "ProtocolVersion", hermesHome, stagingDir, 30*time.Second, parseProtocolOutput); err != nil {
+	if err := h.probe(ctx, powershell, script.Path, "ProtocolVersion", hermesHome, generationDir, 30*time.Second, parseProtocolOutput); err != nil {
 		return err
 	}
-	if err := h.probe(ctx, powershell, script.Path, "Manifest", hermesHome, stagingDir, 30*time.Second, parseAndValidateManifest); err != nil {
+	if err := h.probe(ctx, powershell, script.Path, "Manifest", hermesHome, generationDir, 30*time.Second, parseAndValidateManifest); err != nil {
 		return err
 	}
 	if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
@@ -74,43 +74,43 @@ func (h *HostInstaller) BuildStaging(ctx context.Context, operationID, stagingDi
 			h.debug("installer.stage.skipped", "stage", stage, "reason", "yorva-owned")
 			continue
 		case "repository":
-			if err := h.materializeStagingRepository(ctx, archivePath, origin, workDir, stagingDir); err != nil {
+			if err := h.materializeGenerationRepository(ctx, archivePath, origin, workDir, generationDir); err != nil {
 				return err
 			}
 			continue
 		case "config-templates":
-			if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, stagingDir); err != nil {
+			if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, generationDir); err != nil {
 				h.debug("installer.stage.warning", "stage", stage, "reason", "config-templates-nonblocking")
 			}
 			if h.afterStage != nil {
-				h.afterStage(stage, stagingDir)
+				h.afterStage(stage, generationDir)
 			}
 			continue
 		}
-		if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, stagingDir); err != nil {
+		if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, generationDir); err != nil {
 			return err
 		}
 		if h.afterStage != nil {
-			h.afterStage(stage, stagingDir)
+			h.afterStage(stage, generationDir)
 		}
 	}
-	if err := materializeRequiredPublicLaunchers(stagingDir); err != nil {
+	if err := materializeRequiredPublicLaunchers(generationDir); err != nil {
 		return err
 	}
 	if h.afterStage != nil {
-		h.afterStage("path", stagingDir)
+		h.afterStage("path", generationDir)
 	}
 	return nil
 }
 
-func (h *HostInstaller) materializeStagingRepository(ctx context.Context, archivePath, origin, workDir, stagingDir string) error {
+func (h *HostInstaller) materializeGenerationRepository(ctx context.Context, archivePath, origin, workDir, generationDir string) error {
 	if origin == sourceOriginBundled {
 		h.debug("source.materialize", "warning", warningBundledUsed)
 	}
 	if err := requireExtractBudget(workDir, h.archive.diskFree); err != nil {
 		return err
 	}
-	if err := requireExtractBudget(stagingDir, h.archive.diskFree); err != nil {
+	if err := requireExtractBudget(generationDir, h.archive.diskFree); err != nil {
 		return err
 	}
 	extractDir := filepath.Join(workDir, "staging")
@@ -127,7 +127,7 @@ func (h *HostInstaller) materializeStagingRepository(ctx context.Context, archiv
 		_ = os.RemoveAll(extractDir)
 		return err
 	}
-	if err := copyOwnedTree(ctx, extractDir, stagingDir); err != nil {
+	if err := copyOwnedTree(ctx, extractDir, generationDir); err != nil {
 		_ = os.RemoveAll(extractDir)
 		return err
 	}

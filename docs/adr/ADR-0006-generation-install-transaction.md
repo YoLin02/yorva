@@ -1,10 +1,14 @@
 # ADR-0006: Generation Install Transaction and Sole Active Pointer
 
-- Status: Accepted
+- Status: Accepted (partially superseded by ADR-0009)
 - Date: 2026-08-18
 - Owner approval: 2026-08-18 (D1–D5)
 - Related: ADR-0003, Phase 2 `AMENDMENT-002A3`, Phase 3 `AMENDMENT-003A4`
 - Design: `docs/phases/PHASE-003-generation-installation-architecture.md`
+
+> 2026-08-21: ADR-0009 supersedes only the staging-build and publish-by-rename
+> mechanism. The sole active pointer, sealed-generation, activation CAS, recovery and
+> retention decisions in this ADR remain authoritative.
 
 ## Context
 

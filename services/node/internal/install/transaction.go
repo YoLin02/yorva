@@ -20,7 +20,7 @@ type InstallTransaction struct {
 	Step                   string           `json:"step"`
 	SourcePin              string           `json:"sourcePin"`
 	ExpectedVersion        string           `json:"expectedVersion"`
-	StagingRelativePath    string           `json:"stagingRelativePath"`
+	StagingRelativePath    string           `json:"stagingRelativePath"` // schema-1 compatibility; not a new-build InstallDir
 	GenerationRelativePath string           `json:"generationRelativePath"`
 	ManifestSHA256         string           `json:"manifestSha256"`
 	SealSHA256             string           `json:"sealSha256"`

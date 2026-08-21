@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const supportedRange = ">=0.19.0 <0.21.0"
+const supportedRange = "=0.20.2"
 
 var versionBannerPattern = regexp.MustCompile(`(?im)^\s*Hermes(?:\s+Agent)?\s+v?([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?(?:\s|\(|$)`)
 
@@ -87,5 +87,5 @@ func (v version) String() string {
 }
 
 func (v version) supported() bool {
-	return v.major == 0 && (v.minor == 19 || v.minor == 20) && v.prerelease == ""
+	return v.major == 0 && v.minor == 20 && v.patch == 2 && v.prerelease == ""
 }

@@ -47,7 +47,7 @@ function supported(version: string): RuntimeDiscovery {
     candidates: [candidate],
     warnings: [],
     detectedAt: "2026-08-14T00:00:00Z",
-    supportedRange: ">=0.19.0 <0.21.0",
+    supportedRange: "=0.20.2",
   };
 }
 

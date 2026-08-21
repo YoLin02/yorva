@@ -210,7 +210,10 @@ describe("InstancesPage", () => {
       />,
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "More actions" })[1]);
+    expect(screen.getByRole("menuitem", { name: "Models" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Channels" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
     expect(onDeleteTargetChange).toHaveBeenCalledWith(inventory.instances[1]);
 
     rerender(
@@ -290,8 +293,8 @@ describe("InstancesPage", () => {
     expect(screen.getAllByText("Missing").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
-    const modelButtons = screen.getAllByRole("button", { name: "Models" });
-    expect(modelButtons.filter((button) => button.hasAttribute("disabled"))).toHaveLength(2);
+    const moreButtons = screen.getAllByRole("button", { name: "More actions" });
+    expect(moreButtons.filter((button) => button.hasAttribute("disabled"))).toHaveLength(2);
   });
 
   it("shows authoritative lifecycle state and starts an Operation", async () => {

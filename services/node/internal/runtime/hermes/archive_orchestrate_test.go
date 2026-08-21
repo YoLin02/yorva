@@ -49,15 +49,15 @@ func TestResolveArchiveDoesNotFallBackOnIntegrityFailure(t *testing.T) {
 	}
 }
 
-func TestBuildStagingMaterializesSourceWithoutOfficialRepositoryStage(t *testing.T) {
+func TestBuildGenerationMaterializesSourceWithoutOfficialRepositoryStage(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("Hermes staging build is Windows user-scope")
 	}
-	env := newStagingBuildEnv(t)
-	if err := env.installer.BuildStaging(context.Background(), "op_embed", env.staging, env.home); err != nil {
+	env := newGenerationBuildEnv(t)
+	if err := env.installer.BuildGeneration(context.Background(), "op_embed", env.generation, env.home); err != nil {
 		t.Fatal(err)
 	}
-	if !isRegularFile(filepath.Join(env.staging, "pyproject.toml")) {
+	if !isRegularFile(filepath.Join(env.generation, "pyproject.toml")) {
 		t.Fatal("source was not materialized")
 	}
 	for _, args := range env.spawned {

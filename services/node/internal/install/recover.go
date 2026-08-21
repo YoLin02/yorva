@@ -75,7 +75,7 @@ func RecoverWith(ctx context.Context, root string, gate *GateHolder, env Environ
 			gate.Set(GateBlockedUnsafe)
 			return decision, nil
 		}
-		if decision.Action == ActionNone || decision.Action == ActionDiagnoseRetain {
+		if (decision.Action == ActionNone && decision.NextState == "") || decision.Action == ActionDiagnoseRetain {
 			gate.Set(finalGate(decision))
 			if gate.Get() == GateReady {
 				_, _ = Collect(store, GCHooks{})

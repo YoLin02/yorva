@@ -60,6 +60,52 @@ func TestRecoverCreatedMovesStagingAndFails(t *testing.T) {
 	}
 }
 
+func TestRecoverInterruptedFinalPathCandidateFailsWithoutActivation(t *testing.T) {
+	store := mustStore(t)
+	txn := mustCreated(t)
+	if err := store.SaveTransaction(txn); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.LoadTransaction(txn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded.State = StateBuilding
+	loaded.Step = "build"
+	if err := store.SaveTransaction(loaded); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err = store.LoadTransaction(txn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mgr := NewManager(store, nil, nil)
+	generation, err := mgr.createFreshGenerationCandidate(loaded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(generation, "partial.txt"), []byte("partial"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gate := NewGateHolder()
+	if _, err := RecoverWith(context.Background(), store.layout.Root, gate, newMemEnv().store()); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err = store.LoadTransaction(txn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.State != StateFailed || loaded.ErrorCode != CodeInterrupted {
+		t.Fatalf("transaction %#v", loaded)
+	}
+	if store.ReadActive().Valid {
+		t.Fatal("interrupted final-path candidate became active")
+	}
+	if _, err := os.Stat(generation); err != nil {
+		t.Fatal("latest failed lineage-proven candidate was not retained")
+	}
+}
+
 func TestRecoverSealedForwardsWithoutTouchingUnknown(t *testing.T) {
 	store := mustStore(t)
 	mem := newMemEnv()
@@ -94,7 +140,7 @@ func TestRecoverSealedForwardsWithoutTouchingUnknown(t *testing.T) {
 	}
 }
 
-func TestRecoverDuplicateSealedBlocksAndDoesNotPublishTwice(t *testing.T) {
+func TestRecoverLegacySealedStagingNeverActivates(t *testing.T) {
 	store := mustStore(t)
 	mgr := NewManager(store, fakeBuild, nil).withEnv(newMemEnv().store())
 	txn := mustSeal(t, mgr)
@@ -106,28 +152,33 @@ func TestRecoverDuplicateSealedBlocksAndDoesNotPublishTwice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(staging), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := copyDir(staging, dest); err != nil {
+	if err := os.Rename(dest, staging); err != nil {
 		t.Fatal(err)
 	}
 	gate := NewGateHolder()
 	decision, err := RecoverWith(context.Background(), store.layout.Root, gate, newMemEnv().store())
-	if err != nil && gate.Get() != GateBlockedUnsafe {
+	if err != nil {
 		t.Fatal(err)
 	}
-	if gate.Get() != GateBlockedUnsafe && decision.Gate != GateBlockedUnsafe {
-		t.Fatalf("decision %#v gate %s", decision, gate.Get())
+	loaded, err := store.LoadTransaction(txn.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !store.ReadActive().Valid {
-		// must not have activated the duplicate world
+	if loaded.State != StateFailed || loaded.ErrorCode != CodeInterrupted {
+		t.Fatalf("transaction %#v decision %#v", loaded, decision)
 	}
 	if store.ReadActive().Valid {
-		t.Fatal("duplicate world activated")
+		t.Fatal("legacy staging world activated")
 	}
-	if _, err := os.Stat(staging); err != nil {
-		t.Fatal("staging removed while blocked")
+	failed, err := store.layout.FailedPath(txn.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(failed); err != nil {
+		t.Fatal("legacy sealed staging evidence was not quarantined")
 	}
 }
 

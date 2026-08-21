@@ -69,9 +69,9 @@ func TestDecideRecoveryMatrix(t *testing.T) {
 			want: RecoveryDecision{Gate: GateReady, NextState: StateFailed, Action: ActionMoveStagingToFailed},
 		},
 		{
-			name: "CREATED missing staging but generation exists",
+			name: "CREATED owned candidate is failed without activation",
 			obs:  Observation{Transactions: []TransactionView{txn(StateCreated)}, Generation: sealed},
-			want: RecoveryDecision{Gate: GateBlockedUnsafe, Action: ActionBlockUnsafe, ErrorCode: CodeInconsistent},
+			want: RecoveryDecision{Gate: GateReady, NextState: StateFailed, Action: ActionNone},
 		},
 		{
 			name: "BUILDING empty staging",
@@ -89,19 +89,19 @@ func TestDecideRecoveryMatrix(t *testing.T) {
 			want: RecoveryDecision{Gate: GateReady, NextState: StateFailed, Action: ActionNone, ErrorCode: CodeInterrupted},
 		},
 		{
-			name: "BUILDING published during build",
+			name: "BUILDING owned candidate is interrupted",
 			obs:  Observation{Transactions: []TransactionView{txn(StateBuilding)}, Generation: sealed},
-			want: RecoveryDecision{Gate: GateBlockedUnsafe, Action: ActionBlockUnsafe, ErrorCode: CodeInconsistent},
+			want: RecoveryDecision{Gate: GateReady, NextState: StateFailed, Action: ActionNone, ErrorCode: CodeInterrupted},
 		},
 		{
-			name: "SEALED publish forward",
+			name: "SEALED legacy staging never publishes",
 			obs:  Observation{Transactions: []TransactionView{txn(StateSealed)}, Staging: sealed, Active: pred},
-			want: RecoveryDecision{Gate: GateReconciling, NextState: StatePublished, Action: ActionPublish},
+			want: RecoveryDecision{Gate: GateReady, NextState: StateFailed, Action: ActionMoveStagingToFailed, ErrorCode: CodeInterrupted},
 		},
 		{
 			name: "SEALED infer rename complete",
 			obs:  Observation{Transactions: []TransactionView{txn(StateSealed)}, Generation: sealed, Active: pred},
-			want: RecoveryDecision{Gate: GateReconciling, NextState: StatePublished, Action: ActionNone},
+			want: RecoveryDecision{Gate: GateReconciling, NextState: StatePublished, Action: ActionPersistPublished},
 		},
 		{
 			name: "SEALED invalid staging",
@@ -400,10 +400,10 @@ func TestDecideRecoveryIdempotentOrForward(t *testing.T) {
 			},
 		},
 		{
-			name: "SEALED publish",
+			name: "SEALED final generation",
 			obs: Observation{
 				Transactions: []TransactionView{txn(StateSealed)},
-				Staging:      sealed,
+				Generation:   sealed,
 				Active:       pred,
 			},
 		},
@@ -444,11 +444,10 @@ func applyDecision(obs Observation, d RecoveryDecision) Observation {
 		obs.Transactions[0].State = d.NextState
 	}
 	switch d.Action {
-	case ActionRemoveEmptyStaging, ActionMoveStagingToFailed, ActionPublish, ActionGCStaging:
+	case ActionRemoveEmptyStaging, ActionMoveStagingToFailed, ActionGCStaging:
 		obs.Staging = TreeObservation{}
-		if d.Action == ActionPublish {
-			obs.Generation = TreeObservation{Present: true, Sealed: true, LineageMatch: true, LineageID: obs.Transactions[0].GenerationID}
-		}
+	case ActionRemoveEmptyGeneration:
+		obs.Generation = TreeObservation{}
 	case ActionActivate:
 		if len(obs.Transactions) == 1 {
 			obs.Active = ActivePointer{Present: true, Valid: true, GenerationID: obs.Transactions[0].GenerationID}

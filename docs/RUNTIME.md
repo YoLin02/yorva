@@ -91,6 +91,13 @@ Amendment 003A2 keeps dependency distribution inside the same Hermes adapter. Th
 
 Amendment 003A4: installation is one Install Transaction (`CREATED` → `COMMITTED`) with a sealed generation tree and `control/active.json` as the sole activation pointer. SQLite Operation remains the Desktop/API projection and does not authorize retry or recovery. Retry always starts a new transaction and new generation id.
 
+Amendment 003A6: a new Hermes generation is constructed directly at its final
+`generations/gen_<id>` path. It is still inactive until `control/active.json` names it.
+Before Seal, YORVA executes both documented Hermes launchers from that exact final path
+with `--version` and requires the pinned supported version. File existence alone is not
+successful installation evidence. Publishing verifies the sealed candidate and records
+the state transition; it no longer moves a completed virtual environment from staging.
+
 ```go
 type Installer interface {
     Install(ctx context.Context, req InstallRequest, progress ProgressSink) (Installation, error)
@@ -265,7 +272,7 @@ Hermes discovery command descriptors are closed and argument-safe: either an enu
 
 The adapter owns a support policy.
 
-For accepted Phase 2 amendment 002A1, stable Hermes `0.19.x` and `0.20.x` are supported (`>=0.19.0 <0.21.0`). This includes the current official stable package version `0.20.1` reviewed on 2026-08-14. Prereleases and `0.21.0` or later remain unsupported until explicitly reviewed.
+Amendment 002A4 supersedes the historical broad Phase 2 window. YORVA supports exactly the pinned and qualified Hermes package version `0.20.2` (`=0.20.2`). Older versions, later patches and prereleases remain detectable but are classified `UNSUPPORTED` until separately reviewed and qualified.
 
 Detection returns:
 

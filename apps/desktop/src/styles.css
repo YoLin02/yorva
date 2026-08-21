@@ -1267,10 +1267,9 @@ p {
 }
 
 .instance-sync-time {
-  font-family: var(--yorva-mono);
   color: #64748b;
-  font-size: 11px !important;
-  font-variant-numeric: tabular-nums;
+  font-size: 12px !important;
+  white-space: nowrap;
 }
 
 .instance-capabilities {
@@ -1289,8 +1288,8 @@ p {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .instance-lifecycle-actions {
@@ -1300,9 +1299,96 @@ p {
   gap: 3px;
 }
 
-.instance-row-actions .button {
-  padding: 6px 8px;
+.instance-icon-action,
+.instance-row-actions .instance-icon-action {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid transparent;
   border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.instance-icon-action:hover:not(:disabled) {
+  border-color: #dbe5ec;
+  background: #f7fafc;
+  color: #0f766e;
+}
+
+.instance-icon-action:focus-visible {
+  outline: 2px solid rgb(16 185 129 / 38%);
+  outline-offset: 1px;
+}
+
+.instance-icon-action:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.instance-more-actions {
+  display: inline-flex;
+}
+
+.instance-actions-menu {
+  position: fixed;
+  z-index: 90;
+  display: grid;
+  width: 176px;
+  box-sizing: border-box;
+  padding: 5px;
+  border: 1px solid #dfe7ee;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 14px 36px rgb(15 23 42 / 16%);
+  animation: menu-fade-in 120ms ease-out;
+}
+
+.instance-actions-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #334155;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.instance-actions-menu button:hover,
+.instance-actions-menu button:focus-visible {
+  outline: none;
+  background: #f1f7f4;
+  color: #087a54;
+}
+
+.instance-actions-menu button.is-danger {
+  margin-top: 4px;
+  border-top: 1px solid #eef2f6;
+  border-radius: 0 0 7px 7px;
+  padding-top: 9px;
+  color: #c73737;
+}
+
+.instance-actions-menu button.is-danger:hover,
+.instance-actions-menu button.is-danger:focus-visible {
+  background: #fff3f3;
+  color: #b42323;
+}
+
+@keyframes menu-fade-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .button-danger-ghost {

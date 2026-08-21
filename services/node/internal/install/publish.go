@@ -13,10 +13,6 @@ func (m *Manager) publish(txn *InstallTransaction) error {
 	if txn.State != StateSealed {
 		return ErrInvalidRecord
 	}
-	stagingAbs, err := m.store.layout.StagingPath(txn.ID)
-	if err != nil {
-		return err
-	}
 	destAbs, err := m.store.layout.GenerationPath(txn.GenerationID)
 	if err != nil {
 		return err
@@ -27,38 +23,33 @@ func (m *Manager) publish(txn *InstallTransaction) error {
 	if err := rejectReparse(m.store.layout.GenerationsRoot()); err != nil {
 		return err
 	}
-
-	stagingPresent, stagingEmpty, stagingSealed := observePublishedTree(stagingAbs, *txn)
-	destPresent, _, destSealed := observePublishedTree(destAbs, *txn)
-
-	switch {
-	case destPresent && destSealed && stagingPresent && !stagingEmpty && stagingSealed:
-		return fmt.Errorf("%w: duplicate sealed trees", ErrBlockedUnsafe)
-	case destPresent && destSealed:
-		if stagingPresent && stagingEmpty {
-			if err := os.Remove(stagingAbs); err != nil && !os.IsNotExist(err) {
-				return err
-			}
-		} else if stagingPresent && !stagingEmpty && !stagingSealed {
-			return fmt.Errorf("%w: leftover staging is not empty leftover", ErrPublishConflict)
+	stagingAbs, err := m.store.layout.StagingPath(txn.ID)
+	if err != nil {
+		return err
+	}
+	if stagingPresent, stagingEmpty, _ := observePublishedTree(stagingAbs, *txn); stagingPresent {
+		if !stagingEmpty {
+			return fmt.Errorf("%w: legacy staging tree cannot be published", ErrBlockedUnsafe)
 		}
-	case destPresent && !destSealed:
-		return fmt.Errorf("%w: generation destination exists with different bytes", ErrPublishConflict)
-	default:
-		if !stagingSealed {
-			return ErrSealInvalid
-		}
-		if err := m.failpoint(FailBeforePublishRename); err != nil {
-			return err
-		}
-		if err := renameDirectory(stagingAbs, destAbs); err != nil {
-			return err
-		}
-		if err := m.failpoint(FailAfterPublishRename); err != nil {
+		if err := os.Remove(stagingAbs); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}
+
+	destPresent, _, destSealed := observePublishedTree(destAbs, *txn)
+	if !destPresent {
+		return ErrSealInvalid
+	}
+	if !destSealed {
+		return fmt.Errorf("%w: generation destination exists with different bytes", ErrPublishConflict)
+	}
+	if err := m.failpoint(FailBeforePublishVerify); err != nil {
+		return err
+	}
 	if err := VerifySealedTree(destAbs, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256); err != nil {
+		return err
+	}
+	if err := m.failpoint(FailAfterPublishVerify); err != nil {
 		return err
 	}
 	now := m.now()

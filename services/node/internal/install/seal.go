@@ -14,7 +14,7 @@ import (
 )
 
 type SealInput struct {
-	StagingAbs             string
+	RootAbs                string
 	TransactionID          string
 	GenerationID           string
 	RuntimeKind            string
@@ -38,17 +38,17 @@ type sealHooks struct {
 	BeforeSecondWalk func() error
 }
 
-func SealStaging(ops atomicOps, in SealInput, hooks sealHooks) (SealResult, error) {
+func SealGeneration(ops atomicOps, in SealInput, hooks sealHooks) (SealResult, error) {
 	if err := ValidateGenerationRel(in.GenerationRelativePath, in.GenerationID); err != nil {
 		return SealResult{}, err
 	}
 	if err := ParseTransactionID(in.TransactionID); err != nil {
 		return SealResult{}, err
 	}
-	if err := rejectReparse(in.StagingAbs); err != nil {
+	if err := rejectReparse(in.RootAbs); err != nil {
 		return SealResult{}, err
 	}
-	entries, err := walkSealManifest(in.StagingAbs)
+	entries, err := walkSealManifest(in.RootAbs)
 	if err != nil {
 		return SealResult{}, err
 	}
@@ -63,7 +63,7 @@ func SealStaging(ops atomicOps, in SealInput, hooks sealHooks) (SealResult, erro
 		return SealResult{}, err
 	}
 	manifestBytes = append(manifestBytes, '\n')
-	manifestPath := filepath.Join(in.StagingAbs, fileManifest)
+	manifestPath := filepath.Join(in.RootAbs, fileManifest)
 	if err := writeAtomicRecord(ops, manifestPath, manifestBytes); err != nil {
 		return SealResult{}, err
 	}
@@ -111,20 +111,20 @@ func SealStaging(ops atomicOps, in SealInput, hooks sealHooks) (SealResult, erro
 		return SealResult{}, err
 	}
 	genBytes = append(genBytes, '\n')
-	genPath := filepath.Join(in.StagingAbs, fileGeneration)
+	genPath := filepath.Join(in.RootAbs, fileGeneration)
 	if err := writeAtomicRecord(ops, genPath, genBytes); err != nil {
 		_ = os.Remove(manifestPath)
 		return SealResult{}, err
 	}
 	if hooks.BeforeSecondWalk != nil {
 		if err := hooks.BeforeSecondWalk(); err != nil {
-			removeSealFiles(in.StagingAbs)
+			removeSealFiles(in.RootAbs)
 			return SealResult{}, err
 		}
 	}
-	again, err := walkSealManifest(in.StagingAbs)
+	again, err := walkSealManifest(in.RootAbs)
 	if err != nil || !manifestsEqual(entries, again) {
-		removeSealFiles(in.StagingAbs)
+		removeSealFiles(in.RootAbs)
 		if err != nil {
 			return SealResult{}, err
 		}

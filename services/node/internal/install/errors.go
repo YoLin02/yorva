@@ -15,6 +15,7 @@ var (
 	ErrManagedRootUnset    = errors.New("install: LOCALAPPDATA is not set")
 	ErrSealInvalid         = errors.New("install: seal invalid")
 	ErrStagingOccupied     = errors.New("install: staging directory already exists")
+	ErrGenerationOccupied  = errors.New("install: generation directory already exists")
 	ErrPublishConflict     = errors.New("install: publish conflict")
 	ErrBlockedUnsafe       = errors.New("install: blocked unsafe")
 )

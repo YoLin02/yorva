@@ -76,10 +76,11 @@ Amendments:
 - `AMENDMENT-002A1-hermes-windows-command-resolution.md` — ACCEPTED / FROZEN into r1
 - `AMENDMENT-002A2-hermes-launcher-alias-normalization.md` — ACCEPTED
 - `AMENDMENT-002A3-active-generation-discovery.md` — ACCEPTED FOR IMPLEMENTATION (Owner 2026-08-18; not a Phase 2 re-freeze)
+- `AMENDMENT-002A4-exact-hermes-version-compatibility.md` — IMPLEMENTED / TARGETED AUDIT PENDING (Owner 2026-08-21)
 Historical baseline: `phase-002-hermes-discovery-baseline` → `a67de04e900bc3ddce99cd76501eec13586082ed` (immutable)
 Current baseline: `phase-002-hermes-discovery-baseline-r1`
 Amendment implementation commit: `dbcb54da4bc4bffcff51888426848246a1900ea6`
-Compatibility: `>=0.19.0 <0.21.0`
+Compatibility: `=0.20.2` (002A4 supersedes the historical broad window)
 
 Goal: detect Hermes and report executable/version compatibility without mutating the machine.
 
@@ -119,8 +120,10 @@ Amendments:
 - `AMENDMENT-003A2-china-dependency-distribution.md` — ACCEPTED
 - `AMENDMENT-003A3-managed-node-prerequisites.md` — ACCEPTED
 - `AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED
+- `AMENDMENT-003A6-final-path-hermes-generation-build.md` — ACCEPTED / FROZEN (Owner 2026-08-21; frozen-baseline correctness correction)
 Architecture: `docs/phases/PHASE-003-generation-installation-architecture.md` — Owner-approved 2026-08-18
 ADR: `ADR-0006-generation-install-transaction.md` — Accepted
+Correction ADR: `ADR-0009-final-path-generation-build.md` — Accepted 2026-08-21
 Audit: `AUDIT-003`–`R7` — **FAIL** (immutable); `AUDIT-003R8` — **PASS WITH CONDITIONS**; `AUDIT-003R9` — **PASS**
 
 Goal: install a supported official Hermes Runtime without requiring terminal use.

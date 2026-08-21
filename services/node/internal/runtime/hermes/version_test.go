@@ -10,15 +10,17 @@ func TestParseVersionBanner(t *testing.T) {
 		supported bool
 		wantError bool
 	}{
-		{name: "supported release", output: "Hermes Agent v0.19.0 (2026.7.20)\n", want: "0.19.0", supported: true},
-		{name: "supported patch", output: "Hermes Agent 0.19.42\n", want: "0.19.42", supported: true},
-		{name: "latest supported minor", output: "Hermes Agent v0.20.0\n", want: "0.20.0", supported: true},
-		{name: "latest official stable", output: "Hermes Agent v0.20.1 (2026.8.13)\n", want: "0.20.1", supported: true},
+		{name: "old baseline release", output: "Hermes Agent v0.19.0 (2026.7.20)\n", want: "0.19.0"},
+		{name: "old baseline patch", output: "Hermes Agent 0.19.42\n", want: "0.19.42"},
+		{name: "earlier current minor", output: "Hermes Agent v0.20.0\n", want: "0.20.0"},
+		{name: "previous official stable", output: "Hermes Agent v0.20.1 (2026.8.13)\n", want: "0.20.1"},
+		{name: "qualified official release", output: "Hermes Agent v0.20.2 (2026.8.16)\n", want: "0.20.2", supported: true},
+		{name: "later patch", output: "Hermes Agent v0.20.3\n", want: "0.20.3"},
 		{name: "older release", output: "Hermes Agent v0.18.2 (2026.7.7.2)\n", want: "0.18.2"},
 		{name: "future minor", output: "Hermes Agent v0.21.0\n", want: "0.21.0"},
 		{name: "prerelease", output: "Hermes Agent v0.19.1-rc.1\n", want: "0.19.1-rc.1"},
 		{name: "latest minor prerelease", output: "Hermes Agent v0.20.2-rc.1\n", want: "0.20.2-rc.1"},
-		{name: "documented date ignored", output: "Hermes Agent v0.19.3 (2026.8.14)\n", want: "0.19.3", supported: true},
+		{name: "documented date ignored", output: "Hermes Agent v0.19.3 (2026.8.14)\n", want: "0.19.3"},
 		{name: "missing package banner", output: "2026.8.14\n", wantError: true},
 		{name: "partial", output: "Hermes Agent v0.19\n", wantError: true},
 		{name: "ambiguous", output: "Hermes Agent v0.19.0\nHermes Agent v0.19.1\n", wantError: true},
@@ -47,7 +49,7 @@ func TestParseVersionBanner(t *testing.T) {
 }
 
 func TestSupportedRangeDocumentsCompatibilityPolicy(t *testing.T) {
-	if supportedRange != ">=0.19.0 <0.21.0" {
+	if supportedRange != "=0.20.2" {
 		t.Fatalf("supportedRange = %q", supportedRange)
 	}
 }

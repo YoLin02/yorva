@@ -14,7 +14,7 @@ func TestApplyGenerationCommitsWithoutLiveRename(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("generation Apply is Windows user-scope")
 	}
-	env := newStagingBuildEnv(t)
+	env := newGenerationBuildEnv(t)
 	env.installer.env = isolatedEnvStore()
 	if err := env.installer.Apply(context.Background(), "op_gen", nil); err != nil {
 		t.Fatal(err)

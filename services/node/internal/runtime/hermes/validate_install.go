@@ -1,24 +1,28 @@
 package hermes
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
+const finalGenerationProbeTimeout = 30 * time.Second
+
 var pyprojectVersionPattern = regexp.MustCompile(`(?m)^version\s*=\s*"([^"]+)"`)
 
-// ValidateStaging checks a built staging tree before Seal.
-// config-templates output is not required (D3).
-func ValidateStaging(stagingDir, expectedVersion string) error {
-	if stagingDir == "" {
-		return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("staging directory is required"))
+// ValidateGenerationFiles checks the final candidate tree before its functional
+// probes and Seal. config-templates output is not required (D3).
+func ValidateGenerationFiles(generationDir, expectedVersion string) error {
+	if generationDir == "" {
+		return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("generation directory is required"))
 	}
-	if err := rejectReparsePoint(stagingDir); err != nil {
+	if err := rejectReparsePoint(generationDir); err != nil {
 		return err
 	}
 	required := []string{
@@ -33,24 +37,70 @@ func ValidateStaging(stagingDir, expectedVersion string) error {
 		".hermes-bootstrap-complete",
 	}
 	for _, name := range required {
-		path := filepath.Join(stagingDir, name)
+		path := filepath.Join(generationDir, name)
 		if !isRegularFile(path) {
-			return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("staging missing %s", name))
+			return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("generation missing %s", name))
 		}
 		if err := rejectReparsePoint(path); err != nil {
 			return err
 		}
 	}
-	version, err := readPyprojectVersion(filepath.Join(stagingDir, "pyproject.toml"))
+	version, err := readPyprojectVersion(filepath.Join(generationDir, "pyproject.toml"))
 	if err != nil {
 		return err
 	}
 	if expectedVersion != "" && version != expectedVersion {
-		return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("staging version %s != %s", version, expectedVersion))
+		return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("generation version %s != %s", version, expectedVersion))
 	}
 	parsed, err := parseVersionBanner("Hermes Agent v" + version)
 	if err != nil || !parsed.supported() {
-		return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("unsupported staging version %s", version))
+		return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("unsupported generation version %s", version))
+	}
+	return nil
+}
+
+// ValidateGeneration raises the install gate from file existence to execution at
+// the exact final path. Running both copied and venv launchers catches uv
+// trampoline and editable-install paths that still reference a former directory.
+func (h *HostInstaller) ValidateGeneration(ctx context.Context, generationDir, expectedVersion string) error {
+	if err := ValidateGenerationFiles(generationDir, expectedVersion); err != nil {
+		return err
+	}
+	canonicalRoot, ok := canonicalDirectory(generationDir)
+	if !ok {
+		return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("final generation path is not canonical"))
+	}
+	for _, rel := range []string{
+		filepath.Join("bin", "hermes.exe"),
+		filepath.Join("venv", "Scripts", "hermes.exe"),
+	} {
+		executable := filepath.Join(canonicalRoot, rel)
+		canonical, ok := canonicalRegularWithin(canonicalRoot, executable)
+		if !ok {
+			return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("final launcher is not contained"))
+		}
+		result := h.run(ctx, installInvocation{
+			Executable: canonical,
+			Args:       []string{"--version"},
+			Dir:        canonicalRoot,
+		}, finalGenerationProbeTimeout)
+		h.logCommand("installer.final_path_probe", filepath.ToSlash(rel), "", result)
+		if result.limited {
+			return installError(yorvaruntime.ErrorRuntimeInstallOutputLimit, errOutputLimit)
+		}
+		if result.timedOut {
+			return installError(yorvaruntime.ErrorRuntimeInstallTimeout, result.err)
+		}
+		if result.err != nil || result.exitCode != 0 {
+			if result.err == context.Canceled {
+				return result.err
+			}
+			return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("final launcher failed"))
+		}
+		parsed, err := parseVersionBanner(result.stdout)
+		if err != nil || !parsed.supported() || (expectedVersion != "" && parsed.String() != expectedVersion) {
+			return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, fmt.Errorf("final launcher version invalid"))
+		}
 	}
 	return nil
 }

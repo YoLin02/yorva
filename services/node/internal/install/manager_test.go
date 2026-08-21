@@ -21,15 +21,25 @@ func TestManagerSealNew(t *testing.T) {
 	if got.State != StateSealed || got.ManifestSHA256 == "" || got.SealSHA256 == "" || got.SealedAt == nil {
 		t.Fatalf("sealed %#v", got)
 	}
+	generation, err := store.layout.GenerationPath(got.GenerationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(generation, fileGeneration)); err != nil {
+		t.Fatal(err)
+	}
+	if candidate, ok := readCandidateRecord(generation); !ok || candidate.TransactionID != got.ID || candidate.GenerationID != got.GenerationID {
+		t.Fatalf("candidate record %#v valid=%v", candidate, ok)
+	}
 	staging, err := store.layout.StagingPath(got.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(staging, fileGeneration)); err != nil {
-		t.Fatal(err)
+	if _, err := os.Stat(staging); !os.IsNotExist(err) {
+		t.Fatal("new install built a staging runtime tree")
 	}
-	if _, err := os.Stat(filepath.Join(store.layout.Root, dirGenerations)); !os.IsNotExist(err) {
-		t.Fatal("batch 3 must not publish generations")
+	if store.ReadActive().Valid {
+		t.Fatal("sealed candidate must not be active")
 	}
 	loaded, err := store.LoadTransaction(got.ID)
 	if err != nil {
@@ -69,19 +79,19 @@ func TestManagerCancelLeavesUnsealed(t *testing.T) {
 	if got.State != StateFailed || got.ErrorCode != CodeInterrupted {
 		t.Fatalf("got %#v", got)
 	}
-	if _, err := os.Stat(filepath.Join(store.layout.Root, dirGenerations)); !os.IsNotExist(err) {
-		t.Fatal("canceled build published a generation")
-	}
-	staging, _ := store.layout.StagingPath(got.ID)
-	if _, err := os.Stat(filepath.Join(staging, fileGeneration)); err == nil {
+	generation, _ := store.layout.GenerationPath(got.GenerationID)
+	if _, err := os.Stat(filepath.Join(generation, fileGeneration)); err == nil {
 		t.Fatal("canceled build sealed")
+	}
+	if store.ReadActive().Valid {
+		t.Fatal("canceled candidate activated")
 	}
 }
 
 func TestManagerFailpointsDoNotSeal(t *testing.T) {
 	points := []string{
-		FailBeforeStagingMkdir,
-		FailAfterStagingMkdir,
+		FailBeforeGenerationMkdir,
+		FailAfterGenerationMkdir,
 		FailAfterBuild,
 		FailBeforeValidate,
 		FailDuringManifestWalk,
@@ -101,12 +111,12 @@ func TestManagerFailpointsDoNotSeal(t *testing.T) {
 			if got.State == StateSealed {
 				t.Fatal("failpoint reached SEALED")
 			}
-			if _, err := os.Stat(filepath.Join(store.layout.Root, dirGenerations)); !os.IsNotExist(err) {
-				t.Fatal("failpoint published")
+			if store.ReadActive().Valid {
+				t.Fatal("failpoint activated a generation")
 			}
 			if point == FailBeforeGenerationJSON || point == FailAfterSealBeforeSecondWalk {
-				staging, _ := store.layout.StagingPath(got.ID)
-				if _, err := os.Stat(filepath.Join(staging, fileGeneration)); err == nil {
+				generation, _ := store.layout.GenerationPath(got.GenerationID)
+				if _, err := os.Stat(filepath.Join(generation, fileGeneration)); err == nil {
 					t.Fatal("generation.json remained")
 				}
 			}
@@ -128,9 +138,26 @@ func TestManagerValidateFailureDoesNotSeal(t *testing.T) {
 	}
 }
 
-func fakeBuild(_ context.Context, stagingAbs, hermesHome string) error {
-	if stagingAbs == "" || hermesHome == "" {
-		return errors.New("missing staging or home")
+func TestManagerRequiresCandidateOwnershipRecordAtSeal(t *testing.T) {
+	store := mustStore(t)
+	mgr := NewManager(store, func(_ context.Context, generationAbs, _ string) error {
+		if err := writeMinimalStagingTree(generationAbs); err != nil {
+			return err
+		}
+		return os.Remove(filepath.Join(generationAbs, fileCandidate))
+	}, nil)
+	got, err := mgr.SealNew(context.Background(), mustCreated(t))
+	if err == nil {
+		t.Fatal("missing candidate ownership record accepted")
 	}
-	return writeMinimalStagingTree(stagingAbs)
+	if got.State != StateFailed || got.ErrorCode != CodeSealInvalid {
+		t.Fatalf("got %#v", got)
+	}
+}
+
+func fakeBuild(_ context.Context, generationAbs, hermesHome string) error {
+	if generationAbs == "" || hermesHome == "" {
+		return errors.New("missing generation or home")
+	}
+	return writeMinimalStagingTree(generationAbs)
 }

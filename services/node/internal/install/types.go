@@ -35,19 +35,20 @@ const (
 type Action string
 
 const (
-	ActionNone                Action = "NONE"
-	ActionFailTransaction     Action = "FAIL_TRANSACTION"
-	ActionMoveStagingToFailed Action = "MOVE_STAGING_TO_FAILED"
-	ActionRemoveEmptyStaging  Action = "REMOVE_EMPTY_STAGING"
-	ActionPublish             Action = "PUBLISH"
-	ActionPersistActivating   Action = "PERSIST_ACTIVATING"
-	ActionActivate            Action = "ACTIVATE"
-	ActionReconcileEnv        Action = "RECONCILE_ENV"
-	ActionCommit              Action = "COMMIT"
-	ActionGCStaging           Action = "GC_STAGING"
-	ActionDiagnoseRetain      Action = "DIAGNOSE_RETAIN"
-	ActionBlockUnsafe         Action = "BLOCK_UNSAFE"
-	ActionFailFailableExtras  Action = "FAIL_FAILABLE_EXTRAS"
+	ActionNone                  Action = "NONE"
+	ActionFailTransaction       Action = "FAIL_TRANSACTION"
+	ActionMoveStagingToFailed   Action = "MOVE_STAGING_TO_FAILED"
+	ActionRemoveEmptyStaging    Action = "REMOVE_EMPTY_STAGING"
+	ActionRemoveEmptyGeneration Action = "REMOVE_EMPTY_GENERATION"
+	ActionPersistPublished      Action = "PERSIST_PUBLISHED"
+	ActionPersistActivating     Action = "PERSIST_ACTIVATING"
+	ActionActivate              Action = "ACTIVATE"
+	ActionReconcileEnv          Action = "RECONCILE_ENV"
+	ActionCommit                Action = "COMMIT"
+	ActionGCStaging             Action = "GC_STAGING"
+	ActionDiagnoseRetain        Action = "DIAGNOSE_RETAIN"
+	ActionBlockUnsafe           Action = "BLOCK_UNSAFE"
+	ActionFailFailableExtras    Action = "FAIL_FAILABLE_EXTRAS"
 )
 
 const (

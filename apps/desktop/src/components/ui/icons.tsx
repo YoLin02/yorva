@@ -13,12 +13,15 @@ import {
   Layers,
   Loader2,
   MoreHorizontal,
+  MessageCircle,
   Monitor,
+  Play,
   Plus,
   RotateCw,
   Search,
   Settings,
   SlidersHorizontal,
+  Square,
   Trash2,
   X,
   XCircle,
@@ -62,6 +65,18 @@ export function IconPlus(props: LucideProps) {
 
 export function IconMore(props: LucideProps) {
   return glyph(MoreHorizontal, 17, props);
+}
+
+export function IconPlay(props: LucideProps) {
+  return glyph(Play, 15, props);
+}
+
+export function IconStop(props: LucideProps) {
+  return glyph(Square, 14, props);
+}
+
+export function IconMessage(props: LucideProps) {
+  return glyph(MessageCircle, 15, props);
 }
 
 export function IconSliders(props: LucideProps) {

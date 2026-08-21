@@ -32,8 +32,15 @@ func TestRealWindowsHermesInstallationSmoke(t *testing.T) {
 	if got.State == yorvaruntime.DiscoveryNotInstalled {
 		t.Fatalf("Detect() returned NOT_INSTALLED for existing official root %s", installRoot)
 	}
-	if got.State != yorvaruntime.DiscoverySupported || got.Selected == nil {
-		t.Fatalf("Detect() state/selected = %s/%#v, want runnable supported Hermes", got.State, got.Selected)
+	if got.Selected == nil {
+		t.Fatalf("Detect() state/selected = %s/%#v, want a runnable Hermes candidate", got.State, got.Selected)
+	}
+	wantState := yorvaruntime.DiscoveryUnsupported
+	if got.Selected.Version == officialPackageVersion {
+		wantState = yorvaruntime.DiscoverySupported
+	}
+	if got.State != wantState {
+		t.Fatalf("Detect() state/version = %s/%s, want %s", got.State, got.Selected.Version, wantState)
 	}
 	for _, candidate := range got.Candidates {
 		if strings.EqualFold(filepath.Base(candidate.Path), "hermes-agent.exe") {

@@ -39,7 +39,7 @@ const discovery = {
   candidates: [],
   warnings: [],
   detectedAt: "2026-08-14T10:11:57Z",
-  supportedRange: ">=0.19.0 <0.21.0",
+  supportedRange: "=0.20.2",
 };
 
 function renderApp() {

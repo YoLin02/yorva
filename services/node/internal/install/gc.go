@@ -181,7 +181,11 @@ func lineageProven(path string, txn InstallTransaction) bool {
 		return VerifyPublishedGeneration(path, txn.GenerationID, txn.ManifestSHA256, txn.SealSHA256) == nil
 	}
 	rec, ok := readGenerationFile(path)
-	return ok && rec.GenerationID == txn.GenerationID && rec.TransactionID == txn.ID
+	if ok {
+		return rec.GenerationID == txn.GenerationID && rec.TransactionID == txn.ID
+	}
+	candidate, ok := readCandidateRecord(path)
+	return ok && candidate.GenerationID == txn.GenerationID && candidate.TransactionID == txn.ID
 }
 
 func txnTime(txn InstallTransaction) time.Time {
@@ -213,10 +217,14 @@ func gcCandidates(store *Store) ([]string, error) {
 			if !entry.IsDir() {
 				continue
 			}
-			if _, ok := knownGen[entry.Name()]; !ok {
+			txn, ok := knownGen[entry.Name()]
+			if !ok {
 				continue
 			}
-			out = append(out, filepath.Join(store.layout.GenerationsRoot(), entry.Name()))
+			path := filepath.Join(store.layout.GenerationsRoot(), entry.Name())
+			if lineageProven(path, txn) {
+				out = append(out, path)
+			}
 		}
 	}
 	sort.Strings(out)
@@ -233,10 +241,14 @@ func listedKnownDirs(root string, known map[string]InstallTransaction) []string 
 		if !entry.IsDir() {
 			continue
 		}
-		if _, ok := known[entry.Name()]; !ok {
+		txn, ok := known[entry.Name()]
+		if !ok {
 			continue
 		}
-		out = append(out, filepath.Join(root, entry.Name()))
+		path := filepath.Join(root, entry.Name())
+		if lineageProven(path, txn) {
+			out = append(out, path)
+		}
 	}
 	return out
 }

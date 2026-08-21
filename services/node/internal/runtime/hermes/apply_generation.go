@@ -34,10 +34,10 @@ func (h *HostInstaller) applyGeneration(ctx context.Context, operationID string,
 			report(installStageName(stage), "")
 		}
 	}
-	mgr := install.NewManager(store, func(ctx context.Context, staging, home string) error {
-		return h.BuildStaging(ctx, operationID, staging, home)
-	}, func(_ context.Context, staging, version string) error {
-		return ValidateStaging(staging, version)
+	mgr := install.NewManager(store, func(ctx context.Context, generation, home string) error {
+		return h.BuildGeneration(ctx, operationID, generation, home)
+	}, func(ctx context.Context, generation, version string) error {
+		return h.ValidateGeneration(ctx, generation, version)
 	})
 	if h.env.Read != nil {
 		mgr = mgrWithEnv(mgr, h.env)

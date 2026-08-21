@@ -30,14 +30,14 @@ func TestDetectorOutcomes(t *testing.T) {
 		},
 		{
 			name:      "supported",
-			commands:  []commandResult{{stdout: "Hermes Agent v0.19.4 (2026.8.14)\n", exitCode: 0}},
-			wantState: yorvaruntime.DiscoverySupported, wantVersion: "0.19.4", wantSelected: true, wantCandidates: 1,
+			commands:  []commandResult{{stdout: "Hermes Agent v0.20.2 (2026.8.16)\n", exitCode: 0}},
+			wantState: yorvaruntime.DiscoverySupported, wantVersion: "0.20.2", wantSelected: true, wantCandidates: 1,
 		},
 		{
-			name:      "unsupported",
-			commands:  []commandResult{{stdout: "Hermes Agent v0.21.0\n", exitCode: 0}},
+			name:      "older version unsupported",
+			commands:  []commandResult{{stdout: "Hermes Agent v0.19.0\n", exitCode: 0}},
 			wantState: yorvaruntime.DiscoveryUnsupported, wantCode: yorvaruntime.ErrorRuntimeUnsupported,
-			wantVersion: "0.21.0", wantSelected: true, wantCandidates: 1,
+			wantVersion: "0.19.0", wantSelected: true, wantCandidates: 1,
 		},
 		{
 			name:      "broken executable",
@@ -71,9 +71,9 @@ func TestDetectorOutcomes(t *testing.T) {
 			name: "one runnable candidate wins over broken candidate",
 			commands: []commandResult{
 				{exitCode: 2, err: errors.New("process failed")},
-				{stdout: "Hermes Agent v0.19.2\n", exitCode: 0},
+				{stdout: "Hermes Agent v0.20.2\n", exitCode: 0},
 			},
-			wantState: yorvaruntime.DiscoverySupported, wantVersion: "0.19.2", wantSelected: true, wantCandidates: 2,
+			wantState: yorvaruntime.DiscoverySupported, wantVersion: "0.20.2", wantSelected: true, wantCandidates: 2,
 		},
 	}
 
@@ -104,7 +104,7 @@ func TestDetectorOutcomes(t *testing.T) {
 }
 
 func TestDetectorWarnsForUntestedPrerelease(t *testing.T) {
-	detector := detectorWithResults(t, []commandResult{{stdout: "Hermes Agent v0.19.4-rc.1\n", exitCode: 0}})
+	detector := detectorWithResults(t, []commandResult{{stdout: "Hermes Agent v0.20.2-rc.1\n", exitCode: 0}})
 	got, err := detector.Detect(context.Background())
 	if err != nil {
 		t.Fatalf("Detect() error = %v", err)
@@ -167,7 +167,7 @@ func TestDetectorUsesTrustedOfficialPythonEntrypointWhenLauncherIsMissing(t *tes
 		},
 		run: func(_ context.Context, command commandInvocation) commandResult {
 			executed = command
-			return commandResult{stdout: "Hermes Agent v0.20.0 (2026.8.3)\n", exitCode: 0}
+			return commandResult{stdout: "Hermes Agent v0.20.2 (2026.8.16)\n", exitCode: 0}
 		},
 		now:            time.Now,
 		overallTimeout: time.Second,
@@ -180,7 +180,7 @@ func TestDetectorUsesTrustedOfficialPythonEntrypointWhenLauncherIsMissing(t *tes
 	if got.State != yorvaruntime.DiscoverySupported || got.ErrorCode != "" {
 		t.Fatalf("Detect() state/code = %s/%s, want SUPPORTED with no error", got.State, got.ErrorCode)
 	}
-	if got.Selected == nil || got.Selected.Version != "0.20.0" || got.Selected.Path != executed.path {
+	if got.Selected == nil || got.Selected.Version != "0.20.2" || got.Selected.Path != executed.path {
 		t.Fatalf("Detect() selected = %#v, invocation = %#v", got.Selected, executed)
 	}
 	if !slices.Equal(executed.args, []string{"-I", "-m", hermesCLIModule, "--version"}) {

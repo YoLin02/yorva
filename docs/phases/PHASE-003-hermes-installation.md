@@ -1,5 +1,10 @@
 # YORVA Phase 3 — Hermes Installation
 
+> Supersession note (2026-08-21): `ADR-0009` / `AMENDMENT-003A6` replace
+> staging runtime construction and publish-by-rename with direct final-generation
+> construction plus final-path launcher execution before Seal. Unchanged controls in
+> this frozen Phase Spec remain authoritative.
+
 > Status: COMPLETE / FROZEN
 > Owner: Repository owner
 > Previous phase: Phase 2 — Hermes Discovery & Compatibility
