@@ -19,8 +19,12 @@
   `7d502cca72fe197139f3b9bd9864353926eca805`
 - Current R2 protocol correction:
   `4cff18b72fd29f3fd79682e1063ee87583427e40`
+- Accepted R3 candidate:
+  `859561712583c67031d8110812df3a4236be6908`
+- Accepted R3 audit commit:
+  `f8a0e6f937c3264df5fde9b818c4bbd58ef1d0ab`
 - Candidate branch for closeout: `codex/phase6-closeout`
-- Gate state at handoff: **AUDIT / R3 CONTRACT REMEDIATION; NOT ACCEPTED OR FROZEN**
+- Gate state at handoff: **AUDIT PASS / C5 FINALIZATION; NOT YET FROZEN**
 
 The implementation baseline is the committed `main` tree at `276991b`. The first
 closeout candidate added evidence plus the narrow login-item path refresh correction at
@@ -61,6 +65,7 @@ baseline tag are complete.
 | Exact-MSI Owner evidence | `13612dbf157637f59fc4c8a7e24ad9d02de2a681` | Bind sanitized mandatory Weixin connection/pairing/disconnect and WeCom connection/disconnect outcomes to the inspected MSI. | `docs/phases/evidence`, Specs, `ROADMAP.md` |
 | Immutable R2 audit | `7d502cca72fe197139f3b9bd9864353926eca805` | Preserve the R2 FAIL: no Critical/High, mandatory real-channel evidence accepted, one bounded lifecycle OpenAPI contract Medium. | `docs/phases/audits` |
 | R2 protocol correction | `4cff18b` | Remove the displaced `const: false`, regenerate `Lifecycle.errorCode` as `string | null`, and add a compile-time contract regression. | OpenAPI and Desktop generated client/test |
+| Accepted R3 audit | `f8a0e6f937c3264df5fde9b818c4bbd58ef1d0ab` | Preserve the independent PASS for exact candidate `8595617`; no unresolved finding or accepted debt. | `docs/phases/audits` |
 
 ## Adjacent work not attributed to Phase 6
 
@@ -202,6 +207,11 @@ passed exact-candidate CI run `32690884232`: Web/API job `97324214804`, Go Node 
 accepted the mandatory real-channel evidence and found no Critical/High. Its sole Gate
 failure was the generated lifecycle OpenAPI type corrected at `4cff18b`.
 
+OpenAPI-correction candidate `859561712583c67031d8110812df3a4236be6908`
+passed exact-candidate CI run `32692682968`: Web/API job `97329058369`, Go Node job
+`97329058444` and Windows Desktop native shell job `97329058561` all succeeded.
+Independent R3 returned PASS with no unresolved finding or accepted debt.
+
 ## Batch 8A evidence state
 
 Commit `e4b1473` includes adapter, application, HTTP/OpenAPI and Desktop coverage for:
@@ -229,9 +239,9 @@ C2 passed without retaining a screenshot, PID, Profile name or account datum.
 
 ## Pending closeout verification
 
-- obtain one exact-candidate CI for the OpenAPI correction successor;
-- use a fresh independent context for `AUDIT-006R3`;
-- after an R3 PASS, run the separate final-main/freeze/tag sequence.
+- integrate the genuine closeout branch and obtain one final-main CI run;
+- record the exact final-main SHA/run, set `COMPLETE / FROZEN` and create the annotated
+  Phase 6 baseline tag.
 
 ## Environment limitations known at handoff
 

@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime Lifecycle and Messaging Channels
 
-> Status: **AUDIT — AUDIT-006R2 FAIL / R3 CONTRACT REMEDIATION**
+> Status: **AUDIT PASS — C5 FINALIZATION**
 > Language: English execution mirror
 > Owner: Repository owner
 > Required baseline: `phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -887,10 +887,11 @@ pre-Batch-8A/8B record:
   `a9d9033`; `AUDIT-006R1`: **FAIL** on `7e1123e` (immutable), with code PASS and the
   then-missing exact-MSI Owner evidence as its sole blocker; `AUDIT-006R2`: **FAIL** on
   `13612db` (immutable), with the mandatory real-channel evidence accepted, no
-  Critical/High and one bounded OpenAPI type-contract Medium fixed at `4cff18b`.
+  Critical/High and one bounded OpenAPI type-contract Medium fixed at `4cff18b`;
+  independent `AUDIT-006R3`: **PASS** on exact candidate `8595617`, with CI run
+  `32692682968` successful.
 
 The remaining completion evidence is:
 
-- one exact CI run for the OpenAPI correction successor;
-- fresh `AUDIT-006R3` and its Gate Decision;
-- merge/final-main CI evidence and the annotated Phase 6 baseline tag after R3 PASS.
+- merge and one final-main CI run;
+- synchronized `COMPLETE / FROZEN` status and the annotated Phase 6 baseline tag.

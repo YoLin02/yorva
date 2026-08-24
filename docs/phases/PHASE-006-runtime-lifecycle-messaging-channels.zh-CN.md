@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime 生命周期与消息通道
 
-> 状态：**AUDIT — AUDIT-006R2 FAIL / R3 契约修复中**
+> 状态：**审计通过 — C5 最终化中**
 > 语言：中文 Owner 审阅源
 > Owner：Repository owner
 > 必需基线：`phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -886,10 +886,10 @@ Phase 6 只有在以下条件全部满足时才可通过：
   `a9d9033`；`AUDIT-006R1` 在 `7e1123e` 上 **FAIL**（不可变），代码为 PASS，当时唯一
   阻断是尚未补齐的 exact-MSI Owner 证据；`AUDIT-006R2` 在 `13612db` 上 **FAIL**
   （不可变），已接受强制真实通道证据、无 Critical/High，唯一有界 OpenAPI 类型契约
-  Medium 已在 `4cff18b` 修复。
+  Medium 已在 `4cff18b` 修复；独立 `AUDIT-006R3` 在 exact candidate `8595617` 上
+  **PASS**，CI run `32692682968` 成功。
 
 剩余完成证据：
 
-- OpenAPI 修复 successor 的一次 exact CI；
-- 新鲜 `AUDIT-006R3` 及其 Gate Decision；
-- R3 PASS 后的 merge/final-main CI 证据和 annotated Phase 6 baseline tag。
+- merge 和一次 final-main CI；
+- 同步 `COMPLETE / FROZEN` 状态并建立 annotated Phase 6 baseline tag。
