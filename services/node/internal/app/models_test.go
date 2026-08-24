@@ -25,6 +25,13 @@ type fakeModelConfigurator struct {
 	secret            []byte
 	deleted           string
 	validate          func(context.Context, string, string, string) yorvaruntime.ModelValidationResult
+	catalog           []string
+	catalogSecret     []byte
+}
+
+func (f *fakeModelConfigurator) FetchProviderModels(_ context.Context, _ string, secret []byte) ([]string, error) {
+	f.catalogSecret = append([]byte(nil), secret...)
+	return append([]string(nil), f.catalog...), f.err
 }
 
 func (f *fakeModelConfigurator) ValidateModelSelection(presetID, modelID string) error {
@@ -103,7 +110,7 @@ func TestModelUseCasesResolveStableInstanceToNativeProfile(t *testing.T) {
 	if err != nil || got.State != yorvaruntime.ModelConfigurationConfigured || models.readNativeID != "coder" {
 		t.Fatalf("get = %#v native=%q err=%v", got, models.readNativeID, err)
 	}
-	got, err = inventory.PatchModelConfiguration(context.Background(), instanceID, "deepseek", "deepseek-v4-pro")
+	got, err = inventory.PatchModelConfiguration(context.Background(), instanceID, "deepseek", "deepseek-v4-pro", []string{"deepseek-v4-pro"})
 	if err != nil || models.applyNativeID != "coder" || models.applyPresetID != "deepseek" || models.applyModelID != "deepseek-v4-pro" {
 		t.Fatalf("patch = %#v fake=%#v err=%v", got, models, err)
 	}
@@ -128,7 +135,7 @@ func TestModelUseCasesBlockMissingUnknownAndActiveMutation(t *testing.T) {
 			} else {
 				source.setErr(ErrInstanceQueryFailed)
 			}
-			if _, err := inventory.PatchModelConfiguration(context.Background(), instanceID, "deepseek", "model"); !errors.Is(err, ErrInstanceNotAvailable) {
+			if _, err := inventory.PatchModelConfiguration(context.Background(), instanceID, "deepseek", "model", []string{"model"}); !errors.Is(err, ErrInstanceNotAvailable) {
 				t.Fatalf("availability %s error = %v", availability, err)
 			}
 			if models.applyNativeID != "" {
@@ -149,7 +156,7 @@ func TestModelUseCasePreservesSafeObservedStateOnAdapterError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := inventory.PatchModelConfiguration(context.Background(), listed.Instances[0].InstanceID, "deepseek", "new-model")
+	got, err := inventory.PatchModelConfiguration(context.Background(), listed.Instances[0].InstanceID, "deepseek", "new-model", []string{"new-model"})
 	if !errors.Is(err, yorvaruntime.ErrModelConfigIncomplete) || got.ModelID != "old-model" || got.ObservedAt.IsZero() {
 		t.Fatalf("observed state = %#v, %v", got, err)
 	}
@@ -172,7 +179,7 @@ func TestCredentialUseCasesCoordinateSaveStatusAndDelete(t *testing.T) {
 		t.Fatalf("metadata = %#v %v", metadata, err)
 	}
 	secret := []byte("batch-three-secret")
-	configuration, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "deepseek-v4-pro", secret)
+	configuration, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "deepseek-v4-pro", []string{"deepseek-v4-pro"}, secret)
 	if err != nil || configuration.State != yorvaruntime.ModelConfigurationConfigured || string(models.secret) != string(secret) || models.applyNativeID != "coder" ||
 		models.validatedPresetID != "deepseek" || models.validatedModelID != "deepseek-v4-pro" {
 		t.Fatalf("save = %#v fake=%#v %v", configuration, models, err)
@@ -186,6 +193,28 @@ func TestCredentialUseCasesCoordinateSaveStatusAndDelete(t *testing.T) {
 	}
 }
 
+func TestModelSelectionPersistsMultipleModelsAndCatalogSecretIsRequestScoped(t *testing.T) {
+	inventory, _ := newTestInventory(t, []ProfileSnapshot{{NativeID: "coder"}}, nil)
+	models := &fakeModelConfigurator{
+		config:  yorvaruntime.ModelConfiguration{ProviderPresetID: "deepseek", ModelID: "deepseek-v4-pro", State: yorvaruntime.ModelConfigurationConfigured, CredentialConfigured: true},
+		catalog: []string{"deepseek-v4-pro", "deepseek-v4-flash"},
+	}
+	registerTestModels(t, inventory, models)
+	instanceID := firstTestInstanceID(t, inventory)
+	selected := []string{"deepseek-v4-pro", "deepseek-v4-flash"}
+	if _, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "deepseek-v4-pro", selected, []byte("secret-value")); err != nil {
+		t.Fatal(err)
+	}
+	configuration, err := inventory.GetModelConfiguration(context.Background(), instanceID)
+	if err != nil || len(configuration.SelectedModelIDs) != 2 || configuration.SelectedModelIDs[1] != "deepseek-v4-flash" {
+		t.Fatalf("configuration = %#v, err=%v", configuration, err)
+	}
+	catalog, err := inventory.FetchModelProviderCatalog(context.Background(), instanceID, "deepseek", []byte("request-only-secret"))
+	if err != nil || len(catalog.Items) != 2 || string(models.catalogSecret) != "request-only-secret" {
+		t.Fatalf("catalog = %#v fake=%#v err=%v", catalog, models, err)
+	}
+}
+
 func TestCredentialSaveValidatesSelectionBeforeSecretMutation(t *testing.T) {
 	inventory, _ := newTestInventory(t, []ProfileSnapshot{{NativeID: "coder"}}, nil)
 	models := &fakeModelConfigurator{selectionErr: yorvaruntime.ErrModelConfigInvalid}
@@ -193,7 +222,7 @@ func TestCredentialSaveValidatesSelectionBeforeSecretMutation(t *testing.T) {
 	instanceID := firstTestInstanceID(t, inventory)
 
 	secret := []byte("must-not-be-written")
-	_, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "model.provider", secret)
+	_, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "model.provider", []string{"model.provider"}, secret)
 	if !errors.Is(err, yorvaruntime.ErrModelConfigInvalid) {
 		t.Fatalf("save error = %v", err)
 	}
@@ -211,7 +240,7 @@ func TestCredentialSaveReportsIncompleteAfterCredentialWrite(t *testing.T) {
 	instanceID := firstTestInstanceID(t, inventory)
 
 	secret := []byte("written-before-config-failure")
-	configuration, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "deepseek-v4-pro", secret)
+	configuration, err := inventory.SaveModelCredentialConfiguration(context.Background(), instanceID, "deepseek", "deepseek-v4-pro", []string{"deepseek-v4-pro"}, secret)
 	if !errors.Is(err, yorvaruntime.ErrModelConfigIncomplete) {
 		t.Fatalf("save error = %v", err)
 	}

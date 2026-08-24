@@ -46,7 +46,7 @@ func newTestHandler(services ...RuntimeDiscoveryService) http.Handler {
 		RuntimeKind:    "hermes",
 		State:          yorvaruntime.DiscoverySupported,
 		DetectedAt:     time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-		SupportedRange: "=0.20.2",
+		SupportedRange: ">=0.20.2 <0.21.0",
 	}}
 	if len(services) == 1 {
 		service = services[0]

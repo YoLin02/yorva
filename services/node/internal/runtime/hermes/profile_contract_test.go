@@ -11,7 +11,7 @@ import (
 )
 
 func TestProfileSurfaceIsPinnedCLIWithoutStructuredList(t *testing.T) {
-	if profileOfficialVersion != "0.20.2" || profileOfficialCommit != "df4b65147d7ddd74dd449f9067aabbca5aef0ec7" {
+	if profileOfficialVersion != officialPackageVersion || profileOfficialCommit != officialCommit {
 		t.Fatalf("pinned profile contract = %s @ %s", profileOfficialVersion, profileOfficialCommit)
 	}
 	if got := profileListArgs(); !equalStrings(got, []string{"profile", "list"}) {
@@ -113,14 +113,14 @@ func TestParseOfficialProfileListFixtures(t *testing.T) {
 	defaultOnly := readProfileFixture(t, "list-default-only.txt")
 	named := readProfileFixture(t, "list-default-and-named.txt")
 	if defaultOnly != formatOfficialProfileList(t, []officialListRow{{Name: "default", Active: true}}) {
-		t.Fatal("list-default-only.txt drifted from the pinned 0.20.2 table printer")
+		t.Fatal("list-default-only.txt drifted from the qualified Hermes table printer")
 	}
 	if named != formatOfficialProfileList(t, []officialListRow{
 		{Name: "default", Model: "—"},
 		{Name: "work", Model: "anthropic/claude-sonnet-4", Gateway: "stopped", Alias: "work", Active: true},
 		{Name: "dev", Model: "—"},
 	}) {
-		t.Fatal("list-default-and-named.txt drifted from the pinned 0.20.2 table printer")
+		t.Fatal("list-default-and-named.txt drifted from the qualified Hermes table printer")
 	}
 
 	parsed, err := parseOfficialProfileList(defaultOnly)

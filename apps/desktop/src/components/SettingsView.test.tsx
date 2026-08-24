@@ -26,7 +26,7 @@ describe("SettingsView", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Advanced" }));
     expect(screen.getByRole("tab", { name: "Advanced" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("heading", { name: "Interface language" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Hermes download sources" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Installation source priority" })).toBeInTheDocument();
   });
 
   it("changes the interface language from the segmented control", () => {

@@ -38,7 +38,7 @@ func officialLauncherAliasSelection(candidates []yorvaruntime.Candidate, runnabl
 			return yorvaruntime.Candidate{}, false
 		}
 		selected := first
-		if officialLauncherRelative(canonicalRoot, first.Path) != filepath.Join("bin", "hermes.exe") {
+		if !sameCanonicalPath(first.Path, bin) {
 			selected = second
 		}
 		selected.Path = bin
@@ -48,26 +48,35 @@ func officialLauncherAliasSelection(candidates []yorvaruntime.Candidate, runnabl
 }
 
 func officialLauncherPair(root, first, second string) (bin, venv string, ok bool) {
-	left, leftOK := canonicalRegularWithin(root, first)
-	right, rightOK := canonicalRegularWithin(root, second)
+	hermesHome := filepath.Dir(root)
+	left, leftOK := canonicalRegularWithin(hermesHome, first)
+	right, rightOK := canonicalRegularWithin(hermesHome, second)
 	if !leftOK || !rightOK {
 		return "", "", false
 	}
-	rels := map[string]string{
-		officialLauncherRelative(root, left):  left,
-		officialLauncherRelative(root, right): right,
+	venv, venvOK := canonicalRegularWithin(root, filepath.Join(root, "venv", "Scripts", "hermes.exe"))
+	if !venvOK {
+		return "", "", false
 	}
-	bin, binOK := rels[filepath.Join("bin", "hermes.exe")]
-	venv, venvOK := rels[filepath.Join("venv", "Scripts", "hermes.exe")]
-	return bin, venv, binOK && venvOK && bin != venv
+	for _, candidate := range []string{
+		filepath.Join(root, "bin", "hermes.exe"),
+		filepath.Join(hermesHome, "bin", "hermes.exe"),
+	} {
+		var binOK bool
+		bin, binOK = canonicalRegularWithin(hermesHome, candidate)
+		if !binOK || sameCanonicalPath(bin, venv) {
+			continue
+		}
+		if (sameCanonicalPath(left, bin) && sameCanonicalPath(right, venv)) ||
+			(sameCanonicalPath(right, bin) && sameCanonicalPath(left, venv)) {
+			return bin, venv, true
+		}
+	}
+	return "", "", false
 }
 
-func officialLauncherRelative(root, path string) string {
-	relative, err := filepath.Rel(root, path)
-	if err != nil {
-		return ""
-	}
-	return filepath.Clean(relative)
+func sameCanonicalPath(first, second string) bool {
+	return strings.EqualFold(filepath.Clean(first), filepath.Clean(second))
 }
 
 func sameRegularDigest(first, second string) bool {

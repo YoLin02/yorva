@@ -22,8 +22,11 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
   const queryClient = useQueryClient();
   const [providerPresetId, setProviderPresetId] = useState("");
   const [modelId, setModelId] = useState("");
+  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
+  const [catalogModels, setCatalogModels] = useState<string[]>([]);
   const [apiKey, setApiKey] = useState("");
   const [busy, setBusy] = useState(false);
+  const [catalogBusy, setCatalogBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [validationOperationId, setValidationOperationId] = useState<string | null>(null);
@@ -70,6 +73,9 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
     initializedInstance.current = instance.instanceId;
     setProviderPresetId(configurationQuery.data.providerPresetId);
     setModelId(configurationQuery.data.modelId);
+    setSelectedModelIds(configurationQuery.data.selectedModelIds?.length
+      ? configurationQuery.data.selectedModelIds
+      : configurationQuery.data.modelId ? [configurationQuery.data.modelId] : []);
   }, [configurationQuery.data, instance.instanceId]);
 
   useEffect(() => {
@@ -87,11 +93,15 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
     () => presetsQuery.data?.items.find((preset) => preset.id === providerPresetId),
     [presetsQuery.data?.items, providerPresetId],
   );
+  const modelOptions = useMemo(() => {
+    const values = catalogModels.length > 0 ? catalogModels : selectedPreset?.recommendedModels ?? [];
+    return Array.from(new Set([...values, ...selectedModelIds]));
+  }, [catalogModels, selectedModelIds, selectedPreset?.recommendedModels]);
   const unsupported = configurationQuery.error instanceof YorvaApiError && configurationQuery.error.code === "MODEL_PROVIDER_UNSUPPORTED";
   const operable = available && !unsupported;
   const configured = credentialQuery.data?.configured ?? configurationQuery.data?.credentialConfigured ?? false;
   const validationBusy = isActiveOperation(validationOperationQuery.data) || recoveredValidation !== undefined;
-  const disabled = !operable || busy;
+  const disabled = !operable || busy || catalogBusy;
   const selectedHelp = selectedPreset?.id === "qwen" || selectedPreset?.id === "glm"
     ? copy.models.providerHelp[selectedPreset.id]
     : selectedPreset?.helpText;
@@ -105,23 +115,54 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
 
   const selectPreset = (preset: ModelProviderPreset) => {
     setProviderPresetId(preset.id);
-    setModelId(preset.recommendedModels[0] ?? "");
+    const initialModels = preset.recommendedModels.slice(0, 1);
+    setSelectedModelIds(initialModels);
+    setModelId(initialModels[0] ?? "");
+    setCatalogModels([]);
     setApiKey("");
     if (passwordRef.current) passwordRef.current.value = "";
     setNotice("");
   };
 
+  const fetchCatalog = async () => {
+    if (!operable || catalogBusy || !providerPresetId || !apiKey) return;
+    setCatalogBusy(true);
+    setNotice("");
+    setErrorCode("");
+    try {
+      const catalog = await client.fetchModelProviderCatalog(instance.instanceId, providerPresetId, apiKey);
+      setCatalogModels(catalog.items);
+      setNotice(copy.models.modelsLoaded.replace("{count}", String(catalog.items.length)));
+    } catch (error) {
+      setErrorCode(error instanceof YorvaApiError ? error.code : "INTERNAL_ERROR");
+    } finally {
+      setCatalogBusy(false);
+    }
+  };
+
+  const toggleModel = (candidate: string) => {
+    setSelectedModelIds((current) => {
+      if (!current.includes(candidate)) {
+        if (!modelId) setModelId(candidate);
+        return [...current, candidate];
+      }
+      const next = current.filter((value) => value !== candidate);
+      if (modelId === candidate) setModelId(next[0] ?? "");
+      return next;
+    });
+  };
+
   const save = async () => {
-    if (disabled || !providerPresetId || !modelId) return;
+    if (disabled || !providerPresetId || !modelId || selectedModelIds.length === 0) return;
     setBusy(true);
     setNotice("");
     setErrorCode("");
     const submittedKey = apiKey;
     try {
       if (submittedKey) {
-        await client.saveModelCredential(instance.instanceId, providerPresetId, modelId, submittedKey);
+        await client.saveModelCredential(instance.instanceId, providerPresetId, modelId, selectedModelIds, submittedKey);
       } else {
-        await client.patchModelConfiguration(instance.instanceId, providerPresetId, modelId);
+        await client.patchModelConfiguration(instance.instanceId, providerPresetId, modelId, selectedModelIds);
       }
       setNotice(copy.models.saved);
       await invalidateModelState();
@@ -211,21 +252,6 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
       </fieldset>
       {selectedHelp ? <p className="notice notice-info">{selectedHelp}</p> : null}
       <div className="model-form-grid">
-        <label htmlFor={`model-id-${instance.instanceId}`}>{copy.models.model}</label>
-        <input
-          id={`model-id-${instance.instanceId}`}
-          className="instance-create-input"
-          value={modelId}
-          list={`model-options-${instance.instanceId}`}
-          onChange={(event) => setModelId(event.target.value)}
-          autoComplete="off"
-          spellCheck={false}
-          disabled={disabled}
-        />
-        <datalist id={`model-options-${instance.instanceId}`}>
-          {selectedPreset?.recommendedModels.map((model) => <option key={model} value={model} />)}
-        </datalist>
-        <p className="page-copy">{copy.models.modelHint}</p>
         <label htmlFor={`model-key-${instance.instanceId}`}>{copy.models.apiKey}</label>
         <input
           ref={passwordRef}
@@ -239,7 +265,38 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
           spellCheck={false}
           disabled={disabled}
         />
+        <div className="inline-actions model-catalog-actions">
+          <Button onClick={() => { void fetchCatalog(); }} disabled={disabled || catalogBusy || !providerPresetId || !apiKey}>
+            {catalogBusy ? copy.models.fetchingModels : copy.models.fetchModels}
+          </Button>
+          <span className="page-copy">{copy.models.fetchModelsHint}</span>
+        </div>
       </div>
+      <fieldset className="model-selection-list" disabled={disabled || !providerPresetId}>
+        <legend>{copy.models.model}</legend>
+        <p className="page-copy">{copy.models.modelHint}</p>
+        {modelOptions.length === 0 ? <p className="page-copy">{copy.models.noModels}</p> : modelOptions.map((candidate) => {
+          const selected = selectedModelIds.includes(candidate);
+          return (
+            <div className={selected ? "model-selection-row is-selected" : "model-selection-row"} key={candidate}>
+              <label>
+                <input type="checkbox" checked={selected} onChange={() => toggleModel(candidate)} />
+                <span>{candidate}</span>
+              </label>
+              <label className="model-default-choice">
+                <input
+                  type="radio"
+                  name={`default-model-${instance.instanceId}`}
+                  checked={modelId === candidate}
+                  disabled={!selected}
+                  onChange={() => setModelId(candidate)}
+                />
+                <span>{copy.models.defaultModel}</span>
+              </label>
+            </div>
+          );
+        })}
+      </fieldset>
       <div className="model-status-row" role="status">
         <Badge tone={configurationQuery.data?.state === "CONFIGURED" ? "ok" : "warn"}>
           {copy.models.configState[configurationQuery.data?.state ?? "UNCONFIGURED"]}
@@ -261,7 +318,7 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
         </p>
       ) : null}
       <div className="inline-actions">
-        <Button variant="primary" onClick={() => { void save(); }} disabled={disabled || !providerPresetId || !modelId}>
+        <Button variant="primary" onClick={() => { void save(); }} disabled={disabled || !providerPresetId || !modelId || selectedModelIds.length === 0}>
           {busy ? copy.models.saving : copy.models.save}
         </Button>
         <Button onClick={() => { void startValidation(); }} disabled={disabled || validationBusy || configurationQuery.data?.state !== "CONFIGURED"}>

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
@@ -25,6 +27,7 @@ type ModelManager struct {
 	run           modelCommandFunc
 	runValidation modelCommandFunc
 	credentials   credentialStore
+	catalogClient *http.Client
 }
 
 func NewModelManager() *ModelManager {
@@ -34,6 +37,7 @@ func NewModelManager() *ModelManager {
 		run:           runModelConfigCommand,
 		runValidation: runModelValidationCommand,
 		credentials:   credentialStore{root: root},
+		catalogClient: &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
@@ -234,7 +238,7 @@ func (m *ModelManager) normalizeConfig(nativeID, provider, modelID string) (yorv
 }
 
 func validateModelTarget(installation yorvaruntime.ModelInstallation, nativeID string) error {
-	if installation.Version != modelSurfaceVersion {
+	if !isSupportedHermesVersion(installation.Version) {
 		return yorvaruntime.ErrModelProviderUnsupported
 	}
 	if installation.Executable == "" || !filepath.IsAbs(installation.Executable) {

@@ -98,6 +98,14 @@ credential-free HTTPS transports passed through the existing allowlisted environ
 they do not authorize a generic Runtime source plugin, lockfile rewrite or executable
 override.
 
+Amendment 003A8 packages the pinned CPython `3.11.15` Windows x64 archive used by the
+reviewed uv installer. The adapter verifies the selected bundled or online archive,
+materializes it as an Operation-private local uv mirror with one pinned metadata entry,
+and injects only those `file://` locations through `UV_PYTHON_INSTALL_MIRROR` and
+`UV_PYTHON_DOWNLOADS_JSON_URL`. `artifactPreference` selects bundled-first
+or online-first behavior for Hermes, Node.js, npm and Python artifacts. Only transport
+failure may use the alternate source; integrity mismatch remains fail-closed.
+
 Amendment 003A4: installation is one Install Transaction (`CREATED` → `COMMITTED`) with a sealed generation tree and `control/active.json` as the sole activation pointer. SQLite Operation remains the Desktop/API projection and does not authorize retry or recovery. Retry always starts a new transaction and new generation id.
 
 Amendment 003A6: a new Hermes generation is constructed directly at its final
@@ -140,7 +148,7 @@ type LifecycleManager interface {
 Not every Runtime must support this capability at Instance scope.
 
 Phase 6 normalizes only `RUNNING`, `STOPPED`, and `UNKNOWN`. Transient Starting,
-Stopping, and Restarting presentation comes from the active Operation. Hermes `0.20.2`
+Stopping, and Restarting presentation comes from the active Operation. Compatible stable Hermes `0.20.x`
 maps this contract to the exact Profile messaging gateway. Manual Start never enables
 login persistence; OS task names, PIDs, paths, and human command output remain inside the
 Hermes adapter.
@@ -169,7 +177,14 @@ type CredentialManager interface {
 }
 ```
 
-ADR-0007 authorizes a Hermes `0.20.2`-specific credential compatibility fallback because its safe offline official setter is absent. The fallback is confined to the Hermes adapter and canonical Profile `.env`: `nativeID` selects the Profile, a compiled Provider allowlist selects the exact credential key, and no caller supplies paths or env names. It preserves unknown entries, changes one key, enforces a size bound, uses same-directory atomic replacement/read-back and returns a stable conflict when the observed source changes before replacement. It is not a generic Runtime file/config editor.
+ADR-0007 authorizes a narrow Hermes credential compatibility fallback because the qualified stable `0.20.x` offline official setter is unsafe for Secret input. The fallback is confined to the Hermes adapter and canonical Profile `.env`: `nativeID` selects the Profile, a compiled Provider allowlist selects the exact credential key, and no caller supplies paths or env names. It preserves unknown entries, changes one key, enforces a size bound, uses same-directory atomic replacement/read-back and returns a stable conflict when the observed source changes before replacement. It is not a generic Runtime file/config editor.
+
+P6.5 adds request-scoped Provider model discovery to the same qualified Hermes model
+adapter. Each preset owns one fixed HTTPS catalog endpoint and authentication shape;
+callers supply only the preset ID and a transient credential. The adapter returns
+validated model IDs and does not retain the credential. Hermes remains authoritative
+for the active `model.default`; YORVA persists only the user-selected non-secret model
+ID set for reopening the Desktop configuration view.
 
 ### Channels
 
@@ -186,7 +201,7 @@ type ChannelManager interface {
 QR and login state is emitted through the operation/event path. The adapter must not persist QR images as durable application data.
 
 Phase 6 sender pairing remains a small Channel capability rather than a generic identity
-or RBAC subsystem. Hermes `0.20.2` maps it to the official Profile-scoped pairing surface.
+or RBAC subsystem. Compatible stable Hermes `0.20.x` maps it to the official Profile-scoped pairing surface.
 Core receives only a pending count and a normalized approval result; Hermes request IDs,
 files, user rows and command output do not cross the adapter boundary.
 
@@ -281,7 +296,11 @@ Hermes discovery command descriptors are closed and argument-safe: either an enu
 
 The adapter owns a support policy.
 
-Amendment 002A4 supersedes the historical broad Phase 2 window. YORVA supports exactly the pinned and qualified Hermes package version `0.20.2` (`=0.20.2`). Older versions, later patches and prereleases remain detectable but are classified `UNSUPPORTED` until separately reviewed and qualified.
+ADR-0012 and Amendment 0065A1 supersede the exact-patch rule from Amendment 002A4.
+YORVA supports stable Hermes `>=0.20.2 <0.21.0` through one shared compatibility gate
+for discovery and implemented capabilities. Older releases, prereleases and another
+minor/major line remain detectable but `UNSUPPORTED`. The packaged source is still one
+exact hash-verified snapshot so Runtime compatibility does not weaken build provenance.
 
 Detection returns:
 

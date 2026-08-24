@@ -116,7 +116,7 @@ func TestInstallerEnvironmentExcludesSentinelSecrets(t *testing.T) {
 	sources := downloadsources.Default()
 	sources.PythonIndexURL = "https://mirror.example/python/simple"
 	sources.NPMRegistryURL = "https://mirror.example/npm"
-	env := installerEnvironment(`C:\Users\a\AppData\Local\hermes`, sources)
+	env := installerEnvironment(`C:\Users\a\AppData\Local\hermes`, sources, "file:///C:/yorva/python-mirror", "file:///C:/yorva/python-mirror/downloads.json")
 	joined := strings.Join(env, "\n")
 	for _, forbidden := range []string{"sk-secret", "hermes-secret", "http://evil", "OPENAI_API_KEY", "HERMES_TOKEN=", "PYTHONPATH=", "UV_INDEX="} {
 		if strings.Contains(joined, forbidden) {
@@ -132,6 +132,8 @@ func TestInstallerEnvironmentExcludesSentinelSecrets(t *testing.T) {
 		"PIP_INDEX_URL=" + sources.PythonIndexURL,
 		"PIP_CONFIG_FILE=NUL",
 		"NPM_CONFIG_REGISTRY=" + sources.NPMRegistryURL,
+		"UV_PYTHON_INSTALL_MIRROR=file:///C:/yorva/python-mirror",
+		"UV_PYTHON_DOWNLOADS_JSON_URL=file:///C:/yorva/python-mirror/downloads.json",
 	} {
 		if count := strings.Count(joined, fixed); count != 1 {
 			t.Fatalf("fixed environment %q count = %d: %s", fixed, count, joined)

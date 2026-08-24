@@ -4,14 +4,16 @@ import type { HermesDownloadSources } from "../../api/types";
 import type { AppMessages } from "../../i18n";
 
 const emptySources: HermesDownloadSources = {
+  artifactPreference: "bundled-first",
   hermesArchiveUrl: "",
   nodeArchiveUrl: "",
   npmArchiveUrl: "",
+  pythonArchiveUrl: "",
   pythonIndexUrl: "",
   npmRegistryUrl: "",
 };
 
-type Field = keyof HermesDownloadSources;
+type Field = Exclude<keyof HermesDownloadSources, "artifactPreference">;
 type State = "loading" | "idle" | "saving" | "saved" | "invalid" | "error";
 
 export function HermesDownloadSourcesPanel({ copy, client }: { copy: AppMessages; client?: DaemonClient }) {
@@ -71,6 +73,7 @@ export function HermesDownloadSourcesPanel({ copy, client }: { copy: AppMessages
     { key: "hermesArchiveUrl", label: copy.settings.hermesArchiveLabel, help: copy.settings.hermesArchiveHelp, group: "artifact" },
     { key: "nodeArchiveUrl", label: copy.settings.nodeArchiveLabel, help: copy.settings.nodeArchiveHelp, group: "artifact" },
     { key: "npmArchiveUrl", label: copy.settings.npmArchiveLabel, help: copy.settings.npmArchiveHelp, group: "artifact" },
+    { key: "pythonArchiveUrl", label: copy.settings.pythonArchiveLabel, help: copy.settings.pythonArchiveHelp, group: "artifact" },
     { key: "pythonIndexUrl", label: copy.settings.pythonIndexLabel, help: copy.settings.pythonIndexHelp, group: "registry" },
     { key: "npmRegistryUrl", label: copy.settings.npmRegistryLabel, help: copy.settings.npmRegistryHelp, group: "registry" },
   ];
@@ -78,26 +81,23 @@ export function HermesDownloadSourcesPanel({ copy, client }: { copy: AppMessages
 
   return (
     <form className="download-sources-form" onSubmit={(event) => { void save(event); }}>
-      <section className="settings-section download-sources-heading" aria-labelledby="hermes-download-sources-title">
-        <div className="settings-section-heading">
-          <div>
-            <h2 id="hermes-download-sources-title">{copy.settings.hermesSourcesTitle}</h2>
-            <p>{copy.settings.hermesSourcesDescription}</p>
-          </div>
-          <span className="settings-default-badge">{copy.settings.hermesSourcesChinaDefault}</span>
-        </div>
-        <div className="settings-source-notice">
-          <strong>{copy.settings.bundledFirstTitle}</strong>
-          <span>{copy.settings.bundledFirstDescription}</span>
+      <section className="settings-section" aria-labelledby="artifact-preference-title">
+        <h2 id="artifact-preference-title">{copy.settings.artifactPreferenceTitle}</h2>
+        <p>{copy.settings.artifactPreferenceDescription}</p>
+        <div className="settings-segmented-control settings-source-preference" role="radiogroup" aria-label={copy.settings.artifactPreferenceTitle}>
+          <button type="button" className={sources.artifactPreference === "bundled-first" ? "settings-segment is-active" : "settings-segment"} role="radio" aria-checked={sources.artifactPreference === "bundled-first"} disabled={busy} onClick={() => setSources((current) => ({ ...current, artifactPreference: "bundled-first" }))}>
+            {copy.settings.preferBundled}
+          </button>
+          <button type="button" className={sources.artifactPreference === "online-first" ? "settings-segment is-active" : "settings-segment"} role="radio" aria-checked={sources.artifactPreference === "online-first"} disabled={busy} onClick={() => setSources((current) => ({ ...current, artifactPreference: "online-first" }))}>
+            {copy.settings.preferOnline}
+          </button>
         </div>
       </section>
 
       {(["artifact", "registry"] as const).map((group) => (
-        <section className="settings-source-group" key={group}>
-          <div className="settings-source-group-heading">
-            <h3>{group === "artifact" ? copy.settings.artifactSourcesTitle : copy.settings.dependencySourcesTitle}</h3>
-            <p>{group === "artifact" ? copy.settings.artifactSourcesDescription : copy.settings.dependencySourcesDescription}</p>
-          </div>
+        <section className="settings-section settings-source-section" key={group}>
+          <h2>{group === "artifact" ? copy.settings.artifactSourcesTitle : copy.settings.dependencySourcesTitle}</h2>
+          <p>{group === "artifact" ? copy.settings.artifactSourcesDescription : copy.settings.dependencySourcesDescription}</p>
           <div className="settings-source-fields">
             {fields.filter((field) => field.group === group).map((field) => (
               <label className="settings-source-field" key={field.key} htmlFor={`source-${field.key}`}>
@@ -140,7 +140,9 @@ export function HermesDownloadSourcesPanel({ copy, client }: { copy: AppMessages
 }
 
 function validSources(sources: HermesDownloadSources): boolean {
-  return Object.values(sources).every((value) => {
+  if (sources.artifactPreference !== "bundled-first" && sources.artifactPreference !== "online-first") return false;
+  return (["hermesArchiveUrl", "nodeArchiveUrl", "npmArchiveUrl", "pythonArchiveUrl", "pythonIndexUrl", "npmRegistryUrl"] as const).every((key) => {
+    const value = sources[key];
     try {
       const parsed = new URL(value);
       return parsed.protocol === "https:" && parsed.hostname !== "" && parsed.username === "" && parsed.password === "" && parsed.search === "" && parsed.hash === "";

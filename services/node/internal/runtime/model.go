@@ -39,6 +39,13 @@ type ModelConfiguration struct {
 	CredentialConfigured bool
 }
 
+// ModelCatalogFetcher obtains the model IDs currently visible to a Provider
+// credential. The credential is request-scoped and must never be retained or
+// returned by implementations.
+type ModelCatalogFetcher interface {
+	FetchProviderModels(context.Context, string, []byte) ([]string, error)
+}
+
 type ModelCredentialStatus struct {
 	ProviderPresetID string
 	Configured       bool
@@ -67,6 +74,7 @@ var (
 	ErrModelCredentialQueryFailed  = errors.New("model credential query failed")
 	ErrModelCredentialWriteFailed  = errors.New("model credential write failed")
 	ErrModelCredentialDeleteFailed = errors.New("model credential delete failed")
+	ErrModelCatalogFetchFailed     = errors.New("model catalog fetch failed")
 	ErrInstanceConfigConflict      = errors.New("instance configuration changed concurrently")
 )
 

@@ -30,8 +30,8 @@ func TestDetectorOutcomes(t *testing.T) {
 		},
 		{
 			name:      "supported",
-			commands:  []commandResult{{stdout: "Hermes Agent v0.20.2 (2026.8.16)\n", exitCode: 0}},
-			wantState: yorvaruntime.DiscoverySupported, wantVersion: "0.20.2", wantSelected: true, wantCandidates: 1,
+			commands:  []commandResult{{stdout: "Hermes Agent v0.20.5 (2026.8.19) · upstream a0ca7c19\n", exitCode: 0}},
+			wantState: yorvaruntime.DiscoverySupported, wantVersion: "0.20.5", wantSelected: true, wantCandidates: 1,
 		},
 		{
 			name:      "older version unsupported",

@@ -85,6 +85,31 @@ func TestResolveArchiveRequestsConfiguredFallbackWhenBundleMissing(t *testing.T)
 	}
 }
 
+func TestResolveArchiveOnlineFirstFallsBackOnlyOnTransportFailure(t *testing.T) {
+	bundled := writeOfficialSizedStub(t, []byte("bundled-bytes"))
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		http.Error(w, "unavailable", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(server.Close)
+	installer := NewHostInstaller(t.TempDir()).WithEmbeddedSource(bundled)
+	installer.archive.http = server.Client()
+	installer.verifyArchive = func(path string) error {
+		if path != bundled {
+			return installError(yorvaruntime.ErrorRuntimeInstallIntegrityFailed, errPlatform)
+		}
+		return nil
+	}
+	sources := downloadsources.Default()
+	sources.ArtifactPreference = downloadsources.PreferenceOnlineFirst
+	sources.HermesArchiveURL = server.URL + "/hermes.zip"
+	path, origin, err := installer.resolveArchive(context.Background(), t.TempDir(), sources)
+	if err != nil || path != bundled || origin != sourceOriginBundled || requests != 1 {
+		t.Fatalf("path=%s origin=%s requests=%d err=%v", path, origin, requests, err)
+	}
+}
+
 func TestBuildGenerationMaterializesSourceWithoutOfficialRepositoryStage(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("Hermes staging build is Windows user-scope")

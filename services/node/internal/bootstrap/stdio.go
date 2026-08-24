@@ -25,6 +25,7 @@ type Message struct {
 	HermesEmbeddedSourcePath string `json:"hermesEmbeddedSourcePath"`
 	HermesNodeArchivePath    string `json:"hermesNodeArchivePath"`
 	HermesNpmArchivePath     string `json:"hermesNpmArchivePath"`
+	HermesPythonArchivePath  string `json:"hermesPythonArchivePath"`
 }
 
 type Handshake struct {

@@ -351,6 +351,12 @@ func instancePathKind(path string) string {
 				return "config"
 			}
 		}
+		if strings.HasSuffix(rest, "/model-provider-models") {
+			id := strings.TrimSuffix(rest, "/model-provider-models")
+			if id != "" && !strings.Contains(id, "/") {
+				return "model-provider-models"
+			}
+		}
 		if strings.HasSuffix(rest, "/credentials/model-provider") {
 			id := strings.TrimSuffix(rest, "/credentials/model-provider")
 			if id != "" && !strings.Contains(id, "/") {

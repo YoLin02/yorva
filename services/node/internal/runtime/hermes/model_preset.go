@@ -6,10 +6,9 @@ import (
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
-// Model provider mappings are qualified against Hermes 0.20.2 at
-// df4b65147d7ddd74dd449f9067aabbca5aef0ec7. The native provider and
-// credential names stay adapter-private.
-const modelSurfaceVersion = "0.20.2"
+// Model provider mappings are qualified against the packaged Hermes source
+// snapshot. The native provider and credential names stay adapter-private.
+const modelSurfaceVersion = officialPackageVersion
 
 type ModelRegion = yorvaruntime.ModelRegion
 type ModelProviderPreset = yorvaruntime.ModelProviderPreset
@@ -23,6 +22,9 @@ type modelProviderPreset struct {
 	safe              ModelProviderPreset
 	hermesProviderID  string
 	credentialEnvName string
+	catalogURL        string
+	catalogAuth       string
+	catalogShape      string
 }
 
 var (
@@ -37,14 +39,16 @@ var qualifiedModelProviderPresets = []modelProviderPreset{
 			RecommendedModels: []string{"deepseek-v4-pro", "deepseek-v4-flash"},
 		},
 		hermesProviderID: "deepseek", credentialEnvName: "DEEPSEEK_API_KEY",
+		catalogURL: "https://api.deepseek.com/models", catalogAuth: "bearer", catalogShape: "openai",
 	},
 	{
 		safe: ModelProviderPreset{
 			ID: "qwen", DisplayName: "Qwen / Alibaba DashScope", Region: ModelRegionChina,
 			RecommendedModels: []string{"qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus"},
-			HelpText:          "Hermes 0.20.2 uses the DashScope international compatible endpoint.",
+			HelpText:          "Hermes uses the qualified DashScope international compatible endpoint.",
 		},
 		hermesProviderID: "alibaba", credentialEnvName: "DASHSCOPE_API_KEY",
+		catalogURL: "https://dashscope-intl.aliyuncs.com/api/v1/models?providers=qwen&capabilities=TG&page_no=1&page_size=500", catalogAuth: "bearer", catalogShape: "dashscope",
 	},
 	{
 		safe: ModelProviderPreset{
@@ -52,6 +56,7 @@ var qualifiedModelProviderPresets = []modelProviderPreset{
 			RecommendedModels: []string{"kimi-k3", "kimi-k2.7-code", "kimi-k2.6"},
 		},
 		hermesProviderID: "kimi-coding-cn", credentialEnvName: "KIMI_CN_API_KEY",
+		catalogURL: "https://api.moonshot.cn/v1/models", catalogAuth: "bearer", catalogShape: "openai",
 	},
 	{
 		safe: ModelProviderPreset{
@@ -59,6 +64,7 @@ var qualifiedModelProviderPresets = []modelProviderPreset{
 			RecommendedModels: []string{"MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5"},
 		},
 		hermesProviderID: "minimax-cn", credentialEnvName: "MINIMAX_CN_API_KEY",
+		catalogURL: "https://api.minimaxi.com/v1/models", catalogAuth: "bearer", catalogShape: "openai",
 	},
 	{
 		safe: ModelProviderPreset{
@@ -67,6 +73,7 @@ var qualifiedModelProviderPresets = []modelProviderPreset{
 			HelpText:          "Hermes selects the qualified Z.AI endpoint for this provider.",
 		},
 		hermesProviderID: "zai", credentialEnvName: "GLM_API_KEY",
+		catalogURL: "https://api.z.ai/api/paas/v4/models", catalogAuth: "bearer", catalogShape: "openai",
 	},
 	{
 		safe: ModelProviderPreset{
@@ -74,6 +81,7 @@ var qualifiedModelProviderPresets = []modelProviderPreset{
 			RecommendedModels: []string{"anthropic/claude-sonnet-4.6", "openai/gpt-5.4"},
 		},
 		hermesProviderID: "openrouter", credentialEnvName: "OPENROUTER_API_KEY",
+		catalogURL: "https://openrouter.ai/api/v1/models", catalogAuth: "bearer", catalogShape: "openai",
 	},
 	{
 		safe: ModelProviderPreset{
@@ -81,6 +89,7 @@ var qualifiedModelProviderPresets = []modelProviderPreset{
 			RecommendedModels: []string{"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.4"},
 		},
 		hermesProviderID: "openai-api", credentialEnvName: "OPENAI_API_KEY",
+		catalogURL: "https://api.openai.com/v1/models", catalogAuth: "bearer", catalogShape: "openai",
 	},
 	{
 		safe: ModelProviderPreset{
@@ -88,6 +97,7 @@ var qualifiedModelProviderPresets = []modelProviderPreset{
 			RecommendedModels: []string{"claude-fable-5", "claude-sonnet-5", "claude-opus-4-8"},
 		},
 		hermesProviderID: "anthropic", credentialEnvName: "ANTHROPIC_API_KEY",
+		catalogURL: "https://api.anthropic.com/v1/models?limit=1000", catalogAuth: "anthropic", catalogShape: "openai",
 	},
 }
 

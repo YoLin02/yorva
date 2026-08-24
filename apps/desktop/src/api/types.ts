@@ -20,6 +20,7 @@ export type ModelProviderPreset = components["schemas"]["ModelProviderPreset"];
 export type ModelProviderPresetList = components["schemas"]["ModelProviderPresetList"];
 export type ModelConfiguration = components["schemas"]["ModelConfiguration"];
 export type ModelCredential = components["schemas"]["ModelCredential"];
+export type ModelProviderCatalog = components["schemas"]["ModelProviderCatalog"];
 export type HermesDownloadSources = components["schemas"]["HermesDownloadSources"];
 export type HermesPrerequisites = {
   node: { state: string; version: string; errorCode: string | null; retryable: boolean };

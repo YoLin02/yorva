@@ -141,7 +141,7 @@ func (m *LifecycleManager) await(ctx context.Context, installation yorvaruntime.
 }
 
 func validateLifecycleTarget(installation yorvaruntime.LifecycleInstallation, nativeID string) error {
-	if installation.Version != lifecycleOfficialVersion || installation.Executable == "" || !filepath.IsAbs(installation.Executable) {
+	if !isSupportedHermesVersion(installation.Version) || installation.Executable == "" || !filepath.IsAbs(installation.Executable) {
 		return yorvaruntime.ErrLifecycleQueryFailed
 	}
 	normalized, err := officialNormalizeProfileName(nativeID)

@@ -1227,7 +1227,7 @@ p {
 
 .instance-table {
   width: 100%;
-  min-width: 880px;
+  min-width: 720px;
   border-collapse: collapse;
   table-layout: fixed;
   text-align: left;
@@ -1244,11 +1244,10 @@ p {
   text-transform: uppercase;
 }
 
-.instance-table th:nth-child(1) { width: 27%; }
-.instance-table th:nth-child(2) { width: 14%; }
-.instance-table th:nth-child(3) { width: 17%; }
-.instance-table th:nth-child(4) { width: 24%; }
-.instance-table th:nth-child(5) { width: 18%; }
+.instance-table th:nth-child(1) { width: 44%; }
+.instance-table th:nth-child(2) { width: 18%; }
+.instance-table th:nth-child(3) { width: 19%; }
+.instance-table th:nth-child(4) { width: 19%; }
 
 .instance-table td {
   padding: 14px 18px;
@@ -2385,14 +2384,14 @@ p {
 }
 
 .settings-advanced {
-  width: min(100%, 860px);
+  width: min(100%, 720px);
   padding: 4px 0 24px;
 }
 
 .download-sources-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 28px;
 }
 
 .settings-section-heading {
@@ -2470,7 +2469,75 @@ p {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 15px 18px;
-  padding: 15px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 0;
+}
+
+.model-catalog-actions {
+  grid-column: 2;
+  align-items: center;
+}
+
+.model-catalog-actions .page-copy {
+  margin: 0;
+}
+
+.model-selection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--yorva-border);
+  border-radius: 10px;
+}
+
+.model-selection-list legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.model-selection-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.model-selection-row.is-selected {
+  border-color: rgb(217 54 0 / 28%);
+  background: rgb(217 54 0 / 6%);
+}
+
+.model-selection-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-selection-row > label:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.model-default-choice {
+  flex: 0 0 auto;
+  color: var(--yorva-text-muted);
+  font-size: 12px;
+}
+
+.settings-source-preference {
+  min-width: 420px;
+}
+
+.settings-source-section {
+  width: 100%;
 }
 
 .settings-source-field {

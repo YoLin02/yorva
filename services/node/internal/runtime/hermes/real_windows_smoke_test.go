@@ -36,7 +36,7 @@ func TestRealWindowsHermesInstallationSmoke(t *testing.T) {
 		t.Fatalf("Detect() state/selected = %s/%#v, want a runnable Hermes candidate", got.State, got.Selected)
 	}
 	wantState := yorvaruntime.DiscoveryUnsupported
-	if got.Selected.Version == officialPackageVersion {
+	if isSupportedHermesVersion(got.Selected.Version) {
 		wantState = yorvaruntime.DiscoverySupported
 	}
 	if got.State != wantState {

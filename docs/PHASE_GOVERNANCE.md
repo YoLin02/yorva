@@ -620,7 +620,8 @@ Phase 2 amendment 002A1 acceptance record:
 - exact-commit CI: GitHub Actions run `31817886874` — `PASS`, including Go race and Windows native/Tauri;
 - amendment merge commit: `f786b9d73768de38875f0a57fa7d57c75168ed85`;
 - historical r1 compatibility range: `>=0.19.0 <0.21.0`;
-- post-freeze amendment 002A4 current compatibility policy: exact `=0.20.2` (targeted re-audit/re-freeze pending);
+- historical post-freeze amendment 002A4 compatibility policy: exact `=0.20.2`;
+- P6.5 successor ADR-0012 / Amendment 0065A1 policy: stable `>=0.20.2 <0.21.0`, without moving the historical Phase 2 tag;
 - formal status: `COMPLETE / FROZEN`;
 - current formal baseline: annotated tag `phase-002-hermes-discovery-baseline-r1` on the amendment freeze commit in `main`.
 

@@ -22,7 +22,7 @@ var installerBlockedPrefixes = []string{
 	"PYTHON", "PIP_", "UV_", "NPM_", "NODE_", "OPENAI_", "ANTHROPIC_", "GOOGLE_", "GEMINI_", "HERMES_",
 }
 
-func installerEnvironment(home string, sources downloadsources.Config) []string {
+func installerEnvironment(home string, sources downloadsources.Config, pythonMirrorURL ...string) []string {
 	result := make([]string, 0, 32)
 	for _, entry := range os.Environ() {
 		name, _, ok := strings.Cut(entry, "=")
@@ -49,6 +49,12 @@ func installerEnvironment(home string, sources downloadsources.Config) []string 
 		"NPM_CONFIG_AUDIT=false",
 		"NPM_CONFIG_FUND=false",
 	)
+	if len(pythonMirrorURL) > 0 && strings.TrimSpace(pythonMirrorURL[0]) != "" {
+		result = append(result, "UV_PYTHON_INSTALL_MIRROR="+strings.TrimSpace(pythonMirrorURL[0]))
+	}
+	if len(pythonMirrorURL) > 1 && strings.TrimSpace(pythonMirrorURL[1]) != "" {
+		result = append(result, "UV_PYTHON_DOWNLOADS_JSON_URL="+strings.TrimSpace(pythonMirrorURL[1]))
+	}
 	return result
 }
 

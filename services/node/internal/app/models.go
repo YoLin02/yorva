@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/instance"
@@ -18,11 +20,20 @@ var ErrInstanceNotAvailable = errors.New("instance is not available")
 type ModelConfigurationView struct {
 	ProviderPresetID     string
 	ModelID              string
+	SelectedModelIDs     []string
 	State                yorvaruntime.ModelConfigurationState
 	CredentialConfigured bool
 	ObservedAt           time.Time
 	Validation           ModelValidationSummary
 }
+
+type ModelProviderCatalogView struct {
+	ProviderPresetID string
+	Items            []string
+	FetchedAt        time.Time
+}
+
+const maxSelectedModels = 100
 
 type ModelValidationSummary struct {
 	State       string
@@ -54,17 +65,48 @@ func (s *InstanceInventory) GetModelConfiguration(ctx context.Context, instanceI
 	}
 	defer unlock()
 	config, err := models.ReadModelConfig(ctx, installation, row.NativeID)
-	return s.modelConfigurationView(ctx, instanceID, config, err)
+	view, viewErr := s.modelConfigurationView(ctx, instanceID, config, err)
+	if viewErr == nil {
+		view.SelectedModelIDs = s.readSelectedModelIDs(ctx, instanceID, models, config)
+	}
+	return view, viewErr
 }
 
-func (s *InstanceInventory) PatchModelConfiguration(ctx context.Context, instanceID, presetID, modelID string) (ModelConfigurationView, error) {
+func (s *InstanceInventory) PatchModelConfiguration(ctx context.Context, instanceID, presetID, modelID string, selectedModelIDs []string) (ModelConfigurationView, error) {
 	row, models, installation, unlock, err := s.resolveModelTarget(ctx, instanceID, true)
 	if err != nil {
 		return ModelConfigurationView{}, err
 	}
 	defer unlock()
+	if err := validateSelectedModels(models, presetID, modelID, selectedModelIDs); err != nil {
+		return ModelConfigurationView{}, err
+	}
 	config, err := models.ApplyModelConfig(ctx, installation, row.NativeID, presetID, modelID)
-	return s.modelConfigurationView(ctx, instanceID, config, err)
+	view, viewErr := s.modelConfigurationView(ctx, instanceID, config, err)
+	if viewErr == nil {
+		if persistErr := s.writeSelectedModelIDs(ctx, instanceID, presetID, selectedModelIDs); persistErr != nil {
+			return view, yorvaruntime.ErrModelConfigIncomplete
+		}
+		view.SelectedModelIDs = append([]string(nil), selectedModelIDs...)
+	}
+	return view, viewErr
+}
+
+func (s *InstanceInventory) FetchModelProviderCatalog(ctx context.Context, instanceID, presetID string, secret []byte) (ModelProviderCatalogView, error) {
+	_, models, _, unlock, err := s.resolveModelTarget(ctx, instanceID, false)
+	if err != nil {
+		return ModelProviderCatalogView{}, err
+	}
+	unlock()
+	fetcher, ok := models.(yorvaruntime.ModelCatalogFetcher)
+	if !ok {
+		return ModelProviderCatalogView{}, yorvaruntime.ErrModelProviderUnsupported
+	}
+	items, err := fetcher.FetchProviderModels(ctx, presetID, secret)
+	if err != nil {
+		return ModelProviderCatalogView{}, err
+	}
+	return ModelProviderCatalogView{ProviderPresetID: presetID, Items: items, FetchedAt: s.now()}, nil
 }
 
 func (s *InstanceInventory) GetModelCredential(ctx context.Context, instanceID string) (ModelCredentialView, error) {
@@ -84,13 +126,13 @@ func (s *InstanceInventory) GetModelCredential(ctx context.Context, instanceID s
 	return s.modelCredentialView(status), err
 }
 
-func (s *InstanceInventory) SaveModelCredentialConfiguration(ctx context.Context, instanceID, presetID, modelID string, secret []byte) (ModelConfigurationView, error) {
+func (s *InstanceInventory) SaveModelCredentialConfiguration(ctx context.Context, instanceID, presetID, modelID string, selectedModelIDs []string, secret []byte) (ModelConfigurationView, error) {
 	row, models, installation, unlock, err := s.resolveModelTarget(ctx, instanceID, true)
 	if err != nil {
 		return ModelConfigurationView{}, err
 	}
 	defer unlock()
-	if err := models.ValidateModelSelection(presetID, modelID); err != nil {
+	if err := validateSelectedModels(models, presetID, modelID, selectedModelIDs); err != nil {
 		return ModelConfigurationView{}, err
 	}
 	if _, err := models.SetModelCredential(ctx, installation, row.NativeID, presetID, secret); err != nil {
@@ -106,7 +148,67 @@ func (s *InstanceInventory) SaveModelCredentialConfiguration(ctx context.Context
 		!errors.Is(err, yorvaruntime.ErrModelProviderUnsupported) {
 		err = yorvaruntime.ErrModelConfigIncomplete
 	}
-	return s.modelConfigurationView(ctx, instanceID, configuration, err)
+	view, viewErr := s.modelConfigurationView(ctx, instanceID, configuration, err)
+	if viewErr == nil {
+		if persistErr := s.writeSelectedModelIDs(ctx, instanceID, presetID, selectedModelIDs); persistErr != nil {
+			return view, yorvaruntime.ErrModelConfigIncomplete
+		}
+		view.SelectedModelIDs = append([]string(nil), selectedModelIDs...)
+	}
+	return view, viewErr
+}
+
+type selectedModelsSetting struct {
+	ProviderPresetID string   `json:"providerPresetId"`
+	ModelIDs         []string `json:"modelIds"`
+}
+
+func validateSelectedModels(models yorvaruntime.ModelConfigurator, presetID, defaultModelID string, selected []string) error {
+	if len(selected) == 0 || len(selected) > maxSelectedModels {
+		return yorvaruntime.ErrModelConfigInvalid
+	}
+	foundDefault := false
+	seen := make(map[string]struct{}, len(selected))
+	for _, modelID := range selected {
+		if _, exists := seen[modelID]; exists || models.ValidateModelSelection(presetID, modelID) != nil {
+			return yorvaruntime.ErrModelConfigInvalid
+		}
+		seen[modelID] = struct{}{}
+		foundDefault = foundDefault || modelID == defaultModelID
+	}
+	if !foundDefault {
+		return yorvaruntime.ErrModelConfigInvalid
+	}
+	return nil
+}
+
+func (s *InstanceInventory) selectedModelsSettingKey(instanceID string) string {
+	return fmt.Sprintf("model-selection:%s", instanceID)
+}
+
+func (s *InstanceInventory) readSelectedModelIDs(ctx context.Context, instanceID string, models yorvaruntime.ModelConfigurator, config yorvaruntime.ModelConfiguration) []string {
+	fallback := []string{}
+	if config.ModelID != "" {
+		fallback = append(fallback, config.ModelID)
+	}
+	payload, ok, err := s.db.GetAppSetting(ctx, s.selectedModelsSettingKey(instanceID))
+	if err != nil || !ok {
+		return fallback
+	}
+	var stored selectedModelsSetting
+	if json.Unmarshal(payload, &stored) != nil || stored.ProviderPresetID != config.ProviderPresetID ||
+		validateSelectedModels(models, stored.ProviderPresetID, config.ModelID, stored.ModelIDs) != nil {
+		return fallback
+	}
+	return append([]string(nil), stored.ModelIDs...)
+}
+
+func (s *InstanceInventory) writeSelectedModelIDs(ctx context.Context, instanceID, presetID string, selected []string) error {
+	payload, err := json.Marshal(selectedModelsSetting{ProviderPresetID: presetID, ModelIDs: selected})
+	if err != nil {
+		return err
+	}
+	return s.db.PutAppSetting(ctx, s.selectedModelsSettingKey(instanceID), payload, s.now())
 }
 
 func (s *InstanceInventory) DeleteModelCredential(ctx context.Context, instanceID string) (ModelCredentialView, error) {

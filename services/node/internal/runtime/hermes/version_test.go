@@ -14,8 +14,9 @@ func TestParseVersionBanner(t *testing.T) {
 		{name: "old baseline patch", output: "Hermes Agent 0.19.42\n", want: "0.19.42"},
 		{name: "earlier current minor", output: "Hermes Agent v0.20.0\n", want: "0.20.0"},
 		{name: "previous official stable", output: "Hermes Agent v0.20.1 (2026.8.13)\n", want: "0.20.1"},
-		{name: "qualified official release", output: "Hermes Agent v0.20.2 (2026.8.16)\n", want: "0.20.2", supported: true},
-		{name: "later patch", output: "Hermes Agent v0.20.3\n", want: "0.20.3"},
+		{name: "minimum compatible release", output: "Hermes Agent v0.20.2 (2026.8.16)\n", want: "0.20.2", supported: true},
+		{name: "later compatible patch", output: "Hermes Agent v0.20.3\n", want: "0.20.3", supported: true},
+		{name: "current packaged release", output: "Hermes Agent v0.20.5 (2026.8.19) · upstream a0ca7c19\n", want: "0.20.5", supported: true},
 		{name: "older release", output: "Hermes Agent v0.18.2 (2026.7.7.2)\n", want: "0.18.2"},
 		{name: "future minor", output: "Hermes Agent v0.21.0\n", want: "0.21.0"},
 		{name: "prerelease", output: "Hermes Agent v0.19.1-rc.1\n", want: "0.19.1-rc.1"},
@@ -49,7 +50,20 @@ func TestParseVersionBanner(t *testing.T) {
 }
 
 func TestSupportedRangeDocumentsCompatibilityPolicy(t *testing.T) {
-	if supportedRange != "=0.20.2" {
+	if supportedRange != ">=0.20.2 <0.21.0" {
 		t.Fatalf("supportedRange = %q", supportedRange)
+	}
+}
+
+func TestSupportedVersionStringUsesTheSameCompatibilityPolicy(t *testing.T) {
+	for _, value := range []string{"0.20.2", "0.20.5", "0.20.99"} {
+		if !isSupportedHermesVersion(value) {
+			t.Fatalf("%s should be compatible", value)
+		}
+	}
+	for _, value := range []string{"0.20.1", "0.20.5-rc.1", "0.21.0", "invalid"} {
+		if isSupportedHermesVersion(value) {
+			t.Fatalf("%s should not be compatible", value)
+		}
 	}
 }

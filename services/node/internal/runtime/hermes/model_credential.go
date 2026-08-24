@@ -110,21 +110,21 @@ func newModelCredentialStore() credentialStore {
 }
 
 func ModelCredentialStatusFor(version, nativeID, presetID string) (ModelCredentialStatus, error) {
-	if version != modelSurfaceVersion {
+	if !isSupportedHermesVersion(version) {
 		return ModelCredentialStatus{}, errModelVersionUnsupported
 	}
 	return newModelCredentialStore().Status(nativeID, presetID)
 }
 
 func SetModelCredential(version, nativeID, presetID string, secret []byte) (ModelCredentialStatus, error) {
-	if version != modelSurfaceVersion {
+	if !isSupportedHermesVersion(version) {
 		return ModelCredentialStatus{}, errModelVersionUnsupported
 	}
 	return newModelCredentialStore().Set(nativeID, presetID, secret)
 }
 
 func DeleteModelCredential(version, nativeID, presetID string) (ModelCredentialStatus, error) {
-	if version != modelSurfaceVersion {
+	if !isSupportedHermesVersion(version) {
 		return ModelCredentialStatus{}, errModelVersionUnsupported
 	}
 	return newModelCredentialStore().Delete(nativeID, presetID)

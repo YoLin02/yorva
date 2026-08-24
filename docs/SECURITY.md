@@ -113,7 +113,7 @@ instance/channel credential
 future cloud refresh/session credential
 ```
 
-ADR-0007 defines one narrow exception for the Windows consumer MVP: Hermes Profile model provider credentials remain solely in Hermes' official Profile credential store. YORVA prefers a pinned, qualified official Hermes surface. For Hermes `0.20.2`, whose offline non-interactive CLI exposes the key in argv, only the Hermes adapter may instead use the ADR-approved version-fixed, Profile-scoped, Provider-allowlisted canonical `.env` compatibility writer. No caller supplies a path or env name; the writer is bounded, preserves unrelated entries, uses same-directory atomic replacement and fails closed on observed external modification. YORVA keeps no `SecretStore`, SQLite or `secret_refs` duplicate. This is an explicit at-rest tradeoff, not a general plaintext fallback.
+ADR-0007 defines one narrow exception for the Windows consumer MVP: Hermes Profile model provider credentials remain solely in Hermes' official Profile credential store. YORVA prefers a qualified official Hermes surface. Under ADR-0012's compatible stable `0.20.x` policy, only the Hermes adapter may use the approved Profile-scoped, Provider-allowlisted canonical `.env` compatibility writer when the offline non-interactive CLI would expose the key in argv. No caller supplies a path or env name; the writer is bounded, preserves unrelated entries, uses same-directory atomic replacement and fails closed on observed external modification. YORVA keeps no `SecretStore`, SQLite or `secret_refs` duplicate. This is an explicit at-rest tradeoff, not a general plaintext fallback.
 
 Rules:
 
@@ -123,6 +123,14 @@ Rules:
 - replacement writes accept secret values but never echo them;
 - delete actually removes provider-backed material where possible;
 - backup does not include secrets unless a future explicit encrypted-secret export feature is designed.
+
+Provider model discovery may use a credential in a request header only for one bounded
+request to the fixed HTTPS endpoint compiled into the qualified Hermes adapter. The
+credential is write-only at the local API boundary and is not stored by discovery,
+returned in the response, copied into SQLite/Desktop storage, or included in logs,
+events, Operations, URLs, or diagnostics. Redirects are rejected so custom Provider
+authentication headers cannot cross the qualified endpoint boundary. Only validated
+model IDs are returned.
 
 For Runtime-native credentials, Profile isolation and exact native targeting are mandatory. Secret material must not enter argv, URLs, logs, events, Operations, diagnostics, Desktop storage, Windows user/system environment variables or ambient child environments. The official surface or approved compatibility writer must satisfy those rules; otherwise the integration stops.
 
@@ -179,6 +187,15 @@ must not contain user information, a query or fragment; credentials, local paths
 versions, hashes, commands and environment keys remain outside the API. Each Operation
 uses one start-time snapshot, inherited secret/registry variables remain stripped, and
 source URLs are never written to ordinary logs or Operation messages.
+
+Amendment 003A8 adds one exact packaged CPython archive and a two-value artifact
+priority. The Python version, size and SHA-256 remain compiled. The configured online
+URL can change transport but not artifact identity. The adapter verifies the archive,
+copies it beneath the Operation-private directory using uv's pinned release layout,
+writes a single-entry metadata document for the exact patch/build, and passes only the
+resulting local `file://` locations to uv. Integrity failure never
+falls back; arbitrary local paths, hashes, versions, credentials and commands remain
+outside the API.
 
 ## 10. Privilege model
 
@@ -281,13 +298,13 @@ Weixin sender-pairing codes are short-lived authorization proofs. They are accep
 in an authenticated loopback JSON body, validated against the fixed eight-character
 Hermes alphabet, held only for the synchronous approval call, and never returned,
 persisted, logged, placed in a URL/query key/event/Operation or copied into browser
-storage. Hermes `0.20.2` exposes approval through its official CLI but not stdin; the
-version-pinned adapter may therefore pass this one-time code as one fixed-position argv
+storage. Compatible stable Hermes `0.20.x` exposes approval through its official CLI but not stdin; the
+adapter may therefore pass this one-time code as one fixed-position argv
 value to the exact validated Profile command. This narrow local-user tradeoff does not
 authorize channel tokens, Bot secrets, API keys, arbitrary arguments or a generic shell
 surface. Output is bounded, discarded after stable-result parsing and never exposed.
 
-Hermes `0.20.2` Channel integration is version-pinned. Weixin permits only the fixed
+Hermes Channel integration follows ADR-0012's stable `0.20.x` compatibility policy. Weixin permits only the fixed
 qualified HTTPS iLink host, disables redirects, bounds responses to 64 KiB and fails
 closed on unknown states/hosts. WeCom permits only the fixed official WSS host and writes
 Bot ID/Secret to the exact Profile only after an authenticated subscribe response. The

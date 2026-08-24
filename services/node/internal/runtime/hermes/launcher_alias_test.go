@@ -30,6 +30,29 @@ func TestOfficialLauncherAliasesSelectBinWhenDigestAndVersionMatch(t *testing.T)
 	}
 }
 
+func TestOfficialLauncherAliasesSelectHermesHomeBinForUpdatedLayout(t *testing.T) {
+	hermesHome := t.TempDir()
+	root := filepath.Join(hermesHome, "hermes-agent")
+	bin := filepath.Join(hermesHome, "bin", "hermes.exe")
+	venv := filepath.Join(root, "venv", "Scripts", "hermes.exe")
+	for _, path := range []string{bin, venv} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("same-updated-launcher"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	detector := aliasDetector(t, root, bin, venv, "Hermes Agent v0.20.5\n", "Hermes Agent v0.20.5\n")
+	got, err := detector.Detect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.State != yorvaruntime.DiscoverySupported || got.Selected == nil || !sameFile(t, got.Selected.Path, bin) {
+		t.Fatalf("updated layout = %#v", got)
+	}
+}
+
 func TestOfficialLauncherAliasesAmbiguousWhenDigestDiffers(t *testing.T) {
 	root, bin, venv := writeOfficialLauncherPair(t, []byte("bin-bytes"))
 	if err := os.WriteFile(venv, []byte("venv-different-bytes"), 0o755); err != nil {
@@ -103,7 +126,9 @@ func TestVenvOnlyOfficialLauncherRemainsSupported(t *testing.T) {
 			installationRoots: []string{root},
 			limit:             maxCandidates,
 		},
-		run:            func(context.Context, commandInvocation) commandResult { return commandResult{stdout: "Hermes Agent v0.20.2\n", exitCode: 0} },
+		run: func(context.Context, commandInvocation) commandResult {
+			return commandResult{stdout: "Hermes Agent v0.20.2\n", exitCode: 0}
+		},
 		now:            time.Now,
 		overallTimeout: overallDiscoveryTimeout,
 	}

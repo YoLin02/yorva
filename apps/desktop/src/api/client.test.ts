@@ -97,6 +97,7 @@ describe("daemon client", () => {
       new Response(JSON.stringify({
         providerPresetId: "deepseek",
         modelId: "deepseek-v4-pro",
+        selectedModelIds: ["deepseek-v4-pro"],
         state: "CONFIGURED",
         credentialConfigured: true,
         observedAt: "2026-08-19T12:00:00Z",
@@ -105,7 +106,7 @@ describe("daemon client", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await createDaemonClient(session).saveModelCredential("inst_coder", "deepseek", "deepseek-v4-pro", secret);
+    await createDaemonClient(session).saveModelCredential("inst_coder", "deepseek", "deepseek-v4-pro", ["deepseek-v4-pro"], secret);
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://127.0.0.1:49152/api/v1/instances/inst_coder/credentials/model-provider");
@@ -115,6 +116,7 @@ describe("daemon client", () => {
     expect(JSON.parse(String(init.body))).toEqual({
       providerPresetId: "deepseek",
       modelId: "deepseek-v4-pro",
+      selectedModelIds: ["deepseek-v4-pro"],
       value: secret,
     });
   });
@@ -161,9 +163,11 @@ describe("daemon client", () => {
 
   it("reads, saves, and resets Hermes download sources through the authenticated settings route", async () => {
     const sources = {
+      artifactPreference: "bundled-first" as const,
       hermesArchiveUrl: "https://github.com/example/hermes.zip",
       nodeArchiveUrl: "https://npmmirror.com/mirrors/node/node.zip",
       npmArchiveUrl: "https://registry.npmmirror.com/npm/-/npm.tgz",
+      pythonArchiveUrl: "https://github.com/example/python.tar.gz",
       pythonIndexUrl: "https://pypi.tuna.tsinghua.edu.cn/simple",
       npmRegistryUrl: "https://registry.npmmirror.com",
     };

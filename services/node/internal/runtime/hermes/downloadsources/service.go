@@ -43,7 +43,9 @@ func (s *Service) Get(ctx context.Context) (Config, error) {
 	if !found {
 		return Default(), nil
 	}
-	var config Config
+	// Decode over defaults so v1 documents written before new optional fields
+	// remain valid after an application upgrade.
+	config := Default()
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&config); err != nil {
@@ -51,6 +53,12 @@ func (s *Service) Get(ctx context.Context) (Config, error) {
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return Config{}, ErrCorrupt
+	}
+	// A saved copy of the previous built-in Hermes URL is an application
+	// default, not a user-selected mirror. Move it forward with the packaged
+	// source snapshot while leaving every custom URL untouched.
+	if config.HermesArchiveURL == legacyHermesArchiveURL {
+		config.HermesArchiveURL = defaultHermesArchiveURL
 	}
 	normalized, err := Normalize(config)
 	if err != nil {

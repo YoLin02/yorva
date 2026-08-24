@@ -9,7 +9,10 @@ import (
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
-const overallDiscoveryTimeout = 10 * time.Second
+// Hermes 0.20.5 performs a bounded update-status check as part of --version.
+// Leave enough time for that official surface without treating one slow probe as
+// permission to wait indefinitely.
+const overallDiscoveryTimeout = 30 * time.Second
 
 type Detector struct {
 	finder         candidateFinder

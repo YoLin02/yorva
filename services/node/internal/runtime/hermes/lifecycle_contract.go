@@ -1,7 +1,7 @@
 package hermes
 
 const (
-	lifecycleOfficialVersion  = "0.20.2"
+	lifecycleOfficialVersion  = officialPackageVersion
 	lifecycleStatusRunning    = "Gateway process running"
 	lifecycleStatusStopped    = "No gateway process detected"
 	lifecycleManualRunning    = "Gateway is running (PID:"

@@ -336,6 +336,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/model-provider-models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fetch the models currently visible to a write-only Provider credential */
+        post: operations["fetchInstanceModelProviderCatalog"];
+        delete?: never;
+        /** Validate CORS access for Provider model discovery */
+        options: operations["optionsInstanceModelProviderCatalog"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}/model-validation": {
         parameters: {
             query?: never;
@@ -637,12 +657,16 @@ export interface components {
             activeOperationId: string | null;
         };
         HermesDownloadSources: {
+            /** @enum {string} */
+            artifactPreference: "bundled-first" | "online-first";
             /** Format: uri */
             hermesArchiveUrl: string;
             /** Format: uri */
             nodeArchiveUrl: string;
             /** Format: uri */
             npmArchiveUrl: string;
+            /** Format: uri */
+            pythonArchiveUrl: string;
             /** Format: uri */
             pythonIndexUrl: string;
             /** Format: uri */
@@ -772,10 +796,12 @@ export interface components {
         ModelConfigurationPatch: {
             providerPresetId: string;
             modelId: string;
+            selectedModelIds: string[];
         };
         ModelCredentialPut: {
             providerPresetId: string;
             modelId: string;
+            selectedModelIds: string[];
             value: string;
         };
         ModelCredential: {
@@ -783,6 +809,16 @@ export interface components {
             configured: boolean;
             /** Format: date-time */
             observedAt: string;
+        };
+        ModelProviderCatalogRequest: {
+            providerPresetId: string;
+            value: string;
+        };
+        ModelProviderCatalog: {
+            providerPresetId: string;
+            items: string[];
+            /** Format: date-time */
+            fetchedAt: string;
         };
         ModelValidationSummary: {
             /** @enum {string} */
@@ -794,6 +830,7 @@ export interface components {
         ModelConfiguration: {
             providerPresetId: string;
             modelId: string;
+            selectedModelIds: string[];
             /** @enum {string} */
             state: "UNCONFIGURED" | "CONFIGURED";
             credentialConfigured: boolean;
@@ -1800,6 +1837,55 @@ export interface operations {
         };
     };
     optionsInstanceModelCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    fetchInstanceModelProviderCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelProviderCatalogRequest"];
+            };
+        };
+        responses: {
+            /** @description Provider model IDs. The submitted credential is never returned or persisted by this operation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelProviderCatalog"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceModelProviderCatalog: {
         parameters: {
             query?: never;
             header?: never;

@@ -1,4 +1,4 @@
-import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, ModelConfiguration, ModelCredential, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
+import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, ModelConfiguration, ModelCredential, ModelProviderCatalog, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -185,23 +185,30 @@ export function createDaemonClient(session: DaemonSession) {
       request<ModelConfiguration>(`/api/v1/instances/${encodeURIComponent(instanceId)}/config`, {
         signal: withDesktopTimeout(signal),
       }),
-    patchModelConfiguration: (instanceId: string, providerPresetId: string, modelId: string, signal?: AbortSignal) =>
+    patchModelConfiguration: (instanceId: string, providerPresetId: string, modelId: string, selectedModelIds: string[], signal?: AbortSignal) =>
       request<ModelConfiguration>(`/api/v1/instances/${encodeURIComponent(instanceId)}/config`, {
         method: "PATCH",
         signal: withDesktopTimeout(signal),
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ providerPresetId, modelId }),
+        body: JSON.stringify({ providerPresetId, modelId, selectedModelIds }),
+      }),
+    fetchModelProviderCatalog: (instanceId: string, providerPresetId: string, value: string, signal?: AbortSignal) =>
+      request<ModelProviderCatalog>(`/api/v1/instances/${encodeURIComponent(instanceId)}/model-provider-models`, {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerPresetId, value }),
       }),
     getModelCredential: (instanceId: string, signal?: AbortSignal) =>
       request<ModelCredential>(`/api/v1/instances/${encodeURIComponent(instanceId)}/credentials/model-provider`, {
         signal: withDesktopTimeout(signal),
       }),
-    saveModelCredential: (instanceId: string, providerPresetId: string, modelId: string, value: string, signal?: AbortSignal) =>
+    saveModelCredential: (instanceId: string, providerPresetId: string, modelId: string, selectedModelIds: string[], value: string, signal?: AbortSignal) =>
       request<ModelConfiguration>(`/api/v1/instances/${encodeURIComponent(instanceId)}/credentials/model-provider`, {
         method: "PUT",
         signal: withDesktopTimeout(signal),
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ providerPresetId, modelId, value }),
+        body: JSON.stringify({ providerPresetId, modelId, selectedModelIds, value }),
       }),
     deleteModelCredential: (instanceId: string, signal?: AbortSignal) =>
       request<ModelCredential>(`/api/v1/instances/${encodeURIComponent(instanceId)}/credentials/model-provider`, {

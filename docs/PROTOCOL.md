@@ -157,10 +157,12 @@ PUT    /api/v1/settings/hermes/download-sources
 DELETE /api/v1/settings/hermes/download-sources
 ```
 
-Amendment 003A7 adds one authenticated, non-secret settings resource. GET returns the
-complete effective configuration, PUT atomically replaces all five fields, and DELETE
+Amendments 003A7 and 003A8 add one authenticated, non-secret settings resource. GET returns the
+complete effective configuration, PUT atomically replaces all seven fields, and DELETE
 removes the override and returns the compiled China defaults. The schema is closed and
-accepts only credential-free absolute HTTPS URLs. It does not accept versions, digests,
+accepts only `bundled-first` or `online-first` for `artifactPreference` and credential-free
+absolute HTTPS URLs for all source fields. `pythonArchiveUrl` controls the pinned interpreter
+archive; `pythonIndexUrl` controls Python packages. It does not accept versions, digests,
 paths, commands, environment names or credentials. Install and prerequisite Operations
 snapshot the effective settings once when their work starts.
 
@@ -196,9 +198,14 @@ path, raw output, command, or environment.
 ```text
 GET   /api/v1/instances/{instanceId}/config
 PATCH /api/v1/instances/{instanceId}/config
+POST  /api/v1/instances/{instanceId}/model-provider-models
 ```
 
 Transport schemas contain normalized, safe configuration data. Secret values are write-only or represented by `configured: true/false` metadata.
+`modelId` remains the authoritative Hermes default model. `selectedModelIds` is the
+YORVA-owned non-secret selection set and must contain `modelId`. The Provider catalog
+endpoint accepts `{providerPresetId, value}` with `value` write-only, performs one
+bounded Provider request, and returns only normalized model IDs plus fetch time.
 
 ### Secrets
 
@@ -263,7 +270,7 @@ events or durable YORVA state. These endpoints are Weixin-only in Phase 6.
 POST /api/v1/runtimes/hermes/install
 ```
 
-Phase 3 starts one durable `runtime.install` Operation for Windows user-scope Hermes `0.20.2`. Amendment 003A1 may set `message` to a stable source-warning key such as `HERMES_SOURCE_BUNDLED_USED`. Amendment 003A7 makes verified packaged artifacts primary and uses configured URLs only when the corresponding package artifact is absent. That field never contains a filesystem path, mirror URL or installer transcript.
+Phase 3 starts one durable `runtime.install` Operation for the exact Hermes source snapshot carried by the Windows build; the current P6.5 snapshot is `0.20.5` at `a0ca7c1…`. Amendment 003A1 may set `message` to a stable source-warning key such as `HERMES_SOURCE_BUNDLED_USED`. Amendment 003A7 makes verified packaged artifacts primary and uses configured URLs only when the corresponding package artifact is absent. That field never contains a filesystem path, mirror URL or installer transcript.
 
 Hermes Node.js health is a separate live query and Operation:
 

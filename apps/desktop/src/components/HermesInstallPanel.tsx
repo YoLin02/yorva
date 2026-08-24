@@ -96,8 +96,8 @@ export function HermesInstallPanel({
             <p id="install-confirm-description" className="panel-copy">{install.confirmDescription}</p>
           </div>
           <dl className="detail-list install-confirm-details">
-            <div><dt>{install.source}</dt><dd>NousResearch/hermes-agent @ df4b65147d7ddd74dd449f9067aabbca5aef0ec7</dd></div>
-            <div><dt>{install.version}</dt><dd>0.20.2 / v2026.8.16</dd></div>
+            <div><dt>{install.source}</dt><dd>NousResearch/hermes-agent @ a0ca7c19204e514f9590ce3b812e029b315ab9e9</dd></div>
+            <div><dt>{install.version}</dt><dd>0.20.5 / v2026.8.19</dd></div>
             <div><dt>{install.destination}</dt><dd className="mono">%LOCALAPPDATA%\hermes\hermes-agent</dd></div>
           </dl>
           <div className="install-confirm-changes">

@@ -34,16 +34,21 @@ func (f *fakeModelsAPI) GetModelConfiguration(context.Context, string) (app.Mode
 	return f.configuration, f.err
 }
 
-func (f *fakeModelsAPI) PatchModelConfiguration(_ context.Context, _, presetID, modelID string) (app.ModelConfigurationView, error) {
+func (f *fakeModelsAPI) PatchModelConfiguration(_ context.Context, _, presetID, modelID string, _ []string) (app.ModelConfigurationView, error) {
 	f.patchedPreset, f.patchedModel = presetID, modelID
 	return f.configuration, f.err
+}
+
+func (f *fakeModelsAPI) FetchModelProviderCatalog(_ context.Context, _, presetID string, secret []byte) (app.ModelProviderCatalogView, error) {
+	f.secret = append([]byte(nil), secret...)
+	return app.ModelProviderCatalogView{ProviderPresetID: presetID, Items: []string{"deepseek-v4-pro"}, FetchedAt: time.Now()}, f.err
 }
 
 func (f *fakeModelsAPI) GetModelCredential(context.Context, string) (app.ModelCredentialView, error) {
 	return f.credential, f.err
 }
 
-func (f *fakeModelsAPI) SaveModelCredentialConfiguration(_ context.Context, _, presetID, modelID string, secret []byte) (app.ModelConfigurationView, error) {
+func (f *fakeModelsAPI) SaveModelCredentialConfiguration(_ context.Context, _, presetID, modelID string, _ []string, secret []byte) (app.ModelConfigurationView, error) {
 	f.patchedPreset, f.patchedModel = presetID, modelID
 	f.secret = append([]byte(nil), secret...)
 	return f.configuration, f.err
@@ -188,6 +193,18 @@ func TestModelCredentialHTTPIsMetadataOnlyWriteOnlyAndClosed(t *testing.T) {
 	handler.ServeHTTP(optionsResult, options)
 	if optionsResult.Code != http.StatusNoContent || optionsResult.Header().Get("Allow") != "GET, PUT, DELETE, OPTIONS" {
 		t.Fatalf("credential options = %d %q", optionsResult.Code, optionsResult.Header().Get("Allow"))
+	}
+}
+
+func TestModelProviderCatalogHTTPIsWriteOnlyAndReturnsModelIDs(t *testing.T) {
+	secret := "catalog-request-secret"
+	models := &fakeModelsAPI{}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, models, "", nil)
+	request := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_public/model-provider-models", `{"providerPresetId":"deepseek","value":"`+secret+`"}`)
+	result := httptest.NewRecorder()
+	handler.ServeHTTP(result, request)
+	if result.Code != http.StatusOK || string(models.secret) != secret || strings.Contains(result.Body.String(), secret) || !strings.Contains(result.Body.String(), "deepseek-v4-pro") {
+		t.Fatalf("catalog = %d %s fake=%#v", result.Code, result.Body.String(), models)
 	}
 }
 

@@ -7,8 +7,7 @@ import (
 	"unicode/utf8"
 )
 
-// Pinned Hermes 0.20.2 Profile contract (official commit
-// df4b65147d7ddd74dd449f9067aabbca5aef0ec7).
+// Profile contract qualified against the packaged Hermes source snapshot.
 //
 // D1 surface: documented Profile CLI from the active generation.
 // REST /api/profiles requires an already-running Hermes web dashboard
@@ -20,8 +19,8 @@ import (
 // exact-version list format; unknown output fails closed.
 
 const (
-	profileOfficialVersion = "0.20.2"
-	profileOfficialCommit  = "df4b65147d7ddd74dd449f9067aabbca5aef0ec7"
+	profileOfficialVersion = officialPackageVersion
+	profileOfficialCommit  = officialCommit
 
 	profileListAction   = "list"
 	profileCreateAction = "create"

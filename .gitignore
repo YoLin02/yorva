@@ -44,4 +44,6 @@ temp/
 .cache/hermes-source/
 apps/desktop/src-tauri/resources/hermes/source/*.zip
 apps/desktop/src-tauri/resources/hermes/source/*.tgz
+apps/desktop/src-tauri/resources/hermes/source/*.tar.gz
 .cache/hermes-node/
+.cache/hermes-python-prerequisites/

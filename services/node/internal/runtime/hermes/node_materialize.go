@@ -14,15 +14,15 @@ import (
 )
 
 type NodeHost struct {
-	stateRoot   string
-	nodeArchive string
-	npmArchive  string
-	home        func() string
-	installDir  func() string
-	nodeDir     func() string
-	run         func(context.Context, installInvocation, time.Duration) commandResult
-	operationID string
-	diskFree    func(string) (uint64, error)
+	stateRoot       string
+	nodeArchive     string
+	npmArchive      string
+	home            func() string
+	installDir      func() string
+	nodeDir         func() string
+	run             func(context.Context, installInvocation, time.Duration) commandResult
+	operationID     string
+	diskFree        func(string) (uint64, error)
 	downloadSources downloadsources.Provider
 }
 
@@ -95,14 +95,9 @@ func (h *NodeHost) ensureNode(ctx context.Context, sources downloadsources.Confi
 	if err := requireExtractBudget(staging, h.diskFree); err != nil {
 		return err
 	}
-	archivePath := h.nodeArchive
-	if archivePath == "" {
-		archivePath = filepath.Join(staging, "node.zip")
-		if err := downloadPinnedArtifact(ctx, sources.NodeArchiveURL, archivePath, archiveDownloadLimit, officialNodeArchiveSize, officialNodeArchiveSHA); err != nil {
-			return err
-		}
-	} else if err := verifySizedDigest(archivePath, officialNodeArchiveSize, officialNodeArchiveSHA); err != nil {
-		return installError(yorvaruntime.ErrorHermesNodeArchiveIntegrityFailed, err)
+	archivePath, err := h.resolvePrerequisiteArtifact(ctx, sources.ArtifactPreference, h.nodeArchive, sources.NodeArchiveURL, filepath.Join(staging, "node.zip"), officialNodeArchiveSize, officialNodeArchiveSHA, yorvaruntime.ErrorHermesNodeArchiveIntegrityFailed)
+	if err != nil {
+		return err
 	}
 	extracted := filepath.Join(staging, "tree")
 	if err := extractPrefixedZip(ctx, archivePath, extracted, officialNodeZipRoot); err != nil {
@@ -127,14 +122,9 @@ func (h *NodeHost) ensureNPM(ctx context.Context, sources downloadsources.Config
 		return err
 	}
 	defer func() { _ = os.RemoveAll(staging) }()
-	archivePath := h.npmArchive
-	if archivePath == "" {
-		archivePath = filepath.Join(staging, "npm.tgz")
-		if err := downloadPinnedArtifact(ctx, sources.NPMArchiveURL, archivePath, archiveDownloadLimit, officialNpmArchiveSize, officialNpmArchiveSHA); err != nil {
-			return err
-		}
-	} else if err := verifySizedDigest(archivePath, officialNpmArchiveSize, officialNpmArchiveSHA); err != nil {
-		return installError(yorvaruntime.ErrorHermesNPMArchiveIntegrityFailed, err)
+	archivePath, err := h.resolvePrerequisiteArtifact(ctx, sources.ArtifactPreference, h.npmArchive, sources.NPMArchiveURL, filepath.Join(staging, "npm.tgz"), officialNpmArchiveSize, officialNpmArchiveSHA, yorvaruntime.ErrorHermesNPMArchiveIntegrityFailed)
+	if err != nil {
+		return err
 	}
 	extracted := filepath.Join(staging, "npm")
 	if err := extractNpmTarball(ctx, archivePath, extracted); err != nil {
@@ -152,4 +142,34 @@ func (h *NodeHost) ensureNPM(ctx context.Context, sources downloadsources.Config
 		return installError(yorvaruntime.ErrorHermesNPMUnsupported, errors.New("managed npm postcondition failed"))
 	}
 	return nil
+}
+
+func (h *NodeHost) resolvePrerequisiteArtifact(ctx context.Context, preference, bundledPath, onlineURL, destination string, expectedSize int64, expectedSHA string, bundledIntegrityCode yorvaruntime.ErrorCode) (string, error) {
+	useBundled := func() (string, error) {
+		if bundledPath == "" {
+			return "", installError(yorvaruntime.ErrorRuntimeInstallSourceUnavailable, os.ErrNotExist)
+		}
+		if err := verifySizedDigest(bundledPath, expectedSize, expectedSHA); err != nil {
+			return "", installError(bundledIntegrityCode, err)
+		}
+		return bundledPath, nil
+	}
+	useOnline := func() (string, error) {
+		if err := downloadPinnedArtifact(ctx, onlineURL, destination, archiveDownloadLimit, expectedSize, expectedSHA); err != nil {
+			return "", err
+		}
+		return destination, nil
+	}
+
+	if preference == downloadsources.PreferenceOnlineFirst {
+		path, err := useOnline()
+		if err == nil || !isTransportArchiveError(err) || bundledPath == "" {
+			return path, err
+		}
+		return useBundled()
+	}
+	if bundledPath != "" {
+		return useBundled()
+	}
+	return useOnline()
 }

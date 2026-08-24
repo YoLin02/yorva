@@ -22,9 +22,10 @@ $catalog = Get-YorvaMsiPayloadCatalog
 
 Assert-Throws "missing Hermes LICENSE" {
     $rows = @(
-        [pscustomobject]@{ Name = "hermes-agent-df4b65147d7ddd74dd449f9067aabbca5aef0ec7.zip"; Size = 71869305 },
+        [pscustomobject]@{ Name = "hermes-agent-a0ca7c19204e514f9590ce3b812e029b315ab9e9.zip"; Size = 73798347 },
         [pscustomobject]@{ Name = "node-v22.23.1-win-x64.zip"; Size = 35682836 },
         [pscustomobject]@{ Name = "npm-12.0.2.tgz"; Size = 3045132 },
+        [pscustomobject]@{ Name = "cpython-3.11.15+20260728-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"; Size = 25676832 },
         [pscustomobject]@{ Name = "NODE-LICENSE"; Size = 148217 },
         [pscustomobject]@{ Name = "NPM-LICENSE"; Size = 9742 }
     )
@@ -35,9 +36,10 @@ Assert-Throws "suffix collision" {
     $rows = @(
         [pscustomobject]@{ Name = "NODE-LICENSE"; Size = 148217 },
         [pscustomobject]@{ Name = "NPM-LICENSE"; Size = 9742 },
-        [pscustomobject]@{ Name = "hermes-agent-df4b65147d7ddd74dd449f9067aabbca5aef0ec7.zip"; Size = 71869305 },
+        [pscustomobject]@{ Name = "hermes-agent-a0ca7c19204e514f9590ce3b812e029b315ab9e9.zip"; Size = 73798347 },
         [pscustomobject]@{ Name = "node-v22.23.1-win-x64.zip"; Size = 35682836 },
         [pscustomobject]@{ Name = "npm-12.0.2.tgz"; Size = 3045132 }
+        [pscustomobject]@{ Name = "cpython-3.11.15+20260728-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"; Size = 25676832 }
     )
     Assert-ExactMsiIdentities $rows $catalog
 } "missing exact name LICENSE"
@@ -48,9 +50,10 @@ Assert-Throws "duplicate payload" {
         [pscustomobject]@{ Name = "LICENSE"; Size = 1070 },
         [pscustomobject]@{ Name = "NODE-LICENSE"; Size = 148217 },
         [pscustomobject]@{ Name = "NPM-LICENSE"; Size = 9742 },
-        [pscustomobject]@{ Name = "hermes-agent-df4b65147d7ddd74dd449f9067aabbca5aef0ec7.zip"; Size = 71869305 },
+        [pscustomobject]@{ Name = "hermes-agent-a0ca7c19204e514f9590ce3b812e029b315ab9e9.zip"; Size = 73798347 },
         [pscustomobject]@{ Name = "node-v22.23.1-win-x64.zip"; Size = 35682836 },
         [pscustomobject]@{ Name = "npm-12.0.2.tgz"; Size = 3045132 }
+        [pscustomobject]@{ Name = "cpython-3.11.15+20260728-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"; Size = 25676832 }
     )
     Assert-ExactMsiIdentities $rows $catalog
 } "2 entries named LICENSE"
@@ -60,9 +63,10 @@ Assert-Throws "wrong filename" {
         [pscustomobject]@{ Name = "LICENSE.txt"; Size = 1070 },
         [pscustomobject]@{ Name = "NODE-LICENSE"; Size = 148217 },
         [pscustomobject]@{ Name = "NPM-LICENSE"; Size = 9742 },
-        [pscustomobject]@{ Name = "hermes-agent-df4b65147d7ddd74dd449f9067aabbca5aef0ec7.zip"; Size = 71869305 },
+        [pscustomobject]@{ Name = "hermes-agent-a0ca7c19204e514f9590ce3b812e029b315ab9e9.zip"; Size = 73798347 },
         [pscustomobject]@{ Name = "node-v22.23.1-win-x64.zip"; Size = 35682836 },
         [pscustomobject]@{ Name = "npm-12.0.2.tgz"; Size = 3045132 }
+        [pscustomobject]@{ Name = "cpython-3.11.15+20260728-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"; Size = 25676832 }
     )
     Assert-ExactMsiIdentities $rows $catalog
 } "missing exact name LICENSE"
@@ -72,9 +76,10 @@ Assert-Throws "wrong size" {
         [pscustomobject]@{ Name = "LICENSE"; Size = 20 },
         [pscustomobject]@{ Name = "NODE-LICENSE"; Size = 148217 },
         [pscustomobject]@{ Name = "NPM-LICENSE"; Size = 9742 },
-        [pscustomobject]@{ Name = "hermes-agent-df4b65147d7ddd74dd449f9067aabbca5aef0ec7.zip"; Size = 71869305 },
+        [pscustomobject]@{ Name = "hermes-agent-a0ca7c19204e514f9590ce3b812e029b315ab9e9.zip"; Size = 73798347 },
         [pscustomobject]@{ Name = "node-v22.23.1-win-x64.zip"; Size = 35682836 },
         [pscustomobject]@{ Name = "npm-12.0.2.tgz"; Size = 3045132 }
+        [pscustomobject]@{ Name = "cpython-3.11.15+20260728-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"; Size = 25676832 }
     )
     Assert-ExactMsiIdentities $rows $catalog
 } "size 20 != 1070"
@@ -96,7 +101,7 @@ try {
         Assert-ExtractedPayloads $root $catalog
     } "SHA-256"
 
-    [System.IO.File]::WriteAllBytes((Join-Path $payload "hermes-agent-df4b65147d7ddd74dd449f9067aabbca5aef0ec7.zip"), (New-Object byte[] 71869305))
+    [System.IO.File]::WriteAllBytes((Join-Path $payload "hermes-agent-a0ca7c19204e514f9590ce3b812e029b315ab9e9.zip"), (New-Object byte[] 73798347))
     Assert-Throws "substituted archive" {
         Assert-ExtractedPayloads $root $catalog
     } "SHA-256"

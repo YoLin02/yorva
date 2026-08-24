@@ -271,6 +271,8 @@ struct BootstrapMessage<'a> {
     hermes_node_archive_path: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     hermes_npm_archive_path: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hermes_python_archive_path: Option<&'a str>,
 }
 
 #[derive(Deserialize)]
@@ -302,6 +304,7 @@ fn try_start_daemon(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let embedded_source = resolve_hermes_resource(app, HERMES_EMBEDDED_SOURCE_NAME);
     let node_archive = resolve_hermes_resource(app, HERMES_NODE_ARCHIVE_NAME);
     let npm_archive = resolve_hermes_resource(app, HERMES_NPM_ARCHIVE_NAME);
+    let python_archive = resolve_hermes_resource(app, HERMES_PYTHON_ARCHIVE_NAME);
     let bootstrap = serde_json::to_vec(&BootstrapMessage {
         protocol_version: PROTOCOL_VERSION,
         token: &token,
@@ -309,6 +312,7 @@ fn try_start_daemon(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         hermes_embedded_source_path: embedded_source.as_deref(),
         hermes_node_archive_path: node_archive.as_deref(),
         hermes_npm_archive_path: npm_archive.as_deref(),
+        hermes_python_archive_path: python_archive.as_deref(),
     })?;
 
     let (mut events, child) = app
@@ -398,9 +402,11 @@ fn generate_token() -> Result<String, getrandom::Error> {
 }
 
 const HERMES_EMBEDDED_SOURCE_NAME: &str =
-    "hermes-agent-df4b65147d7ddd74dd449f9067aabbca5aef0ec7.zip";
+    "hermes-agent-a0ca7c19204e514f9590ce3b812e029b315ab9e9.zip";
 const HERMES_NODE_ARCHIVE_NAME: &str = "node-v22.23.1-win-x64.zip";
 const HERMES_NPM_ARCHIVE_NAME: &str = "npm-12.0.2.tgz";
+const HERMES_PYTHON_ARCHIVE_NAME: &str =
+    "cpython-3.11.15+20260728-x86_64-pc-windows-msvc-install_only_stripped.tar.gz";
 
 fn hermes_resource_candidates(resource_dir: &Path, name: &str) -> [std::path::PathBuf; 2] {
     [

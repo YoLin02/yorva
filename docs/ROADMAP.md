@@ -77,10 +77,11 @@ Amendments:
 - `AMENDMENT-002A2-hermes-launcher-alias-normalization.md` — ACCEPTED
 - `AMENDMENT-002A3-active-generation-discovery.md` — ACCEPTED FOR IMPLEMENTATION (Owner 2026-08-18; not a Phase 2 re-freeze)
 - `AMENDMENT-002A4-exact-hermes-version-compatibility.md` — IMPLEMENTED / TARGETED AUDIT PENDING (Owner 2026-08-21)
+- `AMENDMENT-0065A1-hermes-development-version-policy.md` — P6.5 CANDIDATE (Owner 2026-08-24; patch-compatible development window)
 Historical baseline: `phase-002-hermes-discovery-baseline` → `a67de04e900bc3ddce99cd76501eec13586082ed` (immutable)
 Current baseline: `phase-002-hermes-discovery-baseline-r1`
 Amendment implementation commit: `dbcb54da4bc4bffcff51888426848246a1900ea6`
-Compatibility: `=0.20.2` (002A4 supersedes the historical broad window)
+Compatibility: stable development window `>=0.20.2 <0.21.0`; packaged source remains pinned by exact archive SHA-256 (0065A1 supersedes the exact-patch development lock without changing frozen historical baselines)
 
 Goal: detect Hermes and report executable/version compatibility without mutating the machine.
 
@@ -122,10 +123,12 @@ Amendments:
 - `AMENDMENT-003A4-generation-install-transaction.md` — ACCEPTED
 - `AMENDMENT-003A6-final-path-hermes-generation-build.md` — ACCEPTED / FROZEN (Owner 2026-08-21; frozen-baseline correctness correction)
 - `AMENDMENT-003A7-configurable-download-sources.md` — ACCEPTED FOR IMPLEMENTATION (Owner 2026-08-21; post-freeze product correction)
+- `AMENDMENT-003A8-embedded-python-source-priority.md` — P6.5 CANDIDATE (Owner 2026-08-24)
 Architecture: `docs/phases/PHASE-003-generation-installation-architecture.md` — Owner-approved 2026-08-18
 ADR: `ADR-0006-generation-install-transaction.md` — Accepted
 Correction ADR: `ADR-0009-final-path-generation-build.md` — Accepted 2026-08-21
 Download-source ADR: `ADR-0010-configurable-hermes-download-sources.md` — Accepted 2026-08-21
+Embedded-Python ADR: `ADR-0011-embedded-python-source-priority.md` — P6.5 candidate 2026-08-24
 Audit: `AUDIT-003`–`R7` — **FAIL** (immutable); `AUDIT-003R8` — **PASS WITH CONDITIONS**; `AUDIT-003R9` — **PASS**
 
 Goal: install a supported official Hermes Runtime without requiring terminal use.
@@ -273,6 +276,27 @@ Instance
 → connected
 → Channel status visible separately from lifecycle status
 ```
+
+## Phase 6.5 — Developer-led demo optimization
+
+Status: **AUDIT CANDIDATE — FREEZE PENDING**
+Spec: `docs/phases/PHASE-006.5-developer-led-demo-optimization.zh-CN.md`
+Target baseline: `phase-006-runtime-lifecycle-messaging-channels-baseline` → `7ca9103e7af210296a5e24916df01856539b550e`
+Proposed tag: `phase-0065-developer-led-demo-baseline`
+Owner authorization: accepted P6.5 changes may be committed, pushed, merged to `main`, and frozen after the candidate gate and audit pass (2026-08-24).
+
+Candidate scope:
+
+- configurable Hermes download sources;
+- embedded CPython prerequisite and deterministic source priority;
+- Provider model-catalog retrieval, multi-model selection, and one persisted default model;
+- Hermes patch-compatible development detection (`>=0.20.2 <0.21.0`) and an exact-hash packaged official Hermes `0.20.5` source snapshot;
+- directly related Desktop, packaging, contract, documentation, and regression-test changes.
+
+P7 capabilities, personal artifacts, generated installers, temporary UI references, and unrelated
+developer files are excluded from this candidate. Phase 6 remains immutable; P6.5 is its clean
+successor and must pass audit, exact-candidate CI, Windows smoke, package inspection, and security
+checks before this status can become `COMPLETE / FROZEN`.
 
 ## Phase 7 — Runtime management completeness
 

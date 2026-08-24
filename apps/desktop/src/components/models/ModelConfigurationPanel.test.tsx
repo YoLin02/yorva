@@ -22,6 +22,7 @@ const instance: Instance = {
 const unconfigured: ModelConfiguration = {
   providerPresetId: "",
   modelId: "",
+  selectedModelIds: [],
   state: "UNCONFIGURED",
   credentialConfigured: false,
   observedAt: "2026-08-19T12:00:00Z",
@@ -34,7 +35,7 @@ function modelClient(overrides: Partial<DaemonClient> = {}) {
     listModelProviderPresets: vi.fn().mockResolvedValue({
       items: [
         { id: "deepseek", displayName: "DeepSeek", region: "CHINA", recommendedModels: ["deepseek-v4-pro"] },
-        { id: "qwen", displayName: "Qwen / Alibaba DashScope", region: "CHINA", recommendedModels: ["qwen3.7-max"], helpText: "Hermes 0.20.2 uses the DashScope international compatible endpoint." },
+        { id: "qwen", displayName: "Qwen / Alibaba DashScope", region: "CHINA", recommendedModels: ["qwen3.7-max"], helpText: "Hermes uses the qualified DashScope international compatible endpoint." },
         { id: "kimi", displayName: "Kimi / Moonshot (China)", region: "CHINA", recommendedModels: ["kimi-k3"] },
         { id: "minimax", displayName: "MiniMax (China)", region: "CHINA", recommendedModels: ["MiniMax-M3"] },
         { id: "glm", displayName: "GLM / Zhipu", region: "CHINA", recommendedModels: ["glm-5.2"] },
@@ -45,6 +46,7 @@ function modelClient(overrides: Partial<DaemonClient> = {}) {
     }),
     getModelConfiguration: vi.fn().mockResolvedValue(unconfigured),
     getModelCredential: vi.fn().mockResolvedValue({ providerPresetId: "", configured: false, observedAt: "2026-08-19T12:00:00Z" }),
+    fetchModelProviderCatalog: vi.fn().mockResolvedValue({ providerPresetId: "deepseek", items: ["deepseek-v4-pro", "deepseek-v4-flash"], fetchedAt: "2026-08-19T12:00:00Z" }),
     listOperations: vi.fn().mockResolvedValue({ operations: [] }),
     getOperation: vi.fn(),
     saveModelCredential: vi.fn().mockResolvedValue({ ...unconfigured, providerPresetId: "deepseek", modelId: "deepseek-v4-pro", state: "CONFIGURED", credentialConfigured: true }),
@@ -84,8 +86,8 @@ describe("ModelConfigurationPanel", () => {
     expect(screen.getByText("未配置")).toBeInTheDocument();
     expect(screen.getByText("未测试")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("radio", { name: "Qwen / Alibaba DashScope" }));
-    expect(screen.getByText("Hermes 0.20.2 使用 DashScope 国际兼容端点。")).toBeInTheDocument();
-    expect(screen.queryByText("Hermes 0.20.2 uses the DashScope international compatible endpoint.")).not.toBeInTheDocument();
+    expect(screen.getByText("Hermes 使用已验证的 DashScope 国际兼容端点。")).toBeInTheDocument();
+    expect(screen.queryByText("Hermes uses the qualified DashScope international compatible endpoint.")).not.toBeInTheDocument();
   });
 
   it("clears the password after save and never places it in query or browser storage", async () => {
@@ -98,12 +100,33 @@ describe("ModelConfigurationPanel", () => {
     expect(password.value).toBe(secret);
     fireEvent.click(screen.getByRole("button", { name: "Save configuration" }));
 
-    await waitFor(() => expect(client.saveModelCredential).toHaveBeenCalledWith("inst_coder", "deepseek", "deepseek-v4-pro", secret));
+    await waitFor(() => expect(client.saveModelCredential).toHaveBeenCalledWith("inst_coder", "deepseek", "deepseek-v4-pro", ["deepseek-v4-pro"], secret));
     await waitFor(() => expect(password.value).toBe(""));
     expect(screen.getByText("Configuration saved")).toBeInTheDocument();
     expect(JSON.stringify(queryClient.getQueryCache().getAll().map((query) => ({ key: query.queryKey, data: query.state.data })))).not.toContain(secret);
     expect(JSON.stringify(window.localStorage)).not.toContain(secret);
     expect(JSON.stringify(window.sessionStorage)).not.toContain(secret);
+  });
+
+  it("loads the Provider catalog, selects multiple models, and changes the default", async () => {
+    const client = modelClient();
+    renderPanel(client);
+    fireEvent.click(await screen.findByRole("radio", { name: "DeepSeek" }));
+    fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "catalog-secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Get model list" }));
+    await waitFor(() => expect(client.fetchModelProviderCatalog).toHaveBeenCalledWith("inst_coder", "deepseek", "catalog-secret"));
+    const flashRow = await screen.findByText("deepseek-v4-flash");
+    const row = flashRow.closest(".model-selection-row")!;
+    fireEvent.click(row.querySelector('input[type="checkbox"]')!);
+    fireEvent.click(row.querySelector('input[type="radio"]')!);
+    fireEvent.click(screen.getByRole("button", { name: "Save configuration" }));
+    await waitFor(() => expect(client.saveModelCredential).toHaveBeenCalledWith(
+      "inst_coder",
+      "deepseek",
+      "deepseek-v4-flash",
+      ["deepseek-v4-pro", "deepseek-v4-flash"],
+      "catalog-secret",
+    ));
   });
 
   it("clears the password and shows the stable incomplete code after a partial save", async () => {
@@ -133,6 +156,7 @@ describe("ModelConfigurationPanel", () => {
     const configured: ModelConfiguration = {
       providerPresetId: "deepseek",
       modelId: "deepseek-v4-pro",
+      selectedModelIds: ["deepseek-v4-pro"],
       state: "CONFIGURED",
       credentialConfigured: true,
       observedAt: "2026-08-19T12:00:00Z",
@@ -146,6 +170,8 @@ describe("ModelConfigurationPanel", () => {
     });
     renderPanel(client);
     expect(await screen.findByText("Passed")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "deepseek-v4-pro" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Default" })).toBeChecked();
     expect(client.startModelValidation).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
     await waitFor(() => expect(client.startModelValidation).toHaveBeenCalledTimes(1));

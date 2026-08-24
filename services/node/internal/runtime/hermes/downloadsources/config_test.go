@@ -13,14 +13,49 @@ func TestDefaultsUseCredentialFreeHTTPSChinaMirrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, value := range map[string]string{
-		"node": config.NodeArchiveURL,
-		"npm archive": config.NPMArchiveURL,
-		"python": config.PythonIndexURL,
-		"npm registry": config.NPMRegistryURL,
+		"node":           config.NodeArchiveURL,
+		"npm archive":    config.NPMArchiveURL,
+		"python archive": config.PythonArchiveURL,
+		"python":         config.PythonIndexURL,
+		"npm registry":   config.NPMRegistryURL,
 	} {
 		if value == "" {
 			t.Fatalf("%s default is empty", name)
 		}
+	}
+}
+
+func TestServiceLoadsLegacyDocumentOverNewDefaults(t *testing.T) {
+	store := &memoryStore{found: true, value: []byte(`{"hermesArchiveUrl":"https://example.com/hermes.zip","nodeArchiveUrl":"https://example.com/node.zip","npmArchiveUrl":"https://example.com/npm.tgz","pythonIndexUrl":"https://example.com/simple","npmRegistryUrl":"https://example.com/npm"}`)}
+	config, err := NewService(store).Get(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.ArtifactPreference != PreferenceBundledFirst || config.PythonArchiveURL != Default().PythonArchiveURL {
+		t.Fatalf("legacy defaults were not filled: %#v", config)
+	}
+}
+
+func TestServiceMigratesPreviousBuiltInHermesArchiveURL(t *testing.T) {
+	store := &memoryStore{found: true, value: []byte(`{"artifactPreference":"online-first","hermesArchiveUrl":"https://github.com/NousResearch/hermes-agent/archive/df4b65147d7ddd74dd449f9067aabbca5aef0ec7.zip","nodeArchiveUrl":"https://example.com/node.zip","npmArchiveUrl":"https://example.com/npm.tgz","pythonArchiveUrl":"https://example.com/python.tar.gz","pythonIndexUrl":"https://example.com/simple","npmRegistryUrl":"https://example.com/npm"}`)}
+	config, err := NewService(store).Get(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.HermesArchiveURL != Default().HermesArchiveURL {
+		t.Fatalf("HermesArchiveURL = %q, want current built-in URL %q", config.HermesArchiveURL, Default().HermesArchiveURL)
+	}
+}
+
+func TestServicePreservesCustomHermesArchiveURL(t *testing.T) {
+	const customURL = "https://mirror.example/hermes.zip"
+	store := &memoryStore{found: true, value: []byte(`{"artifactPreference":"online-first","hermesArchiveUrl":"` + customURL + `","nodeArchiveUrl":"https://example.com/node.zip","npmArchiveUrl":"https://example.com/npm.tgz","pythonArchiveUrl":"https://example.com/python.tar.gz","pythonIndexUrl":"https://example.com/simple","npmRegistryUrl":"https://example.com/npm"}`)}
+	config, err := NewService(store).Get(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.HermesArchiveURL != customURL {
+		t.Fatalf("HermesArchiveURL = %q, want custom URL %q", config.HermesArchiveURL, customURL)
 	}
 }
 

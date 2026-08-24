@@ -22,9 +22,10 @@ const (
 type ModelConfigurationService interface {
 	ListModelProviderPresets(context.Context) ([]yorvaruntime.ModelProviderPreset, error)
 	GetModelConfiguration(context.Context, string) (app.ModelConfigurationView, error)
-	PatchModelConfiguration(context.Context, string, string, string) (app.ModelConfigurationView, error)
+	PatchModelConfiguration(context.Context, string, string, string, []string) (app.ModelConfigurationView, error)
+	FetchModelProviderCatalog(context.Context, string, string, []byte) (app.ModelProviderCatalogView, error)
 	GetModelCredential(context.Context, string) (app.ModelCredentialView, error)
-	SaveModelCredentialConfiguration(context.Context, string, string, string, []byte) (app.ModelConfigurationView, error)
+	SaveModelCredentialConfiguration(context.Context, string, string, string, []string, []byte) (app.ModelConfigurationView, error)
 	DeleteModelCredential(context.Context, string) (app.ModelCredentialView, error)
 	StartModelValidation(context.Context, string, string) (app.InstallStartResult, error)
 	CancelModelValidation(context.Context, string) (operation.Operation, error)
@@ -51,10 +52,17 @@ type ModelValidationSummaryResponse struct {
 type ModelConfigurationResponse struct {
 	ProviderPresetID     string                               `json:"providerPresetId"`
 	ModelID              string                               `json:"modelId"`
+	SelectedModelIDs     []string                             `json:"selectedModelIds"`
 	State                yorvaruntime.ModelConfigurationState `json:"state"`
 	CredentialConfigured bool                                 `json:"credentialConfigured"`
 	ObservedAt           time.Time                            `json:"observedAt"`
 	Validation           ModelValidationSummaryResponse       `json:"validation"`
+}
+
+type ModelProviderCatalogResponse struct {
+	ProviderPresetID string    `json:"providerPresetId"`
+	Items            []string  `json:"items"`
+	FetchedAt        time.Time `json:"fetchedAt"`
 }
 
 type ModelCredentialResponse struct {
@@ -107,17 +115,41 @@ func patchModelConfiguration(models ModelConfigurationService) http.Handler {
 			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Model configuration is unavailable.", Retryable: true})
 			return
 		}
-		presetID, modelID, err := decodeClosedModelConfig(r)
+		presetID, modelID, selectedModelIDs, err := decodeClosedModelConfig(r)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorModelConfigInvalid), Message: "The model configuration request is invalid.", Retryable: false})
 			return
 		}
-		configuration, err := models.PatchModelConfiguration(r.Context(), r.PathValue("instanceId"), presetID, modelID)
+		configuration, err := models.PatchModelConfiguration(r.Context(), r.PathValue("instanceId"), presetID, modelID, selectedModelIDs)
 		if err != nil {
 			writeModelError(w, configuration, err)
 			return
 		}
 		writeModelConfiguration(w, http.StatusOK, configuration)
+	})
+}
+
+func fetchModelProviderCatalog(models ModelConfigurationService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if models == nil {
+			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Model catalog is unavailable.", Retryable: true})
+			return
+		}
+		presetID, secret, err := decodeClosedModelCatalogRequest(r)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorModelConfigInvalid), Message: "The model catalog request is invalid.", Retryable: false})
+			return
+		}
+		defer clearBytes(secret)
+		catalog, err := models.FetchModelProviderCatalog(r.Context(), r.PathValue("instanceId"), presetID, secret)
+		if err != nil {
+			writeModelError(w, app.ModelConfigurationView{}, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(ModelProviderCatalogResponse{
+			ProviderPresetID: catalog.ProviderPresetID, Items: append([]string(nil), catalog.Items...), FetchedAt: catalog.FetchedAt,
+		})
 	})
 }
 
@@ -142,13 +174,13 @@ func putModelCredential(models ModelConfigurationService) http.Handler {
 			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Model credentials are unavailable.", Retryable: true})
 			return
 		}
-		presetID, modelID, secret, err := decodeClosedModelCredential(r)
+		presetID, modelID, selectedModelIDs, secret, err := decodeClosedModelCredential(r)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorModelConfigInvalid), Message: "The model credential request is invalid.", Retryable: false})
 			return
 		}
 		defer clearBytes(secret)
-		configuration, err := models.SaveModelCredentialConfiguration(r.Context(), r.PathValue("instanceId"), presetID, modelID, secret)
+		configuration, err := models.SaveModelCredentialConfiguration(r.Context(), r.PathValue("instanceId"), presetID, modelID, selectedModelIDs, secret)
 		if err != nil {
 			writeModelError(w, configuration, err)
 			return
@@ -209,9 +241,17 @@ func newModelConfigurationResponse(configuration app.ModelConfigurationView) Mod
 	if validationState == "" {
 		validationState = "NOT_RUN"
 	}
+	selectedModelIDs := append([]string(nil), configuration.SelectedModelIDs...)
+	if len(selectedModelIDs) == 0 && configuration.ModelID != "" {
+		selectedModelIDs = []string{configuration.ModelID}
+	}
+	if selectedModelIDs == nil {
+		selectedModelIDs = []string{}
+	}
 	return ModelConfigurationResponse{
 		ProviderPresetID:     configuration.ProviderPresetID,
 		ModelID:              configuration.ModelID,
+		SelectedModelIDs:     selectedModelIDs,
 		State:                configuration.State,
 		CredentialConfigured: configuration.CredentialConfigured,
 		ObservedAt:           configuration.ObservedAt,
@@ -229,57 +269,93 @@ func writeModelCredential(w http.ResponseWriter, status int, credential app.Mode
 	})
 }
 
-func decodeClosedModelConfig(r *http.Request) (string, string, error) {
+func decodeClosedModelConfig(r *http.Request) (string, string, []string, error) {
 	if r.Body == nil {
-		return "", "", io.EOF
+		return "", "", nil, io.EOF
 	}
 	defer r.Body.Close()
 	payload, err := io.ReadAll(io.LimitReader(r.Body, maxModelConfigRequestBytes+1))
 	if err != nil || len(payload) == 0 || len(payload) > maxModelConfigRequestBytes {
-		return "", "", io.ErrUnexpectedEOF
+		return "", "", nil, io.ErrUnexpectedEOF
 	}
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.DisallowUnknownFields()
 	var body struct {
-		ProviderPresetID string `json:"providerPresetId"`
-		ModelID          string `json:"modelId"`
+		ProviderPresetID string   `json:"providerPresetId"`
+		ModelID          string   `json:"modelId"`
+		SelectedModelIDs []string `json:"selectedModelIds"`
 	}
 	if err := decoder.Decode(&body); err != nil || body.ProviderPresetID == "" || body.ModelID == "" {
-		return "", "", errors.New("invalid model configuration")
+		return "", "", nil, errors.New("invalid model configuration")
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return "", "", errors.New("trailing json")
+		return "", "", nil, errors.New("trailing json")
 	}
-	return body.ProviderPresetID, body.ModelID, nil
+	if len(body.SelectedModelIDs) == 0 {
+		body.SelectedModelIDs = []string{body.ModelID}
+	}
+	return body.ProviderPresetID, body.ModelID, body.SelectedModelIDs, nil
 }
 
-func decodeClosedModelCredential(r *http.Request) (string, string, []byte, error) {
+func decodeClosedModelCredential(r *http.Request) (string, string, []string, []byte, error) {
 	if r.Body == nil {
-		return "", "", nil, io.EOF
+		return "", "", nil, nil, io.EOF
 	}
 	defer r.Body.Close()
 	payload, err := io.ReadAll(io.LimitReader(r.Body, maxModelCredentialRequestBytes+1))
 	if err != nil || len(payload) == 0 || len(payload) > maxModelCredentialRequestBytes {
 		clearBytes(payload)
-		return "", "", nil, io.ErrUnexpectedEOF
+		return "", "", nil, nil, io.ErrUnexpectedEOF
+	}
+	defer clearBytes(payload)
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	var body struct {
+		ProviderPresetID string   `json:"providerPresetId"`
+		ModelID          string   `json:"modelId"`
+		SelectedModelIDs []string `json:"selectedModelIds"`
+		Value            string   `json:"value"`
+	}
+	if err := decoder.Decode(&body); err != nil || body.ProviderPresetID == "" || body.ModelID == "" || body.Value == "" {
+		return "", "", nil, nil, errors.New("invalid model credential")
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return "", "", nil, nil, errors.New("trailing json")
+	}
+	if len(body.SelectedModelIDs) == 0 {
+		body.SelectedModelIDs = []string{body.ModelID}
+	}
+	secret := []byte(body.Value)
+	body.Value = ""
+	return body.ProviderPresetID, body.ModelID, body.SelectedModelIDs, secret, nil
+}
+
+func decodeClosedModelCatalogRequest(r *http.Request) (string, []byte, error) {
+	if r.Body == nil {
+		return "", nil, io.EOF
+	}
+	defer r.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(r.Body, maxModelCredentialRequestBytes+1))
+	if err != nil || len(payload) == 0 || len(payload) > maxModelCredentialRequestBytes {
+		clearBytes(payload)
+		return "", nil, io.ErrUnexpectedEOF
 	}
 	defer clearBytes(payload)
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.DisallowUnknownFields()
 	var body struct {
 		ProviderPresetID string `json:"providerPresetId"`
-		ModelID          string `json:"modelId"`
 		Value            string `json:"value"`
 	}
-	if err := decoder.Decode(&body); err != nil || body.ProviderPresetID == "" || body.ModelID == "" || body.Value == "" {
-		return "", "", nil, errors.New("invalid model credential")
+	if err := decoder.Decode(&body); err != nil || body.ProviderPresetID == "" || body.Value == "" {
+		return "", nil, errors.New("invalid model catalog request")
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return "", "", nil, errors.New("trailing json")
+		return "", nil, errors.New("trailing json")
 	}
 	secret := []byte(body.Value)
 	body.Value = ""
-	return body.ProviderPresetID, body.ModelID, secret, nil
+	return body.ProviderPresetID, secret, nil
 }
 
 func clearBytes(value []byte) {
@@ -314,6 +390,8 @@ func writeModelError(w http.ResponseWriter, observed app.ModelConfigurationView,
 		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorModelCredentialWriteFailed), Message: "The model credential could not be saved.", Retryable: true})
 	case errors.Is(err, yorvaruntime.ErrModelCredentialDeleteFailed):
 		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorModelCredentialDeleteFailed), Message: "The model credential could not be deleted.", Retryable: true})
+	case errors.Is(err, yorvaruntime.ErrModelCatalogFetchFailed):
+		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorModelCatalogFetchFailed), Message: "The Provider model list could not be fetched.", Retryable: true})
 	case errors.Is(err, context.Canceled):
 		return
 	default:

@@ -91,7 +91,7 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	defer cancelRequests()
 	discovery := app.NewRuntimeDiscovery(registry, logger)
 	sourceSettings := downloadsources.NewService(database)
-	host := hermes.NewHostInstaller(message.DataDir).WithLogger(logger).WithEmbeddedSource(message.HermesEmbeddedSourcePath).WithDownloadSources(sourceSettings)
+	host := hermes.NewHostInstaller(message.DataDir).WithLogger(logger).WithEmbeddedSource(message.HermesEmbeddedSourcePath).WithEmbeddedPython(message.HermesPythonArchivePath).WithDownloadSources(sourceSettings)
 	installGate := install.NewGateHolder()
 	managedRoot := ""
 	if root, err := install.DefaultManagedRoot(); err != nil {

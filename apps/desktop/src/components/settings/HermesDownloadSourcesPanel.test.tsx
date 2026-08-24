@@ -6,9 +6,11 @@ import { messages } from "../../i18n";
 import { HermesDownloadSourcesPanel } from "./HermesDownloadSourcesPanel";
 
 const defaults: HermesDownloadSources = {
+  artifactPreference: "bundled-first",
   hermesArchiveUrl: "https://github.com/example/hermes.zip",
   nodeArchiveUrl: "https://npmmirror.com/mirrors/node/node.zip",
   npmArchiveUrl: "https://registry.npmmirror.com/npm/-/npm.tgz",
+  pythonArchiveUrl: "https://github.com/example/python.tar.gz",
   pythonIndexUrl: "https://pypi.tuna.tsinghua.edu.cn/simple",
   npmRegistryUrl: "https://registry.npmmirror.com",
 };
@@ -54,5 +56,17 @@ describe("HermesDownloadSourcesPanel", () => {
     await screen.findByDisplayValue(defaults.pythonIndexUrl);
     fireEvent.click(screen.getByRole("button", { name: "Restore China defaults" }));
     await waitFor(() => expect(client.resetHermesDownloadSources).toHaveBeenCalledOnce());
+  });
+
+  it("saves the selected online-first preference", async () => {
+    const client = settingsClient();
+    render(<HermesDownloadSourcesPanel copy={messages["zh-CN"]} client={client} />);
+    await screen.findByDisplayValue(defaults.pythonIndexUrl);
+    fireEvent.click(screen.getByRole("radio", { name: "优先线上地址下载" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存更改" }));
+    await waitFor(() => expect(client.saveHermesDownloadSources).toHaveBeenCalledWith({
+      ...defaults,
+      artifactPreference: "online-first",
+    }));
   });
 });

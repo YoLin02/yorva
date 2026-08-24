@@ -158,9 +158,10 @@ type Messages = {
     savedAutomatically: string;
     hermesSourcesTitle: string;
     hermesSourcesDescription: string;
-    hermesSourcesChinaDefault: string;
-    bundledFirstTitle: string;
-    bundledFirstDescription: string;
+    artifactPreferenceTitle: string;
+    artifactPreferenceDescription: string;
+    preferBundled: string;
+    preferOnline: string;
     artifactSourcesTitle: string;
     artifactSourcesDescription: string;
     dependencySourcesTitle: string;
@@ -171,6 +172,8 @@ type Messages = {
     nodeArchiveHelp: string;
     npmArchiveLabel: string;
     npmArchiveHelp: string;
+    pythonArchiveLabel: string;
+    pythonArchiveHelp: string;
     pythonIndexLabel: string;
     pythonIndexHelp: string;
     npmRegistryLabel: string;
@@ -320,6 +323,12 @@ type Messages = {
     provider: string;
     model: string;
     modelHint: string;
+    defaultModel: string;
+    fetchModels: string;
+    fetchingModels: string;
+    fetchModelsHint: string;
+    modelsLoaded: string;
+    noModels: string;
     apiKey: string;
     apiKeyPlaceholder: string;
     credentialConfigured: string;
@@ -571,19 +580,22 @@ const english: Messages = {
     savedAutomatically: "Saved automatically",
     hermesSourcesTitle: "Hermes download sources",
     hermesSourcesDescription: "Configure the artifact fallbacks and package registries used by new Hermes installation operations.",
-    hermesSourcesChinaDefault: "Mainland China defaults",
-    bundledFirstTitle: "Verified bundled artifacts are used first",
-    bundledFirstDescription: "The packaged Hermes, Node.js, and npm archives are preferred. Artifact URLs below are used only when the corresponding bundled file is unavailable.",
-    artifactSourcesTitle: "Artifact fallback URLs",
-    artifactSourcesDescription: "Downloaded archives must still match Yorva's pinned size and SHA-256 before they can be extracted.",
+    artifactPreferenceTitle: "Installation source priority",
+    artifactPreferenceDescription: "Choose which source Yorva tries first for pinned Hermes, Node.js, npm, and Python artifacts.",
+    preferBundled: "Prefer bundled packages",
+    preferOnline: "Prefer online downloads",
+    artifactSourcesTitle: "Online artifact addresses",
+    artifactSourcesDescription: "Online downloads must still match Yorva's pinned size and SHA-256. A transport failure may use the alternate source; an integrity failure always stops installation.",
     dependencySourcesTitle: "Dependency registries",
     dependencySourcesDescription: "These registries are applied to Python/uv/pip and npm dependency work for the next operation.",
     hermesArchiveLabel: "Hermes source archive",
-    hermesArchiveHelp: "Pinned Hermes 0.20.2 commit archive fallback.",
+    hermesArchiveHelp: "Verified Hermes source snapshot fallback used by this YORVA build.",
     nodeArchiveLabel: "Node.js archive",
     nodeArchiveHelp: "Pinned Node.js 22.23.1 Windows x64 archive fallback.",
     npmArchiveLabel: "npm archive",
     npmArchiveHelp: "Pinned npm 12.0.2 tarball fallback.",
+    pythonArchiveLabel: "Python interpreter archive",
+    pythonArchiveHelp: "Pinned CPython 3.11.15 Windows x64 archive.",
     pythonIndexLabel: "Python package index",
     pythonIndexHelp: "Used by uv and pip. The default is the Tsinghua TUNA PyPI mirror.",
     npmRegistryLabel: "npm registry",
@@ -753,12 +765,18 @@ const english: Messages = {
     open: "Models",
     close: "Close models",
     title: "Add model Provider",
-    description: "Choose a qualified Provider and model for this Instance. Saving does not contact the Provider.",
+    description: "Choose a Provider, load its available models, select one or more, and keep one as the default.",
     china: "Recommended in China",
     global: "Other compatible Providers",
     provider: "Provider",
     model: "Model",
-    modelHint: "Choose a recommendation or enter a reviewed model ID.",
+    modelHint: "Select one or more models. Exactly one selected model is used as the default.",
+    defaultModel: "Default",
+    fetchModels: "Get model list",
+    fetchingModels: "Getting models",
+    fetchModelsHint: "Uses the key above once; the key is not returned by read APIs.",
+    modelsLoaded: "Loaded {count} models from the Provider",
+    noModels: "Enter a key and get the model list, or choose a Provider recommendation.",
     apiKey: "API Key",
     apiKeyPlaceholder: "Enter a new key to save or replace it",
     credentialConfigured: "Credential configured",
@@ -780,7 +798,7 @@ const english: Messages = {
     errorCode: "Error code",
     validationAdvice: "Check the Provider key and model access, then run the test again.",
     providerHelp: {
-      qwen: "Hermes 0.20.2 uses the DashScope international compatible endpoint.",
+      qwen: "Hermes uses the qualified DashScope international compatible endpoint.",
       glm: "Hermes selects the qualified Z.AI endpoint for this provider.",
     },
     configState: { UNCONFIGURED: "Unconfigured", CONFIGURED: "Configured" },
@@ -1013,19 +1031,22 @@ const simplifiedChinese: Messages = {
     savedAutomatically: "已自动保存",
     hermesSourcesTitle: "Hermes 下载与依赖源",
     hermesSourcesDescription: "配置后续 Hermes 安装操作使用的安装包备用地址和依赖仓库。",
-    hermesSourcesChinaDefault: "中国大陆默认配置",
-    bundledFirstTitle: "优先使用已校验的内置安装包",
-    bundledFirstDescription: "安装版会优先使用内置的 Hermes、Node.js 和 npm 文件；只有对应内置文件不可用时，才会访问下方备用地址。",
-    artifactSourcesTitle: "安装包备用地址",
-    artifactSourcesDescription: "下载后的文件仍须匹配 Yorva 固定的大小和 SHA-256，校验通过后才能解压。",
+    artifactPreferenceTitle: "安装来源优先级",
+    artifactPreferenceDescription: "选择 Yorva 安装固定版本的 Hermes、Node.js、npm 与 Python 时优先尝试的来源。",
+    preferBundled: "优先内置安装包",
+    preferOnline: "优先线上地址下载",
+    artifactSourcesTitle: "线上安装包地址",
+    artifactSourcesDescription: "线上文件仍须匹配 Yorva 固定的大小和 SHA-256。网络不可用时可回退到另一来源；完整性校验失败会立即停止安装。",
     dependencySourcesTitle: "依赖仓库",
     dependencySourcesDescription: "这些地址会用于下一次安装中的 Python/uv/pip 与 npm 依赖下载。",
     hermesArchiveLabel: "Hermes 源码归档",
-    hermesArchiveHelp: "固定 Hermes 0.20.2 提交归档的备用地址。",
+    hermesArchiveHelp: "此 YORVA 构建使用的已验证 Hermes 源码快照备用地址。",
     nodeArchiveLabel: "Node.js 安装包",
     nodeArchiveHelp: "固定 Node.js 22.23.1 Windows x64 压缩包的备用地址。",
     npmArchiveLabel: "npm 安装包",
     npmArchiveHelp: "固定 npm 12.0.2 压缩包的备用地址。",
+    pythonArchiveLabel: "Python 解释器安装包",
+    pythonArchiveHelp: "固定 CPython 3.11.15 Windows x64 安装包。",
     pythonIndexLabel: "Python 软件源",
     pythonIndexHelp: "供 uv 和 pip 使用，默认采用清华 TUNA PyPI 镜像。",
     npmRegistryLabel: "npm 软件源",
@@ -1195,12 +1216,18 @@ const simplifiedChinese: Messages = {
     open: "模型",
     close: "关闭模型设置",
     title: "添加模型 Provider",
-    description: "为此实例选择已验证的 Provider 和模型。保存配置不会请求 Provider。",
+    description: "选择 Provider，获取其可用模型，可多选并指定一个默认模型。",
     china: "国内推荐",
     global: "其他兼容 Provider",
     provider: "Provider",
     model: "模型",
-    modelHint: "选择推荐模型，或输入已审核的 model ID。",
+    modelHint: "可选择一个或多个模型；其中必须有一个作为默认模型。",
+    defaultModel: "默认模型",
+    fetchModels: "获取模型列表",
+    fetchingModels: "正在获取模型",
+    fetchModelsHint: "仅使用上方 Key 发起本次请求；读取接口不会返回 Key。",
+    modelsLoaded: "已从 Provider 获取 {count} 个模型",
+    noModels: "输入 Key 获取模型列表，或先使用 Provider 推荐模型。",
     apiKey: "API Key",
     apiKeyPlaceholder: "输入新密钥以保存或替换",
     credentialConfigured: "凭据已配置",
@@ -1222,7 +1249,7 @@ const simplifiedChinese: Messages = {
     errorCode: "错误码",
     validationAdvice: "请检查 Provider 密钥和模型访问权限，然后重新测试。",
     providerHelp: {
-      qwen: "Hermes 0.20.2 使用 DashScope 国际兼容端点。",
+      qwen: "Hermes 使用已验证的 DashScope 国际兼容端点。",
       glm: "Hermes 会为此 Provider 选择已验证的 Z.AI 端点。",
     },
     configState: { UNCONFIGURED: "未配置", CONFIGURED: "已配置" },

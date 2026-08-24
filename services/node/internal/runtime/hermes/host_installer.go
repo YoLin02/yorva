@@ -24,6 +24,7 @@ type HostInstaller struct {
 	run                processRun
 	stateRoot          string
 	embeddedSourcePath string
+	embeddedPythonPath string
 	home               func() string
 	installDir         func() string
 	shell              func() (string, error)
@@ -31,6 +32,7 @@ type HostInstaller struct {
 	operationID        string
 	currentOp          operation.Operation
 	acquireArchive     func(context.Context, string) (string, string, error)
+	acquirePython      func(context.Context, string) (string, error)
 	verifyArchive      func(string) error
 	afterStage         func(stage, dir string)
 	env                install.EnvironmentStore
@@ -168,7 +170,7 @@ func (h *HostInstaller) resolveArchive(ctx context.Context, workDir string, sour
 	if h.acquireArchive != nil {
 		return h.acquireArchive(ctx, workDir)
 	}
-	if h.embeddedSourcePath != "" {
+	if sources.ArtifactPreference != downloadsources.PreferenceOnlineFirst && h.embeddedSourcePath != "" {
 		if err := h.checkArchive(h.embeddedSourcePath); err != nil {
 			return "", "", err
 		}
@@ -182,6 +184,14 @@ func (h *HostInstaller) resolveArchive(ctx context.Context, workDir string, sour
 	if err == nil {
 		h.debug("source.archive.official", "origin", sourceOriginOfficial)
 		return downloaded, sourceOriginOfficial, nil
+	}
+	if isTransportArchiveError(err) && h.embeddedSourcePath != "" {
+		h.debug("source.archive.configured_unavailable", archiveLogFields(err, sourceOriginOfficial)...)
+		if verifyErr := h.checkArchive(h.embeddedSourcePath); verifyErr != nil {
+			return "", "", verifyErr
+		}
+		h.debug("source.archive.bundled", "origin", sourceOriginBundled)
+		return h.embeddedSourcePath, sourceOriginBundled, nil
 	}
 	if !isTransportArchiveError(err) {
 		h.debug("source.archive.integrity", archiveLogFields(err, sourceOriginOfficial)...)
@@ -216,12 +226,12 @@ func (h *HostInstaller) checkArchive(path string) error {
 	return verifyArchiveFile(path)
 }
 
-func (h *HostInstaller) probe(ctx context.Context, powershell, script, probe, home, installDir string, sources downloadsources.Config, timeout time.Duration, parse func(string) error) error {
+func (h *HostInstaller) probe(ctx context.Context, powershell, script, probe, home, installDir string, sources downloadsources.Config, timeout time.Duration, parse func(string) error, pythonMirrorURL ...string) error {
 	invocation, err := probeInvocation(powershell, script, probe, home, installDir)
 	if err != nil {
 		return err
 	}
-	invocation.Environment = installerEnvironment(home, sources)
+	invocation.Environment = installerEnvironment(home, sources, pythonMirrorURL...)
 	result := h.run(ctx, invocation, timeout)
 	h.logCommand("installer.probe", probe, "", result)
 	if result.limited {
@@ -243,12 +253,12 @@ func parseProtocolOutput(output string) error {
 	return parseProtocolVersion(output)
 }
 
-func (h *HostInstaller) runStage(ctx context.Context, powershell, script, stage, home, installDir string, sources downloadsources.Config) error {
+func (h *HostInstaller) runStage(ctx context.Context, powershell, script, stage, home, installDir string, sources downloadsources.Config, pythonMirrorURL ...string) error {
 	invocation, err := stageInvocation(powershell, script, stage, home, installDir)
 	if err != nil {
 		return err
 	}
-	invocation.Environment = installerEnvironment(home, sources)
+	invocation.Environment = installerEnvironment(home, sources, pythonMirrorURL...)
 	result := h.run(ctx, invocation, stageTimeout(stage))
 	h.logCommand("installer.stage", stage, "", result)
 	if result.limited {

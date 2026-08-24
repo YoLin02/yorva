@@ -81,6 +81,7 @@ const (
 	ErrorModelCredentialQueryFailed   ErrorCode = "MODEL_CREDENTIAL_QUERY_FAILED"
 	ErrorModelCredentialWriteFailed   ErrorCode = "MODEL_CREDENTIAL_WRITE_FAILED"
 	ErrorModelCredentialDeleteFailed  ErrorCode = "MODEL_CREDENTIAL_DELETE_FAILED"
+	ErrorModelCatalogFetchFailed      ErrorCode = "MODEL_CATALOG_FETCH_FAILED"
 	ErrorModelValidationFailed        ErrorCode = "MODEL_VALIDATION_FAILED"
 	ErrorModelValidationTimedOut      ErrorCode = "MODEL_VALIDATION_TIMED_OUT"
 	ErrorModelValidationCancelled     ErrorCode = "MODEL_VALIDATION_CANCELLED"

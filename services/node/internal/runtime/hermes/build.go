@@ -47,6 +47,10 @@ func (h *HostInstaller) BuildGeneration(ctx context.Context, operationID, genera
 			return err
 		}
 	}
+	pythonMirrorURL, pythonMetadataURL, err := h.preparePythonMirror(ctx, workDir, sources)
+	if err != nil {
+		return err
+	}
 	script, err := h.obtainScript(ctx, archivePath, workDir)
 	if err != nil {
 		return err
@@ -61,10 +65,10 @@ func (h *HostInstaller) BuildGeneration(ctx context.Context, operationID, genera
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := h.probe(ctx, powershell, script.Path, "ProtocolVersion", hermesHome, generationDir, sources, 30*time.Second, parseProtocolOutput); err != nil {
+	if err := h.probe(ctx, powershell, script.Path, "ProtocolVersion", hermesHome, generationDir, sources, 30*time.Second, parseProtocolOutput, pythonMirrorURL, pythonMetadataURL); err != nil {
 		return err
 	}
-	if err := h.probe(ctx, powershell, script.Path, "Manifest", hermesHome, generationDir, sources, 30*time.Second, parseAndValidateManifest); err != nil {
+	if err := h.probe(ctx, powershell, script.Path, "Manifest", hermesHome, generationDir, sources, 30*time.Second, parseAndValidateManifest, pythonMirrorURL, pythonMetadataURL); err != nil {
 		return err
 	}
 	if err := verifyRegularFile(script.Path, h.source.source.ExpectedSize, h.source.source.ExpectedSHA); err != nil {
@@ -87,7 +91,7 @@ func (h *HostInstaller) BuildGeneration(ctx context.Context, operationID, genera
 			}
 			continue
 		case "config-templates":
-			if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, generationDir, sources); err != nil {
+			if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, generationDir, sources, pythonMirrorURL, pythonMetadataURL); err != nil {
 				h.debug("installer.stage.warning", "stage", stage, "reason", "config-templates-nonblocking")
 			}
 			if h.afterStage != nil {
@@ -95,7 +99,7 @@ func (h *HostInstaller) BuildGeneration(ctx context.Context, operationID, genera
 			}
 			continue
 		}
-		if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, generationDir, sources); err != nil {
+		if err := h.runStage(ctx, powershell, script.Path, stage, hermesHome, generationDir, sources, pythonMirrorURL, pythonMetadataURL); err != nil {
 			return err
 		}
 		if h.afterStage != nil {

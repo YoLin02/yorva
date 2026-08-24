@@ -15,7 +15,7 @@ import (
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
-const channelCredentialVersion = "0.20.2"
+const channelCredentialVersion = officialPackageVersion
 
 var channelIdentityPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,127}$`)
 

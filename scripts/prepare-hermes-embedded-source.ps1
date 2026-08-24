@@ -8,9 +8,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$commit = "df4b65147d7ddd74dd449f9067aabbca5aef0ec7"
-$expectedSize = 71869305
-$expectedSha = "2ED02F76AAF5DAB0BFD320BDBFA10AAD0F67E00CBBF87906CDE05462681708BA"
+$commit = "a0ca7c19204e514f9590ce3b812e029b315ab9e9"
+$expectedSize = 73798347
+$expectedSha = "4E63F39BD992B79BF364A4E22204A22B8E520E2365B53C909F6F15D42C917C54"
 $url = "https://codeload.github.com/NousResearch/hermes-agent/zip/$commit"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $cacheDir = Join-Path $repoRoot ".cache\hermes-source"
@@ -62,7 +62,7 @@ if (Test-OfficialArchive $resourceFile) {
 }
 
 if (-not (Test-OfficialArchive $cacheFile)) {
-    $knownTemp = Join-Path $env:TEMP "hermes-df4b651.zip"
+    $knownTemp = Join-Path $env:TEMP "hermes-a0ca7c1.zip"
     if (Test-OfficialArchive $knownTemp) {
         Copy-Item -LiteralPath $knownTemp -Destination $cacheFile -Force
     } else {

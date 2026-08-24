@@ -179,7 +179,7 @@ func newGenerationBuildEnv(t *testing.T) *generationBuildEnv {
 	t.Cleanup(server.Close)
 	archive := writeTestArchive(t, map[string]string{
 		officialArchiveRoot + "/LICENSE":             "license",
-		officialArchiveRoot + "/pyproject.toml":      `version = "0.20.2"`,
+		officialArchiveRoot + "/pyproject.toml":      `version = "` + officialPackageVersion + `"`,
 		officialArchiveRoot + "/scripts/install.ps1": "crlf-copy\r\n",
 		officialArchiveRoot + "/hermes_cli/main.py":  "pass\n",
 	})
@@ -200,6 +200,9 @@ func newGenerationBuildEnv(t *testing.T) *generationBuildEnv {
 	installer.archive.diskFree = func(string) (uint64, error) { return archiveDiskBudget + archiveDiskMargin, nil }
 	installer.acquireArchive = func(context.Context, string) (string, string, error) {
 		return archive, sourceOriginBundled, nil
+	}
+	installer.acquirePython = func(context.Context, string) (string, error) {
+		return "file:///C:/yorva-test-python-mirror", nil
 	}
 	installer.run = func(_ context.Context, invocation installInvocation, _ time.Duration) commandResult {
 		joined := strings.Join(invocation.Args, " ")

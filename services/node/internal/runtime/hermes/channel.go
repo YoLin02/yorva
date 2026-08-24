@@ -101,7 +101,7 @@ func validateChannelTarget(ctx context.Context, installation yorvaruntime.Channe
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if installation.Version != channelCredentialVersion || installation.Executable == "" || !filepath.IsAbs(installation.Executable) {
+	if !isSupportedHermesVersion(installation.Version) || installation.Executable == "" || !filepath.IsAbs(installation.Executable) {
 		return yorvaruntime.ErrChannelNotSupported
 	}
 	normalized, err := officialNormalizeProfileName(nativeID)
