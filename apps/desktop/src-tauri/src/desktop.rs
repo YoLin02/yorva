@@ -262,10 +262,11 @@ fn apply_autostart(app: &AppHandle, enabled: bool) -> Result<(), String> {
     use tauri_plugin_autostart::ManagerExt;
 
     let manager = app.autolaunch();
-    let current = manager.is_enabled().map_err(|error| error.to_string())?;
-    if enabled && !current {
+    if enabled {
+        // Re-register even when autostart is already enabled so an upgrade or
+        // relocated executable cannot leave the login item pointing at an old path.
         manager.enable().map_err(|error| error.to_string())?;
-    } else if !enabled && current {
+    } else if manager.is_enabled().map_err(|error| error.to_string())? {
         manager.disable().map_err(|error| error.to_string())?;
     }
     Ok(())
