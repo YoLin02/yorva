@@ -3,14 +3,17 @@
 - Prepared: 2026-08-24 (Asia/Shanghai)
 - Required baseline: `phase-005a1-post-freeze-corrections-baseline` ->
   `995777528557fa564a4c42e14f8431b8ddbd20e8`
-- Exact product implementation candidate:
+- Phase 6 implementation baseline before closeout correction:
   `276991bb64c11c43b8fa354d8a47f2b51436731f`
+- Current closeout code candidate:
+  `790076e8802b665d92866bf114bda775caf9e75b`
 - Candidate branch for closeout: `codex/phase6-closeout`
 - Gate state at handoff: **AUDIT; NOT ACCEPTED OR FROZEN**
 
-The exact product candidate is the committed `main` tree at `276991b`. Closeout
-evidence and audit-report commits may follow it without changing packaged product
-bytes. Every CI or package claim below names the exact commit it tested.
+The implementation baseline is the committed `main` tree at `276991b`. The closeout
+candidate adds evidence plus the narrow login-item path refresh correction at
+`790076e`. Every CI, package and smoke claim below names the exact commit or build it
+tested; the historical `276991b` runs are not represented as `790076e` runs.
 
 ## Historical integration and governance deviation
 
@@ -34,6 +37,7 @@ baseline tag are complete.
 | 8 correction | `dbd5d3201c7519a7b18e5d4e541534eb715b7ade` | QR rendering and stable failure presentation corrections. | `apps/desktop/src` |
 | 8A | `e4b1473a75ef4ca811ecbd5aac192dadb0d690b3` | Weixin-only pending pairing count and write-only eight-character approval flow, including Desktop UX and redaction/error coverage. | `api/`, `services/node/internal/app`, `runtime`, `runtime/hermes`, `transport/httpapi`, `apps/desktop/src` |
 | 8B | `276991bb64c11c43b8fa354d8a47f2b51436731f` | User-session tray, close-to-tray, packaged release login start, development-build exclusion, single-instance restore and explicit Quit shutdown; also final Channel UI refinements. | `apps/desktop/src-tauri`, `apps/desktop/src` |
+| Closeout correction | `790076e8802b665d92866bf114bda775caf9e75b` | Re-register an enabled login item so an existing stale executable path is refreshed to the current packaged candidate. | `apps/desktop/src-tauri` |
 
 ## Adjacent work not attributed to Phase 6
 
@@ -144,11 +148,13 @@ approval were exercised, so this handoff does not claim that manual fact.
 
 ## Batch 8B evidence state
 
-At `276991b`, the exact-candidate Windows CI job passed Rust library tests and the
-repository lifecycle smoke, and the source contains explicit tests for close-to-tray and
-Quit state. Packaged tray restore, explicit Quit, login-start and second-launch behavior
-still require a sanitized exact-build Windows smoke record. Automated success is not
-represented as that manual record.
+The sanitized exact-build Windows record is
+[`PHASE-006-WINDOWS-DESKTOP-CONTINUITY-SMOKE.md`](PHASE-006-WINDOWS-DESKTOP-CONTINUITY-SMOKE.md).
+It ties the clean `790076e` release executable and sidecar to digests, repeats default
+and named Profile lifecycle, records restart process postconditions, verifies
+close-to-tray, exact login registration/hidden start, the missing-login-item path and
+single-instance behavior, and includes the Owner-observed tray restore/Quit result.
+C2 passed without retaining a screenshot, PID, Profile name or account datum.
 
 ## Pending closeout verification
 
@@ -157,7 +163,6 @@ represented as that manual record.
 - focused checks for evidence/status changes and Batch 8A/8B code;
 - one complete immutable-candidate Gate after any required fix;
 - empty and Phase 5 migration verification plus explicit schema inspection;
-- exact-build default/named Profile lifecycle and Desktop continuity smoke;
 - safe post-smoke inspection and the limitations recorded in the Owner smoke evidence;
 - independent audit, any bounded remediation, and a fresh R1 re-audit after a FAIL;
 - exact-candidate CI, final-main CI, final evidence/status commit and annotated tag.
