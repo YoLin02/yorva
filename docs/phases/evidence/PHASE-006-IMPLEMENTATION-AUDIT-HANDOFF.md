@@ -7,8 +7,10 @@
   `276991bb64c11c43b8fa354d8a47f2b51436731f`
 - Audited first-Gate candidate:
   `3d2fecfd2c1bc4934f3934914a75efc97ef6b4e5` — `AUDIT-006` **FAIL**
-- Current remediation code candidate:
+- Current remediation code commit:
   `a9d903364d7e1403d649895d77367a5806be1b0c`
+- Locally gated remediation/evidence checkout before this handoff refresh:
+  `1029f5bc72044a4e7449564e0a7adb7c5b052f59`
 - Immutable first audit commit:
   `adbd5bf3047d858add6d850726472731ae3ab705`
 - Candidate branch for closeout: `codex/phase6-closeout`
@@ -48,6 +50,8 @@ baseline tag are complete.
 | Exact Windows C2 evidence | `3d2fecfd2c1bc4934f3934914a75efc97ef6b4e5` | Preserve the sanitized exact-build lifecycle, tray, login-start and single-instance record. | `docs/phases/evidence` |
 | Immutable first audit | `adbd5bf3047d858add6d850726472731ae3ab705` | Preserve `AUDIT-006` FAIL without editing its findings. | `docs/phases/audits` |
 | R1 production remediation | `a9d903364d7e1403d649895d77367a5806be1b0c` | Require a Stop-observed-then-Start Restart transition, contradiction-rejecting lifecycle parsing, explicit WeCom success, synchronized Channel cancellation/commit and closed lifecycle request bodies; add regressions and remove the mandatory diff-check whitespace. | Go Runtime/application/HTTP, OpenAPI and Desktop API client |
+| R1 documentation state | `5009781445c4db8c22d9073b9973ad90c9dd7c5f` | Record the immutable FAIL, bounded remediation and still-blocking real-flow evidence state. | `docs/phases`, `ROADMAP.md` |
+| R1 affected Windows evidence | `1029f5bc72044a4e7449564e0a7adb7c5b052f59` | Preserve the sanitized strict-parser and default/named restart re-smoke for the rebuilt remediation product. | `docs/phases/evidence` |
 
 ## Adjacent work not attributed to Phase 6
 
@@ -151,9 +155,35 @@ For the first audit candidate `3d2fecfd2c1bc4934f3934914a75efc97ef6b4e5`:
   its lifecycle, WeCom, cancellation, protocol, documentation and mandatory real-flow
   findings.
 
-The remediation candidate requires fresh affected Windows smoke, one complete Gate,
-one exact-candidate CI and a rebuilt/inspected MSI because the packaged Go sidecar
-changed. None is claimed complete in this handoff before it runs.
+### Remediation verification
+
+The production remediation was tested once with focused Go/API/Desktop checks, then
+the complete local Gate was run on the clean evidence successor
+`1029f5bc72044a4e7449564e0a7adb7c5b052f59` on 2026-08-24:
+
+- `pnpm install --frozen-lockfile` was already up to date; `pnpm audit --audit-level
+  low`, API lint/generation and generated-schema drift, typecheck, lint, all 98 Desktop
+  tests and the production Web build passed;
+- `go test ./...`, `go vet ./...`, `go build ./cmd/yorvad` and `govulncheck ./...`
+  passed with no known vulnerability;
+- Rust format, all 13 tests, clippy with warnings denied, check and audit passed. Audit
+  reported zero vulnerabilities and the same 17 inherited allowed maintenance or
+  target-specific warnings recorded by earlier frozen audits;
+- the remediation product was built with `tauri build --no-bundle` from clean product
+  checkout `5009781`; the docs-only successors do not change its packaged inputs;
+- the affected default/named Restart and strict-status-parser Windows re-smoke passed,
+  as recorded in `PHASE-006-WINDOWS-DESKTOP-CONTINUITY-SMOKE.md`.
+
+One remediation MSI was then built and inspected from the same product inputs:
+
+- file: `Yorva_0.3.2_x64_en-US.msi`;
+- size: 120,213,504 bytes;
+- SHA-256: `B942E637BE9BC59D6C5B603DA117C7AC9646CD254E88F36B1A609A0696FA8EFD`;
+- result: pinned six-input preparation passed and the MSI inventory inspector passed.
+
+Exact-candidate CI is intentionally deferred until the missing sanitized Owner flow
+matrix is committed. This avoids running CI twice for a docs-only evidence completion;
+it remains a Gate blocker, not a waived check.
 
 ## Batch 8A evidence state
 
@@ -183,12 +213,9 @@ C2 passed without retaining a screenshot, PID, Profile name or account datum.
 
 ## Pending closeout verification
 
-- rerun only the affected exact-build Windows lifecycle flows after the Restart/parser
-  remediation, retaining the already valid unrelated tray/login/single-instance result;
-- run one complete immutable-remediation Gate and exact-candidate CI;
-- rebuild/inspect one remediation MSI because the packaged Go sidecar changed;
 - obtain the missing sanitized mandatory real Weixin/WeCom substeps, including real
   sender approval and local disconnect outcomes, without retaining any sensitive value;
+- commit the final evidence-only successor and obtain its one exact-candidate CI run;
 - use a fresh independent context for `AUDIT-006R1` only after the technical Gate and
   mandatory evidence are complete;
 - after an R1 PASS, run the separate final-main/freeze/tag sequence.
