@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime 生命周期与消息通道
 
-> 状态：**审计通过 — C5 最终化中**
+> 状态：**COMPLETE / FROZEN**
 > 语言：中文 Owner 审阅源
 > Owner：Repository owner
 > 必需基线：`phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -889,7 +889,15 @@ Phase 6 只有在以下条件全部满足时才可通过：
   Medium 已在 `4cff18b` 修复；独立 `AUDIT-006R3` 在 exact candidate `8595617` 上
   **PASS**，CI run `32692682968` 成功。
 
-剩余完成证据：
+冻结记录：
 
-- merge 和一次 final-main CI；
-- 同步 `COMPLETE / FROZEN` 状态并建立 annotated Phase 6 baseline tag。
+- 接受的审计：`AUDIT-006R3-runtime-lifecycle-messaging-channels.md` — 在 candidate
+  `859561712583c67031d8110812df3a4236be6908` 上 **PASS**；
+- exact-candidate CI：run `32692682968` — **PASS**；
+- final-main merge：`0e0ef06ed707c20ea686cee098b9f7650c0a6f74`；CI run
+  `32694400178` 的 Web/API、Go Node 和 Windows Desktop native shell 均 **PASS**；
+- 已检查且用于 smoke 的 MSI SHA-256：
+  `B942E637BE9BC59D6C5B603DA117C7AC9646CD254E88F36B1A609A0696FA8EFD`；擦除型
+  TypeScript 契约/测试修复后无需重建；
+- 接受的债务或条件：无；
+- annotated baseline tag：`phase-006-runtime-lifecycle-messaging-channels-baseline`。

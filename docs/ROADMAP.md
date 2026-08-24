@@ -204,7 +204,7 @@ Exit criteria:
 
 ## Phase 6 — Runtime lifecycle and messaging channels
 
-Status: **AUDIT PASS — C5 FINALIZATION**
+Status: **COMPLETE / FROZEN**
 Specs: `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.zh-CN.md` (Owner review) and `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.md` (Agent execution mirror)
 Target baseline: `phase-005a1-post-freeze-corrections-baseline` -> `9957775`
 Execution authorization: **Owner authorized 2026-08-20**
@@ -214,6 +214,11 @@ First independent audit: [`AUDIT-006-runtime-lifecycle-messaging-channels.md`](p
 R1 audit: [`AUDIT-006R1-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006R1-runtime-lifecycle-messaging-channels.md) — **FAIL** (immutable; code PASS, evidence blocker)
 R2 audit: [`AUDIT-006R2-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006R2-runtime-lifecycle-messaging-channels.md) — **FAIL** (immutable; no Critical/High, one bounded OpenAPI Medium)
 Accepted audit: [`AUDIT-006R3-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006R3-runtime-lifecycle-messaging-channels.md) — **PASS**
+Baseline: `phase-006-runtime-lifecycle-messaging-channels-baseline`
+Audit-accepted candidate: `859561712583c67031d8110812df3a4236be6908`
+Final-main integration: `0e0ef06ed707c20ea686cee098b9f7650c0a6f74`; CI run [`32694400178`](https://github.com/YoLin02/yorva/actions/runs/32694400178) — **PASS**
+Inspected MSI SHA-256: `B942E637BE9BC59D6C5B603DA117C7AC9646CD254E88F36B1A609A0696FA8EFD`
+Accepted debt/conditions: **none**
 
 The lifecycle, Weixin, WeCom, sender-pairing and Desktop continuity batches are on
 `main`, which is recorded as a governance deviation rather than acceptance. The Owner
@@ -222,8 +227,9 @@ to the inspected remediation MSI without supplying sensitive values. First-audit
 candidate `3d2fecf`, remediation candidate `7e1123e` and sanitized-evidence candidate
 `13612db` had exact green CI. R2 accepted the mandatory real-channel evidence and found
 no Critical/High, but failed on the bounded lifecycle OpenAPI type defect. The narrow
-fix is `4cff18b`; exact candidate `8595617` passed CI run `32692682968`, and independent
-R3 returned PASS. Final-main CI, freeze status and the annotated baseline tag remain.
+fix is `4cff18b`; exact candidate `8595617` passed CI run `32692682968`, independent R3
+returned PASS, and final-main CI passed on merge `0e0ef06`. The accepted baseline is
+frozen by the annotated Phase 6 tag above.
 
 Goal: make a configured Instance operational, then deliver the key YORVA promise of one-click channel connection.
 

@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime Lifecycle and Messaging Channels
 
-> Status: **AUDIT PASS — C5 FINALIZATION**
+> Status: **COMPLETE / FROZEN**
 > Language: English execution mirror
 > Owner: Repository owner
 > Required baseline: `phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -891,7 +891,15 @@ pre-Batch-8A/8B record:
   independent `AUDIT-006R3`: **PASS** on exact candidate `8595617`, with CI run
   `32692682968` successful.
 
-The remaining completion evidence is:
+Freeze record:
 
-- merge and one final-main CI run;
-- synchronized `COMPLETE / FROZEN` status and the annotated Phase 6 baseline tag.
+- accepted audit: `AUDIT-006R3-runtime-lifecycle-messaging-channels.md` — **PASS** on
+  candidate `859561712583c67031d8110812df3a4236be6908`;
+- exact-candidate CI: run `32692682968` — **PASS**;
+- final-main merge: `0e0ef06ed707c20ea686cee098b9f7650c0a6f74`; CI run
+  `32694400178` — **PASS** for Web/API, Go Node and Windows Desktop native shell;
+- inspected smoke-tested MSI SHA-256:
+  `B942E637BE9BC59D6C5B603DA117C7AC9646CD254E88F36B1A609A0696FA8EFD`;
+  no rebuild was required after the erased TypeScript contract/test correction;
+- accepted debt or conditions: none;
+- annotated baseline tag: `phase-006-runtime-lifecycle-messaging-channels-baseline`.

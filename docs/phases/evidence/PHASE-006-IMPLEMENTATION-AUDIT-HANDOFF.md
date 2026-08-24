@@ -23,8 +23,12 @@
   `859561712583c67031d8110812df3a4236be6908`
 - Accepted R3 audit commit:
   `f8a0e6f937c3264df5fde9b818c4bbd58ef1d0ab`
+- Final-main integration commit:
+  `0e0ef06ed707c20ea686cee098b9f7650c0a6f74`
+- Final-main CI: run `32694400178` — **PASS**
+- Frozen baseline tag: `phase-006-runtime-lifecycle-messaging-channels-baseline`
 - Candidate branch for closeout: `codex/phase6-closeout`
-- Gate state at handoff: **AUDIT PASS / C5 FINALIZATION; NOT YET FROZEN**
+- Gate state at handoff: **COMPLETE / FROZEN**
 
 The implementation baseline is the committed `main` tree at `276991b`. The first
 closeout candidate added evidence plus the narrow login-item path refresh correction at
@@ -212,6 +216,13 @@ passed exact-candidate CI run `32692682968`: Web/API job `97329058369`, Go Node 
 `97329058444` and Windows Desktop native shell job `97329058561` all succeeded.
 Independent R3 returned PASS with no unresolved finding or accepted debt.
 
+The genuine closeout branch was merged to `main` at
+`0e0ef06ed707c20ea686cee098b9f7650c0a6f74`. Final-main CI run `32694400178`
+passed: Web/API job `97333721350`, Go Node job `97333721288` and Windows Desktop native
+shell job `97333721174` all succeeded. The MSI was not rebuilt because C5 added only
+audit/status records after the erased TypeScript contract/test correction; inspected
+runtime/package bytes did not change.
+
 ## Batch 8A evidence state
 
 Commit `e4b1473` includes adapter, application, HTTP/OpenAPI and Desktop coverage for:
@@ -237,11 +248,15 @@ close-to-tray, exact login registration/hidden start, the missing-login-item pat
 single-instance behavior, and includes the Owner-observed tray restore/Quit result.
 C2 passed without retaining a screenshot, PID, Profile name or account datum.
 
-## Pending closeout verification
+## Freeze completion
 
-- integrate the genuine closeout branch and obtain one final-main CI run;
-- record the exact final-main SHA/run, set `COMPLETE / FROZEN` and create the annotated
-  Phase 6 baseline tag.
+- independent R3 audit: PASS;
+- exact-candidate and final-main CI: PASS;
+- mandatory MSI, Windows and Owner-authenticated real-channel evidence: PASS;
+- accepted debt or conditions: none;
+- status: `COMPLETE / FROZEN`;
+- annotated tag: `phase-006-runtime-lifecycle-messaging-channels-baseline`;
+- Phase 7 was not started.
 
 ## Environment limitations known at handoff
 
