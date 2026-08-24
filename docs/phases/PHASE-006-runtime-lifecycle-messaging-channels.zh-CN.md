@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime 生命周期与消息通道
 
-> 状态：**AUDIT — 收口 Gate 进行中**
+> 状态：**AUDIT — AUDIT-006 FAIL / R1 修复进行中**
 > 语言：中文 Owner 审阅源
 > Owner：Repository owner
 > 必需基线：`phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -882,17 +882,15 @@ Phase 6 只有在以下条件全部满足时才可通过：
 - Owner 认证的真实微信/企业微信验证：已在
   `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md` 中以脱敏产品级证据记录；测试 build/MSI
   尚未建立映射；
-- 独立审计、merge/freeze 与 Phase 6 annotated tag：待完成。
+- 独立 `AUDIT-006`：在 `3d2fecf` 上 **FAIL**（不可变）；有界修复位于
+  `a9d9033`；R1、merge/freeze 与 Phase 6 annotated tag 仍待完成。
 
 剩余完成证据：
 
-- exact-commit CI run；
-- exact-build Windows lifecycle/Desktop continuity 和非秘密 Channel 检查；
-- migration evidence；
-- 补齐 Owner 脱敏证明未覆盖的 mandatory manual step；若仍需账号操作，则如实作为
-  Gate blocker；
-- 对当前可获得的 controlled value 执行 secret/QR inspection evidence；
-- audit report 和 Gate Decision；
-- merge commit；
-- final-main CI/MSI evidence；
-- annotated Phase 6 baseline tag。
+- 在 `a9d9033` Restart/parser 修复后重做受影响的 exact-build Windows lifecycle
+  检查；保留未变化的 tray/login/single-instance 证据；
+- 一次 exact-remediation-candidate Gate、CI run 和重新构建/检查的 MSI；
+- 补齐 Owner 脱敏证明未覆盖的全部 mandatory real-account step；若账号操作不可用，
+  则继续如实作为 Gate blocker；
+- 新鲜 `AUDIT-006R1` 及其 Gate Decision；
+- R1 PASS 后的 merge/final-main CI 证据和 annotated Phase 6 baseline tag。

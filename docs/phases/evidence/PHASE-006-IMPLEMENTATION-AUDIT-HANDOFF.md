@@ -5,15 +5,21 @@
   `995777528557fa564a4c42e14f8431b8ddbd20e8`
 - Phase 6 implementation baseline before closeout correction:
   `276991bb64c11c43b8fa354d8a47f2b51436731f`
-- Current closeout code candidate:
-  `790076e8802b665d92866bf114bda775caf9e75b`
+- Audited first-Gate candidate:
+  `3d2fecfd2c1bc4934f3934914a75efc97ef6b4e5` — `AUDIT-006` **FAIL**
+- Current remediation code candidate:
+  `a9d903364d7e1403d649895d77367a5806be1b0c`
+- Immutable first audit commit:
+  `adbd5bf3047d858add6d850726472731ae3ab705`
 - Candidate branch for closeout: `codex/phase6-closeout`
-- Gate state at handoff: **AUDIT; NOT ACCEPTED OR FROZEN**
+- Gate state at handoff: **AUDIT / R1 REMEDIATION; NOT ACCEPTED OR FROZEN**
 
-The implementation baseline is the committed `main` tree at `276991b`. The closeout
-candidate adds evidence plus the narrow login-item path refresh correction at
-`790076e`. Every CI, package and smoke claim below names the exact commit or build it
-tested; the historical `276991b` runs are not represented as `790076e` runs.
+The implementation baseline is the committed `main` tree at `276991b`. The first
+closeout candidate added evidence plus the narrow login-item path refresh correction at
+`790076e`, then the test-only `379e8c3` and Windows evidence-only `3d2fecf`. The immutable
+first audit failed `3d2fecf`; `a9d9033` is the bounded production remediation. Every CI,
+package and smoke claim below names the exact commit or build it tested. Historical
+results are not promoted to later candidates.
 
 ## Historical integration and governance deviation
 
@@ -38,6 +44,10 @@ baseline tag are complete.
 | 8A | `e4b1473a75ef4ca811ecbd5aac192dadb0d690b3` | Weixin-only pending pairing count and write-only eight-character approval flow, including Desktop UX and redaction/error coverage. | `api/`, `services/node/internal/app`, `runtime`, `runtime/hermes`, `transport/httpapi`, `apps/desktop/src` |
 | 8B | `276991bb64c11c43b8fa354d8a47f2b51436731f` | User-session tray, close-to-tray, packaged release login start, development-build exclusion, single-instance restore and explicit Quit shutdown; also final Channel UI refinements. | `apps/desktop/src-tauri`, `apps/desktop/src` |
 | Closeout correction | `790076e8802b665d92866bf114bda775caf9e75b` | Re-register an enabled login item so an existing stale executable path is refreshed to the current packaged candidate. | `apps/desktop/src-tauri` |
+| Closeout portability test | `379e8c3` | Use a platform-native temporary Hermes path in the WeCom commit-order test so Linux race CI exercises the intended assertion. | `services/node/internal/runtime/hermes` tests |
+| Exact Windows C2 evidence | `3d2fecfd2c1bc4934f3934914a75efc97ef6b4e5` | Preserve the sanitized exact-build lifecycle, tray, login-start and single-instance record. | `docs/phases/evidence` |
+| Immutable first audit | `adbd5bf3047d858add6d850726472731ae3ab705` | Preserve `AUDIT-006` FAIL without editing its findings. | `docs/phases/audits` |
+| R1 production remediation | `a9d903364d7e1403d649895d77367a5806be1b0c` | Require a Stop-observed-then-Start Restart transition, contradiction-rejecting lifecycle parsing, explicit WeCom success, synchronized Channel cancellation/commit and closed lifecycle request bodies; add regressions and remove the mandatory diff-check whitespace. | Go Runtime/application/HTTP, OpenAPI and Desktop API client |
 
 ## Adjacent work not attributed to Phase 6
 
@@ -131,6 +141,20 @@ The MSI above is exactly mapped to `276991b`, but it has not been identified as 
 build used for the Owner-authenticated real-account smoke. See
 `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`.
 
+For the first audit candidate `3d2fecfd2c1bc4934f3934914a75efc97ef6b4e5`:
+
+- CI run `32682397744`: **PASS**. Web/API job `97301207868`, Go Node job
+  `97301207985` and Windows Desktop native shell job `97301207948` all passed;
+- locally built and inspected MSI `Yorva_0.3.2_x64_en-US.msi`: 120,209,408 bytes,
+  SHA-256 `3CFFD45E75D2F41263833DCBCE98B51AABDAF3E58383663156352DFFA1E937CB`;
+- independent `AUDIT-006`: **FAIL**. Green automation/package evidence did not override
+  its lifecycle, WeCom, cancellation, protocol, documentation and mandatory real-flow
+  findings.
+
+The remediation candidate requires fresh affected Windows smoke, one complete Gate,
+one exact-candidate CI and a rebuilt/inspected MSI because the packaged Go sidecar
+changed. None is claimed complete in this handoff before it runs.
+
 ## Batch 8A evidence state
 
 Commit `e4b1473` includes adapter, application, HTTP/OpenAPI and Desktop coverage for:
@@ -142,9 +166,10 @@ Commit `e4b1473` includes adapter, application, HTTP/OpenAPI and Desktop coverag
 - no retry loop and no cross-Profile targeting;
 - localized form lifetime and clearing behavior.
 
-Exact closeout focused tests and independent audit review remain required. The Owner
-attestation does not separately state that a real sender-pairing request and Desktop
-approval were exercised, so this handoff does not claim that manual fact.
+The deterministic adapter/API/Desktop coverage passed on the first audit candidate and
+the full finding remediation requires its fresh Gate. The Owner attestation does not
+separately state that a real sender-pairing request and Desktop approval were exercised,
+so this handoff does not claim that manual fact.
 
 ## Batch 8B evidence state
 
@@ -158,14 +183,15 @@ C2 passed without retaining a screenshot, PID, Profile name or account datum.
 
 ## Pending closeout verification
 
-- diagnose and resolve the exact-candidate `go test -race ./...` failure without
-  weakening tests;
-- focused checks for evidence/status changes and Batch 8A/8B code;
-- one complete immutable-candidate Gate after any required fix;
-- empty and Phase 5 migration verification plus explicit schema inspection;
-- safe post-smoke inspection and the limitations recorded in the Owner smoke evidence;
-- independent audit, any bounded remediation, and a fresh R1 re-audit after a FAIL;
-- exact-candidate CI, final-main CI, final evidence/status commit and annotated tag.
+- rerun only the affected exact-build Windows lifecycle flows after the Restart/parser
+  remediation, retaining the already valid unrelated tray/login/single-instance result;
+- run one complete immutable-remediation Gate and exact-candidate CI;
+- rebuild/inspect one remediation MSI because the packaged Go sidecar changed;
+- obtain the missing sanitized mandatory real Weixin/WeCom substeps, including real
+  sender approval and local disconnect outcomes, without retaining any sensitive value;
+- use a fresh independent context for `AUDIT-006R1` only after the technical Gate and
+  mandatory evidence are complete;
+- after an R1 PASS, run the separate final-main/freeze/tag sequence.
 
 ## Environment limitations known at handoff
 

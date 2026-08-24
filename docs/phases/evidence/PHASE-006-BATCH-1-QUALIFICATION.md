@@ -70,3 +70,13 @@ was verified and remains independent from lifecycle `RUNNING`.
 - D7: accepted — QR retrieval is Operation-scoped and initiating-session-only.
 - D8: accepted — existing qualified bytes may be used; missing bytes require a new sealed generation.
 - D9: accepted — `CONNECTED` and `RUNNING` are independent states.
+
+## Closeout correction after AUDIT-006
+
+The qualified official `gateway restart` command remains available, but `AUDIT-006`
+showed that final `RUNNING` alone does not prove a successful transition. Remediation
+`a9d9033` therefore composes YORVA Restart as the fixed Profile-scoped Stop command,
+an authoritative observed `STOPPED` postcondition, the already-qualified registered or
+non-persistent Start command, and an authoritative single-process `RUNNING`
+postcondition. An unknown, contradictory or duplicate-process status fails closed.
+This changes no Hermes login persistence and uses no generic process/PID API.

@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime Lifecycle and Messaging Channels
 
-> Status: **AUDIT — CLOSEOUT GATE IN PROGRESS**
+> Status: **AUDIT — AUDIT-006 FAIL / R1 REMEDIATION IN PROGRESS**
 > Language: English execution mirror
 > Owner: Repository owner
 > Required baseline: `phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -881,17 +881,16 @@ pre-Batch-8A/8B record:
 - built Windows Desktop read-only Channel UX check: passed;
 - Owner-attested real Weixin/WeCom validation: recorded as sanitized product-level
   evidence in `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`; tested build/MSI not established;
-- independent audit, merge/freeze and annotated Phase 6 tag: pending.
+- independent `AUDIT-006`: **FAIL** on `3d2fecf` (immutable); bounded remediation at
+  `a9d9033`; R1, merge/freeze and annotated Phase 6 tag remain pending.
 
 The remaining completion evidence is:
 
-- exact-commit CI run;
-- exact-build Windows lifecycle/Desktop continuity and non-secret Channel checks;
-- migration evidence;
-- completion of every mandatory manual step not established by the sanitized Owner
-  attestation, or explicit Gate-blocker treatment where account action is required;
-- secret/QR inspection evidence for available controlled values;
-- audit report and Gate Decision;
-- merge commit;
-- final-main CI/MSI evidence;
-- annotated Phase 6 baseline tag.
+- affected exact-build Windows lifecycle checks after the `a9d9033` Restart/parser
+  remediation; unchanged tray/login/single-instance evidence is retained;
+- one exact-remediation-candidate Gate, CI run and rebuilt/inspected MSI;
+- completion of every mandatory real-account step not established by the sanitized
+  Owner attestation, or continued Gate-blocker treatment where account action is
+  unavailable;
+- fresh `AUDIT-006R1` and its Gate Decision;
+- merge/final-main CI evidence and the annotated Phase 6 baseline tag after R1 PASS.
