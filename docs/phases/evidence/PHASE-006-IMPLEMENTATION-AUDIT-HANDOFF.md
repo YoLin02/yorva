@@ -15,8 +15,12 @@
   `adbd5bf3047d858add6d850726472731ae3ab705`
 - Immutable R1 audit commit:
   `b9743832833c93552b99da736660e5ccd19272c4`
+- Immutable R2 audit commit:
+  `7d502cca72fe197139f3b9bd9864353926eca805`
+- Current R2 protocol correction:
+  `4cff18b72fd29f3fd79682e1063ee87583427e40`
 - Candidate branch for closeout: `codex/phase6-closeout`
-- Gate state at handoff: **AUDIT / R2 EVIDENCE REMEDIATION; NOT ACCEPTED OR FROZEN**
+- Gate state at handoff: **AUDIT / R3 CONTRACT REMEDIATION; NOT ACCEPTED OR FROZEN**
 
 The implementation baseline is the committed `main` tree at `276991b`. The first
 closeout candidate added evidence plus the narrow login-item path refresh correction at
@@ -54,6 +58,9 @@ baseline tag are complete.
 | R1 production remediation | `a9d903364d7e1403d649895d77367a5806be1b0c` | Require a Stop-observed-then-Start Restart transition, contradiction-rejecting lifecycle parsing, explicit WeCom success, synchronized Channel cancellation/commit and closed lifecycle request bodies; add regressions and remove the mandatory diff-check whitespace. | Go Runtime/application/HTTP, OpenAPI and Desktop API client |
 | R1 documentation state | `5009781445c4db8c22d9073b9973ad90c9dd7c5f` | Record the immutable FAIL, bounded remediation and still-blocking real-flow evidence state. | `docs/phases`, `ROADMAP.md` |
 | R1 affected Windows evidence | `1029f5bc72044a4e7449564e0a7adb7c5b052f59` | Preserve the sanitized strict-parser and default/named restart re-smoke for the rebuilt remediation product. | `docs/phases/evidence` |
+| Exact-MSI Owner evidence | `13612dbf157637f59fc4c8a7e24ad9d02de2a681` | Bind sanitized mandatory Weixin connection/pairing/disconnect and WeCom connection/disconnect outcomes to the inspected MSI. | `docs/phases/evidence`, Specs, `ROADMAP.md` |
+| Immutable R2 audit | `7d502cca72fe197139f3b9bd9864353926eca805` | Preserve the R2 FAIL: no Critical/High, mandatory real-channel evidence accepted, one bounded lifecycle OpenAPI contract Medium. | `docs/phases/audits` |
+| R2 protocol correction | `4cff18b` | Remove the displaced `const: false`, regenerate `Lifecycle.errorCode` as `string | null`, and add a compile-time contract regression. | OpenAPI and Desktop generated client/test |
 
 ## Adjacent work not attributed to Phase 6
 
@@ -189,6 +196,12 @@ passed exact-candidate CI run `32687028130`: Web/API job `97313876484`, Go Node 
 independent R1 audit found the code remediation acceptable and retained only the then-
 missing exact-MSI real-flow evidence blocker.
 
+Sanitized-evidence candidate `13612dbf157637f59fc4c8a7e24ad9d02de2a681`
+passed exact-candidate CI run `32690884232`: Web/API job `97324214804`, Go Node job
+`97324214903` and Windows Desktop native shell job `97324215036` all succeeded. R2
+accepted the mandatory real-channel evidence and found no Critical/High. Its sole Gate
+failure was the generated lifecycle OpenAPI type corrected at `4cff18b`.
+
 ## Batch 8A evidence state
 
 Commit `e4b1473` includes adapter, application, HTTP/OpenAPI and Desktop coverage for:
@@ -216,9 +229,9 @@ C2 passed without retaining a screenshot, PID, Profile name or account datum.
 
 ## Pending closeout verification
 
-- commit the exact-MSI Owner evidence successor and obtain its one exact-candidate CI;
-- use a fresh independent context for `AUDIT-006R2`;
-- after an R2 PASS, run the separate final-main/freeze/tag sequence.
+- obtain one exact-candidate CI for the OpenAPI correction successor;
+- use a fresh independent context for `AUDIT-006R3`;
+- after an R3 PASS, run the separate final-main/freeze/tag sequence.
 
 ## Environment limitations known at handoff
 

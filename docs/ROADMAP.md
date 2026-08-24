@@ -204,7 +204,7 @@ Exit criteria:
 
 ## Phase 6 — Runtime lifecycle and messaging channels
 
-Status: **AUDIT — AUDIT-006R1 FAIL / R2 EVIDENCE REMEDIATION**
+Status: **AUDIT — AUDIT-006R2 FAIL / R3 CONTRACT REMEDIATION**
 Specs: `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.zh-CN.md` (Owner review) and `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.md` (Agent execution mirror)
 Target baseline: `phase-005a1-post-freeze-corrections-baseline` -> `9957775`
 Execution authorization: **Owner authorized 2026-08-20**
@@ -212,14 +212,16 @@ Implementation handoff: [`PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md`](phases/evi
 Owner smoke: [`PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`](phases/evidence/PHASE-006-OWNER-AUTHENTICATED-SMOKE.md) — exact remediation MSI supplement recorded
 First independent audit: [`AUDIT-006-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006-runtime-lifecycle-messaging-channels.md) — **FAIL** (immutable)
 R1 audit: [`AUDIT-006R1-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006R1-runtime-lifecycle-messaging-channels.md) — **FAIL** (immutable; code PASS, evidence blocker)
+R2 audit: [`AUDIT-006R2-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006R2-runtime-lifecycle-messaging-channels.md) — **FAIL** (immutable; no Critical/High, one bounded OpenAPI Medium)
 
 The lifecycle, Weixin, WeCom, sender-pairing and Desktop continuity batches are on
 `main`, which is recorded as a governance deviation rather than acceptance. The Owner
 has now tied real Weixin connection/pairing/disconnect and WeCom connection/disconnect
 to the inspected remediation MSI without supplying sensitive values. First-audit
-candidate `3d2fecf` and remediation candidate `7e1123e` both had exact green CI;
-`AUDIT-006` and `AUDIT-006R1` remain immutable FAIL reports. The sanitized evidence
-successor requires one exact CI and a fresh R2 decision before C5.
+candidate `3d2fecf`, remediation candidate `7e1123e` and sanitized-evidence candidate
+`13612db` had exact green CI. R2 accepted the mandatory real-channel evidence and found
+no Critical/High, but failed on the bounded lifecycle OpenAPI type defect. The narrow
+fix is `4cff18b`; its exact successor CI and a fresh R3 decision remain required before C5.
 
 Goal: make a configured Instance operational, then deliver the key YORVA promise of one-click channel connection.
 
