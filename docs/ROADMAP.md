@@ -313,6 +313,13 @@ hashed. No source, executable, resource or packaging input changed after that ac
 
 ## Phase 7 — Runtime management completeness
 
+Status: **IN_PROGRESS — B0 PASS; B1 SURFACE QUALIFICATION**
+Specs: `docs/phases/PHASE-007-hermes-runtime-management-completeness.zh-CN.md` (Owner review) and `docs/phases/PHASE-007-hermes-runtime-management-completeness.md` (execution mirror)
+Baseline: `phase-0065-developer-led-demo-baseline` → `5f68e48f17e7e342e1781b37613b19d4bd1f060b`
+Branch: `codex/phase7-hermes-runtime-management`
+Owner decisions: P7-D1–D8 and B0–B10 **APPROVED** 2026-08-24
+Current batch: B1 — Hermes `0.20.5` official surface qualification; no product capability code before its Gate and required ADRs.
+
 Goal: make YORVA practical for daily local management.
 
 Candidate deliverables:
