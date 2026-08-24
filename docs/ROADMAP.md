@@ -279,11 +279,16 @@ Instance
 
 ## Phase 6.5 — Developer-led demo optimization
 
-Status: **AUDIT CANDIDATE — FREEZE PENDING**
+Status: **AUDIT PASS — MERGE / FINAL-MAIN / TAG PENDING**
 Spec: `docs/phases/PHASE-006.5-developer-led-demo-optimization.zh-CN.md`
 Target baseline: `phase-006-runtime-lifecycle-messaging-channels-baseline` → `7ca9103e7af210296a5e24916df01856539b550e`
 Proposed tag: `phase-0065-developer-led-demo-baseline`
 Owner authorization: accepted P6.5 changes may be committed, pushed, merged to `main`, and frozen after the candidate gate and audit pass (2026-08-24).
+Implementation candidate: `559245cf42c6ea07dbe4706676334a717b2173fd`
+Implementation handoff: [`PHASE-0065-IMPLEMENTATION-AUDIT-HANDOFF.md`](phases/evidence/PHASE-0065-IMPLEMENTATION-AUDIT-HANDOFF.md)
+Accepted audit: [`AUDIT-0065-developer-led-demo-baseline.md`](phases/audits/AUDIT-0065-developer-led-demo-baseline.md) — **PASS**
+Exact-candidate CI: [`32715890955`](https://github.com/YoLin02/yorva/actions/runs/32715890955) — **PASS**
+Exact-candidate Windows MSI: [`32715958209`](https://github.com/YoLin02/yorva/actions/runs/32715958209) — **PASS**
 
 Candidate scope:
 
