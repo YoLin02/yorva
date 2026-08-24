@@ -204,22 +204,22 @@ Exit criteria:
 
 ## Phase 6 — Runtime lifecycle and messaging channels
 
-Status: **AUDIT — AUDIT-006 FAIL / R1 REMEDIATION IN PROGRESS**
+Status: **AUDIT — AUDIT-006R1 FAIL / R2 EVIDENCE REMEDIATION**
 Specs: `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.zh-CN.md` (Owner review) and `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.md` (Agent execution mirror)
 Target baseline: `phase-005a1-post-freeze-corrections-baseline` -> `9957775`
 Execution authorization: **Owner authorized 2026-08-20**
 Implementation handoff: [`PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md`](phases/evidence/PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md)
-Owner smoke: [`PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`](phases/evidence/PHASE-006-OWNER-AUTHENTICATED-SMOKE.md) — product-level; exact build not established
+Owner smoke: [`PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`](phases/evidence/PHASE-006-OWNER-AUTHENTICATED-SMOKE.md) — exact remediation MSI supplement recorded
 First independent audit: [`AUDIT-006-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006-runtime-lifecycle-messaging-channels.md) — **FAIL** (immutable)
+R1 audit: [`AUDIT-006R1-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006R1-runtime-lifecycle-messaging-channels.md) — **FAIL** (immutable; code PASS, evidence blocker)
 
 The lifecycle, Weixin, WeCom, sender-pairing and Desktop continuity batches are on
 `main`, which is recorded as a governance deviation rather than acceptance. The Owner
-has attested that real Weixin and WeCom validation passed, but the result is not tied to
-an exact candidate build and does not establish unreported pairing, disconnect or
-message-response steps. First-audit candidate `3d2fecf` had exact CI, inspected MSI and
-Windows continuity evidence, but `AUDIT-006` failed it. Bounded remediation is at
-`a9d9033`; mandatory real-flow evidence and a fresh exact-candidate Gate/R1 audit remain
-required.
+has now tied real Weixin connection/pairing/disconnect and WeCom connection/disconnect
+to the inspected remediation MSI without supplying sensitive values. First-audit
+candidate `3d2fecf` and remediation candidate `7e1123e` both had exact green CI;
+`AUDIT-006` and `AUDIT-006R1` remain immutable FAIL reports. The sanitized evidence
+successor requires one exact CI and a fresh R2 decision before C5.
 
 Goal: make a configured Instance operational, then deliver the key YORVA promise of one-click channel connection.
 

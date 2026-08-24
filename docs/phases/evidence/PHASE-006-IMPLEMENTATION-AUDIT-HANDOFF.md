@@ -13,8 +13,10 @@
   `1029f5bc72044a4e7449564e0a7adb7c5b052f59`
 - Immutable first audit commit:
   `adbd5bf3047d858add6d850726472731ae3ab705`
+- Immutable R1 audit commit:
+  `b9743832833c93552b99da736660e5ccd19272c4`
 - Candidate branch for closeout: `codex/phase6-closeout`
-- Gate state at handoff: **AUDIT / R1 REMEDIATION; NOT ACCEPTED OR FROZEN**
+- Gate state at handoff: **AUDIT / R2 EVIDENCE REMEDIATION; NOT ACCEPTED OR FROZEN**
 
 The implementation baseline is the committed `main` tree at `276991b`. The first
 closeout candidate added evidence plus the narrow login-item path refresh correction at
@@ -181,9 +183,11 @@ One remediation MSI was then built and inspected from the same product inputs:
 - SHA-256: `B942E637BE9BC59D6C5B603DA117C7AC9646CD254E88F36B1A609A0696FA8EFD`;
 - result: pinned six-input preparation passed and the MSI inventory inspector passed.
 
-Exact-candidate CI is intentionally deferred until the missing sanitized Owner flow
-matrix is committed. This avoids running CI twice for a docs-only evidence completion;
-it remains a Gate blocker, not a waived check.
+Remediation evidence candidate `7e1123e216528ae1caf9818b6e0e32b173eeb4d1`
+passed exact-candidate CI run `32687028130`: Web/API job `97313876484`, Go Node job
+`97313876141` and Windows Desktop native shell job `97313876199` all succeeded. The
+independent R1 audit found the code remediation acceptable and retained only the then-
+missing exact-MSI real-flow evidence blocker.
 
 ## Batch 8A evidence state
 
@@ -196,10 +200,9 @@ Commit `e4b1473` includes adapter, application, HTTP/OpenAPI and Desktop coverag
 - no retry loop and no cross-Profile targeting;
 - localized form lifetime and clearing behavior.
 
-The deterministic adapter/API/Desktop coverage passed on the first audit candidate and
-the full finding remediation requires its fresh Gate. The Owner attestation does not
-separately state that a real sender-pairing request and Desktop approval were exercised,
-so this handoff does not claim that manual fact.
+The deterministic adapter/API/Desktop coverage passed. The supplemental Owner
+confirmation now records real pairing on the exact remediation MSI without retaining a
+sender, request or code value.
 
 ## Batch 8B evidence state
 
@@ -213,16 +216,13 @@ C2 passed without retaining a screenshot, PID, Profile name or account datum.
 
 ## Pending closeout verification
 
-- obtain the missing sanitized mandatory real Weixin/WeCom substeps, including real
-  sender approval and local disconnect outcomes, without retaining any sensitive value;
-- commit the final evidence-only successor and obtain its one exact-candidate CI run;
-- use a fresh independent context for `AUDIT-006R1` only after the technical Gate and
-  mandatory evidence are complete;
-- after an R1 PASS, run the separate final-main/freeze/tag sequence.
+- commit the exact-MSI Owner evidence successor and obtain its one exact-candidate CI;
+- use a fresh independent context for `AUDIT-006R2`;
+- after an R2 PASS, run the separate final-main/freeze/tag sequence.
 
 ## Environment limitations known at handoff
 
-- the real-account attestation is not tied to an exact commit or the CI MSI;
+- the supplemental real-account attestation is tied to the inspected remediation MSI;
 - the locally found `Yorva_0.3.2_x64_en-US.msi` contains unrelated embedded-Python
   packaging work and fails the `276991b` MSI inventory, so it is explicitly excluded;
 - the host is Windows 11 Pro x64 build 26200 and has Hermes `0.20.2`, but the recorded

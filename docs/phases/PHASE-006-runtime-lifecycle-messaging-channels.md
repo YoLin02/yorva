@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime Lifecycle and Messaging Channels
 
-> Status: **AUDIT — AUDIT-006 FAIL / R1 REMEDIATION IN PROGRESS**
+> Status: **AUDIT — AUDIT-006R1 FAIL / R2 EVIDENCE REMEDIATION**
 > Language: English execution mirror
 > Owner: Repository owner
 > Required baseline: `phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -879,18 +879,16 @@ pre-Batch-8A/8B record:
 - Channel implementation commits: `28b6f0f`, `b415f79`;
 - local Go, OpenAPI, Desktop and Tauri no-bundle verification: passed;
 - built Windows Desktop read-only Channel UX check: passed;
-- Owner-attested real Weixin/WeCom validation: recorded as sanitized product-level
-  evidence in `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`; tested build/MSI not established;
+- Owner-attested real Weixin/WeCom validation: recorded in
+  `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`; the supplemental confirmation ties Weixin
+  connection/pairing/disconnect and WeCom connection/disconnect to the inspected
+  remediation MSI without retaining sensitive values;
 - independent `AUDIT-006`: **FAIL** on `3d2fecf` (immutable); bounded remediation at
-  `a9d9033`; R1, merge/freeze and annotated Phase 6 tag remain pending.
+  `a9d9033`; `AUDIT-006R1`: **FAIL** on `7e1123e` (immutable), with code PASS and the
+  then-missing exact-MSI Owner evidence as its sole blocker.
 
 The remaining completion evidence is:
 
-- affected exact-build Windows lifecycle checks after the `a9d9033` Restart/parser
-  remediation; unchanged tray/login/single-instance evidence is retained;
-- one exact-remediation-candidate Gate, CI run and rebuilt/inspected MSI;
-- completion of every mandatory real-account step not established by the sanitized
-  Owner attestation, or continued Gate-blocker treatment where account action is
-  unavailable;
-- fresh `AUDIT-006R1` and its Gate Decision;
-- merge/final-main CI evidence and the annotated Phase 6 baseline tag after R1 PASS.
+- one exact CI run for the sanitized evidence successor;
+- fresh `AUDIT-006R2` and its Gate Decision;
+- merge/final-main CI evidence and the annotated Phase 6 baseline tag after R2 PASS.

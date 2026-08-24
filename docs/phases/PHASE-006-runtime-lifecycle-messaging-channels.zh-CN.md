@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime 生命周期与消息通道
 
-> 状态：**AUDIT — AUDIT-006 FAIL / R1 修复进行中**
+> 状态：**AUDIT — AUDIT-006R1 FAIL / R2 证据修复中**
 > 语言：中文 Owner 审阅源
 > Owner：Repository owner
 > 必需基线：`phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -879,18 +879,15 @@ Phase 6 只有在以下条件全部满足时才可通过：
 - 通道实现提交：`28b6f0f`、`b415f79`；
 - 本地 Go、OpenAPI、Desktop 与 Tauri no-bundle 验证：通过；
 - 已构建 Windows Desktop 的只读通道 UX 检查：通过；
-- Owner 认证的真实微信/企业微信验证：已在
-  `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md` 中以脱敏产品级证据记录；测试 build/MSI
-  尚未建立映射；
+- Owner 认证的真实微信/企业微信验证：已记录在
+  `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`；补充确认已将微信连接/配对/断开和企业微信
+  连接/断开绑定到经过检查的修复 MSI，且未保留敏感值；
 - 独立 `AUDIT-006`：在 `3d2fecf` 上 **FAIL**（不可变）；有界修复位于
-  `a9d9033`；R1、merge/freeze 与 Phase 6 annotated tag 仍待完成。
+  `a9d9033`；`AUDIT-006R1` 在 `7e1123e` 上 **FAIL**（不可变），代码为 PASS，当时唯一
+  阻断是尚未补齐的 exact-MSI Owner 证据。
 
 剩余完成证据：
 
-- 在 `a9d9033` Restart/parser 修复后重做受影响的 exact-build Windows lifecycle
-  检查；保留未变化的 tray/login/single-instance 证据；
-- 一次 exact-remediation-candidate Gate、CI run 和重新构建/检查的 MSI；
-- 补齐 Owner 脱敏证明未覆盖的全部 mandatory real-account step；若账号操作不可用，
-  则继续如实作为 Gate blocker；
-- 新鲜 `AUDIT-006R1` 及其 Gate Decision；
-- R1 PASS 后的 merge/final-main CI 证据和 annotated Phase 6 baseline tag。
+- 脱敏证据 successor 的一次 exact CI；
+- 新鲜 `AUDIT-006R2` 及其 Gate Decision；
+- R2 PASS 后的 merge/final-main CI 证据和 annotated Phase 6 baseline tag。
