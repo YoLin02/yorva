@@ -80,18 +80,26 @@ func verifyWeComCredentials(ctx context.Context, botID string, secret []byte) er
 		default:
 			continue
 		}
-		var envelope struct {
-			Headers map[string]string `json:"headers"`
-			ErrCode *int              `json:"errcode"`
-		}
-		if json.Unmarshal(response, &envelope) != nil || envelope.Headers["req_id"] != reqID {
+		matched, verifyErr := parseWeComSubscribeResponse(response, reqID)
+		if !matched {
 			continue
 		}
-		if envelope.ErrCode != nil && *envelope.ErrCode != 0 {
-			return yorvaruntime.ErrChannelAuthFailed
-		}
-		return nil
+		return verifyErr
 	}
+}
+
+func parseWeComSubscribeResponse(response []byte, reqID string) (bool, error) {
+	var envelope struct {
+		Headers map[string]string `json:"headers"`
+		ErrCode *int              `json:"errcode"`
+	}
+	if json.Unmarshal(response, &envelope) != nil || envelope.Headers["req_id"] != reqID {
+		return false, nil
+	}
+	if envelope.ErrCode == nil || *envelope.ErrCode != 0 {
+		return true, yorvaruntime.ErrChannelAuthFailed
+	}
+	return true, nil
 }
 
 func upgradeWeComWebSocket(connection net.Conn, reader *bufio.Reader) error {

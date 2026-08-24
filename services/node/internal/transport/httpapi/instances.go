@@ -190,6 +190,10 @@ func startInstanceLifecycle(service InstanceLifecycleService, action app.Lifecyc
 			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_IDEMPOTENCY_KEY", Message: "A valid Idempotency-Key header is required.", Retryable: false})
 			return
 		}
+		if err := decodeClosedEmptyObject(r); err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The lifecycle request must be a closed empty JSON object.", Retryable: false})
+			return
+		}
 		result, err := service.StartLifecycle(r.Context(), r.PathValue("instanceId"), action, key)
 		if err != nil {
 			writeInstanceError(w, err)

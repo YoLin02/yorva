@@ -12,9 +12,14 @@ import (
 )
 
 type fakeChannelManager struct {
-	statuses []yorvaruntime.ChannelStatus
-	ready    chan struct{}
-	release  chan struct{}
+	statuses         []yorvaruntime.ChannelStatus
+	ready            chan struct{}
+	release          chan struct{}
+	ignoreCancel     bool
+	cancelObserved   chan struct{}
+	disconnectReady  chan struct{}
+	disconnectReturn chan struct{}
+	disconnectCancel chan struct{}
 }
 
 func (f *fakeChannelManager) ListChannels(context.Context, yorvaruntime.ChannelInstallation, string) ([]yorvaruntime.ChannelStatus, error) {
@@ -26,7 +31,15 @@ func (f *fakeChannelManager) BeginConnect(ctx context.Context, _ yorvaruntime.Ch
 		if err := sink.Publish(yorvaruntime.ChannelEvent{Stage: "qr_ready", QRPayload: []byte("https://safe.example/ephemeral"), ExpiresAt: time.Now().Add(time.Minute)}); err != nil {
 			return yorvaruntime.ChannelStatus{}, err
 		}
-		close(f.ready)
+		if f.ready != nil {
+			close(f.ready)
+		}
+		if f.ignoreCancel {
+			<-ctx.Done()
+			close(f.cancelObserved)
+			<-f.release
+			return yorvaruntime.ChannelStatus{Type: request.Type, State: channel.Connected, AccountLabel: "safe", ExternalID: "external"}, nil
+		}
 		select {
 		case <-ctx.Done():
 			return yorvaruntime.ChannelStatus{}, ctx.Err()
@@ -36,8 +49,14 @@ func (f *fakeChannelManager) BeginConnect(ctx context.Context, _ yorvaruntime.Ch
 	return yorvaruntime.ChannelStatus{Type: request.Type, State: channel.Connected, AccountLabel: "safe", ExternalID: "external"}, nil
 }
 
-func (f *fakeChannelManager) Disconnect(context.Context, yorvaruntime.ChannelInstallation, string, channel.Type) (yorvaruntime.ChannelStatus, error) {
-	return yorvaruntime.ChannelStatus{Type: channel.Weixin, State: channel.NotConfigured}, nil
+func (f *fakeChannelManager) Disconnect(ctx context.Context, _ yorvaruntime.ChannelInstallation, _ string, kind channel.Type) (yorvaruntime.ChannelStatus, error) {
+	if f.disconnectReady != nil {
+		close(f.disconnectReady)
+		<-ctx.Done()
+		close(f.disconnectCancel)
+		<-f.disconnectReturn
+	}
+	return yorvaruntime.ChannelStatus{Type: kind, State: channel.NotConfigured}, nil
 }
 
 func (f *fakeChannelManager) PairingStatus(context.Context, yorvaruntime.ChannelInstallation, string, channel.Type) (yorvaruntime.ChannelPairingStatus, error) {
@@ -82,6 +101,105 @@ func TestChannelQRIsAvailableOnlyToInitiatingSessionAndClearedOnCancel(t *testin
 	}
 	if _, err := inventory.GetChannelQR(context.Background(), started.Operation.ID, owner); err == nil {
 		t.Fatal("cancelled operation retained QR")
+	}
+}
+
+func TestChannelCancelCannotOverwriteCommittedConnectSuccess(t *testing.T) {
+	manager := &fakeChannelManager{
+		statuses:       []yorvaruntime.ChannelStatus{{Type: channel.Weixin, State: channel.NotConfigured}},
+		ready:          make(chan struct{}),
+		release:        make(chan struct{}),
+		ignoreCancel:   true,
+		cancelObserved: make(chan struct{}),
+	}
+	inventory, _ := newTestInventoryWithManagers(t, []ProfileSnapshot{{NativeID: "default", Default: true}}, nil, nil, manager)
+	listed, err := inventory.ListInstances(context.Background(), "hermes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := inventory.StartChannelConnect(context.Background(), listed.Instances[0].InstanceID, "channel-connect-boundary-1", "desktop_session_owner_123456", ChannelConnectInput{Type: channel.Weixin})
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-manager.ready:
+	case <-time.After(time.Second):
+		t.Fatal("connect did not reach commit boundary")
+	}
+	cancelResult := make(chan operation.Operation, 1)
+	cancelError := make(chan error, 1)
+	go func() {
+		value, cancelErr := inventory.CancelChannel(context.Background(), started.Operation.ID)
+		cancelResult <- value
+		cancelError <- cancelErr
+	}()
+	select {
+	case <-manager.cancelObserved:
+	case <-time.After(time.Second):
+		t.Fatal("connect did not observe cancellation")
+	}
+	select {
+	case <-cancelResult:
+		t.Fatal("cancel completed while the native mutation still owned the commit boundary")
+	default:
+	}
+	close(manager.release)
+	value := <-cancelResult
+	if cancelErr := <-cancelError; cancelErr != nil || value.Status != operation.StatusSucceeded {
+		t.Fatalf("cancel result = %#v, %v", value, cancelErr)
+	}
+	binding, exists, err := inventory.db.GetChannelBinding(context.Background(), listed.Instances[0].InstanceID, channel.Weixin)
+	if err != nil || !exists || binding.State != channel.Connected {
+		t.Fatalf("binding = %#v exists=%v err=%v", binding, exists, err)
+	}
+}
+
+func TestChannelCancelCannotOverwriteCommittedDisconnectSuccess(t *testing.T) {
+	manager := &fakeChannelManager{
+		statuses:         []yorvaruntime.ChannelStatus{{Type: channel.WeCom, State: channel.Connected}},
+		disconnectReady:  make(chan struct{}),
+		disconnectReturn: make(chan struct{}),
+		disconnectCancel: make(chan struct{}),
+	}
+	inventory, _ := newTestInventoryWithManagers(t, []ProfileSnapshot{{NativeID: "default", Default: true}}, nil, nil, manager)
+	listed, err := inventory.ListInstances(context.Background(), "hermes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := inventory.StartChannelDisconnect(context.Background(), listed.Instances[0].InstanceID, "channel-disconnect-boundary-1", channel.WeCom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-manager.disconnectReady:
+	case <-time.After(time.Second):
+		t.Fatal("disconnect did not reach commit boundary")
+	}
+	cancelResult := make(chan operation.Operation, 1)
+	cancelError := make(chan error, 1)
+	go func() {
+		value, cancelErr := inventory.CancelChannel(context.Background(), started.Operation.ID)
+		cancelResult <- value
+		cancelError <- cancelErr
+	}()
+	select {
+	case <-manager.disconnectCancel:
+	case <-time.After(time.Second):
+		t.Fatal("disconnect did not observe cancellation")
+	}
+	select {
+	case <-cancelResult:
+		t.Fatal("cancel completed while disconnect still owned the commit boundary")
+	default:
+	}
+	close(manager.disconnectReturn)
+	value := <-cancelResult
+	if cancelErr := <-cancelError; cancelErr != nil || value.Status != operation.StatusSucceeded {
+		t.Fatalf("cancel result = %#v, %v", value, cancelErr)
+	}
+	binding, exists, err := inventory.db.GetChannelBinding(context.Background(), listed.Instances[0].InstanceID, channel.WeCom)
+	if err != nil || !exists || binding.State != channel.NotConfigured {
+		t.Fatalf("binding = %#v exists=%v err=%v", binding, exists, err)
 	}
 }
 

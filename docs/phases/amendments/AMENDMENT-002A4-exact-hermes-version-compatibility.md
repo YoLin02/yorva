@@ -1,8 +1,8 @@
 # Amendment 002A4 — Exact Hermes 0.20.2 Compatibility
 
-> Status: IMPLEMENTED / TARGETED AUDIT PENDING  
-> Owner approval: 2026-08-21  
-> Affected baseline: Phase 2 Hermes discovery compatibility policy  
+> Status: IMPLEMENTED / TARGETED AUDIT PENDING
+> Owner approval: 2026-08-21
+> Affected baseline: Phase 2 Hermes discovery compatibility policy
 > Classification: post-freeze correctness correction
 
 ## Context

@@ -895,6 +895,12 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosedEmptyObject"
       responses:
         "202":
           description: The instance.start Operation was accepted.
@@ -935,6 +941,12 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosedEmptyObject"
       responses:
         "202":
           description: The instance.stop Operation was accepted.
@@ -975,6 +987,12 @@ paths:
         - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosedEmptyObject"
       responses:
         "202":
           description: The instance.restart Operation was accepted.

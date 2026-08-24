@@ -271,14 +271,24 @@ func (s *InstanceInventory) CancelChannel(ctx context.Context, operationID strin
 	if cancel != nil {
 		cancel()
 	}
+	unlock := s.lockInstance(current.TargetID)
+	defer unlock()
+	commitCtx := context.Background()
+	current, err = s.db.GetOperation(commitCtx, operationID)
+	if err != nil {
+		return operation.Operation{}, err
+	}
+	if operation.IsTerminal(current.Status) {
+		return current, nil
+	}
 	now := s.now()
 	next := current
 	next.Status = operation.StatusCancelled
 	next.ErrorCode = yorvaruntime.ErrorChannelAuthCancelled
 	next.CompletedAt = &now
 	next.UpdatedAt = now
-	if err := s.db.UpdateOperation(ctx, current, next); err != nil {
-		latest, getErr := s.db.GetOperation(ctx, operationID)
+	if err := s.db.UpdateOperation(commitCtx, current, next); err != nil {
+		latest, getErr := s.db.GetOperation(commitCtx, operationID)
 		if getErr == nil && operation.IsTerminal(latest.Status) {
 			return latest, nil
 		}

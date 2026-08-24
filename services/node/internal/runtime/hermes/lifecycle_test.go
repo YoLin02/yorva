@@ -40,6 +40,19 @@ func TestParseLifecycleStatusAcceptsExactManualGatewaySignals(t *testing.T) {
 	}
 }
 
+func TestParseLifecycleStatusRejectsContradictionsAndChangedSignals(t *testing.T) {
+	for _, output := range []string{
+		"✓ Scheduled Task registered: Hermes_Gateway\n✓ Gateway process running (PID: 12)\n✗ Gateway is not running\n",
+		"✓ Scheduled Task registered: Hermes_Gateway\n✓ Gateway process running (PID: 12, 13)\n",
+		"✓ Scheduled Task registered: Hermes_Gateway\nGateway process running eventually\n",
+		"✓ Scheduled Task registered:\n✓ Gateway process running (PID: 12)\n",
+	} {
+		if _, err := parseLifecycleStatus(output); !errors.Is(err, yorvaruntime.ErrLifecycleOutputUnrecognized) {
+			t.Fatalf("unsafe output accepted: %q, %v", output, err)
+		}
+	}
+}
+
 func TestLifecycleStartWithoutLoginItemUsesFixedNonPersistentOfficialPath(t *testing.T) {
 	executable := filepath.Join(t.TempDir(), "hermes.exe")
 	installation := yorvaruntime.LifecycleInstallation{Executable: executable, Version: lifecycleOfficialVersion}
@@ -80,6 +93,73 @@ func TestLifecycleRestartStoppedFailsWithoutMutation(t *testing.T) {
 	}}
 	err := manager.Restart(context.Background(), yorvaruntime.LifecycleInstallation{Executable: executable, Version: lifecycleOfficialVersion}, "default")
 	if !errors.Is(err, yorvaruntime.ErrInstanceNotRunning) || calls != 1 {
+		t.Fatalf("restart = %v calls=%d", err, calls)
+	}
+}
+
+func TestLifecycleRestartProvesStoppedBeforeRegisteredOrManualStart(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		registered bool
+		initial    string
+		stopped    string
+		running    string
+	}{
+		{name: "registered", registered: true, initial: "✓ Scheduled Task registered: Hermes_Gateway\n✓ Gateway process running (PID: 12)\n", stopped: "✓ Scheduled Task registered: Hermes_Gateway\n✗ No gateway process detected\n", running: "✓ Scheduled Task registered: Hermes_Gateway\n✓ Gateway process running (PID: 13)\n"},
+		{name: "manual", initial: "✗ Gateway service not installed\n✓ Gateway process running (PID: 12)\n", stopped: "✗ Gateway service not installed\n✗ No gateway process detected\n", running: "✗ Gateway service not installed\n✓ Gateway process running (PID: 13)\n"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			executable := filepath.Join(t.TempDir(), "hermes.exe")
+			type call struct {
+				args           []string
+				allowBreakaway bool
+			}
+			var calls []call
+			manager := &LifecycleManager{run: func(_ context.Context, _ string, args []string, allowBreakaway bool) commandResult {
+				calls = append(calls, call{args: append([]string(nil), args...), allowBreakaway: allowBreakaway})
+				switch len(calls) {
+				case 1:
+					return commandResult{stdout: test.initial, exitCode: 0}
+				case 2:
+					return commandResult{exitCode: 0}
+				case 3:
+					return commandResult{stdout: test.stopped, exitCode: 0}
+				case 4:
+					return commandResult{exitCode: 0}
+				case 5:
+					return commandResult{stdout: test.running, exitCode: 0}
+				default:
+					t.Fatalf("unexpected call %d", len(calls))
+					return commandResult{}
+				}
+			}}
+			if err := manager.Restart(context.Background(), yorvaruntime.LifecycleInstallation{Executable: executable, Version: lifecycleOfficialVersion}, "default"); err != nil {
+				t.Fatal(err)
+			}
+			wantStart := lifecycleStartArgs("default", test.registered)
+			if len(calls) != 5 || !reflect.DeepEqual(calls[1].args, lifecycleStopArgs("default")) || calls[1].allowBreakaway || !reflect.DeepEqual(calls[3].args, wantStart) || !calls[3].allowBreakaway {
+				t.Fatalf("calls = %#v", calls)
+			}
+		})
+	}
+}
+
+func TestLifecycleRestartDoesNotStartBeforeStoppedPostcondition(t *testing.T) {
+	executable := filepath.Join(t.TempDir(), "hermes.exe")
+	ctx, cancel := context.WithCancel(context.Background())
+	var calls int
+	manager := &LifecycleManager{run: func(_ context.Context, _ string, _ []string, _ bool) commandResult {
+		calls++
+		if calls == 2 {
+			return commandResult{exitCode: 0}
+		}
+		if calls == 3 {
+			cancel()
+		}
+		return commandResult{stdout: "✓ Scheduled Task registered: Hermes_Gateway\n✓ Gateway process running (PID: 12)\n", exitCode: 0}
+	}}
+	err := manager.Restart(ctx, yorvaruntime.LifecycleInstallation{Executable: executable, Version: lifecycleOfficialVersion}, "default")
+	if !errors.Is(err, context.Canceled) || calls != 3 {
 		t.Fatalf("restart = %v calls=%d", err, calls)
 	}
 }
