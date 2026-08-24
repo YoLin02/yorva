@@ -204,9 +204,19 @@ Exit criteria:
 
 ## Phase 6 — Runtime lifecycle and messaging channels
 
-Status: **DRAFT — OWNER REVIEW REQUIRED — IMPLEMENTATION NOT AUTHORIZED**
+Status: **AUDIT — CLOSEOUT EVIDENCE AND EXACT-CANDIDATE GATE IN PROGRESS**
 Specs: `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.zh-CN.md` (Owner review) and `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.md` (Agent execution mirror)
-Target baseline: `phase-005-models-credentials-baseline`
+Target baseline: `phase-005a1-post-freeze-corrections-baseline` -> `9957775`
+Execution authorization: **Owner authorized 2026-08-20**
+Implementation handoff: [`PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md`](phases/evidence/PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md)
+Owner smoke: [`PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`](phases/evidence/PHASE-006-OWNER-AUTHENTICATED-SMOKE.md) — product-level; exact build not established
+
+The lifecycle, Weixin, WeCom, sender-pairing and Desktop continuity batches are on
+`main`, which is recorded as a governance deviation rather than acceptance. The Owner
+has attested that real Weixin and WeCom validation passed, but the result is not tied to
+an exact candidate build and does not establish unreported pairing, disconnect or
+message-response steps. Exact-candidate CI, Windows lifecycle/Desktop continuity
+evidence and an independent audit remain required.
 
 Goal: make a configured Instance operational, then deliver the key YORVA promise of one-click channel connection.
 
@@ -232,7 +242,10 @@ Deliverables:
 - QR/login Operation;
 - live QR state events;
 - success/failure/timeout states;
-- no durable QR credential storage.
+- no durable QR credential storage;
+- Weixin sender-pairing pending count and write-only approval;
+- user-session tray, close-to-tray, packaged login start and single-instance restore
+  without Hermes `ON_LOGIN`, elevation or Instance startup.
 
 Exit criteria:
 

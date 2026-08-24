@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime Lifecycle and Messaging Channels
 
-> Status: **READY — IMPLEMENTATION AUTHORIZED**
+> Status: **AUDIT — CLOSEOUT GATE IN PROGRESS**
 > Language: English execution mirror
 > Owner: Repository owner
 > Required baseline: `phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -870,22 +870,27 @@ Stop and return to Owner review if:
 
 ## 30. Completion Evidence
 
-Implementation candidate recorded in
-`docs/phases/evidence/PHASE-006-BATCHES-2-8-IMPLEMENTATION.md`:
+Implementation candidate and closeout scope are recorded in
+`docs/phases/evidence/PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md`. The earlier
+`docs/phases/evidence/PHASE-006-BATCHES-2-8-IMPLEMENTATION.md` remains as a historical
+pre-Batch-8A/8B record:
 
 - lifecycle implementation commits: `2e03a78`, `acf4139`;
 - Channel implementation commits: `28b6f0f`, `b415f79`;
 - local Go, OpenAPI, Desktop and Tauri no-bundle verification: passed;
 - built Windows Desktop read-only Channel UX check: passed;
-- real owner-authenticated Weixin/WeCom smoke: pending;
+- Owner-attested real Weixin/WeCom validation: recorded as sanitized product-level
+  evidence in `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`; tested build/MSI not established;
 - independent audit, merge/freeze and annotated Phase 6 tag: pending.
 
 The remaining completion evidence is:
 
 - exact-commit CI run;
-- Windows lifecycle and Channel smoke record;
+- exact-build Windows lifecycle/Desktop continuity and non-secret Channel checks;
 - migration evidence;
-- secret/QR inspection evidence;
+- completion of every mandatory manual step not established by the sanitized Owner
+  attestation, or explicit Gate-blocker treatment where account action is required;
+- secret/QR inspection evidence for available controlled values;
 - audit report and Gate Decision;
 - merge commit;
 - final-main CI/MSI evidence;

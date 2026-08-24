@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime 生命周期与消息通道
 
-> 状态：**READY — IMPLEMENTATION AUTHORIZED**
+> 状态：**AUDIT — 收口 Gate 进行中**
 > 语言：中文 Owner 审阅源
 > Owner：Repository owner
 > 必需基线：`phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -870,22 +870,28 @@ Phase 6 只有在以下条件全部满足时才可通过：
 
 ## 30. 完成证据
 
-实现候选已记录在
-`docs/phases/evidence/PHASE-006-BATCHES-2-8-IMPLEMENTATION.md`：
+实现候选和收口范围已记录在
+`docs/phases/evidence/PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md`。较早的
+`docs/phases/evidence/PHASE-006-BATCHES-2-8-IMPLEMENTATION.md` 继续作为 Batch 8A/8B
+之前的历史记录保留：
 
 - 生命周期实现提交：`2e03a78`、`acf4139`；
 - 通道实现提交：`28b6f0f`、`b415f79`；
 - 本地 Go、OpenAPI、Desktop 与 Tauri no-bundle 验证：通过；
 - 已构建 Windows Desktop 的只读通道 UX 检查：通过；
-- 真实 Owner 认证的微信/企业微信 smoke：待完成；
+- Owner 认证的真实微信/企业微信验证：已在
+  `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md` 中以脱敏产品级证据记录；测试 build/MSI
+  尚未建立映射；
 - 独立审计、merge/freeze 与 Phase 6 annotated tag：待完成。
 
 剩余完成证据：
 
 - exact-commit CI run；
-- Windows lifecycle 和 Channel smoke record；
+- exact-build Windows lifecycle/Desktop continuity 和非秘密 Channel 检查；
 - migration evidence；
-- secret/QR inspection evidence；
+- 补齐 Owner 脱敏证明未覆盖的 mandatory manual step；若仍需账号操作，则如实作为
+  Gate blocker；
+- 对当前可获得的 controlled value 执行 secret/QR inspection evidence；
 - audit report 和 Gate Decision；
 - merge commit；
 - final-main CI/MSI evidence；
