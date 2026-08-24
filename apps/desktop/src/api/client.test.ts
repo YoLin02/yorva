@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createDaemonClient, YorvaApiError } from "./client";
+import type { Lifecycle } from "./types";
 
 const session = {
   baseUrl: "http://127.0.0.1:49152",
@@ -12,6 +13,10 @@ afterEach(() => {
 });
 
 describe("daemon client", () => {
+  it("types lifecycle error codes as nullable stable codes", () => {
+    expectTypeOf<Lifecycle["errorCode"]>().toEqualTypeOf<string | null>();
+  });
+
   it("authenticates Node requests without putting the token in the URL", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: "node_test" }), {

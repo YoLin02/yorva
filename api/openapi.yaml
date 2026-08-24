@@ -1731,7 +1731,6 @@ components:
           format: date-time
         errorCode:
           type: [string, "null"]
-          const: false
     Instance:
       type: object
       additionalProperties: false

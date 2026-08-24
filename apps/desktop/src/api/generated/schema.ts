@@ -698,8 +698,7 @@ export interface components {
             activeOperationId: string | null;
             /** Format: date-time */
             observedAt: string;
-            /** @constant */
-            errorCode: false;
+            errorCode: string | null;
         };
         Instance: {
             instanceId: string;
