@@ -698,8 +698,7 @@ export interface components {
             activeOperationId: string | null;
             /** Format: date-time */
             observedAt: string;
-            /** @constant */
-            errorCode: false;
+            errorCode: string | null;
         };
         Instance: {
             instanceId: string;
@@ -1802,7 +1801,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
         responses: {
             /** @description The instance.start Operation was accepted. */
             202: {
@@ -1847,7 +1850,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
         responses: {
             /** @description The instance.stop Operation was accepted. */
             202: {
@@ -1892,7 +1899,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
         responses: {
             /** @description The instance.restart Operation was accepted. */
             202: {

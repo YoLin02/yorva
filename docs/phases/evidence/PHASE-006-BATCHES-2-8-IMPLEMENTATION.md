@@ -1,5 +1,9 @@
 # Phase 6 Batches 2–8 — Implementation Candidate
 
+> Historical implementation record. The consolidated closeout manifest, including
+> Batches 8A/8B and exact-candidate limitations, is
+> [`PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md`](PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md).
+
 - Date: 2026-08-20
 - Lifecycle implementation: `2e03a78`
 - Lifecycle Desktop: `acf4139`
@@ -53,5 +57,12 @@ without the Owner's account action:
 - post-smoke inspection of SQLite/log surfaces for the actual credential/QR sentinels;
 - an independent audit decision and accepted candidate tag.
 
-Phase 7 implementation remains blocked until those items are complete and the Phase 6
-gate is frozen.
+Subsequent commits added the QR presentation correction (`dbd5d32`), Batch 8A sender
+pairing (`e4b1473`) and Batch 8B Desktop continuity (`276991b`). The Owner later attested
+that real Weixin and WeCom validation passed, but the tested build/MSI was not identified;
+the sanitized product-level record is
+[`PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`](PHASE-006-OWNER-AUTHENTICATED-SMOKE.md).
+These later facts do not alter this historical record's original candidate boundary.
+
+Phase 7 implementation remains blocked until the consolidated closeout items are
+complete and the Phase 6 gate is frozen.

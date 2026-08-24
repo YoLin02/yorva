@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -26,6 +27,13 @@ type lifecycleObservation struct {
 type LifecycleManager struct {
 	run func(context.Context, string, []string, bool) commandResult
 }
+
+var (
+	lifecycleTaskInstalledLine    = regexp.MustCompile(`^✓ Scheduled Task registered: [A-Za-z0-9_.-]+$`)
+	lifecycleStartupInstalledLine = regexp.MustCompile(`^✓ Windows login item installed: \S.*$`)
+	lifecycleProcessRunningLine   = regexp.MustCompile(`^✓ Gateway process running \(PID: [1-9][0-9]*\)$`)
+	lifecycleManualRunningLine    = regexp.MustCompile(`^✓ Gateway is running \(PID: [1-9][0-9]*\)$`)
+)
 
 func NewLifecycleManager() *LifecycleManager {
 	return &LifecycleManager{run: runLifecycleCommand}
@@ -72,19 +80,13 @@ func (m *LifecycleManager) Restart(ctx context.Context, installation yorvaruntim
 	if before.state != yorvaruntime.LifecycleRunning {
 		return yorvaruntime.ErrInstanceNotRunning
 	}
-	if !before.loginItemPresent {
-		if err := m.mutate(ctx, installation, nativeID, lifecycleStopArgs(nativeID), false); err != nil {
-			return err
-		}
-		if err := m.await(ctx, installation, nativeID, yorvaruntime.LifecycleStopped); err != nil {
-			return err
-		}
-		if err := m.mutate(ctx, installation, nativeID, lifecycleStartArgs(nativeID, false), true); err != nil {
-			return err
-		}
-		return m.await(ctx, installation, nativeID, yorvaruntime.LifecycleRunning)
+	if err := m.mutate(ctx, installation, nativeID, lifecycleStopArgs(nativeID), false); err != nil {
+		return err
 	}
-	if err := m.mutate(ctx, installation, nativeID, lifecycleRestartArgs(nativeID), true); err != nil {
+	if err := m.await(ctx, installation, nativeID, yorvaruntime.LifecycleStopped); err != nil {
+		return err
+	}
+	if err := m.mutate(ctx, installation, nativeID, lifecycleStartArgs(nativeID, before.loginItemPresent), true); err != nil {
 		return err
 	}
 	return m.await(ctx, installation, nativeID, yorvaruntime.LifecycleRunning)
@@ -150,28 +152,65 @@ func validateLifecycleTarget(installation yorvaruntime.LifecycleInstallation, na
 }
 
 func parseLifecycleStatus(output string) (lifecycleObservation, error) {
-	running := strings.Contains(output, lifecycleStatusRunning)
-	stopped := strings.Contains(output, lifecycleStatusStopped)
-	installed := strings.Contains(output, lifecycleTaskInstalled) || strings.Contains(output, lifecycleStartupInstalled)
-	serviceMissing := strings.Contains(output, lifecycleServiceMissing)
-	if running != stopped && installed != serviceMissing {
+	var running, stopped, installed, serviceMissing, manualRunning, manualStopped int
+	invalidSignal := false
+	for _, rawLine := range strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n") {
+		line := strings.TrimSpace(rawLine)
+		if line == "" {
+			continue
+		}
+		switch {
+		case lifecycleTaskInstalledLine.MatchString(line), lifecycleStartupInstalledLine.MatchString(line):
+			installed++
+		case line == "✗ "+lifecycleServiceMissing:
+			serviceMissing++
+		case lifecycleProcessRunningLine.MatchString(line):
+			running++
+		case line == "✗ "+lifecycleStatusStopped:
+			stopped++
+		case lifecycleManualRunningLine.MatchString(line):
+			manualRunning++
+		case line == "✗ "+lifecycleManualStopped:
+			manualStopped++
+		default:
+			invalidSignal = invalidSignal || containsLifecycleSignal(line)
+		}
+	}
+	if invalidSignal {
+		return lifecycleObservation{state: yorvaruntime.LifecycleUnknown}, yorvaruntime.ErrLifecycleOutputUnrecognized
+	}
+	if running+stopped == 1 && installed+serviceMissing == 1 && manualRunning+manualStopped == 0 {
 		state := yorvaruntime.LifecycleStopped
-		if running {
+		if running == 1 {
 			state = yorvaruntime.LifecycleRunning
 		}
-		return lifecycleObservation{state: state, loginItemPresent: installed}, nil
+		return lifecycleObservation{state: state, loginItemPresent: installed == 1}, nil
 	}
-
-	manualRunning := strings.Contains(output, lifecycleManualRunning)
-	manualStopped := strings.Contains(output, lifecycleManualStopped)
-	if !running && !stopped && !installed && !serviceMissing && manualRunning != manualStopped {
+	if running+stopped+installed+serviceMissing == 0 && manualRunning+manualStopped == 1 {
 		state := yorvaruntime.LifecycleStopped
-		if manualRunning {
+		if manualRunning == 1 {
 			state = yorvaruntime.LifecycleRunning
 		}
 		return lifecycleObservation{state: state, loginItemPresent: false}, nil
 	}
 	return lifecycleObservation{state: yorvaruntime.LifecycleUnknown}, yorvaruntime.ErrLifecycleOutputUnrecognized
+}
+
+func containsLifecycleSignal(line string) bool {
+	for _, signal := range []string{
+		lifecycleStatusRunning,
+		lifecycleStatusStopped,
+		"Gateway is running",
+		lifecycleManualStopped,
+		lifecycleTaskInstalled,
+		lifecycleStartupInstalled,
+		lifecycleServiceMissing,
+	} {
+		if strings.Contains(line, signal) {
+			return true
+		}
+	}
+	return false
 }
 
 func runLifecycleCommand(ctx context.Context, executable string, args []string, allowBreakaway bool) commandResult {

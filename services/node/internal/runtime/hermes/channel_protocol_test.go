@@ -57,7 +57,7 @@ func TestWeComConnectVerifiesBeforeProfileScopedCommit(t *testing.T) {
 		},
 	}
 	secret := []byte("wecom-secret-value")
-	status, err := manager.BeginConnect(context.Background(), yorvaruntime.ChannelInstallation{Executable: `C:\hermes\bin\hermes.exe`, Version: "0.20.2"}, "alpha", yorvaruntime.ChannelConnectRequest{Type: channel.WeCom, BotID: "bot-alpha", Secret: secret}, nil)
+	status, err := manager.BeginConnect(context.Background(), yorvaruntime.ChannelInstallation{Executable: filepath.Join(root, "hermes.exe"), Version: "0.20.2"}, "alpha", yorvaruntime.ChannelConnectRequest{Type: channel.WeCom, BotID: "bot-alpha", Secret: secret}, nil)
 	if err != nil || !verified || status.State != channel.Connected {
 		t.Fatalf("connect = %#v, verified=%v, error=%v", status, verified, err)
 	}
@@ -66,6 +66,56 @@ func TestWeComConnectVerifiesBeforeProfileScopedCommit(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "profiles", "bravo", ".env")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("unrelated profile was changed: %v", err)
+	}
+}
+
+func TestWeComSubscribeRequiresExplicitCorrelatedSuccess(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		payload   string
+		matched   bool
+		wantError bool
+	}{
+		{name: "success", payload: `{"headers":{"req_id":"subscribe-one"},"errcode":0}`, matched: true},
+		{name: "missing result", payload: `{"headers":{"req_id":"subscribe-one"}}`, matched: true, wantError: true},
+		{name: "null result", payload: `{"headers":{"req_id":"subscribe-one"},"errcode":null}`, matched: true, wantError: true},
+		{name: "explicit failure", payload: `{"headers":{"req_id":"subscribe-one"},"errcode":40013}`, matched: true, wantError: true},
+		{name: "other request", payload: `{"headers":{"req_id":"subscribe-other"},"errcode":0}`},
+		{name: "unknown schema", payload: `{"headers":"invalid","errcode":0}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			matched, err := parseWeComSubscribeResponse([]byte(test.payload), "subscribe-one")
+			if matched != test.matched || (err != nil) != test.wantError {
+				t.Fatalf("result = matched=%v err=%v", matched, err)
+			}
+			if test.wantError && !errors.Is(err, yorvaruntime.ErrChannelAuthFailed) {
+				t.Fatalf("error = %v", err)
+			}
+		})
+	}
+}
+
+func TestWeComConnectDoesNotCommitAfterVerificationCancellation(t *testing.T) {
+	root := t.TempDir()
+	profileRoot := filepath.Join(root, "profiles", "alpha")
+	if err := os.MkdirAll(profileRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	manager := &ChannelManager{
+		credentials: channelCredentialStore{credentials: credentialStore{root: root}},
+		verifyWeCom: func(context.Context, string, []byte) error {
+			cancel()
+			return nil
+		},
+	}
+	secret := []byte("wecom-secret-value")
+	_, err := manager.BeginConnect(ctx, yorvaruntime.ChannelInstallation{Executable: filepath.Join(root, "hermes.exe"), Version: "0.20.2"}, "alpha", yorvaruntime.ChannelConnectRequest{Type: channel.WeCom, BotID: "bot-alpha", Secret: secret}, nil)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("connect error = %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(profileRoot, ".env")); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("cancelled verification committed credentials: %v", statErr)
 	}
 }
 

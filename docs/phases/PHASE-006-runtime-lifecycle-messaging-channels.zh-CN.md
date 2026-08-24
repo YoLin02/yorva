@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime 生命周期与消息通道
 
-> 状态：**READY — IMPLEMENTATION AUTHORIZED**
+> 状态：**审计通过 — C5 最终化中**
 > 语言：中文 Owner 审阅源
 > Owner：Repository owner
 > 必需基线：`phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -870,23 +870,26 @@ Phase 6 只有在以下条件全部满足时才可通过：
 
 ## 30. 完成证据
 
-实现候选已记录在
-`docs/phases/evidence/PHASE-006-BATCHES-2-8-IMPLEMENTATION.md`：
+实现候选和收口范围已记录在
+`docs/phases/evidence/PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md`。较早的
+`docs/phases/evidence/PHASE-006-BATCHES-2-8-IMPLEMENTATION.md` 继续作为 Batch 8A/8B
+之前的历史记录保留：
 
 - 生命周期实现提交：`2e03a78`、`acf4139`；
 - 通道实现提交：`28b6f0f`、`b415f79`；
 - 本地 Go、OpenAPI、Desktop 与 Tauri no-bundle 验证：通过；
 - 已构建 Windows Desktop 的只读通道 UX 检查：通过；
-- 真实 Owner 认证的微信/企业微信 smoke：待完成；
-- 独立审计、merge/freeze 与 Phase 6 annotated tag：待完成。
+- Owner 认证的真实微信/企业微信验证：已记录在
+  `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`；补充确认已将微信连接/配对/断开和企业微信
+  连接/断开绑定到经过检查的修复 MSI，且未保留敏感值；
+- 独立 `AUDIT-006`：在 `3d2fecf` 上 **FAIL**（不可变）；有界修复位于
+  `a9d9033`；`AUDIT-006R1` 在 `7e1123e` 上 **FAIL**（不可变），代码为 PASS，当时唯一
+  阻断是尚未补齐的 exact-MSI Owner 证据；`AUDIT-006R2` 在 `13612db` 上 **FAIL**
+  （不可变），已接受强制真实通道证据、无 Critical/High，唯一有界 OpenAPI 类型契约
+  Medium 已在 `4cff18b` 修复；独立 `AUDIT-006R3` 在 exact candidate `8595617` 上
+  **PASS**，CI run `32692682968` 成功。
 
 剩余完成证据：
 
-- exact-commit CI run；
-- Windows lifecycle 和 Channel smoke record；
-- migration evidence；
-- secret/QR inspection evidence；
-- audit report 和 Gate Decision；
-- merge commit；
-- final-main CI/MSI evidence；
-- annotated Phase 6 baseline tag。
+- merge 和一次 final-main CI；
+- 同步 `COMPLETE / FROZEN` 状态并建立 annotated Phase 6 baseline tag。

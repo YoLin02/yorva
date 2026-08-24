@@ -54,6 +54,9 @@ func (m *ChannelManager) BeginConnect(ctx context.Context, installation yorvarun
 			return yorvaruntime.ChannelStatus{}, err
 		}
 		defer clearCredentialBytes(credentials.Token)
+		if err := ctx.Err(); err != nil {
+			return yorvaruntime.ChannelStatus{}, err
+		}
 		if err := m.credentials.SetWeixin(nativeID, credentials.AccountID, credentials.Token, credentials.BaseURL, credentials.UserID); err != nil {
 			return yorvaruntime.ChannelStatus{}, yorvaruntime.ErrChannelAuthFailed
 		}
@@ -64,6 +67,9 @@ func (m *ChannelManager) BeginConnect(ctx context.Context, installation yorvarun
 			return yorvaruntime.ChannelStatus{}, yorvaruntime.ErrChannelAuthFailed
 		}
 		if err := m.verifyWeCom(ctx, request.BotID, request.Secret); err != nil {
+			return yorvaruntime.ChannelStatus{}, err
+		}
+		if err := ctx.Err(); err != nil {
 			return yorvaruntime.ChannelStatus{}, err
 		}
 		if err := m.credentials.SetWeCom(nativeID, request.BotID, request.Secret); err != nil {
@@ -81,6 +87,9 @@ func (m *ChannelManager) Disconnect(ctx context.Context, installation yorvarunti
 	}
 	if !channel.ValidType(kind) {
 		return yorvaruntime.ChannelStatus{}, yorvaruntime.ErrChannelNotSupported
+	}
+	if err := ctx.Err(); err != nil {
+		return yorvaruntime.ChannelStatus{}, err
 	}
 	if err := m.credentials.Delete(nativeID, kind); err != nil {
 		return yorvaruntime.ChannelStatus{}, yorvaruntime.ErrChannelDisconnectFailed

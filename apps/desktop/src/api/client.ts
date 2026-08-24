@@ -121,7 +121,8 @@ export function createDaemonClient(session: DaemonSession) {
       request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/${action}`, {
         method: "POST",
         signal: withDesktopTimeout(signal),
-        headers: { "Idempotency-Key": idempotencyKey },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: "{}",
       }),
     listInstanceChannels: (instanceId: string, signal?: AbortSignal) =>
       request<ChannelList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/channels`, {

@@ -204,9 +204,26 @@ Exit criteria:
 
 ## Phase 6 — Runtime lifecycle and messaging channels
 
-Status: **DRAFT — OWNER REVIEW REQUIRED — IMPLEMENTATION NOT AUTHORIZED**
+Status: **AUDIT PASS — C5 FINALIZATION**
 Specs: `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.zh-CN.md` (Owner review) and `docs/phases/PHASE-006-runtime-lifecycle-messaging-channels.md` (Agent execution mirror)
-Target baseline: `phase-005-models-credentials-baseline`
+Target baseline: `phase-005a1-post-freeze-corrections-baseline` -> `9957775`
+Execution authorization: **Owner authorized 2026-08-20**
+Implementation handoff: [`PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md`](phases/evidence/PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md)
+Owner smoke: [`PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`](phases/evidence/PHASE-006-OWNER-AUTHENTICATED-SMOKE.md) — exact remediation MSI supplement recorded
+First independent audit: [`AUDIT-006-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006-runtime-lifecycle-messaging-channels.md) — **FAIL** (immutable)
+R1 audit: [`AUDIT-006R1-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006R1-runtime-lifecycle-messaging-channels.md) — **FAIL** (immutable; code PASS, evidence blocker)
+R2 audit: [`AUDIT-006R2-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006R2-runtime-lifecycle-messaging-channels.md) — **FAIL** (immutable; no Critical/High, one bounded OpenAPI Medium)
+Accepted audit: [`AUDIT-006R3-runtime-lifecycle-messaging-channels.md`](phases/audits/AUDIT-006R3-runtime-lifecycle-messaging-channels.md) — **PASS**
+
+The lifecycle, Weixin, WeCom, sender-pairing and Desktop continuity batches are on
+`main`, which is recorded as a governance deviation rather than acceptance. The Owner
+has now tied real Weixin connection/pairing/disconnect and WeCom connection/disconnect
+to the inspected remediation MSI without supplying sensitive values. First-audit
+candidate `3d2fecf`, remediation candidate `7e1123e` and sanitized-evidence candidate
+`13612db` had exact green CI. R2 accepted the mandatory real-channel evidence and found
+no Critical/High, but failed on the bounded lifecycle OpenAPI type defect. The narrow
+fix is `4cff18b`; exact candidate `8595617` passed CI run `32692682968`, and independent
+R3 returned PASS. Final-main CI, freeze status and the annotated baseline tag remain.
 
 Goal: make a configured Instance operational, then deliver the key YORVA promise of one-click channel connection.
 
@@ -232,7 +249,10 @@ Deliverables:
 - QR/login Operation;
 - live QR state events;
 - success/failure/timeout states;
-- no durable QR credential storage.
+- no durable QR credential storage;
+- Weixin sender-pairing pending count and write-only approval;
+- user-session tray, close-to-tray, packaged login start and single-instance restore
+  without Hermes `ON_LOGIN`, elevation or Instance startup.
 
 Exit criteria:
 

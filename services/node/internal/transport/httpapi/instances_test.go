@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -152,7 +153,8 @@ func TestLifecycleStatusAndMutationContracts(t *testing.T) {
 		t.Fatalf("status = %d %s", statusRes.Code, statusRes.Body.String())
 	}
 
-	startReq := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_1/start", "")
+	startReq := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_1/start", "{}")
+	startReq.Header.Set("Content-Type", "application/json")
 	startReq.Header.Set("Idempotency-Key", "life-key")
 	startRes := httptest.NewRecorder()
 	handler.ServeHTTP(startRes, startReq)
@@ -160,7 +162,18 @@ func TestLifecycleStatusAndMutationContracts(t *testing.T) {
 		t.Fatalf("start = %d %s action=%s", startRes.Code, startRes.Body.String(), inventory.action)
 	}
 
-	missingKey := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_1/stop", "")
+	for index, body := range []string{"", `{"extra":true}`, `{} trailing`, `[]`} {
+		invalidReq := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_1/start", body)
+		invalidReq.Header.Set("Content-Type", "application/json")
+		invalidReq.Header.Set("Idempotency-Key", fmt.Sprintf("life-invalid-%d", index))
+		invalidRes := httptest.NewRecorder()
+		handler.ServeHTTP(invalidRes, invalidReq)
+		if invalidRes.Code != http.StatusBadRequest || !strings.Contains(invalidRes.Body.String(), "INVALID_REQUEST") {
+			t.Fatalf("invalid body %q = %d %s", body, invalidRes.Code, invalidRes.Body.String())
+		}
+	}
+
+	missingKey := authorizedRequest(http.MethodPost, "/api/v1/instances/inst_1/stop", "{}")
 	missingRes := httptest.NewRecorder()
 	handler.ServeHTTP(missingRes, missingKey)
 	if missingRes.Code != http.StatusBadRequest || !strings.Contains(missingRes.Body.String(), "INVALID_IDEMPOTENCY_KEY") {

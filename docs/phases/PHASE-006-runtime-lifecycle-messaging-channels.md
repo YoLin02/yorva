@@ -1,6 +1,6 @@
 # YORVA Phase 6 — Runtime Lifecycle and Messaging Channels
 
-> Status: **READY — IMPLEMENTATION AUTHORIZED**
+> Status: **AUDIT PASS — C5 FINALIZATION**
 > Language: English execution mirror
 > Owner: Repository owner
 > Required baseline: `phase-005a1-post-freeze-corrections-baseline` → `9957775`
@@ -870,23 +870,28 @@ Stop and return to Owner review if:
 
 ## 30. Completion Evidence
 
-Implementation candidate recorded in
-`docs/phases/evidence/PHASE-006-BATCHES-2-8-IMPLEMENTATION.md`:
+Implementation candidate and closeout scope are recorded in
+`docs/phases/evidence/PHASE-006-IMPLEMENTATION-AUDIT-HANDOFF.md`. The earlier
+`docs/phases/evidence/PHASE-006-BATCHES-2-8-IMPLEMENTATION.md` remains as a historical
+pre-Batch-8A/8B record:
 
 - lifecycle implementation commits: `2e03a78`, `acf4139`;
 - Channel implementation commits: `28b6f0f`, `b415f79`;
 - local Go, OpenAPI, Desktop and Tauri no-bundle verification: passed;
 - built Windows Desktop read-only Channel UX check: passed;
-- real owner-authenticated Weixin/WeCom smoke: pending;
-- independent audit, merge/freeze and annotated Phase 6 tag: pending.
+- Owner-attested real Weixin/WeCom validation: recorded in
+  `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`; the supplemental confirmation ties Weixin
+  connection/pairing/disconnect and WeCom connection/disconnect to the inspected
+  remediation MSI without retaining sensitive values;
+- independent `AUDIT-006`: **FAIL** on `3d2fecf` (immutable); bounded remediation at
+  `a9d9033`; `AUDIT-006R1`: **FAIL** on `7e1123e` (immutable), with code PASS and the
+  then-missing exact-MSI Owner evidence as its sole blocker; `AUDIT-006R2`: **FAIL** on
+  `13612db` (immutable), with the mandatory real-channel evidence accepted, no
+  Critical/High and one bounded OpenAPI type-contract Medium fixed at `4cff18b`;
+  independent `AUDIT-006R3`: **PASS** on exact candidate `8595617`, with CI run
+  `32692682968` successful.
 
 The remaining completion evidence is:
 
-- exact-commit CI run;
-- Windows lifecycle and Channel smoke record;
-- migration evidence;
-- secret/QR inspection evidence;
-- audit report and Gate Decision;
-- merge commit;
-- final-main CI/MSI evidence;
-- annotated Phase 6 baseline tag.
+- merge and one final-main CI run;
+- synchronized `COMPLETE / FROZEN` status and the annotated Phase 6 baseline tag.
