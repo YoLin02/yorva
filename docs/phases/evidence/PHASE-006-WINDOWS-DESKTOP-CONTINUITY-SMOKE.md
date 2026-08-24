@@ -83,3 +83,39 @@ worktree.
 The real Weixin/WeCom result and its exact-build limitation remain in
 `PHASE-006-OWNER-AUTHENTICATED-SMOKE.md`; this Desktop record does not enlarge those
 account-test claims.
+
+## AUDIT-006 remediation re-smoke
+
+- Completion timestamp: `2026-08-24T03:11:44Z`
+- Product checkout: `5009781445c4db8c22d9073b9973ad90c9dd7c5f`
+- Remediation code commit: `a9d903364d7e1403d649895d77367a5806be1b0c`
+- Scope: only the lifecycle parser and registered/default and named restart paths
+  affected by `AUDIT-006-H02` and `AUDIT-006-H03`
+- Result: **PASS**
+
+The release executable and packaged sidecar were rebuilt from the clean product
+checkout above with the same `tauri build --no-bundle` command. The evidence-only
+commit containing this section is a successor of that checkout and does not alter
+the two product artifacts.
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `yorva-desktop.exe` | 4,727,296 | `3026F891040FAEEDAEC31D812616B25F763C9D92532637EDD0D783970C2AE6C9` |
+| packaged `yorvad` sidecar | 18,759,680 | `76B3DE33B2316E7A86D7ED18A0FAC4AB0204892D9068EA1DD5269F2A1148529E` |
+
+The corrected strict status parser accepted the current real Hermes status output;
+the Desktop showed both the default Profile and the selected named Profile as
+`RUNNING`. Each Profile was then restarted once through the Desktop. For each
+restart, a read-only watcher limited to actual `gateway run` processes observed all
+four sanitized postconditions:
+
+| Target | Operation result | Old identity gone | New identity alive | Total gateway-run count stable | Final Desktop state |
+| --- | --- | --- | --- | --- | --- |
+| Default Profile | `SUCCEEDED` | true | true | true | `RUNNING` |
+| Named Profile | `SUCCEEDED` | true | true | true | `RUNNING` |
+
+Hermes status-probe processes were deliberately excluded from the watcher. No PID,
+Profile name, runtime path, account identifier, screenshot or credential material is
+retained. Tray, hidden-login launch and single-instance flows were not repeated
+because their inputs were unchanged by the remediation; their qualified evidence
+remains in the earlier sections of this record.
