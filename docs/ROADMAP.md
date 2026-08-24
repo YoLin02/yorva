@@ -279,16 +279,18 @@ Instance
 
 ## Phase 6.5 — Developer-led demo optimization
 
-Status: **AUDIT PASS — MERGE / FINAL-MAIN / TAG PENDING**
+Status: **COMPLETE / FROZEN**
 Spec: `docs/phases/PHASE-006.5-developer-led-demo-optimization.zh-CN.md`
 Target baseline: `phase-006-runtime-lifecycle-messaging-channels-baseline` → `7ca9103e7af210296a5e24916df01856539b550e`
-Proposed tag: `phase-0065-developer-led-demo-baseline`
+Baseline: `phase-0065-developer-led-demo-baseline`
 Owner authorization: accepted P6.5 changes may be committed, pushed, merged to `main`, and frozen after the candidate gate and audit pass (2026-08-24).
 Implementation candidate: `559245cf42c6ea07dbe4706676334a717b2173fd`
 Implementation handoff: [`PHASE-0065-IMPLEMENTATION-AUDIT-HANDOFF.md`](phases/evidence/PHASE-0065-IMPLEMENTATION-AUDIT-HANDOFF.md)
 Accepted audit: [`AUDIT-0065-developer-led-demo-baseline.md`](phases/audits/AUDIT-0065-developer-led-demo-baseline.md) — **PASS**
 Exact-candidate CI: [`32715890955`](https://github.com/YoLin02/yorva/actions/runs/32715890955) — **PASS**
 Exact-candidate Windows MSI: [`32715958209`](https://github.com/YoLin02/yorva/actions/runs/32715958209) — **PASS**
+Final-main integration: `b9af6a3fd057b90ef636ff3b581cc9680774dac8`; CI run [`32717542173`](https://github.com/YoLin02/yorva/actions/runs/32717542173) — **PASS**
+Accepted debt/conditions: **none**
 
 Candidate scope:
 
@@ -300,8 +302,14 @@ Candidate scope:
 
 P7 capabilities, personal artifacts, generated installers, temporary UI references, and unrelated
 developer files are excluded from this candidate. Phase 6 remains immutable; P6.5 is its clean
-successor and must pass audit, exact-candidate CI, Windows smoke, package inspection, and security
-checks before this status can become `COMPLETE / FROZEN`.
+successor. Audit, exact-candidate CI, Windows smoke, package inspection, security checks and
+final-main CI passed before the annotated baseline was frozen.
+
+The automatic final-main MSI run [`32717542138`](https://github.com/YoLin02/yorva/actions/runs/32717542138)
+failed on both attempts before compilation because GitHub `codeload` returned HTTP 429.
+This infrastructure result is retained rather than relabeled: the exact-candidate MSI run above
+already passed from the unchanged product commit and its downloaded artifact was independently
+hashed. No source, executable, resource or packaging input changed after that accepted MSI.
 
 ## Phase 7 — Runtime management completeness
 

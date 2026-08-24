@@ -1,6 +1,6 @@
 # YORVA Phase 6.5 — 开发者主导的路演 Demo 优化
 
-> 状态：**AUDIT PASS — 精确候选 CI/MSI 与审计通过；合并、final-main CI 和 annotated tag 待完成**
+> 状态：**COMPLETE / FROZEN — 审计、精确候选 CI/MSI、Windows smoke、final-main CI 与 annotated baseline tag 已完成**
 > 阶段标识：`P6.5`
 > 阶段性质：Phase 6 与 Phase 7 之间的受控快速开发阶段
 > 执行模式：**Developer-led / Agent-executed**

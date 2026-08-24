@@ -139,7 +139,19 @@ fact or roadshow date is invented.
 
 ## Audit handoff state
 
-Implementation is frozen at `559245c`; both remote runs and the formal audit passed.
-Only evidence, closeout, merge, final-main verification, and tag records may follow
-before P7. The candidate is not `COMPLETE / FROZEN` until final `main` CI passes and the
-annotated baseline tag is created without moving any existing tag.
+Implementation is frozen at `559245c`; both exact-candidate remote runs and the formal
+audit passed. The audited successor fast-forwarded `main`, and the no-content integration
+trigger `b9af6a3fd057b90ef636ff3b581cc9680774dac8` passed final-main CI run
+[`32717542173`](https://github.com/YoLin02/yorva/actions/runs/32717542173), including
+Web/API, Go race/vet/vulnerability/build, Windows lifecycle, Rust and Tauri release jobs.
+
+The automatically triggered final-main MSI run
+[`32717542138`](https://github.com/YoLin02/yorva/actions/runs/32717542138) failed twice
+before compilation because GitHub `codeload` returned HTTP 429 for the exact Hermes
+archive. The failure is retained as infrastructure evidence and is not presented as a
+green package run. It does not replace or invalidate exact-candidate MSI run
+`32715958209`, because the only commits after `559245c` were evidence/audit documents
+and a no-content CI trigger; no product or packaging input changed.
+
+With final-main CI green, P6.5 is eligible for the closeout documentation commit and
+annotated tag `phase-0065-developer-led-demo-baseline`. P7 may begin only from that tag.
