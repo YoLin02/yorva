@@ -1,8 +1,8 @@
 # ADR-0015: Managed Hermes Generation Upgrade and Rollback
 
-- Status: Proposed — not implementation authority
+- Status: Accepted
 - Date: 2026-08-25
-- Owner approval: Pending
+- Owner approval: Approved 2026-08-25
 - Related: ADR-0006, ADR-0009, ADR-0013, Phase 7 P7-D5, Phase 7 B1 qualification evidence
 
 ## Context
@@ -275,9 +275,9 @@ Costs and constraints:
 - post-check requires qualified read-back for every configured P7 feature;
 - some exact target pairs will intentionally report upgrade/rollback unsupported.
 
-## Required approval and validation before acceptance
+## Accepted Owner decisions and remaining validation
 
-This ADR remains **Proposed**. Owner approval is required for:
+The Owner accepted this ADR on 2026-08-25, including:
 
 - the exact packaged-snapshot-only upgrade policy and managed-install eligibility;
 - the protection-point requirement and dependency on ADR-0013;
@@ -287,10 +287,10 @@ This ADR remains **Proposed**. Owner approval is required for:
 - the post-check set, gateway stop/restart behavior and recovery-required UX;
 - predecessor/protection-point retention and release policy.
 
-Acceptance also requires exact-candidate and disposable Windows evidence for active-tree
+Product qualification still requires exact-candidate and disposable Windows evidence for active-tree
 immutability, final-path dual launchers, source size/hash enforcement, shared-data build
 isolation, activation CAS conflict, every configured-feature post-check, daemon restart at
 each state, cancellation before/after activation, external modification, compatibility
-pass/fail, successful rollback and failed/ineligible rollback. Until those decisions and
-tests pass, B8 upgrade and rollback capabilities remain false and no product mutation is
-authorized.
+pass/fail, successful rollback and failed/ineligible rollback. Until those implementation
+and qualification tests pass, B8 upgrade and rollback capabilities remain false and no
+product mutation is authorized.

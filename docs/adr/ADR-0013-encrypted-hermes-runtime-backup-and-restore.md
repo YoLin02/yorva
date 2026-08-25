@@ -1,8 +1,8 @@
 # ADR-0013: Encrypted Hermes Runtime Backup and Restore
 
-- Status: Proposed — not implementation authority
+- Status: Accepted
 - Date: 2026-08-25
-- Owner approval: Pending
+- Owner approval: Approved 2026-08-25
 - Related: ADR-0003, ADR-0006, ADR-0009, Phase 7 P7-D4, Phase 7 B1 qualification evidence
 
 ## Context
@@ -272,20 +272,21 @@ Costs and constraints:
 - the first implementation cannot support arbitrary external data paths or upstream
   import shortcuts.
 
-## Required approval and validation before acceptance
+## Accepted Owner decisions and remaining validation
 
-This ADR remains **Proposed**. Owner approval is required for:
+The Owner accepted this ADR on 2026-08-25, including:
 
 - Runtime user-data scope and the explicit included/excluded category disclosure;
 - age v1 plus the exact maintained implementation/version/license;
 - device-managed and portable passphrase modes, retention and loss semantics;
-- whether live gateway capture is qualified or backup requires a planned stop;
+- backup requires a planned gateway stop unless a later exact-candidate qualification
+  proves a consistent bounded live capture;
 - the non-destructive Runtime-scope backup schema migration;
 - Restore transaction, protection-point retention and recovery-required UX.
 
-Acceptance also requires exact-candidate fixture and Windows evidence for large files,
+Product qualification still requires exact-candidate fixture and Windows evidence for large files,
 wrong/lost credentials, tamper/truncation, malformed manifests, duplicate/case-collision,
 traversal/reparse/symlink/ADS/bomb inputs, space exhaustion, cancellation, daemon restart,
 external conflict, partial apply, successful rollback and failed rollback. Until those
-decisions and tests pass, B6/B7 capabilities remain false and no product mutation is
-authorized.
+implementation and qualification tests pass, B6/B7 capabilities remain false and no
+product mutation is authorized.

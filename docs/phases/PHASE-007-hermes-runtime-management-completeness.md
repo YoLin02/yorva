@@ -11,8 +11,9 @@
 > `docs/phases/PHASE-007-hermes-runtime-management-completeness.zh-CN.md`
 > Qualified development target: stable `>=0.20.2 <0.21.0`; B1 reference snapshot
 > Hermes `0.20.5` / `a0ca7c19204e514f9590ce3b812e029b315ab9e9`
-> Authorization: P7-D1–D8 and B0–B10 approved 2026-08-24. B1 qualification and
-> required ADRs must pass before product-capability code begins.
+> Authorization: P7-D1–D8 and B0–B10 approved 2026-08-24. ADR-0013,
+> ADR-0014 and ADR-0015 accepted by the Owner on 2026-08-25. Exact-version
+> qualification remains required before each product capability becomes true.
 
 This file is the execution mirror of the Chinese Owner-review Spec. The Chinese Spec
 remains authoritative if wording diverges. Any material scope, security, persistence,
@@ -68,6 +69,11 @@ closed path.
 | P7-D6 | Health/logs expose allowlisted categories, fixed bounds and mandatory redaction only. No arbitrary path tail or raw log export. |
 | P7-D7 | P7 keeps one authenticated `LOCAL_DESKTOP` actor with typed actions. Principal/Grant/RBAC remains P9/P10 scope. |
 | P7-D8 | Stable `0.20.x` may be detected, but each P7 feature reports capability only after exact-version surface qualification. Unknown contracts fail closed. |
+
+ADR-0013 (encrypted Runtime backup/Restore), ADR-0014 (closed MCP descriptor and
+credential authority) and ADR-0015 (managed generation Upgrade/Rollback) were accepted
+by the Owner on 2026-08-25. Acceptance authorizes implementation of their boundaries;
+it does not replace lane-specific qualification and destructive-flow evidence.
 
 ## 4. Qualified-surface facts and B1 questions
 

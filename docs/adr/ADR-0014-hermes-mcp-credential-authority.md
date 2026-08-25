@@ -1,8 +1,8 @@
 # ADR-0014: Hermes MCP Credential Authority and Closed Descriptor Boundary
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-25
-- Owner approval: Pending
+- Owner approval: Approved 2026-08-25
 - Related: ADR-0003, ADR-0006, ADR-0007, ADR-0008, ADR-0012,
   `PHASE-007-hermes-runtime-management-completeness.md`,
   `PHASE-007-B1-QUALIFICATION-TEST-MATRIX.md`
@@ -52,9 +52,8 @@ problem. Conversely, declaring all Hermes MCP storage authoritative without a cl
 descriptor and session boundary would turn `yorvad` into a generic remote execution and
 secret-injection service.
 
-This ADR defines the minimum proposed authority. It does not itself qualify or enable an
-MCP capability. Its status remains Proposed until the Owner decides the questions below
-and the selected surface passes B1 qualification.
+This ADR defines the accepted minimum authority. Acceptance does not itself qualify or
+enable an MCP capability; the selected surface must still pass B1 qualification.
 
 ## Decision
 
@@ -306,25 +305,22 @@ Costs and constraints:
 - a server can be `CONFIGURED` for extended periods without being `READY`;
 - external Hermes edits require reconciliation and may yield `UNKNOWN` or conflict rather
   than an automatic overwrite;
-- this Proposed ADR does not unblock B5 or authorize product/API/migration work.
+- this accepted ADR does not by itself qualify a B5 product surface; implementation must
+  still pass the stated exact-version and descriptor gates.
 
-## Owner decisions required before acceptance
+## Accepted Owner decisions
 
-1. Approve or reject Hermes Profile `.env` as the sole authority for static MCP secrets,
-   including the same explicit local-user at-rest tradeoff accepted for model/channel
-   credentials.
-2. Approve or reject Hermes `mcp-tokens/<server>.*` as the sole authority for OAuth
-   access/refresh tokens and dynamically registered client information, with no YORVA
-   token copy.
-3. Confirm whether the first P7 MCP release is limited to reviewed HTTPS presets, or may
-   also contain a reviewed local-process preset already present in a sealed generation.
-   No catalog/package/bootstrap installation is allowed in either choice.
-4. Confirm that OAuth remains capability-false until exact-candidate tests prove
-   initiating-YORVA-session isolation, cancel/expiry cleanup and Profile-correct
-   postconditions; approval of this ADR alone is not that proof.
-5. Confirm that pre-registered OAuth client secrets, provider-account OAuth, mTLS,
-   arbitrary/custom headers and arbitrary HTTPS endpoints are deferred rather than
-   assigned an implicit authority.
-6. Confirm that `READY` requires a fresh bounded authoritative test and can never be
-   inferred from `CONFIGURED`, token-file presence, process spawn, prior cache or exit
-   zero.
+The Owner accepted the following decisions on 2026-08-25:
+
+1. Hermes Profile `.env` is the sole authority for static MCP secrets, including the
+   explicit local-user at-rest tradeoff accepted for model/channel credentials.
+2. Hermes `mcp-tokens/<server>.*` is the sole authority for OAuth access/refresh tokens
+   and dynamically registered client information; YORVA keeps no token copy.
+3. The first P7 MCP release is limited to reviewed HTTPS presets. Local-process presets,
+   catalog/package/bootstrap installation and generic command execution are deferred.
+4. OAuth remains capability-false until exact-candidate tests prove initiating-YORVA-
+   session isolation, cancel/expiry cleanup and Profile-correct postconditions.
+5. Pre-registered OAuth client secrets, provider-account OAuth, mTLS, arbitrary/custom
+   headers and arbitrary HTTPS endpoints are deferred without an implicit authority.
+6. `READY` requires a fresh bounded authoritative test and is never inferred from
+   `CONFIGURED`, token-file presence, process spawn, prior cache or exit zero.

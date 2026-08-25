@@ -11,6 +11,7 @@
 > 英文执行镜像：`docs/phases/PHASE-007-hermes-runtime-management-completeness.md`
 > Owner 授权：2026-08-24，批准 P7-D1–D8 推荐方向及 B0–B10 实现顺序
 > 实现授权：**Owner 于 2026-08-25 批准依赖驱动的并行 B-stage；共享合同先行，互不依赖的 Hermes adapter、测试与 UX lane 可并行，危险 mutation 必须等待对应 ADR/资格条件**
+> ADR 授权：**Owner 于 2026-08-25 正式接受 ADR-0013、ADR-0014、ADR-0015；允许按其边界实现，但每项 product capability 仍须通过精确版本资格和破坏性流程证据后才能置为 true。**
 
 ## 0. 阶段定位
 
