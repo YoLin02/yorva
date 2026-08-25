@@ -1709,6 +1709,191 @@ p {
   animation: modal-scale-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.management-modal {
+  width: min(780px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  border: 1px solid var(--yorva-border);
+  border-radius: 8px;
+  background: var(--yorva-surface);
+  box-shadow: 0 24px 70px rgb(15 23 42 / 18%);
+  animation: modal-scale-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.management-panel {
+  display: grid;
+  gap: 16px;
+  padding: 22px 24px 24px;
+}
+
+.management-panel-header,
+.management-header-actions,
+.management-section-heading,
+.management-item-heading,
+.management-item-footer,
+.management-error {
+  display: flex;
+  align-items: center;
+}
+
+.management-panel-header,
+.management-section-heading,
+.management-item-heading,
+.management-item-footer {
+  justify-content: space-between;
+}
+
+.management-panel-header {
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.management-panel-header h2,
+.management-section h3,
+.management-catalog h4 {
+  margin: 0;
+  color: var(--yorva-heading);
+}
+
+.management-panel-header h2 {
+  font-size: 17px;
+}
+
+.management-panel-header .page-copy,
+.management-section-heading .page-copy {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.management-header-actions {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.management-section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.management-section-heading {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.management-section h3 {
+  font-size: 14px;
+}
+
+.management-list {
+  display: grid;
+  gap: 8px;
+}
+
+.management-item {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.management-item-heading,
+.management-item-footer {
+  gap: 12px;
+}
+
+.management-item code,
+.management-preset code {
+  overflow-wrap: anywhere;
+  color: #334155;
+  font-size: 12px;
+}
+
+.management-badges,
+.management-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.management-item-footer {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.management-item-footer .button {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.management-detail,
+.management-empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.management-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid #eef2f6;
+}
+
+.management-detail-grid div {
+  min-width: 0;
+}
+
+.management-detail-grid dt {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.management-detail-grid dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #334155;
+  font-size: 12px;
+}
+
+.management-error {
+  justify-content: space-between;
+  gap: 12px;
+  color: #b42323;
+  font-size: 12px;
+}
+
+.management-catalog {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.management-catalog h4 {
+  font-size: 12px;
+}
+
+.management-preset {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 11px;
+}
+
 .channel-panel {
   padding: 22px 24px;
 }
@@ -3079,6 +3264,22 @@ p {
   .instance-table-footer {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .management-panel-header,
+  .management-section-heading,
+  .management-item-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .management-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .management-detail-grid {
+    grid-template-columns: 1fr;
   }
 
   .runtime-overview-card,

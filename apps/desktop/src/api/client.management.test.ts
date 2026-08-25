@@ -1,0 +1,84 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createDaemonClient } from "./client";
+
+const session = {
+  baseUrl: "http://127.0.0.1:49152",
+  token: "session-secret",
+  protocolVersion: "1",
+};
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+describe("daemon client management reads", () => {
+  it("uses encoded Instance and Skill path segments with authenticated GET requests", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () =>
+      new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createDaemonClient(session);
+
+    await client.listInstanceSkills("instance/a b");
+    await client.inspectInstanceSkill("instance/a b", "skill/id?#");
+    await client.listInstanceMCPServers("instance/a b");
+    await client.listInstanceMCPPresets("instance/a b");
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/skills",
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/skills/skill%2Fid%3F%23",
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/mcp-servers",
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/mcp-catalog",
+    ]);
+    for (const [, init] of fetchMock.mock.calls as [string, RequestInit][]) {
+      expect(init.method ?? "GET").toBe("GET");
+      expect(init.body).toBeUndefined();
+      expect(init.headers).toEqual(expect.objectContaining({ Authorization: "Bearer session-secret" }));
+    }
+  });
+
+  it("bounds management reads and propagates caller cancellation", async () => {
+    const timeoutController = new AbortController();
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeoutController.signal);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const callerController = new AbortController();
+
+    await createDaemonClient(session).listInstanceMCPServers("instance-one", callerController.signal);
+
+    expect(timeoutSpy).toHaveBeenCalledWith(15_000);
+    const requestSignal = (fetchMock.mock.calls[0][1] as RequestInit).signal as AbortSignal;
+    expect(requestSignal.aborted).toBe(false);
+    callerController.abort();
+    expect(requestSignal.aborted).toBe(true);
+  });
+
+  it("aborts management reads when the bounded Desktop timeout fires", async () => {
+    const timeoutController = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeoutController.signal);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createDaemonClient(session).listInstanceSkills("instance-one");
+
+    const requestSignal = (fetchMock.mock.calls[0][1] as RequestInit).signal as AbortSignal;
+    expect(requestSignal.aborted).toBe(false);
+    timeoutController.abort(new DOMException("The operation timed out.", "TimeoutError"));
+    expect(requestSignal.aborted).toBe(true);
+    expect(requestSignal.reason).toMatchObject({ name: "TimeoutError" });
+  });
+});

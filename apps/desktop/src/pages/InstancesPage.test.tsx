@@ -374,6 +374,36 @@ describe("InstancesPage", () => {
     expect(moreButtons.filter((button) => button.hasAttribute("disabled"))).toHaveLength(2);
   });
 
+  it("opens the read-only management panel from an exact Instance action", () => {
+    const client = {
+      scope: "http://127.0.0.1:1",
+      listInstanceSkills: vi.fn(),
+      inspectInstanceSkill: vi.fn(),
+      listInstanceMCPServers: vi.fn(),
+      listInstanceMCPPresets: vi.fn(),
+    } as unknown as DaemonClient;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <InstancesPage
+          supported loading={false} error={false} inventory={inventory} createName="" createBusy={false}
+          createOperation={null} copy={messages["en-US"]} locale="en-US" onRefresh={() => undefined}
+          onPrepareCreate={() => undefined} onCreateNameChange={() => undefined} onCreate={() => undefined}
+          onCancelCreate={() => undefined} deleteTarget={null} deleteConfirmation="" deleteBusy={false}
+          deleteOperation={null} onDeleteTargetChange={() => undefined} onDeleteConfirmationChange={() => undefined}
+          onDelete={() => undefined} onCancelDelete={() => undefined} client={client}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "More actions" })[1]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Management" }));
+    expect(screen.getByRole("dialog", { name: "Instance management: coder" })).toBeInTheDocument();
+    expect(screen.getAllByText(messages["en-US"].management.unavailable)).toHaveLength(2);
+    expect(client.listInstanceSkills).not.toHaveBeenCalled();
+    expect(client.listInstanceMCPServers).not.toHaveBeenCalled();
+  });
+
   it("shows authoritative lifecycle state and starts an Operation", async () => {
     const startInstanceLifecycle = vi.fn().mockResolvedValue({
       id: "op_start", type: "instance.start", targetType: "instance", targetId: "inst_coder",

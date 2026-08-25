@@ -313,6 +313,39 @@ type Messages = {
     disconnectConfirm: string;
     state: Record<"NOT_CONFIGURED" | "CONNECTING" | "CONNECTED" | "DISCONNECTED" | "FAILED" | "CANCELLED" | "UNKNOWN", string>;
   };
+  management: {
+    open: string;
+    close: string;
+    title: string;
+    description: string;
+    refresh: string;
+    retry: string;
+    loading: string;
+    requestFailed: string;
+    unavailable: string;
+    skillsTitle: string;
+    skillsDescription: string;
+    noSkills: string;
+    inspect: string;
+    hideDetails: string;
+    source: string;
+    version: string;
+    updateAvailable: string;
+    noUpdate: string;
+    mcpTitle: string;
+    mcpDescription: string;
+    noServers: string;
+    catalogTitle: string;
+    noPresets: string;
+    preset: string;
+    readyAt: string;
+    observedAt: string;
+    neverReady: string;
+    installationState: Record<"INSTALLED" | "NOT_INSTALLED" | "UNKNOWN", string>;
+    enabledState: Record<"ENABLED" | "DISABLED" | "UNKNOWN", string>;
+    scanState: Record<"CLEAN" | "WARNING" | "BLOCKED" | "NOT_SCANNED" | "UNKNOWN", string>;
+    mcpState: Record<"NOT_CONFIGURED" | "CONFIGURED" | "AUTH_REQUIRED" | "READY" | "FAILED" | "UNKNOWN", string>;
+  };
   models: {
     open: string;
     close: string;
@@ -760,6 +793,39 @@ const english: Messages = {
       CANCELLED: "Cancelled",
       UNKNOWN: "Unknown",
     },
+  },
+  management: {
+    open: "Management",
+    close: "Close management",
+    title: "Instance management",
+    description: "Read the qualified Skill and MCP state for this exact instance.",
+    refresh: "Refresh",
+    retry: "Retry",
+    loading: "Loading authoritative state…",
+    requestFailed: "Yorva could not read this management state.",
+    unavailable: "This capability is unavailable for the selected Runtime version.",
+    skillsTitle: "Skills",
+    skillsDescription: "Installed, enabled, scan, and update state reported by the Runtime.",
+    noSkills: "No Skills were reported for this instance.",
+    inspect: "Inspect",
+    hideDetails: "Hide details",
+    source: "Source",
+    version: "Version",
+    updateAvailable: "Update available",
+    noUpdate: "Up to date",
+    mcpTitle: "MCP servers",
+    mcpDescription: "Configured is not the same as Ready. Ready always includes observed test evidence.",
+    noServers: "No MCP servers were reported for this instance.",
+    catalogTitle: "Reviewed presets",
+    noPresets: "No reviewed presets are available.",
+    preset: "Preset",
+    readyAt: "Ready evidence",
+    observedAt: "Observed",
+    neverReady: "No current Ready evidence",
+    installationState: { INSTALLED: "Installed", NOT_INSTALLED: "Not installed", UNKNOWN: "Unknown" },
+    enabledState: { ENABLED: "Enabled", DISABLED: "Disabled", UNKNOWN: "Unknown" },
+    scanState: { CLEAN: "Clean", WARNING: "Warning", BLOCKED: "Blocked", NOT_SCANNED: "Not scanned", UNKNOWN: "Unknown" },
+    mcpState: { NOT_CONFIGURED: "Not configured", CONFIGURED: "Configured", AUTH_REQUIRED: "Authentication required", READY: "Ready", FAILED: "Failed", UNKNOWN: "Unknown" },
   },
   models: {
     open: "Models",
@@ -1211,6 +1277,39 @@ const simplifiedChinese: Messages = {
       CANCELLED: "已取消",
       UNKNOWN: "未知",
     },
+  },
+  management: {
+    open: "管理",
+    close: "关闭管理面板",
+    title: "实例管理",
+    description: "读取当前这一实例已通过资格确认的 Skill 与 MCP 状态。",
+    refresh: "刷新",
+    retry: "重试",
+    loading: "正在读取权威状态…",
+    requestFailed: "无法读取此管理状态。",
+    unavailable: "当前 Runtime 版本不支持此项已验证能力。",
+    skillsTitle: "Skills",
+    skillsDescription: "由 Runtime 报告的安装、启用、扫描与更新状态。",
+    noSkills: "此实例没有报告任何 Skill。",
+    inspect: "查看详情",
+    hideDetails: "收起详情",
+    source: "来源",
+    version: "版本",
+    updateAvailable: "有可用更新",
+    noUpdate: "已是最新",
+    mcpTitle: "MCP 服务器",
+    mcpDescription: "已配置不等于已就绪；已就绪必须带有明确时间的测试证据。",
+    noServers: "此实例没有报告任何 MCP 服务器。",
+    catalogTitle: "已审核预设",
+    noPresets: "当前没有可用的已审核预设。",
+    preset: "预设",
+    readyAt: "就绪证据",
+    observedAt: "状态时间",
+    neverReady: "当前没有就绪证据",
+    installationState: { INSTALLED: "已安装", NOT_INSTALLED: "未安装", UNKNOWN: "未知" },
+    enabledState: { ENABLED: "已启用", DISABLED: "已停用", UNKNOWN: "未知" },
+    scanState: { CLEAN: "安全", WARNING: "警告", BLOCKED: "已阻止", NOT_SCANNED: "未扫描", UNKNOWN: "未知" },
+    mcpState: { NOT_CONFIGURED: "未配置", CONFIGURED: "已配置", AUTH_REQUIRED: "需要认证", READY: "已就绪", FAILED: "失败", UNKNOWN: "未知" },
   },
   models: {
     open: "模型",

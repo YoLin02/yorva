@@ -23,6 +23,7 @@ import {
 } from "../components/ui/icons";
 import { ModelConfigurationPanel } from "../components/models/ModelConfigurationPanel";
 import { ChannelPanel } from "../components/channels/ChannelPanel";
+import { ManagementPanel } from "../components/management/ManagementPanel";
 
 const createNamePattern = /^[a-z][a-z0-9_-]{0,63}$/;
 type AvailabilityFilter = "ALL" | Instance["availability"];
@@ -85,9 +86,11 @@ export function InstancesPage({
   const [createOpen, setCreateOpen] = useState(false);
   const [modelInstanceId, setModelInstanceId] = useState<string | null>(null);
   const [channelInstanceId, setChannelInstanceId] = useState<string | null>(null);
+  const [managementInstanceId, setManagementInstanceId] = useState<string | null>(null);
   const [relativeNow, setRelativeNow] = useState(() => Date.now());
   const modelInstance = items.find((item) => item.instanceId === modelInstanceId) ?? null;
   const channelInstance = items.find((item) => item.instanceId === channelInstanceId) ?? null;
+  const managementInstance = items.find((item) => item.instanceId === managementInstanceId) ?? null;
 
   const createOperationActive = createOperation?.status === "PENDING" || createOperation?.status === "RUNNING";
 
@@ -196,6 +199,7 @@ export function InstancesPage({
                       onDelete={() => onDeleteTargetChange(item)}
                       onOpenModels={() => setModelInstanceId(item.instanceId)}
                       onOpenChannels={() => setChannelInstanceId(item.instanceId)}
+                      onOpenManagement={() => setManagementInstanceId(item.instanceId)}
                     />
                   ))}
                   {!loading && filteredItems.length === 0 ? (
@@ -255,6 +259,20 @@ export function InstancesPage({
             <div className="instance-modal-backdrop model-modal-backdrop">
               <div className="channel-modal" role="dialog" aria-modal="true" aria-label={`${copy.channels.title}: ${channelInstance.name}`}>
                 <ChannelPanel client={client} instance={channelInstance} copy={copy} onClose={() => setChannelInstanceId(null)} />
+              </div>
+            </div>
+          ) : null}
+
+          {client && managementInstance ? (
+            <div className="instance-modal-backdrop model-modal-backdrop">
+              <div className="management-modal" role="dialog" aria-modal="true" aria-label={`${copy.management.title}: ${managementInstance.name}`}>
+                <ManagementPanel
+                  client={client}
+                  instance={managementInstance}
+                  copy={copy}
+                  locale={locale}
+                  onClose={() => setManagementInstanceId(null)}
+                />
               </div>
             </div>
           ) : null}
@@ -458,7 +476,7 @@ function dismissFromBackdrop(event: MouseEvent<HTMLDivElement>, locked: boolean,
   else onDismiss();
 }
 
-function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, onOpenChannels }: {
+function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, onOpenChannels, onOpenManagement }: {
   item: Instance;
   copy: AppMessages;
   locale: Locale;
@@ -467,6 +485,7 @@ function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, 
   onDelete: () => void;
   onOpenModels: () => void;
   onOpenChannels: () => void;
+  onOpenManagement: () => void;
 }) {
   const availability = item.availability;
   const canLifecycle = Boolean(client && item.capabilities.lifecycle && availability === "AVAILABLE");
@@ -478,6 +497,7 @@ function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, 
       canDelete={!item.default && !item.protected}
       onOpenModels={onOpenModels}
       onOpenChannels={onOpenChannels}
+      onOpenManagement={onOpenManagement}
       onDelete={onDelete}
     />
   );
@@ -539,12 +559,13 @@ function InstanceStatusChip({ kind, label, hint }: { kind: string; label: string
   );
 }
 
-function InstanceMoreActions({ copy, disabled, canDelete, onOpenModels, onOpenChannels, onDelete }: {
+function InstanceMoreActions({ copy, disabled, canDelete, onOpenModels, onOpenChannels, onOpenManagement, onDelete }: {
   copy: AppMessages;
   disabled: boolean;
   canDelete: boolean;
   onOpenModels: () => void;
   onOpenChannels: () => void;
+  onOpenManagement: () => void;
   onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -586,7 +607,7 @@ function InstanceMoreActions({ copy, disabled, canDelete, onOpenModels, onOpenCh
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const width = 176;
-    const estimatedHeight = canDelete ? 132 : 92;
+    const estimatedHeight = canDelete ? 168 : 128;
     setPosition({
       left: Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width)),
       top: window.innerHeight - rect.bottom >= estimatedHeight + 8
@@ -619,6 +640,7 @@ function InstanceMoreActions({ copy, disabled, canDelete, onOpenModels, onOpenCh
         <div ref={menuRef} className="instance-actions-menu" role="menu" style={position}>
           <button type="button" role="menuitem" onClick={() => choose(onOpenModels)}><IconSliders />{copy.models.open}</button>
           <button type="button" role="menuitem" onClick={() => choose(onOpenChannels)}><IconMessage />{copy.channels.open}</button>
+          <button type="button" role="menuitem" onClick={() => choose(onOpenManagement)}><IconSearch />{copy.management.open}</button>
           {canDelete ? (
             <button type="button" role="menuitem" className="is-danger" onClick={() => choose(onDelete)}><IconTrash />{copy.instances.deleteAction}</button>
           ) : null}

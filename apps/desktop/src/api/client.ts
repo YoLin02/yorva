@@ -1,4 +1,4 @@
-import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, ModelConfiguration, ModelCredential, ModelProviderCatalog, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery } from "./types";
+import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, MCPServerList, MCPPresetList, ModelConfiguration, ModelCredential, ModelProviderCatalog, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery, Skill, SkillList } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -126,6 +126,22 @@ export function createDaemonClient(session: DaemonSession) {
       }),
     listInstanceChannels: (instanceId: string, signal?: AbortSignal) =>
       request<ChannelList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/channels`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    listInstanceSkills: (instanceId: string, signal?: AbortSignal) =>
+      request<SkillList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/skills`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    inspectInstanceSkill: (instanceId: string, skillId: string, signal?: AbortSignal) =>
+      request<Skill>(`/api/v1/instances/${encodeURIComponent(instanceId)}/skills/${encodeURIComponent(skillId)}`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    listInstanceMCPServers: (instanceId: string, signal?: AbortSignal) =>
+      request<MCPServerList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    listInstanceMCPPresets: (instanceId: string, signal?: AbortSignal) =>
+      request<MCPPresetList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-catalog`, {
         signal: withDesktopTimeout(signal),
       }),
     connectWeixin: (instanceId: string, idempotencyKey: string, signal?: AbortSignal) =>
