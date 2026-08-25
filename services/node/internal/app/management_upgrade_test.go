@@ -49,7 +49,7 @@ func (f *fakeManagedUpgradeAdapter) RollbackRuntime(context.Context, yorvaruntim
 	return f.rollbackResult, f.rollbackErr
 }
 
-func executableUpgradePlan() yorvaruntime.UpgradePlan {
+func completeUnqualifiedUpgradePlan() yorvaruntime.UpgradePlan {
 	return yorvaruntime.UpgradePlan{
 		State:                   yorvaruntime.UpgradeAvailable,
 		Rollback:                yorvaruntime.RollbackEligible,
@@ -59,8 +59,16 @@ func executableUpgradePlan() yorvaruntime.UpgradePlan {
 		InventoryComplete:       true,
 		ProtectionPointRequired: true,
 		ProtectionPointReady:    true,
+		PlanEvidenceComplete:    true,
 		ObservedAt:              time.Date(2026, 8, 25, 12, 0, 0, 0, time.UTC),
 	}
+}
+
+func qualifiedExecutableUpgradePlan() yorvaruntime.UpgradePlan {
+	plan := completeUnqualifiedUpgradePlan()
+	plan.UpgradeMutationQualified = true
+	plan.RollbackMutationQualified = true
+	return plan
 }
 
 func upgradeTarget(adapter *fakeManagedUpgradeAdapter) RuntimeManagementTarget {
@@ -83,12 +91,12 @@ func upgradeTarget(adapter *fakeManagedUpgradeAdapter) RuntimeManagementTarget {
 }
 
 func TestManagementUpgradePlanUsesExactRuntimeTarget(t *testing.T) {
-	adapter := &fakeManagedUpgradeAdapter{plan: executableUpgradePlan()}
+	adapter := &fakeManagedUpgradeAdapter{plan: completeUnqualifiedUpgradePlan()}
 	resolver := &fakeRuntimeManagementTargetResolver{target: upgradeTarget(adapter)}
 	service := NewManagementUpgrade(resolver)
 
 	plan, err := service.PlanUpgrade(context.Background(), "hermes")
-	if err != nil || !plan.Executable() {
+	if err != nil || !plan.PlanEvidenceComplete || plan.UpgradeExecutable() || plan.RollbackExecutable() {
 		t.Fatalf("PlanUpgrade() = %#v, %v", plan, err)
 	}
 	if resolver.runtimeID != "hermes" || adapter.installation != resolver.target.Installation {
@@ -109,7 +117,7 @@ func TestManagementUpgradePlanFailsClosedOnInvalidEvidence(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			plan := executableUpgradePlan()
+			plan := completeUnqualifiedUpgradePlan()
 			test.mutate(&plan)
 			adapter := &fakeManagedUpgradeAdapter{plan: plan}
 			service := NewManagementUpgrade(&fakeRuntimeManagementTargetResolver{target: upgradeTarget(adapter)})
@@ -138,7 +146,7 @@ func TestManagementUpgradePlanCapabilityFalseAndAdapterErrorsAreStable(t *testin
 func TestManagementUpgradeMutationWorkerBoundariesValidatePlanAndResult(t *testing.T) {
 	observedAt := time.Date(2026, 8, 25, 13, 0, 0, 0, time.UTC)
 	adapter := &fakeManagedUpgradeAdapter{
-		plan:           executableUpgradePlan(),
+		plan:           qualifiedExecutableUpgradePlan(),
 		upgradeResult:  yorvaruntime.UpgradeResult{State: yorvaruntime.UpgradeSucceeded, ObservedAt: observedAt},
 		rollbackResult: yorvaruntime.UpgradeResult{State: yorvaruntime.UpgradeRolledBack, ObservedAt: observedAt},
 	}
@@ -158,7 +166,7 @@ func TestManagementUpgradeMutationWorkerBoundariesValidatePlanAndResult(t *testi
 }
 
 func TestManagementUpgradeMutationWorkerRejectsInvalidAndFailedResults(t *testing.T) {
-	adapter := &fakeManagedUpgradeAdapter{plan: executableUpgradePlan()}
+	adapter := &fakeManagedUpgradeAdapter{plan: qualifiedExecutableUpgradePlan()}
 	service := NewManagementUpgrade(&fakeRuntimeManagementTargetResolver{target: upgradeTarget(adapter)})
 	if _, err := service.ExecuteUpgradeOperation(context.Background(), "hermes", nil); !errors.Is(err, ErrManagementQueryFailed) {
 		t.Fatalf("invalid Upgrade result error = %v", err)
@@ -171,7 +179,7 @@ func TestManagementUpgradeMutationWorkerRejectsInvalidAndFailedResults(t *testin
 }
 
 func TestManagementUpgradeMutationWorkerRequiresWiredCapabilities(t *testing.T) {
-	adapter := &fakeManagedUpgradeAdapter{plan: executableUpgradePlan()}
+	adapter := &fakeManagedUpgradeAdapter{plan: qualifiedExecutableUpgradePlan()}
 	target := upgradeTarget(adapter)
 	target.Bundle.Upgrade = nil
 	target.Bundle.Rollback = nil
@@ -189,8 +197,9 @@ func TestManagementUpgradeMutationWorkerRequiresWiredCapabilities(t *testing.T) 
 }
 
 func TestManagementUpgradeMutationWorkerDoesNotRunBlockedPlan(t *testing.T) {
-	plan := executableUpgradePlan()
+	plan := completeUnqualifiedUpgradePlan()
 	plan.State = yorvaruntime.UpgradeBlocked
+	plan.PlanEvidenceComplete = false
 	plan.Rollback = yorvaruntime.RollbackIneligible
 	plan.InventoryComplete = false
 	plan.ProtectionPointReady = false
@@ -205,5 +214,43 @@ func TestManagementUpgradeMutationWorkerDoesNotRunBlockedPlan(t *testing.T) {
 	}
 	if adapter.plans != 2 || adapter.upgrades != 0 || adapter.rollbacks != 0 {
 		t.Fatalf("blocked plan reached mutation adapter: %#v", adapter)
+	}
+}
+
+func TestManagementUpgradeMutationWorkerRejectsCompleteButUnqualifiedPlan(t *testing.T) {
+	adapter := &fakeManagedUpgradeAdapter{plan: completeUnqualifiedUpgradePlan()}
+	service := NewManagementUpgrade(&fakeRuntimeManagementTargetResolver{target: upgradeTarget(adapter)})
+
+	if _, err := service.ExecuteUpgradeOperation(context.Background(), "hermes", nil); !errors.Is(err, ErrManagementCapabilityUnsupported) {
+		t.Fatalf("unqualified Upgrade error = %v", err)
+	}
+	if _, err := service.ExecuteRollbackOperation(context.Background(), "hermes", nil); !errors.Is(err, ErrManagementCapabilityUnsupported) {
+		t.Fatalf("unqualified Rollback error = %v", err)
+	}
+	if adapter.upgrades != 0 || adapter.rollbacks != 0 {
+		t.Fatalf("unqualified plan reached mutation adapter: %#v", adapter)
+	}
+}
+
+func TestManagementUpgradeBlockedAndUnknownPlansCannotCarryQualification(t *testing.T) {
+	for _, state := range []yorvaruntime.UpgradeAvailabilityState{yorvaruntime.UpgradeBlocked, yorvaruntime.UpgradeUnknown} {
+		t.Run(string(state), func(t *testing.T) {
+			plan := completeUnqualifiedUpgradePlan()
+			plan.State = state
+			plan.PlanEvidenceComplete = false
+			plan.Rollback = yorvaruntime.RollbackUnknown
+			plan.InventoryComplete = false
+			plan.ProtectionPointReady = false
+			adapter := &fakeManagedUpgradeAdapter{plan: plan}
+			service := NewManagementUpgrade(&fakeRuntimeManagementTargetResolver{target: upgradeTarget(adapter)})
+
+			got, err := service.PlanUpgrade(context.Background(), "hermes")
+			if err != nil {
+				t.Fatalf("PlanUpgrade() error = %v", err)
+			}
+			if got.PlanEvidenceComplete || got.UpgradeMutationQualified || got.RollbackMutationQualified || got.UpgradeExecutable() || got.RollbackExecutable() {
+				t.Fatalf("blocked/unknown plan implied qualification: %#v", got)
+			}
+		})
 	}
 }

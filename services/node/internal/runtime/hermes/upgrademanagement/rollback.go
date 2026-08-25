@@ -21,7 +21,7 @@ type RollbackPlanInput struct {
 
 type RollbackPlan struct {
 	Eligibility               RollbackEligibility
-	Executable                bool
+	PlanEvidenceComplete      bool
 	RollbackMutationQualified bool
 	Reasons                   []ReasonCode
 	Conflicts                 []Conflict
@@ -113,7 +113,7 @@ func AssessRollback(input RollbackPlanInput) RollbackPlan {
 	}
 	if len(plan.Reasons) == 0 {
 		plan.Eligibility = RollbackEligible
-		plan.Executable = true
+		plan.PlanEvidenceComplete = true
 		return plan
 	}
 	if unknown {
@@ -122,6 +122,10 @@ func AssessRollback(input RollbackPlanInput) RollbackPlan {
 		plan.Eligibility = RollbackIneligible
 	}
 	return plan
+}
+
+func (p RollbackPlan) RollbackExecutable() bool {
+	return p.PlanEvidenceComplete && p.Eligibility == RollbackEligible && p.RollbackMutationQualified
 }
 
 func assessRollbackGeneration(generation SealedGenerationObservation, previous bool, reasons *reasonSet) bool {

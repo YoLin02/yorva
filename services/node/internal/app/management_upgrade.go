@@ -55,7 +55,7 @@ func (s *ManagementUpgrade) ExecuteUpgradeOperation(ctx context.Context, runtime
 	if !validManagedUpgradePlan(plan, target.Installation) {
 		return yorvaruntime.UpgradeResult{}, ErrManagementQueryFailed
 	}
-	if !plan.Executable() {
+	if !plan.UpgradeExecutable() {
 		return yorvaruntime.UpgradeResult{}, ErrManagementCapabilityUnsupported
 	}
 
@@ -86,7 +86,7 @@ func (s *ManagementUpgrade) ExecuteRollbackOperation(ctx context.Context, runtim
 	if !validManagedUpgradePlan(plan, target.Installation) {
 		return yorvaruntime.UpgradeResult{}, ErrManagementQueryFailed
 	}
-	if !rollbackPlanExecutable(plan) {
+	if !plan.RollbackExecutable() {
 		return yorvaruntime.UpgradeResult{}, ErrManagementCapabilityUnsupported
 	}
 
@@ -127,35 +127,30 @@ func validManagedUpgradePlan(plan yorvaruntime.UpgradePlan, installation yorvaru
 
 	switch plan.State {
 	case yorvaruntime.UpgradeAvailable:
-		// AVAILABLE is reserved for a fully gated exact plan. A missing
-		// protection point, incomplete inventory, or unproven rollback must be
-		// BLOCKED/UNKNOWN rather than an enabled-looking partial plan.
-		if !plan.Executable() {
+		// AVAILABLE may describe complete planning evidence without granting
+		// mutation authority. Qualification remains explicit and separate.
+		if !plan.PlanEvidenceComplete || !managedUpgradePlanningEvidenceComplete(plan) {
 			return false
 		}
 	case yorvaruntime.UpgradeUpToDate:
-		if !plan.Managed || plan.CurrentVersion == "" || plan.TargetVersion == "" || plan.CurrentVersion != plan.TargetVersion {
+		if plan.PlanEvidenceComplete || plan.UpgradeMutationQualified || plan.RollbackMutationQualified ||
+			!plan.Managed || plan.CurrentVersion == "" || plan.TargetVersion == "" || plan.CurrentVersion != plan.TargetVersion {
 			return false
 		}
 	case yorvaruntime.UpgradeBlocked, yorvaruntime.UpgradeUnknown:
-		if plan.Executable() {
+		if plan.PlanEvidenceComplete || plan.UpgradeMutationQualified || plan.RollbackMutationQualified {
 			return false
 		}
 	default:
 		return false
 	}
 
-	if plan.Rollback == yorvaruntime.RollbackEligible && !rollbackPlanExecutable(plan) {
-		return false
-	}
 	return true
 }
 
-func rollbackPlanExecutable(plan yorvaruntime.UpgradePlan) bool {
-	if plan.State != yorvaruntime.UpgradeAvailable && plan.State != yorvaruntime.UpgradeUpToDate {
-		return false
-	}
-	return plan.Managed &&
+func managedUpgradePlanningEvidenceComplete(plan yorvaruntime.UpgradePlan) bool {
+	return plan.State == yorvaruntime.UpgradeAvailable &&
+		plan.Managed &&
 		plan.InventoryComplete &&
 		plan.Rollback == yorvaruntime.RollbackEligible &&
 		(!plan.ProtectionPointRequired || plan.ProtectionPointReady)

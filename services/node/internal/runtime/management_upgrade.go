@@ -31,15 +31,18 @@ func (s RollbackEligibilityState) Valid() bool {
 }
 
 type UpgradePlan struct {
-	State                   UpgradeAvailabilityState
-	Rollback                RollbackEligibilityState
-	CurrentVersion          string
-	TargetVersion           string
-	Managed                 bool
-	InventoryComplete       bool
-	ProtectionPointRequired bool
-	ProtectionPointReady    bool
-	ObservedAt              time.Time
+	State                     UpgradeAvailabilityState
+	Rollback                  RollbackEligibilityState
+	CurrentVersion            string
+	TargetVersion             string
+	Managed                   bool
+	InventoryComplete         bool
+	ProtectionPointRequired   bool
+	ProtectionPointReady      bool
+	PlanEvidenceComplete      bool
+	UpgradeMutationQualified  bool
+	RollbackMutationQualified bool
+	ObservedAt                time.Time
 }
 
 func (p UpgradePlan) Validate() error {
@@ -55,11 +58,39 @@ func (p UpgradePlan) Validate() error {
 	if p.State == UpgradeAvailable && (p.CurrentVersion == "" || p.TargetVersion == "") {
 		return ErrInvalidManagementContract
 	}
+	if p.State == UpgradeAvailable && !p.PlanEvidenceComplete {
+		return ErrInvalidManagementContract
+	}
+	if p.PlanEvidenceComplete {
+		if p.State != UpgradeAvailable || !p.Managed || !p.InventoryComplete || p.Rollback != RollbackEligible ||
+			(p.ProtectionPointRequired && !p.ProtectionPointReady) {
+			return ErrInvalidManagementContract
+		}
+	}
+	if p.UpgradeMutationQualified && !p.PlanEvidenceComplete {
+		return ErrInvalidManagementContract
+	}
+	if p.RollbackMutationQualified && (!p.PlanEvidenceComplete || p.Rollback != RollbackEligible) {
+		return ErrInvalidManagementContract
+	}
 	return nil
 }
 
-func (p UpgradePlan) Executable() bool {
-	return p.State == UpgradeAvailable &&
+// UpgradeExecutable is mutation truth, not merely planning completeness.
+func (p UpgradePlan) UpgradeExecutable() bool {
+	return p.PlanEvidenceComplete &&
+		p.UpgradeMutationQualified &&
+		p.State == UpgradeAvailable &&
+		p.Managed &&
+		p.InventoryComplete &&
+		p.Rollback == RollbackEligible &&
+		(!p.ProtectionPointRequired || p.ProtectionPointReady)
+}
+
+func (p UpgradePlan) RollbackExecutable() bool {
+	return p.PlanEvidenceComplete &&
+		p.RollbackMutationQualified &&
+		p.State == UpgradeAvailable &&
 		p.Managed &&
 		p.InventoryComplete &&
 		p.Rollback == RollbackEligible &&

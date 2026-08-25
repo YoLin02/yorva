@@ -35,6 +35,7 @@ func httpUpgradePlan() yorvaruntime.UpgradePlan {
 		InventoryComplete:       true,
 		ProtectionPointRequired: true,
 		ProtectionPointReady:    true,
+		PlanEvidenceComplete:    true,
 		ObservedAt:              time.Date(2026, 8, 25, 12, 0, 0, 0, time.UTC),
 	}
 }
@@ -55,7 +56,8 @@ func TestManagementUpgradeHTTPReturnsClosedSafePlan(t *testing.T) {
 	}
 	want := []string{
 		"state", "rollbackEligibility", "currentVersion", "targetVersion", "managed",
-		"inventoryComplete", "protectionPointRequired", "protectionPointReady", "executable", "observedAt",
+		"inventoryComplete", "protectionPointRequired", "protectionPointReady", "planEvidenceComplete",
+		"upgradeMutationQualified", "rollbackMutationQualified", "upgradeExecutable", "rollbackExecutable", "observedAt",
 	}
 	if len(body) != len(want) {
 		t.Fatalf("fields = %v", body)
@@ -65,7 +67,21 @@ func TestManagementUpgradeHTTPReturnsClosedSafePlan(t *testing.T) {
 			t.Fatalf("missing field %q in %s", field, response.Body.String())
 		}
 	}
-	for _, forbidden := range []string{"path", "command", "argv", "seal", "sha256", "installationId", "protectionPointId"} {
+	for _, field := range []string{"upgradeMutationQualified", "rollbackMutationQualified", "upgradeExecutable", "rollbackExecutable"} {
+		if string(body[field]) != "false" {
+			t.Fatalf("unqualified plan reported %s=%s", field, body[field])
+		}
+	}
+	if string(body["planEvidenceComplete"]) != "true" {
+		t.Fatalf("planning evidence truth lost: %s", body["planEvidenceComplete"])
+	}
+	if _, ambiguous := body["executable"]; ambiguous {
+		t.Fatalf("ambiguous executable field remained: %s", response.Body.String())
+	}
+	for _, forbidden := range []string{
+		"path", "command", "argv", "environment", "url", "secret", "credential", "token",
+		"seal", "sha256", "installationId", "protectionPointId",
+	} {
 		if strings.Contains(strings.ToLower(response.Body.String()), strings.ToLower(forbidden)) {
 			t.Fatalf("response exposed forbidden field %q: %s", forbidden, response.Body.String())
 		}

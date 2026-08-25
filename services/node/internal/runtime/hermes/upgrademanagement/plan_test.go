@@ -10,10 +10,10 @@ func TestBuildUpgradePlanAcceptsCompleteExactPlanningEvidence(t *testing.T) {
 	input := validUpgradeInput()
 	plan := BuildUpgradePlan(input)
 
-	if plan.Availability != UpgradeAvailable || !plan.Executable || !plan.RollbackEligible {
+	if plan.Availability != UpgradeAvailable || !plan.PlanEvidenceComplete || !plan.RollbackEligible {
 		t.Fatalf("plan = %#v, want AVAILABLE executable with rollback eligibility", plan)
 	}
-	if plan.MutationQualified || plan.RollbackMutationQualified {
+	if plan.UpgradeMutationQualified || plan.RollbackMutationQualified || plan.UpgradeExecutable() || plan.RollbackExecutable() {
 		t.Fatalf("unapproved mutation became qualified: %#v", plan)
 	}
 	if len(plan.Reasons) != 0 {
@@ -90,7 +90,7 @@ func TestBuildUpgradePlanRejectsInvalidMismatchAndUnmanagedEvidence(t *testing.T
 			input := validUpgradeInput()
 			test.mutate(&input)
 			plan := BuildUpgradePlan(input)
-			if plan.Executable || plan.Availability != UpgradeBlocked {
+			if plan.PlanEvidenceComplete || plan.UpgradeMutationQualified || plan.RollbackMutationQualified || plan.Availability != UpgradeBlocked {
 				t.Fatalf("plan = %#v, want non-executable BLOCKED", plan)
 			}
 			assertReason(t, plan.Reasons, test.reason)
@@ -106,7 +106,7 @@ func TestBuildUpgradePlanTreatsExactSameTargetAsUpToDate(t *testing.T) {
 	input.Compatibility.To = input.Current.Identity
 
 	plan := BuildUpgradePlan(input)
-	if plan.Availability != UpgradeUpToDate || plan.Executable {
+	if plan.Availability != UpgradeUpToDate || plan.PlanEvidenceComplete || plan.UpgradeMutationQualified || plan.RollbackMutationQualified {
 		t.Fatalf("plan = %#v, want non-executable UP_TO_DATE", plan)
 	}
 	assertReason(t, plan.Reasons, ReasonTargetAlreadyActive)
@@ -119,7 +119,7 @@ func TestSameIdentityDoesNotMaskInvalidActivePointer(t *testing.T) {
 	input.Active.State = ActivePointerInvalid
 
 	plan := BuildUpgradePlan(input)
-	if plan.Availability == UpgradeUpToDate || plan.Executable {
+	if plan.Availability == UpgradeUpToDate || plan.PlanEvidenceComplete || plan.UpgradeMutationQualified || plan.RollbackMutationQualified {
 		t.Fatalf("plan = %#v, invalid active pointer cannot prove UP_TO_DATE", plan)
 	}
 	assertReason(t, plan.Reasons, ReasonActivePointerNotValid)
@@ -159,7 +159,7 @@ func TestBuildUpgradePlanBlocksMissingProtectionCompatibilityAndUnsafeDowngrade(
 			input := validUpgradeInput()
 			test.mutate(&input)
 			plan := BuildUpgradePlan(input)
-			if plan.Executable || plan.RollbackEligible || plan.Availability != UpgradeBlocked {
+			if plan.PlanEvidenceComplete || plan.UpgradeMutationQualified || plan.RollbackMutationQualified || plan.RollbackEligible || plan.Availability != UpgradeBlocked {
 				t.Fatalf("plan = %#v, want blocked with rollback disabled", plan)
 			}
 			assertReason(t, plan.Reasons, test.reason)
@@ -173,11 +173,61 @@ func TestBuildUpgradePlanFailsClosedOnUnknownInventoryAndPostcheck(t *testing.T)
 	input.PostcheckPolicy.State = EvidenceUnknown
 
 	plan := BuildUpgradePlan(input)
-	if plan.Availability != UpgradeUnknown || plan.Executable {
+	if plan.Availability != UpgradeUnknown || plan.PlanEvidenceComplete || plan.UpgradeMutationQualified || plan.RollbackMutationQualified {
 		t.Fatalf("plan = %#v, want non-executable UNKNOWN", plan)
 	}
 	assertReason(t, plan.Reasons, ReasonInventoryUnknown)
 	assertReason(t, plan.Reasons, ReasonPostchecksUnknown)
+}
+
+func TestBuildUpgradePlanNeverQualifiesMissingOrUnknownPlanningEvidence(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*UpgradePlanInput)
+		reason ReasonCode
+	}{
+		{
+			name: "unknown protection point",
+			mutate: func(input *UpgradePlanInput) {
+				input.ProtectionPoint = ProtectionPointObservation{State: EvidenceUnknown}
+			},
+			reason: ReasonProtectionPointUnknown,
+		},
+		{
+			name: "unknown compatibility",
+			mutate: func(input *UpgradePlanInput) {
+				input.Compatibility = CompatibilityRecord{State: EvidenceUnknown}
+			},
+			reason: ReasonCompatibilityUnknown,
+		},
+		{
+			name: "missing postcheck qualification",
+			mutate: func(input *UpgradePlanInput) {
+				input.PostcheckPolicy = PostcheckQualification{State: EvidenceMissing}
+			},
+			reason: ReasonPostchecksUnqualified,
+		},
+		{
+			name: "unknown postcheck qualification",
+			mutate: func(input *UpgradePlanInput) {
+				input.PostcheckPolicy = PostcheckQualification{State: EvidenceUnknown}
+			},
+			reason: ReasonPostchecksUnknown,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := validUpgradeInput()
+			test.mutate(&input)
+			plan := BuildUpgradePlan(input)
+			if plan.PlanEvidenceComplete || plan.UpgradeMutationQualified || plan.RollbackMutationQualified ||
+				plan.UpgradeExecutable() || plan.RollbackExecutable() {
+				t.Fatalf("incomplete evidence implied qualification: %#v", plan)
+			}
+			assertReason(t, plan.Reasons, test.reason)
+		})
+	}
 }
 
 func validUpgradeInput() UpgradePlanInput {

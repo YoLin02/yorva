@@ -5,10 +5,10 @@ import "testing"
 func TestAssessRollbackRequiresSealedLineageCompatibilityProtectionAndPostchecks(t *testing.T) {
 	input := validRollbackInput()
 	plan := AssessRollback(input)
-	if plan.Eligibility != RollbackEligible || !plan.Executable {
+	if plan.Eligibility != RollbackEligible || !plan.PlanEvidenceComplete {
 		t.Fatalf("plan = %#v, want ELIGIBLE executable", plan)
 	}
-	if plan.RollbackMutationQualified {
+	if plan.RollbackMutationQualified || plan.RollbackExecutable() {
 		t.Fatal("unapproved rollback mutation became qualified")
 	}
 }
@@ -61,7 +61,7 @@ func TestPreviousGenerationPresenceAloneNeverMakesRollbackEligible(t *testing.T)
 			input := validRollbackInput()
 			test.mutate(&input)
 			plan := AssessRollback(input)
-			if plan.Eligibility != RollbackIneligible || plan.Executable {
+			if plan.Eligibility != RollbackIneligible || plan.PlanEvidenceComplete || plan.RollbackMutationQualified {
 				t.Fatalf("plan = %#v, want INELIGIBLE", plan)
 			}
 			assertReason(t, plan.Reasons, test.reason)
@@ -74,7 +74,7 @@ func TestAssessRollbackFailsClosedOnUnknownCompatibility(t *testing.T) {
 	input.Compatibility.State = EvidenceUnknown
 
 	plan := AssessRollback(input)
-	if plan.Eligibility != RollbackUnknown || plan.Executable {
+	if plan.Eligibility != RollbackUnknown || plan.PlanEvidenceComplete || plan.RollbackMutationQualified {
 		t.Fatalf("plan = %#v, want non-executable UNKNOWN", plan)
 	}
 	assertReason(t, plan.Reasons, ReasonCompatibilityUnknown)

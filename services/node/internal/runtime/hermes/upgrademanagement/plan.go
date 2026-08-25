@@ -59,17 +59,17 @@ type UpgradePlanInput struct {
 	PostcheckPolicy PostcheckQualification
 }
 
-// UpgradePlan is planning evidence, not mutation authority. Executable means
-// the supplied planning evidence is complete and mutually consistent.
-// MutationQualified remains false while ADR-0015 and destructive qualification
-// are not accepted.
+// UpgradePlan is planning evidence, not mutation authority. PlanEvidenceComplete
+// means the supplied planning evidence is complete and mutually consistent.
+// Mutation qualification remains separate and false until exact destructive-flow
+// qualification is accepted and wired into the production adapter.
 type UpgradePlan struct {
 	Availability              UpgradeAvailability
 	Current                   SnapshotIdentity
 	Target                    SnapshotIdentity
-	Executable                bool
+	PlanEvidenceComplete      bool
 	RollbackEligible          bool
-	MutationQualified         bool
+	UpgradeMutationQualified  bool
 	RollbackMutationQualified bool
 	Reasons                   []ReasonCode
 	Conflicts                 []Conflict
@@ -140,7 +140,7 @@ func BuildUpgradePlan(input UpgradePlanInput) UpgradePlan {
 			Availability:              UpgradeUpToDate,
 			Current:                   input.Current.Identity,
 			Target:                    input.Target.Compiled,
-			MutationQualified:         false,
+			UpgradeMutationQualified:  false,
 			RollbackMutationQualified: false,
 			Reasons:                   []ReasonCode{ReasonTargetAlreadyActive},
 			Conflicts:                 conflicts(),
@@ -195,7 +195,7 @@ func BuildUpgradePlan(input UpgradePlanInput) UpgradePlan {
 	plan := UpgradePlan{
 		Current:                   input.Current.Identity,
 		Target:                    input.Target.Compiled,
-		MutationQualified:         false,
+		UpgradeMutationQualified:  false,
 		RollbackMutationQualified: false,
 		Reasons:                   reasons.values(),
 		Conflicts:                 conflicts(),
@@ -204,7 +204,7 @@ func BuildUpgradePlan(input UpgradePlanInput) UpgradePlan {
 
 	if len(plan.Reasons) == 0 {
 		plan.Availability = UpgradeAvailable
-		plan.Executable = true
+		plan.PlanEvidenceComplete = true
 		plan.RollbackEligible = compatibilityValid
 		return plan
 	}
@@ -214,6 +214,14 @@ func BuildUpgradePlan(input UpgradePlanInput) UpgradePlan {
 		plan.Availability = UpgradeBlocked
 	}
 	return plan
+}
+
+func (p UpgradePlan) UpgradeExecutable() bool {
+	return p.PlanEvidenceComplete && p.UpgradeMutationQualified
+}
+
+func (p UpgradePlan) RollbackExecutable() bool {
+	return p.PlanEvidenceComplete && p.RollbackEligible && p.RollbackMutationQualified
 }
 
 func assessCompatibility(record CompatibilityRecord, from, to SnapshotIdentity, reasons *reasonSet, requireUpgrade bool) (bool, bool) {

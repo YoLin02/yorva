@@ -205,38 +205,43 @@ func TestAvailableBackupRequiresVerifiedMetadata(t *testing.T) {
 func TestUpgradePlanRequiresManagedCompleteAvailability(t *testing.T) {
 	now := time.Now().UTC()
 	plan := UpgradePlan{
-		State:             UpgradeAvailable,
-		Rollback:          RollbackEligible,
-		CurrentVersion:    "0.20.2",
-		TargetVersion:     "0.20.5",
-		Managed:           true,
-		InventoryComplete: true,
-		ObservedAt:        now,
+		State:                UpgradeAvailable,
+		Rollback:             RollbackEligible,
+		CurrentVersion:       "0.20.2",
+		TargetVersion:        "0.20.5",
+		Managed:              true,
+		InventoryComplete:    true,
+		PlanEvidenceComplete: true,
+		ObservedAt:           now,
 	}
-	if err := plan.Validate(); err != nil || !plan.Executable() {
-		t.Fatalf("qualified upgrade plan = (%v, executable %v), want valid executable", err, plan.Executable())
+	if err := plan.Validate(); err != nil || !plan.PlanEvidenceComplete || plan.UpgradeExecutable() {
+		t.Fatalf("planning truth = (%v, %#v), want complete but mutation-unqualified", err, plan)
+	}
+	plan.UpgradeMutationQualified = true
+	if !plan.UpgradeExecutable() {
+		t.Fatal("qualified complete upgrade plan was not executable")
 	}
 	plan.InventoryComplete = false
-	if plan.Executable() {
+	if plan.UpgradeExecutable() {
 		t.Fatal("partial inventory produced an executable upgrade plan")
 	}
 	plan.State = UpgradeBlocked
-	if plan.Executable() {
+	if plan.UpgradeExecutable() {
 		t.Fatal("blocked upgrade plan was executable")
 	}
 	plan.State = UpgradeAvailable
 	plan.InventoryComplete = true
 	plan.Rollback = RollbackUnknown
-	if plan.Executable() {
+	if plan.UpgradeExecutable() {
 		t.Fatal("unknown rollback compatibility produced an executable upgrade plan")
 	}
 	plan.Rollback = RollbackEligible
 	plan.ProtectionPointRequired = true
-	if plan.Executable() {
+	if plan.UpgradeExecutable() {
 		t.Fatal("missing required protection point produced an executable upgrade plan")
 	}
 	plan.ProtectionPointReady = true
-	if !plan.Executable() {
+	if !plan.UpgradeExecutable() {
 		t.Fatal("verified protection point did not restore upgrade eligibility")
 	}
 }
