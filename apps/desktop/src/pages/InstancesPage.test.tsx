@@ -399,7 +399,7 @@ describe("InstancesPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "More actions" })[1]);
     fireEvent.click(screen.getByRole("menuitem", { name: "Management" }));
     expect(screen.getByRole("dialog", { name: "Instance management: coder" })).toBeInTheDocument();
-    expect(screen.getAllByText(messages["en-US"].management.unavailable)).toHaveLength(2);
+    expect(screen.getAllByText(messages["en-US"].management.unavailable)).toHaveLength(3);
     expect(client.listInstanceSkills).not.toHaveBeenCalled();
     expect(client.listInstanceMCPServers).not.toHaveBeenCalled();
   });

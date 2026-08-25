@@ -323,6 +323,15 @@ type Messages = {
     loading: string;
     requestFailed: string;
     unavailable: string;
+    diagnosticsTitle: string;
+    diagnosticsDescription: string;
+    healthTitle: string;
+    logsTitle: string;
+    logCategory: string;
+    noFindings: string;
+    noLogs: string;
+    partial: string;
+    truncated: string;
     skillsTitle: string;
     skillsDescription: string;
     noSkills: string;
@@ -341,6 +350,8 @@ type Messages = {
     readyAt: string;
     observedAt: string;
     neverReady: string;
+    healthState: Record<"HEALTHY" | "DEGRADED" | "UNHEALTHY" | "UNKNOWN", string>;
+    logCategories: Record<"RUNTIME" | "ERRORS" | "GATEWAY" | "MCP", string>;
     installationState: Record<"INSTALLED" | "NOT_INSTALLED" | "UNKNOWN", string>;
     enabledState: Record<"ENABLED" | "DISABLED" | "UNKNOWN", string>;
     scanState: Record<"CLEAN" | "WARNING" | "BLOCKED" | "NOT_SCANNED" | "UNKNOWN", string>;
@@ -804,6 +815,15 @@ const english: Messages = {
     loading: "Loading authoritative state…",
     requestFailed: "Yorva could not read this management state.",
     unavailable: "This capability is unavailable for the selected Runtime version.",
+    diagnosticsTitle: "Health and logs",
+    diagnosticsDescription: "Normalized health and one fixed-category, bounded, redacted log snapshot.",
+    healthTitle: "Health",
+    logsTitle: "Logs",
+    logCategory: "Category",
+    noFindings: "No health findings were reported.",
+    noLogs: "No log entries were reported for this category.",
+    partial: "Partial observation",
+    truncated: "Snapshot truncated at the safe limit",
     skillsTitle: "Skills",
     skillsDescription: "Installed, enabled, scan, and update state reported by the Runtime.",
     noSkills: "No Skills were reported for this instance.",
@@ -822,6 +842,8 @@ const english: Messages = {
     readyAt: "Ready evidence",
     observedAt: "Observed",
     neverReady: "No current Ready evidence",
+    healthState: { HEALTHY: "Healthy", DEGRADED: "Degraded", UNHEALTHY: "Unhealthy", UNKNOWN: "Unknown" },
+    logCategories: { RUNTIME: "Runtime", ERRORS: "Errors", GATEWAY: "Gateway", MCP: "MCP" },
     installationState: { INSTALLED: "Installed", NOT_INSTALLED: "Not installed", UNKNOWN: "Unknown" },
     enabledState: { ENABLED: "Enabled", DISABLED: "Disabled", UNKNOWN: "Unknown" },
     scanState: { CLEAN: "Clean", WARNING: "Warning", BLOCKED: "Blocked", NOT_SCANNED: "Not scanned", UNKNOWN: "Unknown" },
@@ -1288,6 +1310,15 @@ const simplifiedChinese: Messages = {
     loading: "正在读取权威状态…",
     requestFailed: "无法读取此管理状态。",
     unavailable: "当前 Runtime 版本不支持此项已验证能力。",
+    diagnosticsTitle: "健康与日志",
+    diagnosticsDescription: "标准化健康状态，以及一个固定类别、有界且已脱敏的日志快照。",
+    healthTitle: "健康状态",
+    logsTitle: "日志",
+    logCategory: "日志类别",
+    noFindings: "没有报告健康问题。",
+    noLogs: "此类别没有报告日志记录。",
+    partial: "当前结果不完整",
+    truncated: "日志已在安全上限处截断",
     skillsTitle: "Skills",
     skillsDescription: "由 Runtime 报告的安装、启用、扫描与更新状态。",
     noSkills: "此实例没有报告任何 Skill。",
@@ -1306,6 +1337,8 @@ const simplifiedChinese: Messages = {
     readyAt: "就绪证据",
     observedAt: "状态时间",
     neverReady: "当前没有就绪证据",
+    healthState: { HEALTHY: "健康", DEGRADED: "降级", UNHEALTHY: "不健康", UNKNOWN: "未知" },
+    logCategories: { RUNTIME: "Runtime", ERRORS: "错误", GATEWAY: "网关", MCP: "MCP" },
     installationState: { INSTALLED: "已安装", NOT_INSTALLED: "未安装", UNKNOWN: "未知" },
     enabledState: { ENABLED: "已启用", DISABLED: "已停用", UNKNOWN: "未知" },
     scanState: { CLEAN: "安全", WARNING: "警告", BLOCKED: "已阻止", NOT_SCANNED: "未扫描", UNKNOWN: "未知" },

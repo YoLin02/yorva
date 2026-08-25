@@ -1793,6 +1793,97 @@ p {
   gap: 8px;
 }
 
+.management-diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.management-diagnostic-block {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.management-diagnostic-block h4 {
+  margin: 0;
+  color: var(--yorva-heading);
+  font-size: 12px;
+}
+
+.management-diagnostic-content {
+  display: grid;
+  gap: 9px;
+}
+
+.management-diagnostic-content time {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.management-log-category {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.management-log-category select {
+  max-width: 150px;
+  min-height: 30px;
+  border: 1px solid #dbe4ed;
+  border-radius: 7px;
+  padding: 4px 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+}
+
+.management-finding-list,
+.management-log-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.management-finding-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.management-log-list {
+  max-height: 220px;
+  overflow: auto;
+}
+
+.management-log-list li {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.management-log-list pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #334155;
+  font: 11px/1.45 var(--yorva-mono);
+}
+
 .management-item {
   display: grid;
   gap: 10px;
@@ -3279,6 +3370,10 @@ p {
   }
 
   .management-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .management-diagnostics-grid {
     grid-template-columns: 1fr;
   }
 

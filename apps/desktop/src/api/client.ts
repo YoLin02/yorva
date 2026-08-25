@@ -1,4 +1,4 @@
-import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, MCPServerList, MCPPresetList, ModelConfiguration, ModelCredential, ModelProviderCatalog, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery, Skill, SkillList } from "./types";
+import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, ManagementHealth, ManagementLogCategory, ManagementLogSnapshot, MCPServerList, MCPPresetList, ModelConfiguration, ModelCredential, ModelProviderCatalog, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery, Skill, SkillList } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -117,6 +117,15 @@ export function createDaemonClient(session: DaemonSession) {
       request<import("./types").Lifecycle>(`/api/v1/instances/${encodeURIComponent(instanceId)}/lifecycle`, {
         signal: withDesktopTimeout(signal),
       }),
+    getInstanceHealth: (instanceId: string, signal?: AbortSignal) =>
+      request<ManagementHealth>(`/api/v1/instances/${encodeURIComponent(instanceId)}/health`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    getInstanceLogSnapshot: (instanceId: string, category: ManagementLogCategory, signal?: AbortSignal) =>
+      request<ManagementLogSnapshot>(
+        `/api/v1/instances/${encodeURIComponent(instanceId)}/logs?category=${encodeURIComponent(category)}`,
+        { signal: withDesktopTimeout(signal) },
+      ),
     startInstanceLifecycle: (instanceId: string, action: "start" | "stop" | "restart", idempotencyKey: string, signal?: AbortSignal) =>
       request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/${action}`, {
         method: "POST",

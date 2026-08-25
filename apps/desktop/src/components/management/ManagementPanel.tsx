@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import type { DaemonClient } from "../../api/client";
-import type { Instance, MCPServer, Skill } from "../../api/types";
+import type { Instance, MCPServer, ManagementHealth, ManagementLogSnapshot, Skill } from "../../api/types";
 import { formatDateTime } from "../../formatDateTime";
 import type { AppMessages, Locale } from "../../i18n";
 import type { BadgeTone } from "../../types/ui";
@@ -17,8 +17,23 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
   onClose: () => void;
 }) {
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  const [logCategory, setLogCategory] = useState<ManagementLogSnapshot["category"]>("ERRORS");
+  const healthRead = instance.capabilities.healthRead;
+  const logsRead = instance.capabilities.logsRead;
   const skillRead = instance.capabilities.skillRead;
   const mcpRead = instance.capabilities.mcpRead;
+  const healthQuery = useQuery({
+    queryKey: ["instance-management-health", instance.instanceId, client.scope],
+    queryFn: ({ signal }) => client.getInstanceHealth(instance.instanceId, signal),
+    enabled: healthRead,
+    retry: false,
+  });
+  const logsQuery = useQuery({
+    queryKey: ["instance-management-logs", instance.instanceId, logCategory, client.scope],
+    queryFn: ({ signal }) => client.getInstanceLogSnapshot(instance.instanceId, logCategory, signal),
+    enabled: logsRead,
+    retry: false,
+  });
   const skillsQuery = useQuery({
     queryKey: ["instance-skills", instance.instanceId, client.scope],
     queryFn: ({ signal }) => client.listInstanceSkills(instance.instanceId, signal),
@@ -53,6 +68,8 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
   }, [onClose]);
 
   const refresh = () => {
+    if (healthRead) void healthQuery.refetch();
+    if (logsRead) void logsQuery.refetch();
     if (skillRead) {
       void skillsQuery.refetch();
       if (selectedSkillId) void skillQuery.refetch();
@@ -62,7 +79,7 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
       void presetsQuery.refetch();
     }
   };
-  const busy = skillsQuery.isFetching || skillQuery.isFetching || serversQuery.isFetching || presetsQuery.isFetching;
+  const busy = healthQuery.isFetching || logsQuery.isFetching || skillsQuery.isFetching || skillQuery.isFetching || serversQuery.isFetching || presetsQuery.isFetching;
 
   return (
     <section className="management-panel" aria-labelledby="management-panel-title">
@@ -72,7 +89,7 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
           <p className="page-copy">{copy.management.description}</p>
         </div>
         <div className="management-header-actions">
-          <Button onClick={refresh} disabled={busy || (!skillRead && !mcpRead)} className="button-compact button-neutral">
+          <Button onClick={refresh} disabled={busy || (!healthRead && !logsRead && !skillRead && !mcpRead)} className="button-compact button-neutral">
             <IconRefresh className={busy ? "spin" : undefined} />
             {copy.management.refresh}
           </Button>
@@ -81,6 +98,37 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
           </button>
         </div>
       </header>
+
+      <ManagementSection
+        title={copy.management.diagnosticsTitle}
+        description={copy.management.diagnosticsDescription}
+        supported={healthRead || logsRead}
+        loading={false}
+        error={false}
+        copy={copy}
+        onRetry={() => undefined}
+      >
+        <div className="management-diagnostics-grid">
+          <DiagnosticBlock title={copy.management.healthTitle} supported={healthRead} copy={copy}>
+            {healthQuery.isLoading ? <p className="management-empty" role="status">{copy.management.loading}</p> : null}
+            {healthQuery.isError ? <ManagementQueryError copy={copy} onRetry={() => void healthQuery.refetch()} /> : null}
+            {healthQuery.data ? <HealthView health={healthQuery.data} copy={copy} locale={locale} /> : null}
+          </DiagnosticBlock>
+          <DiagnosticBlock title={copy.management.logsTitle} supported={logsRead} copy={copy}>
+            <label className="management-log-category">
+              <span>{copy.management.logCategory}</span>
+              <select value={logCategory} onChange={(event) => setLogCategory(event.target.value as ManagementLogSnapshot["category"])} disabled={!logsRead || logsQuery.isFetching}>
+                {(Object.keys(copy.management.logCategories) as ManagementLogSnapshot["category"][]).map((category) => (
+                  <option key={category} value={category}>{copy.management.logCategories[category]}</option>
+                ))}
+              </select>
+            </label>
+            {logsQuery.isLoading ? <p className="management-empty" role="status">{copy.management.loading}</p> : null}
+            {logsQuery.isError ? <ManagementQueryError copy={copy} onRetry={() => void logsQuery.refetch()} /> : null}
+            {logsQuery.data ? <LogView snapshot={logsQuery.data} copy={copy} locale={locale} /> : null}
+          </DiagnosticBlock>
+        </div>
+      </ManagementSection>
 
       <ManagementSection
         title={copy.management.skillsTitle}
@@ -130,6 +178,52 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
         </div>
       </ManagementSection>
     </section>
+  );
+}
+
+function DiagnosticBlock({ title, supported, copy, children }: {
+  title: string;
+  supported: boolean;
+  copy: AppMessages;
+  children: ReactNode;
+}) {
+  return (
+    <section className="management-diagnostic-block">
+      <div className="management-item-heading"><h4>{title}</h4><Badge tone={supported ? "ok" : "neutral"}>{supported ? copy.instances.capabilityAvailable : copy.instances.capabilityUnavailable}</Badge></div>
+      {!supported ? <p className="management-empty">{copy.management.unavailable}</p> : children}
+    </section>
+  );
+}
+
+function ManagementQueryError({ copy, onRetry }: { copy: AppMessages; onRetry: () => void }) {
+  return <div className="management-error" role="alert"><span>{copy.management.requestFailed}</span><Button onClick={onRetry}>{copy.management.retry}</Button></div>;
+}
+
+function HealthView({ health, copy, locale }: { health: ManagementHealth; copy: AppMessages; locale: Locale }) {
+  return (
+    <div className="management-diagnostic-content">
+      <div className="management-item-heading">
+        <Badge tone={healthTone(health.state)}>{copy.management.healthState[health.state]}</Badge>
+        <time dateTime={health.observedAt}>{formatDateTime(health.observedAt, locale)}</time>
+      </div>
+      {health.partial ? <p className="notice notice-warn">{copy.management.partial}</p> : null}
+      {health.findings.length === 0 ? <p className="management-empty">{copy.management.noFindings}</p> : (
+        <ul className="management-finding-list">{health.findings.map((finding) => <li key={finding.code}><code>{finding.code}</code><span>{copy.management.healthState[finding.state]}</span></li>)}</ul>
+      )}
+    </div>
+  );
+}
+
+function LogView({ snapshot, copy, locale }: { snapshot: ManagementLogSnapshot; copy: AppMessages; locale: Locale }) {
+  return (
+    <div className="management-diagnostic-content">
+      {snapshot.truncated ? <p className="notice notice-warn">{copy.management.truncated}</p> : null}
+      {snapshot.entries.length === 0 ? <p className="management-empty">{copy.management.noLogs}</p> : (
+        <ol className="management-log-list">{snapshot.entries.map((entry, index) => (
+          <li key={`${entry.timestamp}-${index}`}><time dateTime={entry.timestamp}>{formatDateTime(entry.timestamp, locale)}</time><pre>{entry.message}</pre></li>
+        ))}</ol>
+      )}
+    </div>
   );
 }
 
@@ -229,4 +323,11 @@ function mcpTone(server: MCPServer): BadgeTone {
   if (server.state === "FAILED" || server.state === "AUTH_REQUIRED") return "error";
   if (server.state === "UNKNOWN") return "warn";
   return server.state === "CONFIGURED" ? "info" : "neutral";
+}
+
+function healthTone(state: ManagementHealth["state"]): BadgeTone {
+  if (state === "HEALTHY") return "ok";
+  if (state === "UNHEALTHY") return "error";
+  if (state === "DEGRADED" || state === "UNKNOWN") return "warn";
+  return "neutral";
 }

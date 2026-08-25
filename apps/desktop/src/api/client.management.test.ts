@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createDaemonClient } from "./client";
+import type { DaemonClient } from "./client";
+import type { ManagementLogCategory } from "./types";
 
 const session = {
   baseUrl: "http://127.0.0.1:49152",
@@ -13,6 +15,35 @@ afterEach(() => {
 });
 
 describe("daemon client management reads", () => {
+  it("types the log category from the generated closed union", () => {
+    expectTypeOf<ManagementLogCategory>().toEqualTypeOf<"RUNTIME" | "ERRORS" | "GATEWAY" | "MCP">();
+    expectTypeOf<Parameters<DaemonClient["getInstanceLogSnapshot"]>[1]>().toEqualTypeOf<ManagementLogCategory>();
+  });
+
+  it("uses encoded Instance and category values for authenticated health and log GET requests", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () =>
+      new Response(JSON.stringify({ entries: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createDaemonClient(session);
+
+    await client.getInstanceHealth("instance/a b");
+    await client.getInstanceLogSnapshot("instance/a b", "MCP&ignored=value" as ManagementLogCategory);
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/health",
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/logs?category=MCP%26ignored%3Dvalue",
+    ]);
+    for (const [, init] of fetchMock.mock.calls as [string, RequestInit][]) {
+      expect(init.method ?? "GET").toBe("GET");
+      expect(init.body).toBeUndefined();
+      expect(init.headers).toEqual(expect.objectContaining({ Authorization: "Bearer session-secret" }));
+    }
+  });
+
   it("uses encoded Instance and Skill path segments with authenticated GET requests", async () => {
     const fetchMock = vi.fn().mockImplementation(async () =>
       new Response(JSON.stringify({ items: [] }), {
@@ -53,7 +84,7 @@ describe("daemon client management reads", () => {
     vi.stubGlobal("fetch", fetchMock);
     const callerController = new AbortController();
 
-    await createDaemonClient(session).listInstanceMCPServers("instance-one", callerController.signal);
+    await createDaemonClient(session).getInstanceHealth("instance-one", callerController.signal);
 
     expect(timeoutSpy).toHaveBeenCalledWith(15_000);
     const requestSignal = (fetchMock.mock.calls[0][1] as RequestInit).signal as AbortSignal;
@@ -73,7 +104,7 @@ describe("daemon client management reads", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await createDaemonClient(session).listInstanceSkills("instance-one");
+    await createDaemonClient(session).getInstanceLogSnapshot("instance-one", "ERRORS");
 
     const requestSignal = (fetchMock.mock.calls[0][1] as RequestInit).signal as AbortSignal;
     expect(requestSignal.aborted).toBe(false);
