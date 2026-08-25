@@ -92,7 +92,8 @@ func (c *CreateCredential) consume() (EncryptionMode, string, []byte, error) {
 // created inside the trusted local/native picker integration, never decoded
 // from a remote API body. Formatting never exposes the path.
 type LocalDestination struct {
-	path string
+	path           string
+	parentSnapshot os.FileInfo
 }
 
 // InspectLocalDestination validates a path selected by trusted local UI. This
@@ -103,10 +104,11 @@ func InspectLocalDestination(path string) (LocalDestination, error) {
 	if err != nil {
 		return LocalDestination{}, err
 	}
-	if _, err := inspectDestination(path); err != nil {
+	parentSnapshot, err := inspectDestination(path)
+	if err != nil {
 		return LocalDestination{}, err
 	}
-	return LocalDestination{path: path}, nil
+	return LocalDestination{path: path, parentSnapshot: parentSnapshot}, nil
 }
 
 func (d LocalDestination) String() string   { return "[LOCAL BACKUP DESTINATION]" }
@@ -187,9 +189,9 @@ func publishVerifiedArtifact(ctx context.Context, request PublicationRequest, op
 	if err != nil {
 		return PublishedArtifactMetadata{}, err
 	}
-	parentSnapshot, err := inspectDestination(destination)
-	if err != nil {
-		return PublishedArtifactMetadata{}, err
+	parentSnapshot := request.Destination.parentSnapshot
+	if parentSnapshot == nil {
+		return PublishedArtifactMetadata{}, verificationError(ErrorDestinationUnsafe)
 	}
 	if ops.freeBytes == nil || ops.createStaging == nil || ops.publish == nil || ops.syncDirectory == nil {
 		return PublishedArtifactMetadata{}, verificationError(ErrorInputInvalid)

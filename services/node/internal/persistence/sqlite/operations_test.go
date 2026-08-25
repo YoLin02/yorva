@@ -25,7 +25,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := emptyDB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, emptyDir, 12)
+	assertMigrationCount(t, emptyDir, 13)
 
 	phase2Dir := t.TempDir()
 	applyNamedMigration(t, ctx, phase2Dir, "001_initial.sql")
@@ -37,7 +37,57 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := phase2DB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, phase2Dir, 12)
+	assertMigrationCount(t, phase2Dir, 13)
+}
+
+func TestRuntimeWideAndInstanceOperationsConflictAcrossTargets(t *testing.T) {
+	ctx := context.Background()
+	db := openInstanceTestDB(t)
+	installationID := seedInstallation(t, db)
+	now := time.Date(2026, 8, 25, 18, 0, 0, 0, time.UTC)
+	if err := db.ApplyInstanceSnapshot(ctx, installationID, []InstanceSnapshotEntry{{NativeID: "default", Default: true}}, now); err != nil {
+		t.Fatal(err)
+	}
+	instances, err := db.ListInstances(ctx, installationID)
+	if err != nil || len(instances) != 1 {
+		t.Fatalf("instances = %#v, %v", instances, err)
+	}
+	lifecycle := operation.Operation{
+		ID: "op_lifecycle_active", Type: operation.TypeInstanceStart, TargetType: operation.TargetInstance,
+		TargetID: instances[0].ID, Status: operation.StatusPending, Stage: operation.StageInstanceStart,
+		IdempotencyKey: "runtime-wide-lifecycle", CorrelationID: "cor_lifecycle",
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if err := db.CreateOperation(ctx, lifecycle); err != nil {
+		t.Fatal(err)
+	}
+	backup := operation.Operation{
+		ID: "op_backup_conflict", Type: operation.TypeBackupCreate, TargetType: operation.TargetRuntimeInstallation,
+		TargetID: installationID, Status: operation.StatusPending, Stage: operation.StageBackupPreflight,
+		IdempotencyKey: "runtime-wide-backup", CorrelationID: "cor_backup",
+		CreatedAt: now.Add(time.Second), UpdatedAt: now.Add(time.Second),
+	}
+	if err := db.CreateOperation(ctx, backup); !errors.Is(err, ErrActiveInstanceMutation) {
+		t.Fatalf("backup during lifecycle = %v", err)
+	}
+
+	completedAt := now.Add(2 * time.Second)
+	completed := lifecycle
+	completed.Status, completed.ErrorCode = operation.StatusFailed, yorvaruntime.ErrorOperationInterrupted
+	completed.CompletedAt, completed.UpdatedAt = &completedAt, completedAt
+	if err := db.UpdateOperation(ctx, lifecycle, completed); err != nil {
+		t.Fatal(err)
+	}
+	backup.ID, backup.IdempotencyKey = "op_backup_active", "runtime-wide-backup-active"
+	if err := db.CreateOperation(ctx, backup); err != nil {
+		t.Fatal(err)
+	}
+	secondLifecycle := lifecycle
+	secondLifecycle.ID, secondLifecycle.IdempotencyKey = "op_lifecycle_conflict", "runtime-wide-lifecycle-conflict"
+	secondLifecycle.CreatedAt, secondLifecycle.UpdatedAt = now.Add(3*time.Second), now.Add(3*time.Second)
+	if err := db.CreateOperation(ctx, secondLifecycle); !errors.Is(err, ErrActiveInstanceMutation) {
+		t.Fatalf("lifecycle during backup = %v", err)
+	}
 }
 
 func TestSimultaneousSameKeyCreateReturnsDuplicateIdempotency(t *testing.T) {

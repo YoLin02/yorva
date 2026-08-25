@@ -219,7 +219,7 @@ func getOperationLog(installs RuntimeInstallService, dataDir string) http.Handle
 	})
 }
 
-func cancelOperation(installs RuntimeInstallService, instances InstanceInventoryService, models ModelConfigurationService, channels ChannelService) http.Handler {
+func cancelOperation(installs RuntimeInstallService, instances InstanceInventoryService, models ModelConfigurationService, channels ChannelService, backups ManagementBackupService, mcp ManagementMCPService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if installs == nil {
 			writeError(w, http.StatusNotFound, ErrorBody{Code: "NOT_FOUND", Message: "The requested local API resource was not found."})
@@ -230,6 +230,7 @@ func cancelOperation(installs RuntimeInstallService, instances InstanceInventory
 			writeError(w, http.StatusNotFound, ErrorBody{Code: "NOT_FOUND", Message: "The requested operation was not found."})
 			return
 		}
+		operationType := value.Type
 		if value.Type == operation.TypeInstanceCreate && instances != nil {
 			value, err = instances.CancelCreate(r.Context(), value.ID)
 		} else if value.Type == operation.TypeInstanceDelete && instances != nil {
@@ -244,10 +245,22 @@ func cancelOperation(installs RuntimeInstallService, instances InstanceInventory
 			}
 		} else if isChannelOperationType(value.Type) && channels != nil {
 			value, err = channels.CancelChannel(r.Context(), value.ID)
+		} else if isBackupOperationType(value.Type) && backups != nil {
+			value, err = backups.CancelBackupOperation(r.Context(), value.ID)
+		} else if isMCPOperationType(value.Type) && mcp != nil {
+			value, err = mcp.CancelMCPOperation(r.Context(), value.ID)
 		} else {
 			value, err = installs.Cancel(r.Context(), value.ID)
 		}
 		if err != nil {
+			if isBackupOperationType(operationType) {
+				writeBackupManagementError(w, r, err)
+				return
+			}
+			if isMCPOperationType(operationType) {
+				writeMCPManagementError(w, r, err)
+				return
+			}
 			if errors.Is(err, app.ErrInstanceNotCancellable) {
 				writeInstanceError(w, err)
 				return
@@ -258,6 +271,15 @@ func cancelOperation(installs RuntimeInstallService, instances InstanceInventory
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(newOperationResponse(value))
 	})
+}
+
+func isBackupOperationType(value operation.Type) bool {
+	return value == operation.TypeBackupCreate || value == operation.TypeBackupDelete || value == operation.TypeBackupRestore
+}
+
+func isMCPOperationType(value operation.Type) bool {
+	return value == operation.TypeMCPInstall || value == operation.TypeMCPAuthenticate || value == operation.TypeMCPTest ||
+		value == operation.TypeMCPConfigure || value == operation.TypeMCPRemove
 }
 
 func isChannelOperationType(value operation.Type) bool {

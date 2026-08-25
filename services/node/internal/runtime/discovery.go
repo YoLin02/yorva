@@ -117,6 +117,17 @@ const (
 	ErrorSkillProjectFailed           ErrorCode = "SKILL_PROJECT_FAILED"
 	ErrorSkillUnprojectFailed         ErrorCode = "SKILL_UNPROJECT_FAILED"
 	ErrorSkillReadbackFailed          ErrorCode = "SKILL_READBACK_FAILED"
+	ErrorMCPMutationConflict          ErrorCode = "MCP_MUTATION_CONFLICT"
+	ErrorMCPConfigurationFailed       ErrorCode = "MCP_CONFIGURATION_FAILED"
+	ErrorMCPAuthenticationFailed      ErrorCode = "MCP_AUTHENTICATION_FAILED"
+	ErrorMCPTestFailed                ErrorCode = "MCP_TEST_FAILED"
+	ErrorBackupDestinationInvalid     ErrorCode = "BACKUP_DESTINATION_INVALID"
+	ErrorBackupMutationConflict       ErrorCode = "BACKUP_MUTATION_CONFLICT"
+	ErrorBackupCreateFailed           ErrorCode = "BACKUP_CREATE_FAILED"
+	ErrorBackupDeleteFailed           ErrorCode = "BACKUP_DELETE_FAILED"
+	ErrorBackupRestoreFailed          ErrorCode = "BACKUP_RESTORE_FAILED"
+	ErrorRuntimeUpgradeFailed         ErrorCode = "RUNTIME_UPGRADE_FAILED"
+	ErrorRuntimeRollbackFailed        ErrorCode = "RUNTIME_ROLLBACK_FAILED"
 )
 
 type Candidate struct {

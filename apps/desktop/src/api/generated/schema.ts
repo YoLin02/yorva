@@ -104,6 +104,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runtimes/{runtimeId}/upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start an eligible packaged-generation Runtime upgrade */
+        post: operations["upgradeManagedRuntime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/{runtimeId}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start an eligible exact-generation Runtime rollback */
+        post: operations["rollbackManagedRuntime"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/runtimes/{runtimeId}/backups": {
         parameters: {
             query?: never;
@@ -119,7 +157,11 @@ export interface paths {
          */
         get: operations["listRuntimeBackups"];
         put?: never;
-        post?: never;
+        /**
+         * Start an encrypted Runtime backup Operation
+         * @description Accepts only a short-lived destination capability issued by the native Desktop save dialog. No local path, encryption key, passphrase, credential, or archive content enters this API.
+         */
+        post: operations["createRuntimeBackup"];
         delete?: never;
         /** Validate CORS access for Runtime backup inventory */
         options: operations["optionsRuntimeBackups"];
@@ -147,6 +189,49 @@ export interface paths {
         delete?: never;
         /** Validate CORS access for one Runtime backup index entry */
         options: operations["optionsRuntimeBackup"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups/{backupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                backupId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Start deletion of one indexed encrypted backup */
+        delete: operations["deleteRuntimeBackup"];
+        /** Validate CORS access for backup deletion */
+        options: operations["optionsRuntimeBackupDelete"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backups/{backupId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                backupId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a transactional restore of one verified indexed backup
+         * @description Re-verifies the indexed encrypted artifact, requires the Runtime to be stopped, stages the restored tree, and rolls back the filesystem switch if post-check fails.
+         */
+        post: operations["restoreRuntimeBackup"];
+        delete?: never;
+        /** Validate CORS access for backup Restore */
+        options: operations["optionsRuntimeBackupRestore"];
         head?: never;
         patch?: never;
         trace?: never;
@@ -595,6 +680,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/mcp-servers/{presetId}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                presetId: components["parameters"]["MCPPresetId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Install one reviewed MCP preset */
+        post: operations["installInstanceMCPPreset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/mcp-servers/{serverId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove one reviewed MCP server configuration */
+        delete: operations["removeInstanceMCPServer"];
+        options?: never;
+        head?: never;
+        /** Select enabled tools from the reviewed preset allowlist */
+        patch: operations["configureInstanceMCPServer"];
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/mcp-servers/{serverId}/authenticate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Write one request-scoped credential through the reviewed preset authority */
+        post: operations["authenticateInstanceMCPServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/mcp-servers/{serverId}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a bounded authoritative MCP readiness test */
+        post: operations["testInstanceMCPServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}/config": {
         parameters: {
             query?: never;
@@ -977,7 +1143,7 @@ export interface components {
         Operation: {
             id: string;
             /** @enum {string} */
-            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "instance.start" | "instance.stop" | "instance.restart" | "model.validate" | "channel.connect" | "channel.disconnect" | "skill.install" | "skill.update" | "skill.enable" | "skill.disable" | "skill.remove";
+            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "instance.start" | "instance.stop" | "instance.restart" | "model.validate" | "channel.connect" | "channel.disconnect" | "skill.install" | "skill.update" | "skill.enable" | "skill.disable" | "skill.remove" | "mcp.install" | "mcp.authenticate" | "mcp.test" | "mcp.configure" | "mcp.remove" | "backup.create" | "backup.delete" | "backup.restore" | "runtime.upgrade" | "runtime.rollback";
             targetType: string;
             targetId: string;
             /** @enum {string} */
@@ -1082,6 +1248,9 @@ export interface components {
             verifiedAt: string;
             /** @enum {string} */
             keyMode: "DEVICE" | "PASSPHRASE";
+        };
+        BackupCreateRequest: {
+            destinationRef: string;
         };
         ManagementBackupList: {
             /** @enum {string} */
@@ -1224,9 +1393,17 @@ export interface components {
         MCPPreset: {
             id: string;
             displayName: string;
+            allowedToolIds: string[];
+            credentialRequired: boolean;
         };
         MCPPresetList: {
             items: components["schemas"]["MCPPreset"][];
+        };
+        MCPAuthenticationRequest: {
+            credential: string;
+        };
+        MCPConfigureRequest: {
+            enabledToolIds: string[];
         };
         ModelProviderPreset: {
             /** @enum {string} */
@@ -1389,6 +1566,8 @@ export interface components {
         OperationId: string;
         InstanceId: string;
         SkillId: string;
+        MCPPresetId: string;
+        MCPServerId: string;
     };
     requestBodies: never;
     headers: never;
@@ -1596,6 +1775,72 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    upgradeManagedRuntime: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description Runtime upgrade accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    rollbackManagedRuntime: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description Runtime rollback accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
     listRuntimeBackups: {
         parameters: {
             query?: never;
@@ -1619,6 +1864,40 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    createRuntimeBackup: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description The backup Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             405: components["responses"]["MethodNotAllowed"];
             409: components["responses"]["Conflict"];
             503: components["responses"]["ServiceUnavailable"];
@@ -1675,6 +1954,108 @@ export interface operations {
             header?: never;
             path: {
                 runtimeId: "hermes";
+                backupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteRuntimeBackup: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                backupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description The delete Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsRuntimeBackupDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                backupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    restoreRuntimeBackup: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                backupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description The Restore Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsRuntimeBackupRestore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
                 backupId: string;
             };
             cookie?: never;
@@ -2812,6 +3193,181 @@ export interface operations {
             204: components["responses"]["PreflightAccepted"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    installInstanceMCPPreset: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                presetId: components["parameters"]["MCPPresetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description MCP install accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    removeInstanceMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description MCP removal accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    configureInstanceMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MCPConfigureRequest"];
+            };
+        };
+        responses: {
+            /** @description MCP configuration accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    authenticateInstanceMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MCPAuthenticationRequest"];
+            };
+        };
+        responses: {
+            /** @description MCP authentication accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    testInstanceMCPServer: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description MCP test accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getInstanceModelConfiguration: {

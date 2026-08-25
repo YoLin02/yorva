@@ -76,6 +76,8 @@ export function App() {
     void queryClient.invalidateQueries({ queryKey: ["model-credential"] });
     void queryClient.invalidateQueries({ queryKey: ["model-validation-operations"] });
     void queryClient.invalidateQueries({ queryKey: ["model-validation"] });
+    void queryClient.invalidateQueries({ queryKey: ["runtime-backups"] });
+    void queryClient.invalidateQueries({ queryKey: ["management-operation"] });
   }, [queryClient]);
   const eventStatus = useEventStreamStatus(
     client,

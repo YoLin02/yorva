@@ -177,17 +177,73 @@ export function createDaemonClient(session: DaemonSession) {
       request<MCPPresetList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-catalog`, {
         signal: withDesktopTimeout(signal),
       }),
+    installInstanceMCPPreset: (instanceId: string, presetId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers/${encodeURIComponent(presetId)}/install`, {
+        method: "POST", signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: "{}",
+      }),
+    authenticateInstanceMCPServer: (instanceId: string, serverId: string, credential: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers/${encodeURIComponent(serverId)}/authenticate`, {
+        method: "POST", signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ credential }),
+      }),
+    testInstanceMCPServer: (instanceId: string, serverId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers/${encodeURIComponent(serverId)}/test`, {
+        method: "POST", signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: "{}",
+      }),
+    configureInstanceMCPServer: (instanceId: string, serverId: string, enabledToolIds: string[], idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers/${encodeURIComponent(serverId)}`, {
+        method: "PATCH", signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ enabledToolIds }),
+      }),
+    removeInstanceMCPServer: (instanceId: string, serverId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers/${encodeURIComponent(serverId)}`, {
+        method: "DELETE", signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: "{}",
+      }),
     getRuntimeUpgradePlan: (runtimeId: string, signal?: AbortSignal) =>
       request<ManagementUpgradePlan>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/upgrade-plan`, {
         signal: withDesktopTimeout(signal),
+      }),
+    upgradeManagedRuntime: (runtimeId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/upgrade`, {
+        method: "POST", signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: "{}",
+      }),
+    rollbackManagedRuntime: (runtimeId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/rollback`, {
+        method: "POST", signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: "{}",
       }),
     listRuntimeBackups: (runtimeId: string, signal?: AbortSignal) =>
       request<ManagementBackupList>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/backups`, {
         signal: withDesktopTimeout(signal),
       }),
+    createRuntimeBackup: (runtimeId: string, destinationRef: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/backups`, {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({ destinationRef }),
+      }),
     getRuntimeBackup: (runtimeId: string, backupId: string, signal?: AbortSignal) =>
       request<ManagementBackup>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/backups/${encodeURIComponent(backupId)}`, {
         signal: withDesktopTimeout(signal),
+      }),
+    deleteRuntimeBackup: (backupId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/backups/${encodeURIComponent(backupId)}`, {
+        method: "DELETE",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: "{}",
+      }),
+    restoreRuntimeBackup: (backupId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/backups/${encodeURIComponent(backupId)}/restore`, {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: "{}",
       }),
     connectWeixin: (instanceId: string, idempotencyKey: string, signal?: AbortSignal) =>
       request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/channels/weixin/connect`, {

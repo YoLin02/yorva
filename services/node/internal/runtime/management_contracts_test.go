@@ -256,7 +256,7 @@ func TestClosedManagementRequestsRejectUnsafeIdentifiers(t *testing.T) {
 	if err := (MCPInstallRequest{PresetID: "approved-mcp"}).Validate(); err != nil {
 		t.Fatalf("valid MCP preset id rejected: %v", err)
 	}
-	if err := (BackupCreateRequest{DestinationRef: "pick_0123"}).Validate(); err != nil {
+	if err := (BackupCreateRequest{DestinationRef: strings.Repeat("a", 43), OperationID: "op_backup", RuntimeInstallationID: "rtinst_1"}).Validate(); err != nil {
 		t.Fatalf("valid backup destination reference rejected: %v", err)
 	}
 }

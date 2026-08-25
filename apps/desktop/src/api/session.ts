@@ -11,6 +11,10 @@ export function getDaemonSession(): Promise<DaemonSession> {
   return invoke<DaemonSession>("daemon_session");
 }
 
+export function selectBackupDestination(): Promise<string | null> {
+  return invoke<string | null>("select_backup_destination");
+}
+
 export function isDaemonNotReady(error: unknown): boolean {
   return typeof error === "object" && error !== null && (error as DaemonCommandError).code === "DAEMON_NOT_READY";
 }

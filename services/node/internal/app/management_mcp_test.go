@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -35,9 +37,10 @@ func (f *mcpReaderFake) ListMCPPresets(context.Context, yorvaruntime.Installatio
 }
 
 type mcpManagerFake struct {
-	result yorvaruntime.MCPTestResult
-	err    error
-	calls  int
+	result  yorvaruntime.MCPTestResult
+	err     error
+	calls   int
+	started chan struct{}
 }
 
 func (*mcpManagerFake) InstallMCPPreset(context.Context, yorvaruntime.Installation, string, yorvaruntime.MCPInstallRequest, yorvaruntime.ProgressSink) (yorvaruntime.MCPServer, error) {
@@ -48,8 +51,13 @@ func (*mcpManagerFake) AuthenticateMCP(context.Context, yorvaruntime.Installatio
 	return yorvaruntime.MCPServer{}, ErrManagementCapabilityUnsupported
 }
 
-func (f *mcpManagerFake) TestMCP(_ context.Context, _ yorvaruntime.Installation, _ string, _ string, _ yorvaruntime.ProgressSink) (yorvaruntime.MCPTestResult, error) {
+func (f *mcpManagerFake) TestMCP(ctx context.Context, _ yorvaruntime.Installation, _ string, _ string, _ yorvaruntime.ProgressSink) (yorvaruntime.MCPTestResult, error) {
 	f.calls++
+	if f.started != nil {
+		close(f.started)
+		<-ctx.Done()
+		return yorvaruntime.MCPTestResult{}, ctx.Err()
+	}
 	return f.result, f.err
 }
 
@@ -89,7 +97,7 @@ func TestMCPManagementListsValidatedConfiguredAndReadyState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListMCPPresets() error = %v", err)
 	}
-	if len(presets) != 1 || presets[0] != (MCPPresetView{ID: "preset-a", DisplayName: "Approved A"}) {
+	if len(presets) != 1 || presets[0].ID != "preset-a" || presets[0].DisplayName != "Approved A" || len(presets[0].AllowedToolIDs) != 0 || presets[0].CredentialRequired {
 		t.Fatalf("preset projection = %#v", presets)
 	}
 }
@@ -226,6 +234,35 @@ func TestMCPManagementNormalizesAdapterErrors(t *testing.T) {
 	service := NewMCPManagement(&mcpTargetResolverFake{target: testMCPManagementTarget(reader, nil)})
 	if _, err := service.ListMCPServers(context.Background(), "inst-1"); !errors.Is(err, ErrManagementQueryFailed) || err.Error() != ErrManagementQueryFailed.Error() {
 		t.Fatalf("adapter error = %v", err)
+	}
+}
+
+func TestMCPManagementCancelsRunningOperation(t *testing.T) {
+	db, err := sqlite.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	manager := &mcpManagerFake{started: make(chan struct{})}
+	service := NewMCPManagement(&mcpTargetResolverFake{target: testMCPManagementTarget(nil, manager)})
+	service.db = db
+	started, err := service.StartTest(context.Background(), "inst-1", "server-a", "mcp-cancel-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-manager.started:
+	case <-time.After(time.Second):
+		t.Fatal("MCP worker did not start")
+	}
+	cancelled, err := service.CancelMCPOperation(context.Background(), started.Operation.ID)
+	if err != nil || cancelled.Status != operation.StatusCancelled {
+		t.Fatalf("CancelMCPOperation() = %#v, %v", cancelled, err)
+	}
+	time.Sleep(20 * time.Millisecond)
+	stored, err := db.GetOperation(context.Background(), started.Operation.ID)
+	if err != nil || stored.Status != operation.StatusCancelled {
+		t.Fatalf("stored operation = %#v, %v", stored, err)
 	}
 }
 

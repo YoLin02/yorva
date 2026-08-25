@@ -177,9 +177,14 @@ func TestBackupManagementNormalizesErrorsAndCancellation(t *testing.T) {
 }
 
 func TestBackupCreateDeleteWorkersUseOnlyQualifiedBundleWiring(t *testing.T) {
+	validRequest := yorvaruntime.BackupCreateRequest{
+		DestinationRef:        strings.Repeat("a", 43),
+		OperationID:           "op_backup_1",
+		RuntimeInstallationID: "rtinst_1",
+	}
 	resolver := &b6RuntimeTargetResolver{target: RuntimeManagementTarget{Bundle: yorvaruntime.Bundle{}}}
 	service := NewBackupManagement(resolver)
-	if _, err := service.CreateBackup(context.Background(), "hermes", yorvaruntime.BackupCreateRequest{DestinationRef: "pick_123"}, nil); !errors.Is(err, ErrManagementCapabilityUnsupported) {
+	if _, err := service.CreateBackup(context.Background(), "hermes", validRequest, nil); !errors.Is(err, ErrManagementCapabilityUnsupported) {
 		t.Fatalf("CreateBackup() error = %v", err)
 	}
 	if err := service.DeleteBackup(context.Background(), "hermes", "backup-1", nil); !errors.Is(err, ErrManagementCapabilityUnsupported) {
@@ -190,8 +195,8 @@ func TestBackupCreateDeleteWorkersUseOnlyQualifiedBundleWiring(t *testing.T) {
 	manager := &b6BackupManager{created: b6AvailableBackup("backup-1", now)}
 	resolver = &b6RuntimeTargetResolver{target: RuntimeManagementTarget{Bundle: yorvaruntime.Bundle{BackupMutate: manager}}}
 	service = NewBackupManagement(resolver)
-	created, err := service.CreateBackup(context.Background(), "hermes", yorvaruntime.BackupCreateRequest{DestinationRef: "pick_123"}, nil)
-	if err != nil || created.State != yorvaruntime.BackupAvailable || manager.gotRequest.DestinationRef != "pick_123" {
+	created, err := service.CreateBackup(context.Background(), "hermes", validRequest, nil)
+	if err != nil || created.State != yorvaruntime.BackupAvailable || manager.gotRequest != validRequest {
 		t.Fatalf("CreateBackup() = %#v, %v; request %#v", created, err, manager.gotRequest)
 	}
 	if err := service.DeleteBackup(context.Background(), "hermes", "backup-1", nil); err != nil || manager.gotDeleteID != "backup-1" {
@@ -199,7 +204,7 @@ func TestBackupCreateDeleteWorkersUseOnlyQualifiedBundleWiring(t *testing.T) {
 	}
 
 	manager.created = yorvaruntime.Backup{ID: "backup-2", State: yorvaruntime.BackupFailed}
-	if _, err := service.CreateBackup(context.Background(), "hermes", yorvaruntime.BackupCreateRequest{DestinationRef: "pick_123"}, nil); !errors.Is(err, ErrManagementQueryFailed) {
+	if _, err := service.CreateBackup(context.Background(), "hermes", validRequest, nil); !errors.Is(err, ErrManagementQueryFailed) {
 		t.Fatalf("false create result error = %v", err)
 	}
 

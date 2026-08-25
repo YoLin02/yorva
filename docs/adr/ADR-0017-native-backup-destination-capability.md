@@ -1,8 +1,8 @@
 # ADR-0017: Native Backup Destination Capability
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-08-25
-- Owner approval: Pending
+- Owner approval: Approved 2026-08-25
 - Related: ADR-0004, ADR-0013, Phase 7 B6
 
 ## Context

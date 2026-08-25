@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import type { DaemonClient } from "../../api/client";
-import type { Instance, MCPServer, ManagementBackup, ManagementHealth, ManagementLogSnapshot, ManagementUpgradePlan, Skill, SkillSource } from "../../api/types";
+import { selectBackupDestination } from "../../api/session";
+import type { Instance, MCPPreset, MCPServer, ManagementBackup, ManagementHealth, ManagementLogSnapshot, ManagementUpgradePlan, Skill, SkillSource } from "../../api/types";
 import { formatDateTime } from "../../formatDateTime";
 import type { AppMessages, Locale } from "../../i18n";
 import type { BadgeTone } from "../../types/ui";
@@ -18,14 +19,24 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
 }) {
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [selectedSkillSource, setSelectedSkillSource] = useState("");
+  const [backupOperationId, setBackupOperationId] = useState<string | null>(null);
+  const [mcpOperationId, setMCPOperationId] = useState<string | null>(null);
+  const [upgradeOperationId, setUpgradeOperationId] = useState<string | null>(null);
+  const [mcpCredentials, setMCPCredentials] = useState<Record<string, string>>({});
+  const [mcpTools, setMCPTools] = useState<Record<string, string[]>>({});
   const [logCategory, setLogCategory] = useState<ManagementLogSnapshot["category"]>("ERRORS");
   const healthRead = instance.capabilities.healthRead;
   const logsRead = instance.capabilities.logsRead;
   const skillRead = instance.capabilities.skillRead;
   const skillMutate = instance.capabilities.skillMutate;
   const mcpRead = instance.capabilities.mcpRead;
+  const mcpMutate = instance.capabilities.mcpMutate;
   const upgradePlanRead = instance.capabilities.upgradePlan;
+  const upgrade = instance.capabilities.upgrade;
+  const rollback = instance.capabilities.rollback;
   const backupRead = instance.capabilities.backupRead;
+  const backupMutate = instance.capabilities.backupMutate;
+  const restore = instance.capabilities.restore;
   const healthQuery = useQuery({
     queryKey: ["instance-management-health", instance.instanceId, client.scope],
     queryFn: ({ signal }) => client.getInstanceHealth(instance.instanceId, signal),
@@ -82,18 +93,106 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
     enabled: mcpRead,
     retry: false,
   });
+  const mcpMutation = useMutation({
+    mutationFn: async (input: { action: "install" | "authenticate" | "test" | "configure" | "remove"; id: string }) => {
+      const key = crypto.randomUUID();
+      if (input.action === "install") return client.installInstanceMCPPreset(instance.instanceId, input.id, key);
+      if (input.action === "authenticate") return client.authenticateInstanceMCPServer(instance.instanceId, input.id, mcpCredentials[input.id] ?? "", key);
+      if (input.action === "test") return client.testInstanceMCPServer(instance.instanceId, input.id, key);
+      if (input.action === "configure") return client.configureInstanceMCPServer(instance.instanceId, input.id, mcpTools[input.id] ?? [], key);
+      return client.removeInstanceMCPServer(instance.instanceId, input.id, key);
+    },
+    onSuccess: (accepted, input) => {
+      setMCPOperationId(accepted.id);
+      if (input.action === "authenticate") setMCPCredentials((current) => ({ ...current, [input.id]: "" }));
+    },
+  });
+  const mcpOperationQuery = useQuery({
+    queryKey: ["management-operation", mcpOperationId, client.scope],
+    queryFn: ({ signal }) => client.getOperation(mcpOperationId!, signal),
+    enabled: mcpOperationId !== null,
+    retry: false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "RUNNING" ? 1000 : false;
+    },
+  });
+  const refetchMCPServers = serversQuery.refetch;
+  const refetchMCPPresets = presetsQuery.refetch;
+
+  useEffect(() => {
+    if (mcpOperationQuery.data?.status === "SUCCEEDED") {
+      void refetchMCPServers();
+      void refetchMCPPresets();
+    }
+  }, [mcpOperationQuery.data?.status, refetchMCPServers, refetchMCPPresets]);
   const upgradePlanQuery = useQuery({
     queryKey: ["runtime-upgrade-plan", "hermes", client.scope],
     queryFn: ({ signal }) => client.getRuntimeUpgradePlan("hermes", signal),
     enabled: upgradePlanRead,
     retry: false,
   });
+  const upgradeMutation = useMutation({
+    mutationFn: (action: "upgrade" | "rollback") => action === "upgrade"
+      ? client.upgradeManagedRuntime("hermes", crypto.randomUUID())
+      : client.rollbackManagedRuntime("hermes", crypto.randomUUID()),
+    onSuccess: (accepted) => setUpgradeOperationId(accepted.id),
+  });
+  const upgradeOperationQuery = useQuery({
+    queryKey: ["management-operation", upgradeOperationId, client.scope],
+    queryFn: ({ signal }) => client.getOperation(upgradeOperationId!, signal),
+    enabled: upgradeOperationId !== null,
+    retry: false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "RUNNING" ? 1000 : false;
+    },
+  });
+  const refetchUpgradePlan = upgradePlanQuery.refetch;
+
+  useEffect(() => {
+    if (upgradeOperationQuery.data?.status === "SUCCEEDED") void refetchUpgradePlan();
+  }, [upgradeOperationQuery.data?.status, refetchUpgradePlan]);
   const backupsQuery = useQuery({
     queryKey: ["runtime-backups", "hermes", client.scope],
     queryFn: ({ signal }) => client.listRuntimeBackups("hermes", signal),
     enabled: backupRead,
     retry: false,
   });
+  const backupMutation = useMutation({
+    mutationFn: async () => {
+      const destinationRef = await selectBackupDestination();
+      if (!destinationRef) return null;
+      return client.createRuntimeBackup("hermes", destinationRef, crypto.randomUUID());
+    },
+    onSuccess: (accepted) => {
+      if (accepted) setBackupOperationId(accepted.id);
+    },
+  });
+  const backupDeleteMutation = useMutation({
+    mutationFn: (backupId: string) => client.deleteRuntimeBackup(backupId, crypto.randomUUID()),
+    onSuccess: (accepted) => setBackupOperationId(accepted.id),
+  });
+  const backupRestoreMutation = useMutation({
+    mutationFn: (backupId: string) => client.restoreRuntimeBackup(backupId, crypto.randomUUID()),
+    onSuccess: (accepted) => setBackupOperationId(accepted.id),
+  });
+  const backupOperationQuery = useQuery({
+    queryKey: ["management-operation", backupOperationId, client.scope],
+    queryFn: ({ signal }) => client.getOperation(backupOperationId!, signal),
+    enabled: backupOperationId !== null,
+    retry: false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "RUNNING" ? 1000 : false;
+    },
+  });
+  const refetchBackups = backupsQuery.refetch;
+
+  useEffect(() => {
+    const status = backupOperationQuery.data?.status;
+    if (status === "SUCCEEDED") void refetchBackups();
+  }, [backupOperationQuery.data?.status, refetchBackups]);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -118,7 +217,22 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
     if (upgradePlanRead) void upgradePlanQuery.refetch();
     if (backupRead) void backupsQuery.refetch();
   };
-  const busy = healthQuery.isFetching || logsQuery.isFetching || skillsQuery.isFetching || skillQuery.isFetching || skillSourcesQuery.isFetching || skillMutation.isPending || serversQuery.isFetching || presetsQuery.isFetching || upgradePlanQuery.isFetching || backupsQuery.isFetching;
+  const backupRunning = backupMutation.isPending || backupDeleteMutation.isPending || backupRestoreMutation.isPending || backupOperationQuery.data?.status === "PENDING" || backupOperationQuery.data?.status === "RUNNING";
+  const backupFailed = backupMutation.isError || backupDeleteMutation.isError || backupRestoreMutation.isError || backupOperationQuery.data?.status === "FAILED" || backupOperationQuery.data?.status === "CANCELLED";
+  const mcpRunning = mcpMutation.isPending || mcpOperationQuery.data?.status === "PENDING" || mcpOperationQuery.data?.status === "RUNNING";
+  const mcpFailed = mcpMutation.isError || mcpOperationQuery.data?.status === "FAILED" || mcpOperationQuery.data?.status === "CANCELLED";
+  const upgradeRunning = upgradeMutation.isPending || upgradeOperationQuery.data?.status === "PENDING" || upgradeOperationQuery.data?.status === "RUNNING";
+  const upgradeFailed = upgradeMutation.isError || upgradeOperationQuery.data?.status === "FAILED" || upgradeOperationQuery.data?.status === "CANCELLED";
+  const activeManagementOperationId = backupRunning ? backupOperationId : mcpRunning ? mcpOperationId : null;
+  const cancelMutation = useMutation({
+    mutationFn: () => client.cancelOperation(activeManagementOperationId!),
+    onSuccess: () => {
+      void backupOperationQuery.refetch();
+      void mcpOperationQuery.refetch();
+      void upgradeOperationQuery.refetch();
+    },
+  });
+  const busy = healthQuery.isFetching || logsQuery.isFetching || skillsQuery.isFetching || skillQuery.isFetching || skillSourcesQuery.isFetching || skillMutation.isPending || serversQuery.isFetching || presetsQuery.isFetching || upgradePlanQuery.isFetching || backupsQuery.isFetching || backupRunning || mcpRunning || upgradeRunning;
 
   return (
     <section className="management-panel" aria-labelledby="management-panel-title">
@@ -132,6 +246,7 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
             <IconRefresh className={busy ? "spin" : undefined} />
             {copy.management.refresh}
           </Button>
+          {activeManagementOperationId ? <Button onClick={() => cancelMutation.mutate()} disabled={cancelMutation.isPending} className="button-compact button-neutral">{copy.management.cancelOperation}</Button> : null}
           <button type="button" className="modal-close" onClick={onClose} aria-label={copy.management.close}>
             <IconClose />
           </button>
@@ -179,6 +294,11 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
         onRetry={() => void upgradePlanQuery.refetch()}
       >
         {upgradePlanQuery.data ? <UpgradePlanView plan={upgradePlanQuery.data} copy={copy} locale={locale} /> : null}
+        {upgrade || rollback ? <div className="management-item-footer"><span>{upgradeRunning ? copy.management.upgradeRunning : null}</span><div className="management-header-actions">
+          {upgrade ? <Button disabled={upgradeRunning} onClick={() => upgradeMutation.mutate("upgrade")}>{copy.management.startUpgrade}</Button> : null}
+          {rollback ? <Button disabled={upgradeRunning} onClick={() => upgradeMutation.mutate("rollback")}>{copy.management.startRollback}</Button> : null}
+        </div></div> : null}
+        {upgradeFailed ? <p className="notice notice-warn" role="alert">{copy.management.upgradeFailed}</p> : null}
       </ManagementSection>
 
       <ManagementSection
@@ -190,9 +310,21 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
         copy={copy}
         onRetry={() => void backupsQuery.refetch()}
       >
+        {backupMutate ? (
+          <div className="management-item-footer">
+            <span>{backupRunning ? copy.management.backupCreating : null}</span>
+            <Button disabled={backupRunning} onClick={() => backupMutation.mutate()}>{copy.management.createBackup}</Button>
+          </div>
+        ) : null}
+        {backupFailed ? <p className="notice notice-warn" role="alert">{copy.management.backupCreateFailed}</p> : null}
         {backupsQuery.data?.items.length === 0 ? <p className="management-empty">{copy.management.noBackups}</p> : null}
         <div className="management-list">
-          {backupsQuery.data?.items.map((backup) => <BackupCard key={backup.backupId} backup={backup} copy={copy} locale={locale} />)}
+          {backupsQuery.data?.items.map((backup) => <BackupCard
+            key={backup.backupId} backup={backup} copy={copy} locale={locale}
+            mutable={backupMutate} restorable={restore} busy={backupRunning}
+            onDelete={() => backupDeleteMutation.mutate(backup.backupId)}
+            onRestore={() => { if (window.confirm(copy.management.restoreConfirm)) backupRestoreMutation.mutate(backup.backupId); }}
+          />)}
         </div>
       </ManagementSection>
 
@@ -239,7 +371,7 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
       <ManagementSection
         title={copy.management.mcpTitle}
         description={copy.management.mcpDescription}
-        supported={mcpRead}
+        supported={mcpRead || mcpMutate}
         loading={serversQuery.isLoading || presetsQuery.isLoading}
         error={serversQuery.isError || presetsQuery.isError}
         copy={copy}
@@ -247,21 +379,33 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
       >
         {serversQuery.data?.items.length === 0 ? <p className="management-empty">{copy.management.noServers}</p> : null}
         <div className="management-list">
-          {serversQuery.data?.items.map((server) => <MCPServerCard key={server.id} server={server} copy={copy} locale={locale} />)}
+          {serversQuery.data?.items.map((server) => <MCPServerCard
+            key={server.id} server={server} preset={presetsQuery.data?.items.find((preset) => preset.id === server.presetId)}
+            copy={copy} locale={locale} mutable={mcpMutate} busy={mcpRunning}
+            credential={mcpCredentials[server.id] ?? ""} selectedTools={mcpTools[server.id] ?? []}
+            onCredential={(value) => setMCPCredentials((current) => ({ ...current, [server.id]: value }))}
+            onToggleTool={(toolId) => setMCPTools((current) => {
+              const selected = current[server.id] ?? [];
+              return { ...current, [server.id]: selected.includes(toolId) ? selected.filter((id) => id !== toolId) : [...selected, toolId] };
+            })}
+            onAction={(action) => mcpMutation.mutate({ action, id: server.id })}
+          />)}
         </div>
         <div className="management-catalog">
           <h4>{copy.management.catalogTitle}</h4>
           {presetsQuery.data?.items.length === 0 ? <p className="management-empty">{copy.management.noPresets}</p> : null}
           <div className="management-preset-list">
-            {presetsQuery.data?.items.map((preset) => <span key={preset.id} className="management-preset"><strong>{preset.displayName}</strong><code>{preset.id}</code></span>)}
+            {presetsQuery.data?.items.map((preset) => <span key={preset.id} className="management-preset"><strong>{preset.displayName}</strong><code>{preset.id}</code>{mcpMutate ? <Button disabled={mcpRunning} onClick={() => mcpMutation.mutate({ action: "install", id: preset.id })}>{copy.management.installMCP}</Button> : null}</span>)}
           </div>
         </div>
+        {mcpRunning ? <p className="management-empty" role="status">{copy.management.mcpMutationRunning}</p> : null}
+        {mcpFailed ? <p className="notice notice-warn" role="alert">{copy.management.mcpMutationFailed}</p> : null}
       </ManagementSection>
     </section>
   );
 }
 
-function BackupCard({ backup, copy, locale }: { backup: ManagementBackup; copy: AppMessages; locale: Locale }) {
+function BackupCard({ backup, copy, locale, mutable, restorable, busy, onDelete, onRestore }: { backup: ManagementBackup; copy: AppMessages; locale: Locale; mutable: boolean; restorable: boolean; busy: boolean; onDelete: () => void; onRestore: () => void }) {
   return (
     <article className="management-item">
       <div className="management-item-heading">
@@ -277,6 +421,12 @@ function BackupCard({ backup, copy, locale }: { backup: ManagementBackup; copy: 
         <div><dt>{copy.management.backupChecksum}</dt><dd><code>{backup.checksumSha256}</code></dd></div>
         <div><dt>{copy.management.backupKey}</dt><dd>{copy.management.backupKeyMode[backup.keyMode]}</dd></div>
       </dl>
+      {mutable || restorable ? <div className="management-item-footer"><span />
+        <div className="management-header-actions">
+          {restorable ? <Button disabled={busy || backup.state !== "AVAILABLE"} onClick={onRestore}>{copy.management.restoreBackup}</Button> : null}
+          {mutable ? <Button disabled={busy} onClick={onDelete}>{copy.management.deleteBackup}</Button> : null}
+        </div>
+      </div> : null}
     </article>
   );
 }
@@ -467,7 +617,19 @@ function SkillCatalog({ sources, selected, pending, copy, onSelect, onInstall }:
   );
 }
 
-function MCPServerCard({ server, copy, locale }: { server: MCPServer; copy: AppMessages; locale: Locale }) {
+function MCPServerCard({ server, preset, copy, locale, mutable, busy, credential, selectedTools, onCredential, onToggleTool, onAction }: {
+  server: MCPServer;
+  preset?: MCPPreset;
+  copy: AppMessages;
+  locale: Locale;
+  mutable: boolean;
+  busy: boolean;
+  credential: string;
+  selectedTools: string[];
+  onCredential: (value: string) => void;
+  onToggleTool: (toolId: string) => void;
+  onAction: (action: "authenticate" | "test" | "configure" | "remove") => void;
+}) {
   return (
     <article className="management-item">
       <div className="management-item-heading">
@@ -479,6 +641,26 @@ function MCPServerCard({ server, copy, locale }: { server: MCPServer; copy: AppM
         <div><dt>{copy.management.readyAt}</dt><dd>{server.readyAt ? formatDateTime(server.readyAt, locale) : copy.management.neverReady}</dd></div>
         <div><dt>{copy.management.observedAt}</dt><dd>{formatDateTime(server.observedAt, locale)}</dd></div>
       </dl>
+      {mutable ? (
+        <div className="management-catalog">
+          {preset?.credentialRequired ? <div className="management-item-footer">
+            <input type="password" value={credential} onChange={(event) => onCredential(event.target.value)} placeholder={copy.management.mcpCredential} autoComplete="off" disabled={busy} />
+            <Button disabled={busy || credential.length === 0} onClick={() => onAction("authenticate")}>{copy.management.authenticateMCP}</Button>
+          </div> : null}
+          {preset && preset.allowedToolIds.length > 0 ? (
+            <div className="management-preset-list">
+              {preset.allowedToolIds.map((toolId) => <label key={toolId} className="management-preset"><input type="checkbox" checked={selectedTools.includes(toolId)} onChange={() => onToggleTool(toolId)} disabled={busy} /><code>{toolId}</code></label>)}
+            </div>
+          ) : null}
+          <div className="management-item-footer"><span />
+            <div className="management-header-actions">
+              {preset && preset.allowedToolIds.length > 0 ? <Button disabled={busy} onClick={() => onAction("configure")}>{copy.management.saveMCPTools}</Button> : null}
+              <Button disabled={busy} onClick={() => onAction("test")}>{copy.management.testMCP}</Button>
+              <Button disabled={busy} onClick={() => onAction("remove")}>{copy.management.removeMCP}</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

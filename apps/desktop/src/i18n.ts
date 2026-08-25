@@ -192,6 +192,7 @@ type Messages = {
     unsupportedDescription: string;
     loading: string;
     refresh: string;
+    cancelOperation: string;
     allFilter: string;
     searchLabel: string;
     searchPlaceholder: string;
@@ -319,6 +320,7 @@ type Messages = {
     title: string;
     description: string;
     refresh: string;
+    cancelOperation: string;
     retry: string;
     loading: string;
     requestFailed: string;
@@ -358,6 +360,14 @@ type Messages = {
     noServers: string;
     catalogTitle: string;
     noPresets: string;
+    installMCP: string;
+    authenticateMCP: string;
+    testMCP: string;
+    removeMCP: string;
+    saveMCPTools: string;
+    mcpCredential: string;
+    mcpMutationRunning: string;
+    mcpMutationFailed: string;
     preset: string;
     readyAt: string;
     observedAt: string;
@@ -372,6 +382,10 @@ type Messages = {
     protectionRequired: string;
     protectionNotRequired: string;
     protectionNotReady: string;
+    startUpgrade: string;
+    startRollback: string;
+    upgradeRunning: string;
+    upgradeFailed: string;
     upgradeState: Record<"UP_TO_DATE" | "AVAILABLE" | "BLOCKED" | "UNKNOWN", string>;
     managedState: Record<"MANAGED" | "UNKNOWN", string>;
     compatibilityState: Record<"NOT_REQUIRED" | "PROVEN" | "UNSAFE" | "UNKNOWN", string>;
@@ -379,6 +393,12 @@ type Messages = {
     backupsTitle: string;
     backupsDescription: string;
     noBackups: string;
+    createBackup: string;
+    backupCreating: string;
+    backupCreateFailed: string;
+    deleteBackup: string;
+    restoreBackup: string;
+    restoreConfirm: string;
     backupLastObserved: string;
     backupCreated: string;
     backupVerified: string;
@@ -698,6 +718,7 @@ const english: Messages = {
     unsupportedDescription: "Instance management is available only when Hermes discovery is SUPPORTED.",
     loading: "Refreshing instance inventory",
     refresh: "Refresh",
+    cancelOperation: "Cancel operation",
     allFilter: "All",
     searchLabel: "Search instances",
     searchPlaceholder: "Search by name or instance ID",
@@ -851,6 +872,7 @@ const english: Messages = {
     title: "Instance management",
     description: "Read the qualified Skill and MCP state for this exact instance.",
     refresh: "Refresh",
+    cancelOperation: "Cancel operation",
     retry: "Retry",
     loading: "Loading authoritative state…",
     requestFailed: "Yorva could not read this management state.",
@@ -890,6 +912,14 @@ const english: Messages = {
     noServers: "No MCP servers were reported for this instance.",
     catalogTitle: "Reviewed presets",
     noPresets: "No reviewed presets are available.",
+    installMCP: "Install",
+    authenticateMCP: "Save credential",
+    testMCP: "Test connection",
+    removeMCP: "Remove",
+    saveMCPTools: "Save tools",
+    mcpCredential: "API credential",
+    mcpMutationRunning: "Applying MCP change…",
+    mcpMutationFailed: "The MCP change did not complete.",
     preset: "Preset",
     readyAt: "Ready evidence",
     observedAt: "Observed",
@@ -904,6 +934,10 @@ const english: Messages = {
     protectionRequired: "Required and verified",
     protectionNotRequired: "Not required",
     protectionNotReady: "Required; no verified protection point",
+    startUpgrade: "Upgrade Runtime",
+    startRollback: "Rollback Runtime",
+    upgradeRunning: "Runtime change is in progress…",
+    upgradeFailed: "The Runtime change did not complete.",
     upgradeState: { UP_TO_DATE: "Up to date", AVAILABLE: "Plan available", BLOCKED: "Blocked", UNKNOWN: "Evidence incomplete" },
     managedState: { MANAGED: "Managed", UNKNOWN: "Unknown" },
     compatibilityState: { NOT_REQUIRED: "Not required", PROVEN: "Proven", UNSAFE: "Unsafe", UNKNOWN: "Unknown" },
@@ -918,6 +952,12 @@ const english: Messages = {
     backupsTitle: "Runtime backups",
     backupsDescription: "Last-observed encrypted backup index. Refresh does not open, decrypt, or re-verify an artifact.",
     noBackups: "No verified Runtime backups are indexed.",
+    createBackup: "Create encrypted backup",
+    backupCreating: "Creating and verifying the encrypted backup…",
+    backupCreateFailed: "The backup could not be started or completed.",
+    deleteBackup: "Delete backup",
+    restoreBackup: "Restore",
+    restoreConfirm: "Restore this backup? All Hermes instances must be stopped. Current Runtime data will be replaced after verification.",
     backupLastObserved: "Last-observed state",
     backupCreated: "Created",
     backupVerified: "Last verified",
@@ -1240,6 +1280,7 @@ const simplifiedChinese: Messages = {
     unsupportedDescription: "仅在 Hermes 检测结果为 SUPPORTED 时可以管理实例。",
     loading: "正在刷新实例清单",
     refresh: "刷新",
+    cancelOperation: "取消操作",
     allFilter: "全部",
     searchLabel: "搜索实例",
     searchPlaceholder: "按名称或实例 ID 搜索",
@@ -1393,6 +1434,7 @@ const simplifiedChinese: Messages = {
     title: "实例管理",
     description: "读取当前这一实例已通过资格确认的 Skill 与 MCP 状态。",
     refresh: "刷新",
+    cancelOperation: "取消操作",
     retry: "重试",
     loading: "正在读取权威状态…",
     requestFailed: "无法读取此管理状态。",
@@ -1432,6 +1474,14 @@ const simplifiedChinese: Messages = {
     noServers: "此实例没有报告任何 MCP 服务器。",
     catalogTitle: "已审核预设",
     noPresets: "当前没有可用的已审核预设。",
+    installMCP: "安装",
+    authenticateMCP: "保存凭据",
+    testMCP: "测试连接",
+    removeMCP: "移除",
+    saveMCPTools: "保存工具",
+    mcpCredential: "API 凭据",
+    mcpMutationRunning: "正在应用 MCP 更改…",
+    mcpMutationFailed: "MCP 更改未能完成。",
     preset: "预设",
     readyAt: "就绪证据",
     observedAt: "状态时间",
@@ -1446,6 +1496,10 @@ const simplifiedChinese: Messages = {
     protectionRequired: "已要求且已验证",
     protectionNotRequired: "不需要",
     protectionNotReady: "必须具备；当前没有已验证保护点",
+    startUpgrade: "升级 Runtime",
+    startRollback: "回滚 Runtime",
+    upgradeRunning: "正在执行 Runtime 更改…",
+    upgradeFailed: "Runtime 更改未能完成。",
     upgradeState: { UP_TO_DATE: "已是最新", AVAILABLE: "计划可用", BLOCKED: "已阻止", UNKNOWN: "证据不完整" },
     managedState: { MANAGED: "受管", UNKNOWN: "未知" },
     compatibilityState: { NOT_REQUIRED: "不需要", PROVEN: "已证明", UNSAFE: "不安全", UNKNOWN: "未知" },
@@ -1460,6 +1514,12 @@ const simplifiedChinese: Messages = {
     backupsTitle: "Runtime 备份",
     backupsDescription: "展示加密备份索引的最近一次观测结果；刷新不会打开、解密或重新验证备份文件。",
     noBackups: "当前没有已验证并建立索引的 Runtime 备份。",
+    createBackup: "创建加密备份",
+    backupCreating: "正在创建并校验加密备份…",
+    backupCreateFailed: "备份未能启动或完成。",
+    deleteBackup: "删除备份",
+    restoreBackup: "恢复",
+    restoreConfirm: "确定恢复此备份吗？所有 Hermes 实例必须已停止；校验通过后，当前 Runtime 数据会被替换。",
     backupLastObserved: "最近观测状态",
     backupCreated: "创建时间",
     backupVerified: "最近验证时间",

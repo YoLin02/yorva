@@ -226,6 +226,50 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/runtimes/{runtimeId}/upgrade:
+    parameters:
+      - name: runtimeId
+        in: path
+        required: true
+        schema: { type: string, enum: [hermes] }
+    post:
+      operationId: upgradeManagedRuntime
+      summary: Start an eligible packaged-generation Runtime upgrade
+      tags: [Upgrades]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ClosedEmptyObject" } } }
+      responses:
+        "202": { description: Runtime upgrade accepted., content: { application/json: { schema: { $ref: "#/components/schemas/Operation" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/runtimes/{runtimeId}/rollback:
+    parameters:
+      - name: runtimeId
+        in: path
+        required: true
+        schema: { type: string, enum: [hermes] }
+    post:
+      operationId: rollbackManagedRuntime
+      summary: Start an eligible exact-generation Runtime rollback
+      tags: [Upgrades]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ClosedEmptyObject" } } }
+      responses:
+        "202": { description: Runtime rollback accepted., content: { application/json: { schema: { $ref: "#/components/schemas/Operation" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /api/v1/runtimes/{runtimeId}/backups:
     parameters:
       - name: runtimeId
@@ -254,6 +298,40 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    post:
+      operationId: createRuntimeBackup
+      summary: Start an encrypted Runtime backup Operation
+      description: Accepts only a short-lived destination capability issued by the native Desktop save dialog. No local path, encryption key, passphrase, credential, or archive content enters this API.
+      tags: [Backups]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupCreateRequest"
+      responses:
+        "202":
+          description: The backup Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
         "409":
@@ -316,6 +394,119 @@ paths:
     options:
       operationId: optionsRuntimeBackup
       summary: Validate CORS access for one Runtime backup index entry
+      tags: [Backups]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/backups/{backupId}:
+    parameters:
+      - name: backupId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+    delete:
+      operationId: deleteRuntimeBackup
+      summary: Start deletion of one indexed encrypted backup
+      tags: [Backups]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosedEmptyObject"
+      responses:
+        "202":
+          description: The delete Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsRuntimeBackupDelete
+      summary: Validate CORS access for backup deletion
+      tags: [Backups]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/backups/{backupId}/restore:
+    parameters:
+      - name: backupId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+    post:
+      operationId: restoreRuntimeBackup
+      summary: Start a transactional restore of one verified indexed backup
+      description: Re-verifies the indexed encrypted artifact, requires the Runtime to be stopped, stages the restored tree, and rolls back the filesystem switch if post-check fails.
+      tags: [Backups]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosedEmptyObject"
+      responses:
+        "202":
+          description: The Restore Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsRuntimeBackupRestore
+      summary: Validate CORS access for backup Restore
       tags: [Backups]
       security: []
       responses:
@@ -1390,6 +1581,117 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/mcp-servers/{presetId}/install:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/MCPPresetId"
+    post:
+      operationId: installInstanceMCPPreset
+      summary: Install one reviewed MCP preset
+      tags: [MCP]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClosedEmptyObject" }
+      responses:
+        "202": { description: MCP install accepted., content: { application/json: { schema: { $ref: "#/components/schemas/Operation" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/instances/{instanceId}/mcp-servers/{serverId}:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/MCPServerId"
+    patch:
+      operationId: configureInstanceMCPServer
+      summary: Select enabled tools from the reviewed preset allowlist
+      tags: [MCP]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MCPConfigureRequest" }
+      responses:
+        "202": { description: MCP configuration accepted., content: { application/json: { schema: { $ref: "#/components/schemas/Operation" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    delete:
+      operationId: removeInstanceMCPServer
+      summary: Remove one reviewed MCP server configuration
+      tags: [MCP]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClosedEmptyObject" }
+      responses:
+        "202": { description: MCP removal accepted., content: { application/json: { schema: { $ref: "#/components/schemas/Operation" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/instances/{instanceId}/mcp-servers/{serverId}/authenticate:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/MCPServerId"
+    post:
+      operationId: authenticateInstanceMCPServer
+      summary: Write one request-scoped credential through the reviewed preset authority
+      tags: [MCP]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MCPAuthenticationRequest" }
+      responses:
+        "202": { description: MCP authentication accepted., content: { application/json: { schema: { $ref: "#/components/schemas/Operation" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /api/v1/instances/{instanceId}/mcp-servers/{serverId}/test:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/MCPServerId"
+    post:
+      operationId: testInstanceMCPServer
+      summary: Run a bounded authoritative MCP readiness test
+      tags: [MCP]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: "#/components/parameters/IdempotencyKey" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClosedEmptyObject" }
+      responses:
+        "202": { description: MCP test accepted., content: { application/json: { schema: { $ref: "#/components/schemas/Operation" } } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /api/v1/instances/{instanceId}/config:
     parameters:
       - $ref: "#/components/parameters/InstanceId"
@@ -2220,6 +2522,24 @@ components:
         minLength: 1
         maxLength: 128
         pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+    MCPPresetId:
+      name: presetId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+    MCPServerId:
+      name: serverId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
   schemas:
     Health:
       type: object
@@ -2389,7 +2709,7 @@ components:
           type: string
         type:
           type: string
-          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, instance.start, instance.stop, instance.restart, model.validate, channel.connect, channel.disconnect, skill.install, skill.update, skill.enable, skill.disable, skill.remove]
+          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, instance.start, instance.stop, instance.restart, model.validate, channel.connect, channel.disconnect, skill.install, skill.update, skill.enable, skill.disable, skill.remove, mcp.install, mcp.authenticate, mcp.test, mcp.configure, mcp.remove, backup.create, backup.delete, backup.restore, runtime.upgrade, runtime.rollback]
         targetType:
           type: string
         targetId:
@@ -2648,6 +2968,14 @@ components:
         keyMode:
           type: string
           enum: [DEVICE, PASSPHRASE]
+    BackupCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [destinationRef]
+      properties:
+        destinationRef:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{43}$"
     ManagementBackupList:
       type: object
       additionalProperties: false
@@ -3000,7 +3328,7 @@ components:
     MCPPreset:
       type: object
       additionalProperties: false
-      required: [id, displayName]
+      required: [id, displayName, allowedToolIds, credentialRequired]
       properties:
         id:
           type: string
@@ -3010,6 +3338,16 @@ components:
         displayName:
           type: string
           maxLength: 4096
+        allowedToolIds:
+          type: array
+          maxItems: 256
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+        credentialRequired:
+          type: boolean
     MCPPresetList:
       type: object
       additionalProperties: false
@@ -3020,6 +3358,31 @@ components:
           maxItems: 256
           items:
             $ref: "#/components/schemas/MCPPreset"
+    MCPAuthenticationRequest:
+      type: object
+      additionalProperties: false
+      required: [credential]
+      properties:
+        credential:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          pattern: "^[!-~]+$"
+          writeOnly: true
+    MCPConfigureRequest:
+      type: object
+      additionalProperties: false
+      required: [enabledToolIds]
+      properties:
+        enabledToolIds:
+          type: array
+          maxItems: 256
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 128
+            pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
     ModelProviderPreset:
       type: object
       additionalProperties: false

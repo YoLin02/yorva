@@ -477,7 +477,7 @@ func TestPhase7UpgradePlanRouteIsAuthenticatedGetOnly(t *testing.T) {
 	}
 }
 
-func TestPhase7BackupIndexRoutesAreAuthenticatedGetOnly(t *testing.T) {
+func TestPhase7BackupIndexRoutesAreAuthenticatedAndRedacted(t *testing.T) {
 	now := time.Date(2026, 8, 25, 8, 0, 0, 0, time.UTC)
 	reader := routingBackupReader{backup: yorvaruntime.Backup{
 		ID: "backup-safe", State: yorvaruntime.BackupChanged, FormatVersion: "yorva.hermes.runtime-backup.v1",
@@ -514,7 +514,11 @@ func TestPhase7BackupIndexRoutesAreAuthenticatedGetOnly(t *testing.T) {
 		post.Header.Set("Authorization", "Bearer "+testToken)
 		postResponse := httptest.NewRecorder()
 		handler.ServeHTTP(postResponse, post)
-		if postResponse.Code != http.StatusMethodNotAllowed || postResponse.Header().Get("Allow") != "GET, OPTIONS" {
+		if path == "/api/v1/runtimes/hermes/backups" {
+			if postResponse.Code != http.StatusBadRequest {
+				t.Fatalf("POST %s = %d %s", path, postResponse.Code, postResponse.Body.String())
+			}
+		} else if postResponse.Code != http.StatusMethodNotAllowed || postResponse.Header().Get("Allow") != "GET, OPTIONS" {
 			t.Fatalf("POST %s = %d Allow %q", path, postResponse.Code, postResponse.Header().Get("Allow"))
 		}
 	}

@@ -21,15 +21,20 @@ func (s MCPState) Valid() bool {
 }
 
 type MCPPreset struct {
-	ID          string
-	DisplayName string
+	ID                 string
+	DisplayName        string
+	AllowedToolIDs     []string
+	CredentialRequired bool
 }
 
 func (p MCPPreset) Validate() error {
 	if err := validateManagementID("MCP preset id", p.ID); err != nil {
 		return err
 	}
-	return validateBoundedText("MCP preset display name", p.DisplayName)
+	if err := validateBoundedText("MCP preset display name", p.DisplayName); err != nil {
+		return err
+	}
+	return validateUniqueIDs("MCP tool id", p.AllowedToolIDs)
 }
 
 type MCPServer struct {

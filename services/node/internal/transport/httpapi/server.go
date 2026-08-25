@@ -58,10 +58,10 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	lifecycle, _ := instances.(InstanceLifecycleService)
 	channels, _ := instances.(ChannelService)
 	var skills ManagementSkillsService
-	var mcp ManagementMCPReadService
+	var mcp ManagementMCPService
 	var managementHealth InstanceManagementHealthService
-	var managementUpgrade ManagementUpgradePlanService
-	var managementBackups ManagementBackupReadService
+	var managementUpgrade ManagementUpgradeService
+	var managementBackups ManagementBackupService
 	if targets, ok := instances.(app.ManagementTargetResolver); ok {
 		skills = app.NewManagementSkills(targets)
 		mcp = app.NewMCPManagement(targets)
@@ -74,9 +74,28 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 			skills = managed
 		}
 	}
+	if factory, ok := instances.(interface {
+		NewMCPManagement() (*app.MCPManagement, error)
+	}); ok {
+		if managed, err := factory.NewMCPManagement(); err == nil {
+			mcp = managed
+		}
+	}
 	if targets, ok := instances.(app.RuntimeManagementTargetResolver); ok {
 		managementUpgrade = app.NewManagementUpgrade(targets)
 		managementBackups = app.NewBackupManagement(targets)
+		if factory, ok := instances.(interface {
+			NewBackupManagement() (*app.BackupManagement, error)
+		}); ok {
+			managementBackups, _ = factory.NewBackupManagement()
+		}
+	}
+	if factory, ok := instances.(interface {
+		NewManagementUpgrade() (*app.ManagementUpgrade, error)
+	}); ok {
+		if managed, err := factory.NewManagementUpgrade(); err == nil {
+			managementUpgrade = managed
+		}
 	}
 	mux.HandleFunc("GET /api/v1/health", health)
 	mux.Handle("GET /api/v1/node", requireBearer(token, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -93,8 +112,13 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("DELETE /api/v1/settings/hermes/download-sources", requireBearer(token, deleteHermesDownloadSources(sourceSettings)))
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, listRuntimeInstances(instances)))
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/upgrade-plan", requireBearer(token, getRuntimeUpgradePlan(managementUpgrade)))
+	mux.Handle("POST /api/v1/runtimes/{runtimeId}/upgrade", requireBearer(token, startRuntimeUpgrade(managementUpgrade, false)))
+	mux.Handle("POST /api/v1/runtimes/{runtimeId}/rollback", requireBearer(token, startRuntimeUpgrade(managementUpgrade, true)))
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/backups", requireBearer(token, listRuntimeBackups(managementBackups)))
+	mux.Handle("POST /api/v1/runtimes/{runtimeId}/backups", requireBearer(token, startRuntimeBackup(managementBackups)))
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/backups/{backupId}", requireBearer(token, getRuntimeBackup(managementBackups)))
+	mux.Handle("DELETE /api/v1/backups/{backupId}", requireBearer(token, startDeleteBackup(managementBackups)))
+	mux.Handle("POST /api/v1/backups/{backupId}/restore", requireBearer(token, startRestoreBackup(managementBackups)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, createRuntimeInstance(instances)))
 	mux.Handle("GET /api/v1/runtimes/hermes/model-provider-presets", requireBearer(token, listModelProviderPresets(models)))
 	mux.Handle("GET /api/v1/instances/{instanceId}", requireBearer(token, getInstance(instances)))
@@ -127,11 +151,16 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("DELETE /api/v1/instances/{instanceId}/skills/{skillId}", requireBearer(token, startManagedSkillMutation(skills, skillMutationRemove)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/mcp-servers", requireBearer(token, listMCPServers(mcp)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/mcp-catalog", requireBearer(token, listMCPPresets(mcp)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/mcp-servers/{presetId}/install", requireBearer(token, startMCPMutation(mcp, mcpInstall)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/mcp-servers/{serverId}/authenticate", requireBearer(token, startMCPMutation(mcp, mcpAuthenticate)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/mcp-servers/{serverId}/test", requireBearer(token, startMCPMutation(mcp, mcpTest)))
+	mux.Handle("PATCH /api/v1/instances/{instanceId}/mcp-servers/{serverId}", requireBearer(token, startMCPMutation(mcp, mcpConfigure)))
+	mux.Handle("DELETE /api/v1/instances/{instanceId}/mcp-servers/{serverId}", requireBearer(token, startMCPMutation(mcp, mcpRemove)))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
 	mux.Handle("GET /api/v1/operations/{operationId}/channel-qr", requireBearer(token, getChannelQR(channels)))
 	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
 	mux.Handle("GET /api/v1/operations", requireBearer(token, listOperations(installs)))
-	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs, instances, models, channels)))
+	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs, instances, models, channels, managementBackups, mcp)))
 	return securityHeaders(restrictOrigins(routeContract(mux)))
 }
 
@@ -181,6 +210,18 @@ func allowedMethods(path string) (string, bool) {
 	case "/api/v1/settings/hermes/download-sources":
 		return "GET, PUT, DELETE, OPTIONS", true
 	}
+	if strings.HasPrefix(path, "/api/v1/backups/") {
+		rest := strings.TrimPrefix(path, "/api/v1/backups/")
+		if rest != "" && !strings.Contains(rest, "/") {
+			return "DELETE, OPTIONS", true
+		}
+		if strings.HasSuffix(rest, "/restore") {
+			id := strings.TrimSuffix(rest, "/restore")
+			if id != "" && !strings.Contains(id, "/") {
+				return "POST, OPTIONS", true
+			}
+		}
+	}
 	if strings.HasPrefix(path, "/api/v1/operations/") {
 		rest := strings.TrimPrefix(path, "/api/v1/operations/")
 		if rest != "" && !strings.Contains(rest, "/") {
@@ -220,7 +261,18 @@ func allowedMethods(path string) (string, bool) {
 			return "GET, OPTIONS", true
 		}
 	}
-	if kind := runtimeBackupReadPathKind(path); kind != "" {
+	for _, mutationSuffix := range []string{"/upgrade", "/rollback"} {
+		if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, mutationSuffix) {
+			kind := strings.TrimSuffix(strings.TrimPrefix(path, prefix), mutationSuffix)
+			if kind != "" && !strings.Contains(kind, "/") {
+				return "POST, OPTIONS", true
+			}
+		}
+	}
+	if kind := runtimeBackupPathKind(path); kind != "" {
+		if kind == "list" {
+			return "GET, POST, OPTIONS", true
+		}
 		return "GET, OPTIONS", true
 	}
 	switch instancePathKind(path) {
@@ -258,11 +310,15 @@ func allowedMethods(path string) (string, bool) {
 		return "GET, DELETE, OPTIONS", true
 	case "skill-mutation":
 		return "POST, OPTIONS", true
+	case "mcp-server":
+		return "PATCH, DELETE, OPTIONS", true
+	case "mcp-mutation":
+		return "POST, OPTIONS", true
 	}
 	return "", false
 }
 
-func runtimeBackupReadPathKind(path string) string {
+func runtimeBackupPathKind(path string) string {
 	const prefix = "/api/v1/runtimes/"
 	if !strings.HasPrefix(path, prefix) {
 		return ""
@@ -304,6 +360,11 @@ func managementReadPathKind(path string) string {
 		return "mcp-servers"
 	case len(parts) == 2 && parts[1] == "mcp-catalog":
 		return "mcp-catalog"
+	case len(parts) == 3 && parts[1] == "mcp-servers" && parts[2] != "":
+		return "mcp-server"
+	case len(parts) == 4 && parts[1] == "mcp-servers" && parts[2] != "" &&
+		(parts[3] == "install" || parts[3] == "authenticate" || parts[3] == "test"):
+		return "mcp-mutation"
 	default:
 		return ""
 	}

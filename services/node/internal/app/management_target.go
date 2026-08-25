@@ -43,6 +43,17 @@ type RuntimeManagementTargetResolver interface {
 	ResolveRuntimeManagementTarget(context.Context, string) (RuntimeManagementTarget, error)
 }
 
+type runtimeManagementLocker interface {
+	lockInstallation(string) func()
+}
+
+func lockRuntimeManagementTarget(resolver RuntimeManagementTargetResolver, installationID string) func() {
+	if locker, ok := resolver.(runtimeManagementLocker); ok && installationID != "" {
+		return locker.lockInstallation(installationID)
+	}
+	return func() {}
+}
+
 func (s *InstanceInventory) ResolveManagementTarget(ctx context.Context, instanceID string) (ManagementTarget, error) {
 	if s == nil || s.db == nil || s.discovery == nil || s.discovery.registry == nil || instanceID == "" {
 		return ManagementTarget{}, ErrInstanceNotFound

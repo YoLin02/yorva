@@ -11,7 +11,10 @@ import (
 	"strings"
 )
 
-const maxMessageBytes = 8 * 1024
+const (
+	maxMessageBytes       = 8 * 1024
+	maxControlBufferBytes = 40 * 1024
+)
 
 var (
 	ErrInvalidMessage          = errors.New("invalid bootstrap message")
@@ -35,7 +38,7 @@ type Handshake struct {
 }
 
 func NewReader(r io.Reader) *bufio.Reader {
-	return bufio.NewReaderSize(r, maxMessageBytes+1)
+	return bufio.NewReaderSize(r, maxControlBufferBytes+1)
 }
 
 func ReadMessage(r *bufio.Reader, expectedProtocol string) (Message, error) {

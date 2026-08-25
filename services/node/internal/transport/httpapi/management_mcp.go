@@ -1,19 +1,32 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/app"
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
 type ManagementMCPReadService interface {
 	ListMCPServers(context.Context, string) ([]app.MCPServerView, error)
 	ListMCPPresets(context.Context, string) ([]app.MCPPresetView, error)
+}
+
+type ManagementMCPService interface {
+	ManagementMCPReadService
+	StartInstall(context.Context, string, string, string) (app.InstallStartResult, error)
+	StartAuthenticate(context.Context, string, string, []byte, string) (app.InstallStartResult, error)
+	StartTest(context.Context, string, string, string) (app.InstallStartResult, error)
+	StartConfigure(context.Context, string, string, []string, string) (app.InstallStartResult, error)
+	StartRemove(context.Context, string, string, string) (app.InstallStartResult, error)
+	CancelMCPOperation(context.Context, string) (operation.Operation, error)
 }
 
 type ManagementMCPServerResponse struct {
@@ -29,8 +42,10 @@ type ManagementMCPServerListResponse struct {
 }
 
 type ManagementMCPPresetResponse struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"displayName"`
+	ID                 string   `json:"id"`
+	DisplayName        string   `json:"displayName"`
+	AllowedToolIDs     []string `json:"allowedToolIds"`
+	CredentialRequired bool     `json:"credentialRequired"`
 }
 
 type ManagementMCPPresetListResponse struct {
@@ -77,10 +92,132 @@ func listMCPPresets(service ManagementMCPReadService) http.Handler {
 
 		items := make([]ManagementMCPPresetResponse, 0, len(presets))
 		for _, preset := range presets {
-			items = append(items, ManagementMCPPresetResponse{ID: preset.ID, DisplayName: preset.DisplayName})
+			allowedToolIDs := preset.AllowedToolIDs
+			if allowedToolIDs == nil {
+				allowedToolIDs = []string{}
+			}
+			items = append(items, ManagementMCPPresetResponse{ID: preset.ID, DisplayName: preset.DisplayName, AllowedToolIDs: allowedToolIDs, CredentialRequired: preset.CredentialRequired})
 		}
 		writeMCPManagementJSON(w, ManagementMCPPresetListResponse{Items: items})
 	})
+}
+
+type mcpMutationKind string
+
+const (
+	mcpInstall      mcpMutationKind = "install"
+	mcpAuthenticate mcpMutationKind = "authenticate"
+	mcpTest         mcpMutationKind = "test"
+	mcpConfigure    mcpMutationKind = "configure"
+	mcpRemove       mcpMutationKind = "remove"
+)
+
+func startMCPMutation(service ManagementMCPService, kind mcpMutationKind) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if service == nil {
+			writeMCPManagementError(w, r, app.ErrManagementCapabilityUnsupported)
+			return
+		}
+		key := r.Header.Get("Idempotency-Key")
+		if app.ValidateIdempotencyKey(key) != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_IDEMPOTENCY_KEY", Message: "A valid Idempotency-Key header is required.", Retryable: false})
+			return
+		}
+		instanceID := r.PathValue("instanceId")
+		var (
+			result app.InstallStartResult
+			err    error
+		)
+		switch kind {
+		case mcpInstall:
+			err = decodeClosedEmptyObject(r)
+			if err == nil {
+				result, err = service.StartInstall(r.Context(), instanceID, r.PathValue("presetId"), key)
+			}
+		case mcpAuthenticate:
+			var credential []byte
+			credential, err = decodeMCPAuthentication(r)
+			if err == nil {
+				result, err = service.StartAuthenticate(r.Context(), instanceID, r.PathValue("serverId"), credential, key)
+			}
+			clear(credential)
+		case mcpTest:
+			err = decodeClosedEmptyObject(r)
+			if err == nil {
+				result, err = service.StartTest(r.Context(), instanceID, r.PathValue("serverId"), key)
+			}
+		case mcpConfigure:
+			var toolIDs []string
+			toolIDs, err = decodeMCPConfiguration(r, r.PathValue("serverId"))
+			if err == nil {
+				result, err = service.StartConfigure(r.Context(), instanceID, r.PathValue("serverId"), toolIDs, key)
+			}
+		case mcpRemove:
+			err = decodeClosedEmptyObject(r)
+			if err == nil {
+				result, err = service.StartRemove(r.Context(), instanceID, r.PathValue("serverId"), key)
+			}
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, yorvaruntime.ErrInvalidManagementContract) {
+				writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The MCP request does not match the closed schema.", Retryable: false})
+				return
+			}
+			writeMCPManagementError(w, r, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(newOperationResponse(result.Operation))
+	})
+}
+
+func decodeMCPAuthentication(r *http.Request) ([]byte, error) {
+	var body struct {
+		Credential string `json:"credential"`
+	}
+	if err := decodeClosedMCPBody(r, &body); err != nil {
+		return nil, err
+	}
+	credential := []byte(body.Credential)
+	if err := (yorvaruntime.MCPAuthenticateRequest{ServerID: r.PathValue("serverId"), Credential: credential}).Validate(); err != nil {
+		clear(credential)
+		return nil, err
+	}
+	return credential, nil
+}
+
+func decodeMCPConfiguration(r *http.Request, serverID string) ([]string, error) {
+	var body struct {
+		EnabledToolIDs []string `json:"enabledToolIds"`
+	}
+	if err := decodeClosedMCPBody(r, &body); err != nil {
+		return nil, err
+	}
+	if err := (yorvaruntime.MCPConfigureRequest{ServerID: serverID, EnabledToolIDs: body.EnabledToolIDs}).Validate(); err != nil {
+		return nil, err
+	}
+	return body.EnabledToolIDs, nil
+}
+
+func decodeClosedMCPBody(r *http.Request, target any) error {
+	if r.Body == nil {
+		return io.EOF
+	}
+	defer r.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(r.Body, 8193))
+	if err != nil || len(payload) == 0 || len(payload) > 8192 {
+		return io.ErrUnexpectedEOF
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("trailing json")
+	}
+	return nil
 }
 
 func writeMCPManagementJSON(w http.ResponseWriter, value any) {
@@ -104,6 +241,16 @@ func writeMCPManagementError(w http.ResponseWriter, r *http.Request, err error) 
 		writeError(w, http.StatusConflict, ErrorBody{
 			Code: string(yorvaruntime.ErrorCapabilityNotSupported), Message: "MCP management is not supported.", Retryable: false,
 		})
+	case errors.Is(err, app.ErrMCPMutationConflict):
+		writeError(w, http.StatusConflict, ErrorBody{
+			Code: string(yorvaruntime.ErrorMCPMutationConflict), Message: "Another MCP or Instance mutation is already running.", Retryable: false,
+		})
+	case errors.Is(err, app.ErrInstanceNotCancellable):
+		writeError(w, http.StatusConflict, ErrorBody{
+			Code: string(yorvaruntime.ErrorOperationNotCancellable), Message: "This MCP Operation can no longer be cancelled.", Retryable: false,
+		})
+	case errors.Is(err, yorvaruntime.ErrInvalidManagementContract):
+		writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The MCP request is invalid.", Retryable: false})
 	case errors.Is(err, app.ErrManagementQueryFailed), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		writeError(w, http.StatusServiceUnavailable, ErrorBody{
 			Code: "MANAGEMENT_QUERY_FAILED", Message: "MCP management data could not be queried.", Retryable: true,

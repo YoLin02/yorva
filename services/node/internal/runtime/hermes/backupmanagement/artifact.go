@@ -1,12 +1,12 @@
 package backupmanagement
 
 const (
-	// EncryptionQualified remains false until the complete B6 product flow,
-	// including protected staging and atomic publication, is qualified. The age
-	// container primitive does not itself advertise a production capability.
+	// EncryptionQualified is deliberately false on structural verification
+	// results. Product capability is represented only by qualified Bundle
+	// wiring; parsing an artifact must never grant that authority.
 	EncryptionQualified = false
-	// RestoreMutationQualified remains false because this package performs no
-	// extraction, protection-point creation, Runtime mutation or rollback.
+	// RestoreMutationQualified follows the same rule: artifact verification is
+	// a prerequisite, not authorization to mutate Runtime state.
 	RestoreMutationQualified = false
 )
 

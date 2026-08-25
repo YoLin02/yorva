@@ -15,6 +15,12 @@ type ManagementUpgradePlanService interface {
 	PlanUpgrade(context.Context, string) (yorvaruntime.UpgradePlan, error)
 }
 
+type ManagementUpgradeService interface {
+	ManagementUpgradePlanService
+	StartUpgrade(context.Context, string, string) (app.InstallStartResult, error)
+	StartRollback(context.Context, string, string) (app.InstallStartResult, error)
+}
+
 // ManagementUpgradePlanResponse is intentionally a safe projection. Exact
 // archive/seal checks remain inside the adapter; filesystem paths, commands,
 // internal seals and protection-point identities are never transported.
@@ -48,6 +54,36 @@ func getRuntimeUpgradePlan(service ManagementUpgradePlanService) http.Handler {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(newManagementUpgradePlanResponse(plan))
+	})
+}
+
+func startRuntimeUpgrade(service ManagementUpgradeService, rollback bool) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if service == nil {
+			writeManagementUpgradeUnsupported(w)
+			return
+		}
+		key := r.Header.Get("Idempotency-Key")
+		if app.ValidateIdempotencyKey(key) != nil || decodeClosedEmptyObject(r) != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "A valid Idempotency-Key and closed empty JSON object are required.", Retryable: false})
+			return
+		}
+		var (
+			result app.InstallStartResult
+			err    error
+		)
+		if rollback {
+			result, err = service.StartRollback(r.Context(), r.PathValue("runtimeId"), key)
+		} else {
+			result, err = service.StartUpgrade(r.Context(), r.PathValue("runtimeId"), key)
+		}
+		if err != nil {
+			writeManagementUpgradeError(w, r, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(newOperationResponse(result.Operation))
 	})
 }
 
@@ -88,6 +124,8 @@ func writeManagementUpgradeError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorRuntimeNotSupported), Message: "A supported managed Runtime installation is required.", Retryable: false})
 	case errors.Is(err, app.ErrManagementCapabilityUnsupported):
 		writeManagementUpgradeUnsupported(w)
+	case errors.Is(err, app.ErrRuntimeMutationConflict):
+		writeError(w, http.StatusConflict, ErrorBody{Code: "RUNTIME_MUTATION_CONFLICT", Message: "Another Runtime mutation is already running.", Retryable: false})
 	case errors.Is(err, app.ErrManagementQueryFailed), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: "MANAGEMENT_QUERY_FAILED", Message: "The managed Runtime upgrade plan could not be queried.", Retryable: true})
 	default:

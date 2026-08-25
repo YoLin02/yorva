@@ -87,6 +87,13 @@ func (d *Database) GetRuntimeBackup(ctx context.Context, runtimeInstallationID, 
 	return scanRuntimeBackup(row)
 }
 
+func (d *Database) GetRuntimeBackupByID(ctx context.Context, backupID string) (RuntimeBackupIndexEntry, error) {
+	row := d.db.QueryRowContext(ctx, runtimeBackupSelect+`
+        WHERE id = ?
+    `, backupID)
+	return scanRuntimeBackup(row)
+}
+
 func (d *Database) ListRuntimeBackups(ctx context.Context, runtimeInstallationID string) ([]RuntimeBackupIndexEntry, error) {
 	rows, err := d.db.QueryContext(ctx, runtimeBackupSelect+`
         WHERE runtime_installation_id = ?
@@ -109,6 +116,45 @@ func (d *Database) ListRuntimeBackups(ctx context.Context, runtimeInstallationID
 		return nil, fmt.Errorf("list Runtime backups: %w", err)
 	}
 	return out, nil
+}
+
+func (d *Database) DeleteRuntimeBackup(ctx context.Context, runtimeInstallationID, backupID string) error {
+	if runtimeInstallationID == "" || backupID == "" {
+		return errors.New("invalid Runtime backup identity")
+	}
+	result, err := d.db.ExecContext(ctx, `
+        DELETE FROM runtime_backups
+        WHERE runtime_installation_id = ? AND id = ?
+    `, runtimeInstallationID, backupID)
+	if err != nil {
+		return fmt.Errorf("delete Runtime backup index: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("count deleted Runtime backups: %w", err)
+	}
+	if affected != 1 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (d *Database) DeleteRuntimeBackupByID(ctx context.Context, backupID string) error {
+	if backupID == "" {
+		return errors.New("invalid Runtime backup identity")
+	}
+	result, err := d.db.ExecContext(ctx, `DELETE FROM runtime_backups WHERE id = ?`, backupID)
+	if err != nil {
+		return fmt.Errorf("delete Runtime backup index: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("count deleted Runtime backups: %w", err)
+	}
+	if affected != 1 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 // ReconcileRuntimeBackupState records observed artifact truth without changing

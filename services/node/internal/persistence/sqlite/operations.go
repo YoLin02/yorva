@@ -96,7 +96,12 @@ func (d *Database) ActiveRuntimeInstall(ctx context.Context, runtimeKind string)
 func (d *Database) ActiveInstanceMutation(ctx context.Context, installationID string) (operation.Operation, bool, error) {
 	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
         WHERE target_type = ? AND target_id = ? AND status IN ('PENDING', 'RUNNING')
-          AND operation_type IN ('instance.create', 'instance.delete')
+          AND operation_type IN (
+              'instance.create', 'instance.delete',
+              'backup.create', 'backup.restore',
+              'runtime.upgrade', 'runtime.rollback'
+          )
+        ORDER BY created_at ASC LIMIT 1
     `, string(operation.TargetRuntimeInstallation), installationID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return operation.Operation{}, false, nil
@@ -127,7 +132,8 @@ func (d *Database) ActiveInstanceRuntimeMutation(ctx context.Context, instanceID
           AND operation_type IN (
               'instance.start', 'instance.stop', 'instance.restart',
               'channel.connect', 'channel.disconnect',
-              'skill.install', 'skill.update', 'skill.enable', 'skill.disable', 'skill.remove'
+              'skill.install', 'skill.update', 'skill.enable', 'skill.disable', 'skill.remove',
+              'mcp.install', 'mcp.authenticate', 'mcp.test', 'mcp.configure', 'mcp.remove'
           )
         ORDER BY created_at ASC LIMIT 1
     `, string(operation.TargetInstance), instanceID))
@@ -264,6 +270,70 @@ func (d *Database) ListActiveSkillOperations(ctx context.Context) ([]operation.O
 		value, err := scanOperation(rows)
 		if err != nil {
 			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
+
+func (d *Database) ListActiveMCPOperations(ctx context.Context) ([]operation.Operation, error) {
+	rows, err := d.db.QueryContext(ctx, operationSelect+`
+        WHERE operation_type IN (?, ?, ?, ?, ?) AND status IN ('PENDING', 'RUNNING')
+        ORDER BY created_at ASC
+    `, string(operation.TypeMCPInstall), string(operation.TypeMCPAuthenticate),
+		string(operation.TypeMCPTest), string(operation.TypeMCPConfigure),
+		string(operation.TypeMCPRemove))
+	if err != nil {
+		return nil, fmt.Errorf("list active MCP operations: %w", err)
+	}
+	defer rows.Close()
+	result := make([]operation.Operation, 0)
+	for rows.Next() {
+		value, err := scanOperation(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
+
+func (d *Database) ListActiveBackupOperations(ctx context.Context) ([]operation.Operation, error) {
+	rows, err := d.db.QueryContext(ctx, operationSelect+`
+        WHERE operation_type IN ('backup.create', 'backup.delete', 'backup.restore')
+          AND status IN ('PENDING', 'RUNNING')
+        ORDER BY created_at ASC
+    `)
+	if err != nil {
+		return nil, fmt.Errorf("list active backup operations: %w", err)
+	}
+	defer rows.Close()
+	var result []operation.Operation
+	for rows.Next() {
+		value, scanErr := scanOperation(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
+
+func (d *Database) ListActiveRuntimeManagementOperations(ctx context.Context) ([]operation.Operation, error) {
+	rows, err := d.db.QueryContext(ctx, operationSelect+`
+        WHERE operation_type IN ('runtime.upgrade', 'runtime.rollback')
+          AND status IN ('PENDING', 'RUNNING')
+        ORDER BY created_at ASC
+    `)
+	if err != nil {
+		return nil, fmt.Errorf("list active Runtime management operations: %w", err)
+	}
+	defer rows.Close()
+	var result []operation.Operation
+	for rows.Next() {
+		value, scanErr := scanOperation(rows)
+		if scanErr != nil {
+			return nil, scanErr
 		}
 		result = append(result, value)
 	}
@@ -537,7 +607,11 @@ func mapOperationCreateError(err error, operationType operation.Type) error {
 		operationType == operation.TypeChannelConnect || operationType == operation.TypeChannelDisconnect ||
 		operationType == operation.TypeSkillInstall || operationType == operation.TypeSkillUpdate ||
 		operationType == operation.TypeSkillEnable || operationType == operation.TypeSkillDisable ||
-		operationType == operation.TypeSkillRemove {
+		operationType == operation.TypeSkillRemove ||
+		operationType == operation.TypeMCPInstall || operationType == operation.TypeMCPAuthenticate ||
+		operationType == operation.TypeMCPTest || operationType == operation.TypeMCPConfigure || operationType == operation.TypeMCPRemove ||
+		operationType == operation.TypeBackupCreate || operationType == operation.TypeBackupDelete || operationType == operation.TypeBackupRestore ||
+		operationType == operation.TypeRuntimeUpgrade || operationType == operation.TypeRuntimeRollback {
 		return ErrActiveInstanceMutation
 	}
 	return mapped

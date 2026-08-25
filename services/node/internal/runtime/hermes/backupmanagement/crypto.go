@@ -54,6 +54,19 @@ func GenerateX25519Identity() (recipient string, identity []byte, err error) {
 	return parsedIdentity.Recipient().String(), []byte(parsedIdentity.String()), nil
 }
 
+// RecipientForIdentity derives the non-secret public recipient from one
+// request-lifetime device identity loaded through YORVA SecretStore.
+func RecipientForIdentity(identity []byte) (string, error) {
+	if len(identity) == 0 || len(identity) > maxIdentityBytes {
+		return "", verificationError(ErrorInputInvalid)
+	}
+	parsed, err := age.ParseX25519Identity(string(identity))
+	if err != nil || parsed.String() != string(identity) {
+		return "", verificationError(ErrorInputInvalid)
+	}
+	return parsed.Recipient().String(), nil
+}
+
 // EncryptWithX25519 writes a single-recipient age v1 ciphertext to staging.
 // The matching identity is required so the exact staged ciphertext can be
 // authenticated and verified before success is reported.

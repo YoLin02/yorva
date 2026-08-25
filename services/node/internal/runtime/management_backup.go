@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"regexp"
 	"time"
 )
 
 var ErrBackupNotFound = errors.New("Runtime backup not found")
+
+var backupDestinationRefPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
 
 type BackupState string
 
@@ -79,11 +82,26 @@ func (b Backup) Validate() error {
 // capability. It deliberately carries no caller path, URL, format, command, or
 // key material.
 type BackupCreateRequest struct {
-	DestinationRef string
+	DestinationRef        string
+	OperationID           string
+	RuntimeInstallationID string
 }
 
 func (r BackupCreateRequest) Validate() error {
-	return validateManagementID("backup destination reference", r.DestinationRef)
+	if err := ValidateBackupDestinationRef(r.DestinationRef); err != nil {
+		return err
+	}
+	if err := validateManagementID("backup operation id", r.OperationID); err != nil {
+		return err
+	}
+	return validateManagementID("Runtime installation id", r.RuntimeInstallationID)
+}
+
+func ValidateBackupDestinationRef(value string) error {
+	if !backupDestinationRefPattern.MatchString(value) {
+		return ErrInvalidManagementContract
+	}
+	return nil
 }
 
 type BackupRestoreRequest struct {

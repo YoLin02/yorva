@@ -38,6 +38,26 @@ const TypeSkillDisable Type = "skill.disable"
 
 const TypeSkillRemove Type = "skill.remove"
 
+const TypeMCPInstall Type = "mcp.install"
+
+const TypeMCPAuthenticate Type = "mcp.authenticate"
+
+const TypeMCPTest Type = "mcp.test"
+
+const TypeMCPConfigure Type = "mcp.configure"
+
+const TypeMCPRemove Type = "mcp.remove"
+
+const TypeBackupCreate Type = "backup.create"
+
+const TypeBackupDelete Type = "backup.delete"
+
+const TypeBackupRestore Type = "backup.restore"
+
+const TypeRuntimeUpgrade Type = "runtime.upgrade"
+
+const TypeRuntimeRollback Type = "runtime.rollback"
+
 type TargetType string
 
 const TargetRuntimeKind TargetType = "runtime-kind"
@@ -96,6 +116,24 @@ const (
 	StageSkillProject           Stage = "skill.project"
 	StageSkillUnproject         Stage = "skill.unproject"
 	StageSkillReconcile         Stage = "skill.reconcile"
+	StageMCPPreflight           Stage = "mcp.preflight"
+	StageMCPConfigure           Stage = "mcp.configure"
+	StageMCPTest                Stage = "mcp.test"
+	StageMCPReconcile           Stage = "mcp.reconcile"
+	StageBackupPreflight        Stage = "backup.preflight"
+	StageBackupSnapshot         Stage = "backup.snapshot"
+	StageBackupEncrypt          Stage = "backup.encrypt"
+	StageBackupPublish          Stage = "backup.publish"
+	StageBackupDelete           Stage = "backup.delete"
+	StageBackupReconcile        Stage = "backup.reconcile"
+	StageRestorePreflight       Stage = "restore.preflight"
+	StageRestoreProtection      Stage = "restore.protection"
+	StageRestoreApply           Stage = "restore.apply"
+	StageRestoreReconcile       Stage = "restore.reconcile"
+	StageUpgradePreflight       Stage = "upgrade.preflight"
+	StageUpgradeBuild           Stage = "upgrade.build"
+	StageUpgradeActivate        Stage = "upgrade.activate"
+	StageUpgradeReconcile       Stage = "upgrade.reconcile"
 )
 
 type Operation struct {

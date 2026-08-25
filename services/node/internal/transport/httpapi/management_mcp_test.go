@@ -100,11 +100,11 @@ func TestListMCPPresetsReturnsOnlyReviewedCatalogProjection(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if response.Code != http.StatusOK || len(body.Items) != 1 || len(body.Items[0]) != 2 || body.Items[0]["id"] != "preset-a" || body.Items[0]["displayName"] != "Approved A" {
+	if response.Code != http.StatusOK || len(body.Items) != 1 || len(body.Items[0]) != 4 || body.Items[0]["id"] != "preset-a" || body.Items[0]["displayName"] != "Approved A" {
 		t.Fatalf("catalog response = %d %#v", response.Code, body.Items)
 	}
 	for key := range body.Items[0] {
-		if key != "id" && key != "displayName" {
+		if key != "id" && key != "displayName" && key != "allowedToolIds" && key != "credentialRequired" {
 			t.Fatalf("catalog exposed field %q", key)
 		}
 	}
