@@ -222,6 +222,21 @@ Adapter code must not expose arbitrary read/write file endpoints to Desktop or C
 
 Normalize and validate paths before mutation. Protect against traversal when accepting relative names.
 
+Phase 7 managed Skills follow ADR-0018. Public callers select only a compile-time
+approved source ID; they cannot submit a URL, local path, command, environment, force
+flag or arbitrary package bytes. YORVA keeps the authoritative managed copy below
+`{dataDir}/skills/managed` and derives the exact Hermes default/named-Profile projection
+path inside the adapter.
+
+YORVA never adopts an existing Hermes Skill. When a Runtime projection exists, changing
+or removing it requires the matching `managed_skills` record, deployment ID, projection
+marker and one deterministic whole-package SHA-256. A missing marker, changed digest or
+pre-existing unmatched destination is reported as drift/conflict and is left untouched.
+Copy projection does not use elevated symlink privileges, edit Hermes `config.yaml`,
+invoke Hermes-native mutation or expose internal paths/digests through HTTP. Interrupted Skill Operations
+are marked failed and reconciled from managed metadata and filesystem truth; destructive
+steps are not replayed automatically.
+
 ## 12. Runtime credentials and Cloud
 
 Local Runtime credentials remain local by default.

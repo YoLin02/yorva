@@ -54,6 +54,22 @@ func (managementCapabilityFixture) ConfigureSkill(context.Context, yorvaruntime.
 	return yorvaruntime.Skill{}, nil
 }
 
+func (managementCapabilityFixture) ListSkillProjections(context.Context, yorvaruntime.Installation, string) ([]yorvaruntime.Skill, error) {
+	return nil, nil
+}
+
+func (managementCapabilityFixture) InspectSkillProjection(context.Context, yorvaruntime.Installation, string, string) (yorvaruntime.Skill, error) {
+	return yorvaruntime.Skill{}, nil
+}
+
+func (managementCapabilityFixture) ProjectSkill(context.Context, yorvaruntime.Installation, string, yorvaruntime.SkillProjectRequest, yorvaruntime.ProgressSink) (yorvaruntime.Skill, error) {
+	return yorvaruntime.Skill{}, nil
+}
+
+func (managementCapabilityFixture) UnprojectSkill(context.Context, yorvaruntime.Installation, string, string, string, yorvaruntime.ProgressSink) (yorvaruntime.Skill, error) {
+	return yorvaruntime.Skill{}, nil
+}
+
 func (managementCapabilityFixture) ListMCPServers(context.Context, yorvaruntime.Installation, string) ([]yorvaruntime.MCPServer, error) {
 	return nil, nil
 }
@@ -118,20 +134,21 @@ func TestInstanceCapabilitiesProjectRegistryManagementWiring(t *testing.T) {
 	fixture := managementCapabilityFixture{}
 	registry := yorvaruntime.NewRegistry()
 	if err := registry.Register("hermes", yorvaruntime.Bundle{
-		Descriptor:   yorvaruntime.Descriptor{Kind: "hermes", Name: "Fixture Hermes"},
-		Health:       fixture,
-		Logs:         fixture,
-		Security:     fixture,
-		SkillRead:    fixture,
-		SkillMutate:  fixture,
-		MCPRead:      fixture,
-		MCPMutate:    fixture,
-		BackupRead:   fixture,
-		BackupMutate: fixture,
-		Restore:      fixture,
-		UpgradePlan:  fixture,
-		Upgrade:      fixture,
-		Rollback:     fixture,
+		Descriptor:      yorvaruntime.Descriptor{Kind: "hermes", Name: "Fixture Hermes"},
+		Health:          fixture,
+		Logs:            fixture,
+		Security:        fixture,
+		SkillRead:       fixture,
+		SkillMutate:     fixture,
+		SkillProjection: fixture,
+		MCPRead:         fixture,
+		MCPMutate:       fixture,
+		BackupRead:      fixture,
+		BackupMutate:    fixture,
+		Restore:         fixture,
+		UpgradePlan:     fixture,
+		Upgrade:         fixture,
+		Rollback:        fixture,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +170,8 @@ func TestInstanceCapabilitiesExposeHermesUpgradePlanReadOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	inventory := &InstanceInventory{discovery: &RuntimeDiscovery{registry: registry}}
-	if got := inventory.capabilities(); got != (InstanceCapabilities{Instances: true, Lifecycle: true, UpgradePlan: true}) {
-		t.Fatalf("actual Hermes capabilities = %#v, want read plan without mutation", got)
+	got := inventory.capabilities()
+	if !got.Instances || !got.Lifecycle || !got.SkillMutate || !got.UpgradePlan || got.NativeSkills.NativeInstall.Supported || got.NativeSkills.NativeInstall.Reason != "deferred_upstream" {
+		t.Fatalf("actual Hermes capabilities = %#v, want managed projection with deferred native mutation", got)
 	}
 }

@@ -67,6 +67,13 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 		mcp = app.NewMCPManagement(targets)
 		managementHealth = app.NewManagementHealth(targets)
 	}
+	if factory, ok := instances.(interface {
+		NewManagementSkills(string) (*app.ManagementSkills, error)
+	}); ok {
+		if managed, err := factory.NewManagementSkills(dataDir); err == nil {
+			skills = managed
+		}
+	}
 	if targets, ok := instances.(app.RuntimeManagementTargetResolver); ok {
 		managementUpgrade = app.NewManagementUpgrade(targets)
 		managementBackups = app.NewBackupManagement(targets)
@@ -112,6 +119,12 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("POST /api/v1/instances/{instanceId}/channels/{channelType}/pairings/approve", requireBearer(token, approveChannelPairing(channels)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/skills", requireBearer(token, listInstanceSkills(skills)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/skills/{skillId}", requireBearer(token, inspectInstanceSkill(skills)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/skill-sources", requireBearer(token, listInstanceSkillSources(skills)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/skills/{skillId}/install", requireBearer(token, startManagedSkillMutation(skills, skillMutationInstall)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/skills/{skillId}/update", requireBearer(token, startManagedSkillMutation(skills, skillMutationUpdate)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/skills/{skillId}/enable", requireBearer(token, startManagedSkillMutation(skills, skillMutationEnable)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/skills/{skillId}/disable", requireBearer(token, startManagedSkillMutation(skills, skillMutationDisable)))
+	mux.Handle("DELETE /api/v1/instances/{instanceId}/skills/{skillId}", requireBearer(token, startManagedSkillMutation(skills, skillMutationRemove)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/mcp-servers", requireBearer(token, listMCPServers(mcp)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/mcp-catalog", requireBearer(token, listMCPPresets(mcp)))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
@@ -239,8 +252,12 @@ func allowedMethods(path string) (string, bool) {
 		return "POST, OPTIONS", true
 	}
 	switch managementReadPathKind(path) {
-	case "health", "logs", "skills", "skill", "mcp-servers", "mcp-catalog":
+	case "health", "logs", "skills", "skill-sources", "mcp-servers", "mcp-catalog":
 		return "GET, OPTIONS", true
+	case "skill":
+		return "GET, DELETE, OPTIONS", true
+	case "skill-mutation":
+		return "POST, OPTIONS", true
 	}
 	return "", false
 }
@@ -276,8 +293,13 @@ func managementReadPathKind(path string) string {
 		return "logs"
 	case len(parts) == 2 && parts[1] == "skills":
 		return "skills"
+	case len(parts) == 2 && parts[1] == "skill-sources":
+		return "skill-sources"
 	case len(parts) == 3 && parts[1] == "skills" && parts[2] != "":
 		return "skill"
+	case len(parts) == 4 && parts[1] == "skills" && parts[2] != "" &&
+		(parts[3] == "install" || parts[3] == "update" || parts[3] == "enable" || parts[3] == "disable"):
+		return "skill-mutation"
 	case len(parts) == 2 && parts[1] == "mcp-servers":
 		return "mcp-servers"
 	case len(parts) == 2 && parts[1] == "mcp-catalog":

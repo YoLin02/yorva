@@ -2,12 +2,49 @@ package runtime
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
 
 type fakeHealthInspector struct{}
+
+type fakeSkillProjector struct{}
+
+type fakeNativeSkillManager struct{}
+
+func (fakeSkillProjector) ListSkillProjections(context.Context, Installation, string) ([]Skill, error) {
+	return nil, nil
+}
+
+func (fakeSkillProjector) InspectSkillProjection(context.Context, Installation, string, string) (Skill, error) {
+	return Skill{}, nil
+}
+
+func (fakeSkillProjector) ProjectSkill(context.Context, Installation, string, SkillProjectRequest, ProgressSink) (Skill, error) {
+	return Skill{}, nil
+}
+
+func (fakeSkillProjector) UnprojectSkill(context.Context, Installation, string, string, string, ProgressSink) (Skill, error) {
+	return Skill{}, nil
+}
+
+func (fakeNativeSkillManager) InstallSkill(context.Context, Installation, string, SkillInstallRequest, ProgressSink) (Skill, error) {
+	return Skill{}, nil
+}
+
+func (fakeNativeSkillManager) UpdateSkill(context.Context, Installation, string, string, ProgressSink) (Skill, error) {
+	return Skill{}, nil
+}
+
+func (fakeNativeSkillManager) RemoveSkill(context.Context, Installation, string, string, ProgressSink) (Skill, error) {
+	return Skill{}, nil
+}
+
+func (fakeNativeSkillManager) ConfigureSkill(context.Context, Installation, string, SkillConfigureRequest, ProgressSink) (Skill, error) {
+	return Skill{}, nil
+}
 
 func (fakeHealthInspector) InspectRuntimeHealth(context.Context, Installation) (HealthObservation, error) {
 	return HealthObservation{}, nil
@@ -30,6 +67,14 @@ func TestManagementCapabilitiesDefaultClosedAndDeriveWiring(t *testing.T) {
 	wired.HealthRead = false
 	if wired != (ManagementCapabilities{}) {
 		t.Fatalf("unwired management capabilities became true: %#v", wired)
+	}
+	managed := (Bundle{SkillProjection: fakeSkillProjector{}}).ManagementCapabilities()
+	if !managed.SkillMutate {
+		t.Fatal("wired YORVA Skill projection did not enable Skill mutation")
+	}
+	nativeOnly := (Bundle{SkillMutate: fakeNativeSkillManager{}}).ManagementCapabilities()
+	if nativeOnly.SkillMutate {
+		t.Fatal("absent YORVA Skill projection advertised managed mutation")
 	}
 }
 
@@ -70,6 +115,21 @@ func TestNormalizedManagementStatesFailClosed(t *testing.T) {
 			t.Fatalf("skill scan state %q is invalid", state)
 		}
 	}
+	validOwnership := []SkillOwnership{SkillOwnershipYORVAManaged, SkillOwnershipExternal, SkillOwnershipRuntimeBundled, SkillOwnershipUnknown}
+	for _, ownership := range validOwnership {
+		if !ownership.Valid() {
+			t.Fatalf("Skill ownership %q is invalid", ownership)
+		}
+	}
+	validProjection := []SkillProjectionState{
+		SkillProjectionProjected, SkillProjectionNotProjected, SkillProjectionDriftMissing,
+		SkillProjectionDriftModified, SkillProjectionConflict, SkillProjectionUnknown,
+	}
+	for _, state := range validProjection {
+		if !state.Valid() {
+			t.Fatalf("Skill projection state %q is invalid", state)
+		}
+	}
 	validMCP := []MCPState{MCPNotConfigured, MCPConfigured, MCPAuthRequired, MCPReady, MCPFailed, MCPUnknown}
 	for _, state := range validMCP {
 		if !state.Valid() {
@@ -106,8 +166,65 @@ func TestNormalizedManagementStatesFailClosed(t *testing.T) {
 			t.Fatalf("upgrade outcome %q is invalid", state)
 		}
 	}
-	if HealthState("healthy").Valid() || SecuritySeverity("SEVERE").Valid() || SkillScanState("PASSED").Valid() || MCPState("RUNNING").Valid() || BackupState("UNRECOGNIZED").Valid() || UpgradeAvailabilityState("READY").Valid() {
+	if HealthState("healthy").Valid() || SecuritySeverity("SEVERE").Valid() || SkillScanState("PASSED").Valid() ||
+		SkillOwnership("MANAGED").Valid() || SkillProjectionState("MISSING").Valid() || MCPState("RUNNING").Valid() ||
+		BackupState("UNRECOGNIZED").Valid() || UpgradeAvailabilityState("READY").Valid() {
 		t.Fatal("unknown normalized state was accepted")
+	}
+}
+
+func TestSkillProjectRequestIsClosedAndRejectsInvalidDigest(t *testing.T) {
+	typeOfRequest := reflect.TypeOf(SkillProjectRequest{})
+	wantFields := []string{"SkillID", "SourceDir", "SourceID", "Version", "ContentSHA256", "DeploymentID"}
+	if typeOfRequest.NumField() != len(wantFields) {
+		t.Fatalf("SkillProjectRequest has %d fields, want %d", typeOfRequest.NumField(), len(wantFields))
+	}
+	for index, want := range wantFields {
+		if got := typeOfRequest.Field(index).Name; got != want {
+			t.Fatalf("SkillProjectRequest field %d = %q, want %q", index, got, want)
+		}
+	}
+
+	valid := SkillProjectRequest{
+		SkillID:       "writer",
+		SourceDir:     `C:\trusted\yorva\skills\writer`,
+		SourceID:      "reviewed-writer",
+		Version:       "1.0.0",
+		ContentSHA256: strings.Repeat("a", 64),
+		DeploymentID:  "deployment-writer",
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("valid Skill projection request = %v", err)
+	}
+	valid.ContentSHA256 = strings.Repeat("A", 64)
+	if err := valid.Validate(); err == nil {
+		t.Fatal("uppercase content SHA-256 was accepted")
+	}
+	valid.ContentSHA256 = "not-a-digest"
+	if err := valid.Validate(); err == nil {
+		t.Fatal("invalid content SHA-256 was accepted")
+	}
+}
+
+func TestNativeSkillCapabilitiesRemainIndependentFromManagedProjection(t *testing.T) {
+	reason := strings.Repeat("x", managementTextMaxBytes+1)
+	capabilities := NativeSkillCapabilities{
+		Inventory:           NativeSkillCapability{Supported: true},
+		NativeInstall:       NativeSkillCapability{Supported: false, Reason: "deferred_upstream"},
+		NativeUpdate:        NativeSkillCapability{Supported: false, Reason: "deferred_upstream"},
+		NativeRemove:        NativeSkillCapability{Supported: false, Reason: "deferred_upstream"},
+		NativeEnableDisable: NativeSkillCapability{Supported: false, Reason: "deferred_upstream"},
+		NativeProfileBinding: NativeSkillCapability{
+			Supported: false,
+			Reason:    "deferred_upstream",
+		},
+	}
+	if err := capabilities.Validate(); err != nil {
+		t.Fatalf("valid native Skill capabilities = %v", err)
+	}
+	capabilities.NativeInstall.Reason = reason
+	if err := capabilities.Validate(); err == nil {
+		t.Fatal("oversized native Skill capability reason was accepted")
 	}
 }
 

@@ -72,6 +72,34 @@ describe("daemon client management reads", () => {
     }
   });
 
+  it("uses closed managed Skill mutation bodies and idempotency headers", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ id: "op-skill" }), { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createDaemonClient(session);
+
+    await client.listInstanceSkillSources("instance/a b");
+    await client.installManagedSkill("instance/a b", "skill/id", "approved-source", "install-key");
+    await client.updateManagedSkill("instance/a b", "skill/id", "update-key");
+    await client.enableManagedSkill("instance/a b", "skill/id", "enable-key");
+    await client.disableManagedSkill("instance/a b", "skill/id", "disable-key");
+    await client.removeManagedSkill("instance/a b", "skill/id", "remove-key");
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/skill-sources",
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/skills/skill%2Fid/install",
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/skills/skill%2Fid/update",
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/skills/skill%2Fid/enable",
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/skills/skill%2Fid/disable",
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/skills/skill%2Fid",
+    ]);
+    expect((fetchMock.mock.calls[1][1] as RequestInit).body).toBe(JSON.stringify({ sourceId: "approved-source" }));
+    for (let index = 2; index < fetchMock.mock.calls.length; index += 1) {
+      expect((fetchMock.mock.calls[index][1] as RequestInit).body).toBe("{}");
+    }
+    expect((fetchMock.mock.calls[1][1] as RequestInit).headers).toEqual(expect.objectContaining({ "Idempotency-Key": "install-key", Authorization: "Bearer session-secret" }));
+    expect((fetchMock.mock.calls[5][1] as RequestInit).method).toBe("DELETE");
+  });
+
   it("bounds management reads and propagates caller cancellation", async () => {
     const timeoutController = new AbortController();
     const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeoutController.signal);

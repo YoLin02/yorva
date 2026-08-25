@@ -109,6 +109,14 @@ const (
 	ErrorChannelPairingCodeInvalid    ErrorCode = "CHANNEL_PAIRING_CODE_INVALID"
 	ErrorChannelPairingLocked         ErrorCode = "CHANNEL_PAIRING_LOCKED"
 	ErrorChannelPairingApprovalFailed ErrorCode = "CHANNEL_PAIRING_APPROVAL_FAILED"
+	ErrorSkillSourceNotApproved       ErrorCode = "SKILL_SOURCE_NOT_APPROVED"
+	ErrorSkillOwnershipConflict       ErrorCode = "SKILL_OWNERSHIP_CONFLICT"
+	ErrorSkillDriftDetected           ErrorCode = "SKILL_DRIFT_DETECTED"
+	ErrorSkillMutationConflict        ErrorCode = "SKILL_MUTATION_CONFLICT"
+	ErrorSkillAcquireFailed           ErrorCode = "SKILL_ACQUIRE_FAILED"
+	ErrorSkillProjectFailed           ErrorCode = "SKILL_PROJECT_FAILED"
+	ErrorSkillUnprojectFailed         ErrorCode = "SKILL_UNPROJECT_FAILED"
+	ErrorSkillReadbackFailed          ErrorCode = "SKILL_READBACK_FAILED"
 )
 
 type Candidate struct {

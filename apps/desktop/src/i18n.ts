@@ -341,6 +341,18 @@ type Messages = {
     version: string;
     updateAvailable: string;
     noUpdate: string;
+    skillCatalogTitle: string;
+    noSkillSources: string;
+    installSkill: string;
+    updateSkill: string;
+    enableSkill: string;
+    disableSkill: string;
+    removeSkill: string;
+    skillMutationRunning: string;
+    skillMutationFailed: string;
+    externalReadOnly: string;
+    ownership: string;
+    projection: string;
     mcpTitle: string;
     mcpDescription: string;
     noServers: string;
@@ -381,6 +393,8 @@ type Messages = {
     installationState: Record<"INSTALLED" | "NOT_INSTALLED" | "UNKNOWN", string>;
     enabledState: Record<"ENABLED" | "DISABLED" | "UNKNOWN", string>;
     scanState: Record<"CLEAN" | "WARNING" | "BLOCKED" | "NOT_SCANNED" | "UNKNOWN", string>;
+    ownershipState: Record<"YORVA_MANAGED" | "EXTERNAL" | "RUNTIME_BUNDLED" | "UNKNOWN", string>;
+    projectionState: Record<"PROJECTED" | "NOT_PROJECTED" | "DRIFT_MISSING" | "DRIFT_MODIFIED" | "CONFLICT" | "UNKNOWN", string>;
     mcpState: Record<"NOT_CONFIGURED" | "CONFIGURED" | "AUTH_REQUIRED" | "READY" | "FAILED" | "UNKNOWN", string>;
   };
   models: {
@@ -859,6 +873,18 @@ const english: Messages = {
     version: "Version",
     updateAvailable: "Update available",
     noUpdate: "Up to date",
+    skillCatalogTitle: "Approved Skill catalog",
+    noSkillSources: "No approved managed Skill sources are available.",
+    installSkill: "Install",
+    updateSkill: "Update",
+    enableSkill: "Enable",
+    disableSkill: "Disable",
+    removeSkill: "Remove",
+    skillMutationRunning: "Applying managed Skill change…",
+    skillMutationFailed: "The managed Skill change could not be started.",
+    externalReadOnly: "Runtime or externally owned; read-only in YORVA.",
+    ownership: "Ownership",
+    projection: "Projection",
     mcpTitle: "MCP servers",
     mcpDescription: "Configured is not the same as Ready. Ready always includes observed test evidence.",
     noServers: "No MCP servers were reported for this instance.",
@@ -906,6 +932,8 @@ const english: Messages = {
     installationState: { INSTALLED: "Installed", NOT_INSTALLED: "Not installed", UNKNOWN: "Unknown" },
     enabledState: { ENABLED: "Enabled", DISABLED: "Disabled", UNKNOWN: "Unknown" },
     scanState: { CLEAN: "Clean", WARNING: "Warning", BLOCKED: "Blocked", NOT_SCANNED: "Not scanned", UNKNOWN: "Unknown" },
+    ownershipState: { YORVA_MANAGED: "YORVA managed", EXTERNAL: "External", RUNTIME_BUNDLED: "Runtime bundled", UNKNOWN: "Unknown" },
+    projectionState: { PROJECTED: "Projected", NOT_PROJECTED: "Disabled", DRIFT_MISSING: "Missing drift", DRIFT_MODIFIED: "Modified drift", CONFLICT: "Conflict", UNKNOWN: "Unknown" },
     mcpState: { NOT_CONFIGURED: "Not configured", CONFIGURED: "Configured", AUTH_REQUIRED: "Authentication required", READY: "Ready", FAILED: "Failed", UNKNOWN: "Unknown" },
   },
   models: {
@@ -1387,6 +1415,18 @@ const simplifiedChinese: Messages = {
     version: "版本",
     updateAvailable: "有可用更新",
     noUpdate: "已是最新",
+    skillCatalogTitle: "已批准 Skill 目录",
+    noSkillSources: "当前没有可用的已批准受管 Skill 来源。",
+    installSkill: "安装",
+    updateSkill: "更新",
+    enableSkill: "启用",
+    disableSkill: "停用",
+    removeSkill: "移除",
+    skillMutationRunning: "正在应用受管 Skill 变更…",
+    skillMutationFailed: "无法启动受管 Skill 变更。",
+    externalReadOnly: "由 Runtime 或外部管理；YORVA 中仅可读取。",
+    ownership: "所有权",
+    projection: "投影",
     mcpTitle: "MCP 服务器",
     mcpDescription: "已配置不等于已就绪；已就绪必须带有明确时间的测试证据。",
     noServers: "此实例没有报告任何 MCP 服务器。",
@@ -1434,6 +1474,8 @@ const simplifiedChinese: Messages = {
     installationState: { INSTALLED: "已安装", NOT_INSTALLED: "未安装", UNKNOWN: "未知" },
     enabledState: { ENABLED: "已启用", DISABLED: "已停用", UNKNOWN: "未知" },
     scanState: { CLEAN: "安全", WARNING: "警告", BLOCKED: "已阻止", NOT_SCANNED: "未扫描", UNKNOWN: "未知" },
+    ownershipState: { YORVA_MANAGED: "YORVA 管理", EXTERNAL: "外部", RUNTIME_BUNDLED: "Runtime 内置", UNKNOWN: "未知" },
+    projectionState: { PROJECTED: "已投影", NOT_PROJECTED: "已停用", DRIFT_MISSING: "缺失漂移", DRIFT_MODIFIED: "内容漂移", CONFLICT: "冲突", UNKNOWN: "未知" },
     mcpState: { NOT_CONFIGURED: "未配置", CONFIGURED: "已配置", AUTH_REQUIRED: "需要认证", READY: "已就绪", FAILED: "失败", UNKNOWN: "未知" },
   },
   models: {

@@ -209,6 +209,29 @@ files, user rows and command output do not cross the adapter boundary.
 
 Add focused interfaces only when implemented. They are capabilities, not mandatory methods on every adapter.
 
+Phase 7 Skills has two separate capability layers. `NativeSkillCapabilities` reports
+six Hermes-owned facts independently: inventory, install, update, remove,
+enable/disable and Profile binding. Exact Hermes `0.20.5` keeps the qualified native
+inventory read, while the five unreliable native mutation/binding surfaces remain
+unsupported with `deferred_upstream`.
+
+The separate YORVA-managed lifecycle provides install, update, enable, disable and
+remove through a `SkillProjector`. Its source is the compile-time approved catalog and
+its authoritative managed copy is `{dataDir}/skills/managed`; the exact Hermes Profile
+Skills directory is only a projection target. On Windows the adapter uses copy
+projection. Enable projects the managed copy, disable removes only a verified
+YORVA-owned projection, and neither action edits Hermes `config.yaml`.
+
+An observed Runtime projection is YORVA-owned only when the matching `managed_skills`
+row, deployment ID, projection marker and one deterministic whole-package SHA-256 agree.
+A pre-existing or mismatched destination is external and read-only. Inventory merges
+native observation with managed records and reports ownership plus `PROJECTED`,
+`NOT_PROJECTED`, `DRIFT_MISSING`,
+`DRIFT_MODIFIED`, `CONFLICT` or `UNKNOWN`. Successful projection changes restart a
+running Instance so Hermes does not retain a stale Skills cache; a stopped Instance
+remains stopped. Mutations are durable Operations and interrupted work is reconciled
+from the record and filesystem truth rather than replayed blindly. See ADR-0018.
+
 ## 7. Runtime bundle/registry
 
 V0.1 does not implement a dynamic plugin system.

@@ -25,7 +25,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := emptyDB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, emptyDir, 11)
+	assertMigrationCount(t, emptyDir, 12)
 
 	phase2Dir := t.TempDir()
 	applyNamedMigration(t, ctx, phase2Dir, "001_initial.sql")
@@ -37,7 +37,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := phase2DB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, phase2Dir, 11)
+	assertMigrationCount(t, phase2Dir, 12)
 }
 
 func TestSimultaneousSameKeyCreateReturnsDuplicateIdempotency(t *testing.T) {
@@ -272,6 +272,81 @@ func TestLifecycleMigrationSerializesOneMutationPerInstance(t *testing.T) {
 	active, ok, err := db.ActiveInstanceLifecycle(ctx, "inst_one")
 	if err != nil || !ok || active.ID != first.ID {
 		t.Fatalf("active = %#v ok=%v err=%v", active, ok, err)
+	}
+}
+
+func TestSkillOperationsShareInstanceMutationLockAndRecoveryList(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDatabase(t)
+	defer db.Close()
+	now := time.Date(2026, 8, 25, 14, 0, 0, 0, time.UTC)
+	active := operation.Operation{
+		ID:             "op_skill_install",
+		Type:           operation.TypeSkillInstall,
+		TargetType:     operation.TargetInstance,
+		TargetID:       "inst_skill",
+		Status:         operation.StatusRunning,
+		Stage:          operation.StageSkillProject,
+		IdempotencyKey: "skill-install",
+		CorrelationID:  "cor_skill_install",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if err := db.CreateOperation(ctx, active); err != nil {
+		t.Fatal(err)
+	}
+	conflict := operation.Operation{
+		ID:             "op_skill_conflict",
+		Type:           operation.TypeSkillDisable,
+		TargetType:     operation.TargetInstance,
+		TargetID:       active.TargetID,
+		Status:         operation.StatusPending,
+		Stage:          operation.StageSkillPreflight,
+		IdempotencyKey: "skill-disable",
+		CorrelationID:  "cor_skill_disable",
+		CreatedAt:      now.Add(time.Second),
+		UpdatedAt:      now.Add(time.Second),
+	}
+	if err := db.CreateOperation(ctx, conflict); !errors.Is(err, ErrActiveInstanceMutation) {
+		t.Fatalf("same-Instance Skill conflict = %v", err)
+	}
+	lifecycleConflict := conflict
+	lifecycleConflict.ID = "op_lifecycle_conflict"
+	lifecycleConflict.Type = operation.TypeInstanceRestart
+	lifecycleConflict.IdempotencyKey = "lifecycle-conflict"
+	if err := db.CreateOperation(ctx, lifecycleConflict); !errors.Is(err, ErrActiveInstanceMutation) {
+		t.Fatalf("Skill/lifecycle conflict = %v", err)
+	}
+
+	other := conflict
+	other.ID = "op_skill_other"
+	other.Type = operation.TypeSkillUpdate
+	other.TargetID = "inst_other"
+	other.IdempotencyKey = "skill-other"
+	if err := db.CreateOperation(ctx, other); err != nil {
+		t.Fatalf("different Instance Skill operation = %v", err)
+	}
+	done := conflict
+	done.ID = "op_skill_done"
+	done.Type = operation.TypeSkillRemove
+	done.TargetID = "inst_done"
+	done.Status = operation.StatusFailed
+	done.IdempotencyKey = "skill-done"
+	done.CorrelationID = "cor_skill_done"
+	completed := now.Add(2 * time.Second)
+	done.CompletedAt = &completed
+	done.UpdatedAt = completed
+	if err := db.CreateOperation(ctx, done); err != nil {
+		t.Fatal(err)
+	}
+
+	current, ok, err := db.ActiveInstanceRuntimeMutation(ctx, active.TargetID)
+	if err != nil || !ok || current.ID != active.ID {
+		t.Fatalf("ActiveInstanceRuntimeMutation() = %#v, %v, %v", current, ok, err)
+	}
+	recovery, err := db.ListActiveSkillOperations(ctx)
+	if err != nil || len(recovery) != 2 || recovery[0].ID != active.ID || recovery[1].ID != other.ID {
+		t.Fatalf("ListActiveSkillOperations() = %#v, %v", recovery, err)
 	}
 }
 

@@ -13,6 +13,9 @@ apply to the separately qualified authenticated `GET /v1/skills` enabled-invento
 No product code was changed, no Hermes command was run and no mutation capability was
 enabled by this requalification.
 
+This result is immutable evidence for **Hermes-native mutation only**. It does not
+describe or qualify the later YORVA-managed lifecycle accepted in ADR-0018.
+
 ## Exact evidence identity
 
 - Hermes version: `0.20.5`
@@ -116,3 +119,31 @@ Without an explicit Owner-approved Option A amendment, the original B4 acceptanc
 the Phase 7 completeness Gate remain blocked. Under either option, mutation capability
 must remain false on Hermes `0.20.5`; weakening scan, Profile or postcondition standards
 is not an acceptable route to PASS.
+
+## Later Owner-approved resolution — YORVA-managed lifecycle
+
+After preserving the Native NO-GO above, the Owner approved ADR-0018 on 2026-08-25.
+That decision does not reclassify any Hermes-native surface and does not claim that the
+native install, update, remove, enable/disable or Profile-binding capability passed.
+
+B4 now has two explicit capability layers:
+
+- Hermes-native inventory, install, update, remove, enable/disable and Profile binding
+  remain six independent facts. On exact Hermes `0.20.5`, only the separately qualified
+  inventory read may be available; the five mutation/binding facts remain false with
+  `deferred_upstream`.
+- YORVA-managed install, update, enable, disable and remove use a compile-time approved
+  source catalog, the managed-copy SSOT under `{dataDir}/skills/managed`, and copy
+  projection into the exact Hermes Profile Skills directory.
+
+An observed Runtime projection is YORVA-owned only when the SQLite record, deployment
+ID, marker and one whole-package SHA-256 agree. External or mismatched destinations
+remain visible and read-only; missing or changed managed projections are reported as
+drift. Enable projects and disable unprojects only verified YORVA-owned content. Mutations are asynchronous
+durable Operations. A successful projection change restarts a running Instance while a
+stopped Instance remains stopped; interrupted Operations are not blindly replayed.
+
+This accepted route supersedes the historical Option A/Option B decision requirement
+only for Phase 7 scope selection. It does not supersede this document's Native NO-GO and
+does not itself provide implementation, test, smoke or audit PASS evidence. B4 still
+requires its focused verification and later integrated Phase 7 gate before freeze.

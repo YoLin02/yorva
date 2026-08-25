@@ -124,7 +124,11 @@ func (d *Database) ActiveInstanceLifecycle(ctx context.Context, instanceID strin
 func (d *Database) ActiveInstanceRuntimeMutation(ctx context.Context, instanceID string) (operation.Operation, bool, error) {
 	value, err := scanOperation(d.db.QueryRowContext(ctx, operationSelect+`
         WHERE target_type = ? AND target_id = ? AND status IN ('PENDING', 'RUNNING')
-          AND operation_type IN ('instance.start', 'instance.stop', 'instance.restart', 'channel.connect', 'channel.disconnect')
+          AND operation_type IN (
+              'instance.start', 'instance.stop', 'instance.restart',
+              'channel.connect', 'channel.disconnect',
+              'skill.install', 'skill.update', 'skill.enable', 'skill.disable', 'skill.remove'
+          )
         ORDER BY created_at ASC LIMIT 1
     `, string(operation.TargetInstance), instanceID))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -231,6 +235,28 @@ func (d *Database) ListActiveChannelOperations(ctx context.Context) ([]operation
     `, string(operation.TypeChannelConnect), string(operation.TypeChannelDisconnect))
 	if err != nil {
 		return nil, fmt.Errorf("list active channel operations: %w", err)
+	}
+	defer rows.Close()
+	result := make([]operation.Operation, 0)
+	for rows.Next() {
+		value, err := scanOperation(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
+
+func (d *Database) ListActiveSkillOperations(ctx context.Context) ([]operation.Operation, error) {
+	rows, err := d.db.QueryContext(ctx, operationSelect+`
+        WHERE operation_type IN (?, ?, ?, ?, ?) AND status IN ('PENDING', 'RUNNING')
+        ORDER BY created_at ASC
+    `, string(operation.TypeSkillInstall), string(operation.TypeSkillUpdate),
+		string(operation.TypeSkillEnable), string(operation.TypeSkillDisable),
+		string(operation.TypeSkillRemove))
+	if err != nil {
+		return nil, fmt.Errorf("list active Skill operations: %w", err)
 	}
 	defer rows.Close()
 	result := make([]operation.Operation, 0)
@@ -508,7 +534,10 @@ func mapOperationCreateError(err error, operationType operation.Type) error {
 	}
 	if operationType == operation.TypeInstanceCreate || operationType == operation.TypeInstanceDelete ||
 		operationType == operation.TypeInstanceStart || operationType == operation.TypeInstanceStop || operationType == operation.TypeInstanceRestart ||
-		operationType == operation.TypeChannelConnect || operationType == operation.TypeChannelDisconnect {
+		operationType == operation.TypeChannelConnect || operationType == operation.TypeChannelDisconnect ||
+		operationType == operation.TypeSkillInstall || operationType == operation.TypeSkillUpdate ||
+		operationType == operation.TypeSkillEnable || operationType == operation.TypeSkillDisable ||
+		operationType == operation.TypeSkillRemove {
 		return ErrActiveInstanceMutation
 	}
 	return mapped

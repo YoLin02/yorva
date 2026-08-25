@@ -409,6 +409,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/skill-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /** List approved YORVA-managed Skill sources */
+        get: operations["listInstanceSkillSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for approved Skill sources */
+        options: operations["optionsInstanceSkillSources"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}/skills": {
         parameters: {
             query?: never;
@@ -443,9 +463,94 @@ export interface paths {
         get: operations["inspectInstanceSkill"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Remove one YORVA-managed Skill projection */
+        delete: operations["removeManagedInstanceSkill"];
         /** Validate CORS access for one Instance Skill */
         options: operations["optionsInstanceSkill"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/skills/{skillId}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Install one approved YORVA-managed Skill */
+        post: operations["installManagedInstanceSkill"];
+        delete?: never;
+        /** Validate CORS access for managed Skill install */
+        options: operations["optionsInstallManagedInstanceSkill"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/skills/{skillId}/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Update one YORVA-managed Skill */
+        post: operations["updateManagedInstanceSkill"];
+        delete?: never;
+        /** Validate CORS access for managed Skill update */
+        options: operations["optionsUpdateManagedInstanceSkill"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/skills/{skillId}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable one YORVA-managed Skill projection */
+        post: operations["enableManagedInstanceSkill"];
+        delete?: never;
+        /** Validate CORS access for managed Skill enable */
+        options: operations["optionsEnableManagedInstanceSkill"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/skills/{skillId}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disable one YORVA-managed Skill projection */
+        post: operations["disableManagedInstanceSkill"];
+        delete?: never;
+        /** Validate CORS access for managed Skill disable */
+        options: operations["optionsDisableManagedInstanceSkill"];
         head?: never;
         patch?: never;
         trace?: never;
@@ -872,7 +977,7 @@ export interface components {
         Operation: {
             id: string;
             /** @enum {string} */
-            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "instance.start" | "instance.stop" | "instance.restart" | "model.validate" | "channel.connect" | "channel.disconnect";
+            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "instance.start" | "instance.stop" | "instance.restart" | "model.validate" | "channel.connect" | "channel.disconnect" | "skill.install" | "skill.update" | "skill.enable" | "skill.disable" | "skill.remove";
             targetType: string;
             targetId: string;
             /** @enum {string} */
@@ -991,6 +1096,7 @@ export interface components {
             securityAudit: boolean;
             skillRead: boolean;
             skillMutate: boolean;
+            nativeSkills: components["schemas"]["NativeSkillCapabilities"];
             mcpRead: boolean;
             mcpMutate: boolean;
             backupRead: boolean;
@@ -999,6 +1105,18 @@ export interface components {
             upgradePlan: boolean;
             upgrade: boolean;
             rollback: boolean;
+        };
+        NativeSkillCapability: {
+            supported: boolean;
+            reason: string;
+        };
+        NativeSkillCapabilities: {
+            inventory: components["schemas"]["NativeSkillCapability"];
+            nativeInstall: components["schemas"]["NativeSkillCapability"];
+            nativeUpdate: components["schemas"]["NativeSkillCapability"];
+            nativeRemove: components["schemas"]["NativeSkillCapability"];
+            nativeEnableDisable: components["schemas"]["NativeSkillCapability"];
+            nativeProfileBinding: components["schemas"]["NativeSkillCapability"];
         };
         Lifecycle: {
             /** @enum {string} */
@@ -1065,6 +1183,10 @@ export interface components {
             sourceId?: string;
             version?: string;
             /** @enum {string} */
+            ownership: "YORVA_MANAGED" | "EXTERNAL" | "RUNTIME_BUNDLED" | "UNKNOWN";
+            /** @enum {string} */
+            projectionState: "PROJECTED" | "NOT_PROJECTED" | "DRIFT_MISSING" | "DRIFT_MODIFIED" | "CONFLICT" | "UNKNOWN";
+            /** @enum {string} */
             installationState: "INSTALLED" | "NOT_INSTALLED" | "UNKNOWN";
             /** @enum {string} */
             enabledState: "ENABLED" | "DISABLED" | "UNKNOWN";
@@ -1074,6 +1196,18 @@ export interface components {
         };
         SkillList: {
             items: components["schemas"]["Skill"][];
+        };
+        SkillSource: {
+            sourceId: string;
+            skillId: string;
+            displayName: string;
+            version: string;
+        };
+        SkillSourceList: {
+            items: components["schemas"]["SkillSource"][];
+        };
+        SkillInstallRequest: {
+            sourceId: string;
         };
         MCPServer: {
             id: string;
@@ -2209,6 +2343,50 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listInstanceSkillSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The closed approved-source catalog; native paths and source contents are never returned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillSourceList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceSkillSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     listInstanceSkills: {
         parameters: {
             query?: never;
@@ -2283,7 +2461,255 @@ export interface operations {
             503: components["responses"]["ServiceUnavailable"];
         };
     };
+    removeManagedInstanceSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description The skill.remove Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
     optionsInstanceSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    installManagedInstanceSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description The skill.install Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstallManagedInstanceSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateManagedInstanceSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description The skill.update Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsUpdateManagedInstanceSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    enableManagedInstanceSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description The skill.enable Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsEnableManagedInstanceSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    disableManagedInstanceSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description The skill.disable Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsDisableManagedInstanceSkill: {
         parameters: {
             query?: never;
             header?: never;

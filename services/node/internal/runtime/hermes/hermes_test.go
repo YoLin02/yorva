@@ -21,4 +21,20 @@ func TestRegisterAddsDescriptorAndDiscoveryCapability(t *testing.T) {
 	if bundle.Discoverer == nil || bundle.Models == nil {
 		t.Fatal("Hermes discovery and model capabilities were not registered")
 	}
+	if bundle.SkillProjection == nil {
+		t.Fatal("Hermes managed Skill projection was not registered")
+	}
+	capabilities := bundle.NativeSkillCapabilities
+	if !capabilities.Inventory.Supported || capabilities.Inventory.Reason != "dynamic_instance_readback" {
+		t.Fatalf("native inventory capability = %#v", capabilities.Inventory)
+	}
+	for name, capability := range map[string]yorvaruntime.NativeSkillCapability{
+		"install": capabilities.NativeInstall, "update": capabilities.NativeUpdate,
+		"remove": capabilities.NativeRemove, "enable-disable": capabilities.NativeEnableDisable,
+		"profile-binding": capabilities.NativeProfileBinding,
+	} {
+		if capability.Supported || capability.Reason != "deferred_upstream" {
+			t.Fatalf("native %s capability = %#v", name, capability)
+		}
+	}
 }

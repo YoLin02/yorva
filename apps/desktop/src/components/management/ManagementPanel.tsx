@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import type { DaemonClient } from "../../api/client";
-import type { Instance, MCPServer, ManagementBackup, ManagementHealth, ManagementLogSnapshot, ManagementUpgradePlan, Skill } from "../../api/types";
+import type { Instance, MCPServer, ManagementBackup, ManagementHealth, ManagementLogSnapshot, ManagementUpgradePlan, Skill, SkillSource } from "../../api/types";
 import { formatDateTime } from "../../formatDateTime";
 import type { AppMessages, Locale } from "../../i18n";
 import type { BadgeTone } from "../../types/ui";
@@ -17,10 +17,12 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
   onClose: () => void;
 }) {
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  const [selectedSkillSource, setSelectedSkillSource] = useState("");
   const [logCategory, setLogCategory] = useState<ManagementLogSnapshot["category"]>("ERRORS");
   const healthRead = instance.capabilities.healthRead;
   const logsRead = instance.capabilities.logsRead;
   const skillRead = instance.capabilities.skillRead;
+  const skillMutate = instance.capabilities.skillMutate;
   const mcpRead = instance.capabilities.mcpRead;
   const upgradePlanRead = instance.capabilities.upgradePlan;
   const backupRead = instance.capabilities.backupRead;
@@ -47,6 +49,26 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
     queryFn: ({ signal }) => client.inspectInstanceSkill(instance.instanceId, selectedSkillId!, signal),
     enabled: skillRead && selectedSkillId !== null,
     retry: false,
+  });
+  const skillSourcesQuery = useQuery({
+    queryKey: ["instance-skill-sources", instance.instanceId, client.scope],
+    queryFn: ({ signal }) => client.listInstanceSkillSources(instance.instanceId, signal),
+    enabled: skillMutate,
+    retry: false,
+  });
+  const skillMutation = useMutation({
+    mutationFn: async ({ action, skillId, sourceId }: { action: "install" | "update" | "enable" | "disable" | "remove"; skillId: string; sourceId?: string }) => {
+      const key = crypto.randomUUID();
+      if (action === "install") return client.installManagedSkill(instance.instanceId, skillId, sourceId!, key);
+      if (action === "update") return client.updateManagedSkill(instance.instanceId, skillId, key);
+      if (action === "enable") return client.enableManagedSkill(instance.instanceId, skillId, key);
+      if (action === "disable") return client.disableManagedSkill(instance.instanceId, skillId, key);
+      return client.removeManagedSkill(instance.instanceId, skillId, key);
+    },
+    onSuccess: () => {
+      void skillsQuery.refetch();
+      if (selectedSkillId) void skillQuery.refetch();
+    },
   });
   const serversQuery = useQuery({
     queryKey: ["instance-mcp-servers", instance.instanceId, client.scope],
@@ -88,6 +110,7 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
       void skillsQuery.refetch();
       if (selectedSkillId) void skillQuery.refetch();
     }
+    if (skillMutate) void skillSourcesQuery.refetch();
     if (mcpRead) {
       void serversQuery.refetch();
       void presetsQuery.refetch();
@@ -95,7 +118,7 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
     if (upgradePlanRead) void upgradePlanQuery.refetch();
     if (backupRead) void backupsQuery.refetch();
   };
-  const busy = healthQuery.isFetching || logsQuery.isFetching || skillsQuery.isFetching || skillQuery.isFetching || serversQuery.isFetching || presetsQuery.isFetching || upgradePlanQuery.isFetching || backupsQuery.isFetching;
+  const busy = healthQuery.isFetching || logsQuery.isFetching || skillsQuery.isFetching || skillQuery.isFetching || skillSourcesQuery.isFetching || skillMutation.isPending || serversQuery.isFetching || presetsQuery.isFetching || upgradePlanQuery.isFetching || backupsQuery.isFetching;
 
   return (
     <section className="management-panel" aria-labelledby="management-panel-title">
@@ -176,9 +199,9 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
       <ManagementSection
         title={copy.management.skillsTitle}
         description={copy.management.skillsDescription}
-        supported={skillRead}
-        loading={skillsQuery.isLoading}
-        error={skillsQuery.isError}
+          supported={skillRead || skillMutate}
+          loading={skillsQuery.isLoading || skillSourcesQuery.isLoading}
+          error={skillsQuery.isError || skillSourcesQuery.isError}
         copy={copy}
         onRetry={() => void skillsQuery.refetch()}
       >
@@ -193,10 +216,24 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
               inspectFailed={selectedSkillId === skill.id && skillQuery.isError}
               copy={copy}
               onToggle={() => setSelectedSkillId((current) => current === skill.id ? null : skill.id)}
-              onRetry={() => void skillQuery.refetch()}
-            />
+               onRetry={() => void skillQuery.refetch()}
+               mutationPending={skillMutation.isPending && skillMutation.variables?.skillId === skill.id}
+               onAction={(action) => skillMutation.mutate({ action, skillId: skill.id })}
+             />
           ))}
-        </div>
+         </div>
+        {skillMutate ? (
+          <SkillCatalog
+            sources={skillSourcesQuery.data?.items ?? []}
+            selected={selectedSkillSource}
+            pending={skillMutation.isPending}
+            copy={copy}
+            onSelect={setSelectedSkillSource}
+            onInstall={(source) => skillMutation.mutate({ action: "install", skillId: source.skillId, sourceId: source.sourceId })}
+          />
+        ) : null}
+        {skillMutation.isPending ? <p className="management-empty" role="status">{copy.management.skillMutationRunning}</p> : null}
+        {skillMutation.isError ? <p className="notice notice-warn" role="alert">{copy.management.skillMutationFailed}</p> : null}
       </ManagementSection>
 
       <ManagementSection
@@ -354,14 +391,16 @@ function ManagementSection({ title, description, supported, loading, error, copy
   );
 }
 
-function SkillCard({ skill, inspected, inspecting, inspectFailed, copy, onToggle, onRetry }: {
+function SkillCard({ skill, inspected, inspecting, inspectFailed, mutationPending, copy, onToggle, onRetry, onAction }: {
   skill: Skill;
   inspected?: Skill;
   inspecting: boolean;
   inspectFailed: boolean;
+  mutationPending: boolean;
   copy: AppMessages;
   onToggle: () => void;
   onRetry: () => void;
+  onAction: (action: "update" | "enable" | "disable" | "remove") => void;
 }) {
   const open = inspected !== undefined || inspecting || inspectFailed;
   return (
@@ -372,11 +411,23 @@ function SkillCard({ skill, inspected, inspecting, inspectFailed, copy, onToggle
           <Badge tone={skillInstallationTone(skill)}>{copy.management.installationState[skill.installationState]}</Badge>
           <Badge tone={skill.enabledState === "ENABLED" ? "ok" : "neutral"}>{copy.management.enabledState[skill.enabledState]}</Badge>
           <Badge tone={skillScanTone(skill)}>{copy.management.scanState[skill.scanState]}</Badge>
+          <Badge tone={skill.ownership === "YORVA_MANAGED" ? "info" : "neutral"}>{copy.management.ownershipState[skill.ownership]}</Badge>
         </div>
       </div>
       <div className="management-item-footer">
         <span>{skill.updateAvailable ? copy.management.updateAvailable : copy.management.noUpdate}</span>
-        <Button variant="ghost" onClick={onToggle}>{open ? copy.management.hideDetails : copy.management.inspect}</Button>
+        <div className="management-header-actions">
+          {skill.ownership === "YORVA_MANAGED" ? (
+            <>
+              {skill.updateAvailable ? <Button disabled={mutationPending} onClick={() => onAction("update")}>{copy.management.updateSkill}</Button> : null}
+              {skill.projectionState === "PROJECTED"
+                ? <Button disabled={mutationPending} onClick={() => onAction("disable")}>{copy.management.disableSkill}</Button>
+                : <Button disabled={mutationPending || skill.projectionState === "DRIFT_MODIFIED" || skill.projectionState === "CONFLICT"} onClick={() => onAction("enable")}>{copy.management.enableSkill}</Button>}
+              <Button disabled={mutationPending || skill.projectionState === "DRIFT_MODIFIED" || skill.projectionState === "CONFLICT"} onClick={() => onAction("remove")}>{copy.management.removeSkill}</Button>
+            </>
+          ) : <span className="management-detail">{copy.management.externalReadOnly}</span>}
+          <Button variant="ghost" onClick={onToggle}>{open ? copy.management.hideDetails : copy.management.inspect}</Button>
+        </div>
       </div>
       {inspecting ? <p className="management-detail">{copy.management.loading}</p> : null}
       {inspectFailed ? <div className="management-error"><span>{copy.management.requestFailed}</span><Button onClick={onRetry}>{copy.management.retry}</Button></div> : null}
@@ -384,9 +435,35 @@ function SkillCard({ skill, inspected, inspecting, inspectFailed, copy, onToggle
         <dl className="management-detail-grid">
           <div><dt>{copy.management.source}</dt><dd>{inspected.sourceId ?? "—"}</dd></div>
           <div><dt>{copy.management.version}</dt><dd>{inspected.version ?? "—"}</dd></div>
+          <div><dt>{copy.management.ownership}</dt><dd>{copy.management.ownershipState[inspected.ownership]}</dd></div>
+          <div><dt>{copy.management.projection}</dt><dd>{copy.management.projectionState[inspected.projectionState]}</dd></div>
         </dl>
       ) : null}
     </article>
+  );
+}
+
+function SkillCatalog({ sources, selected, pending, copy, onSelect, onInstall }: {
+  sources: SkillSource[];
+  selected: string;
+  pending: boolean;
+  copy: AppMessages;
+  onSelect: (sourceId: string) => void;
+  onInstall: (source: SkillSource) => void;
+}) {
+  const current = sources.find((source) => source.sourceId === selected) ?? sources[0];
+  return (
+    <div className="management-catalog">
+      <h4>{copy.management.skillCatalogTitle}</h4>
+      {sources.length === 0 ? <p className="management-empty">{copy.management.noSkillSources}</p> : (
+        <div className="management-item-footer">
+          <select aria-label={copy.management.skillCatalogTitle} value={current?.sourceId ?? ""} onChange={(event) => onSelect(event.target.value)} disabled={pending}>
+            {sources.map((source) => <option key={source.sourceId} value={source.sourceId}>{source.displayName} ({source.version})</option>)}
+          </select>
+          <Button disabled={pending || !current} onClick={() => current && onInstall(current)}>{copy.management.installSkill}</Button>
+        </div>
+      )}
+    </div>
   );
 }
 

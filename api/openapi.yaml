@@ -948,6 +948,46 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/skill-sources:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      operationId: listInstanceSkillSources
+      summary: List approved YORVA-managed Skill sources
+      tags: [Skills]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The closed approved-source catalog; native paths and source contents are never returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillSourceList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceSkillSources
+      summary: Validate CORS access for approved Skill sources
+      tags: [Skills]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/instances/{instanceId}/skills:
     parameters:
       - $ref: "#/components/parameters/InstanceId"
@@ -1019,9 +1059,248 @@ paths:
           $ref: "#/components/responses/Conflict"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+    delete:
+      operationId: removeManagedInstanceSkill
+      summary: Remove one YORVA-managed Skill projection
+      tags: [Skills]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosedEmptyObject"
+      responses:
+        "202":
+          description: The skill.remove Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
     options:
       operationId: optionsInstanceSkill
       summary: Validate CORS access for one Instance Skill
+      tags: [Skills]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/skills/{skillId}/install:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/SkillId"
+    post:
+      operationId: installManagedInstanceSkill
+      summary: Install one approved YORVA-managed Skill
+      tags: [Skills]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillInstallRequest"
+      responses:
+        "202":
+          description: The skill.install Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstallManagedInstanceSkill
+      summary: Validate CORS access for managed Skill install
+      tags: [Skills]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/skills/{skillId}/update:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/SkillId"
+    post:
+      operationId: updateManagedInstanceSkill
+      summary: Update one YORVA-managed Skill
+      tags: [Skills]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosedEmptyObject"
+      responses:
+        "202":
+          description: The skill.update Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsUpdateManagedInstanceSkill
+      summary: Validate CORS access for managed Skill update
+      tags: [Skills]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/skills/{skillId}/enable:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/SkillId"
+    post:
+      operationId: enableManagedInstanceSkill
+      summary: Enable one YORVA-managed Skill projection
+      tags: [Skills]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosedEmptyObject"
+      responses:
+        "202":
+          description: The skill.enable Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsEnableManagedInstanceSkill
+      summary: Validate CORS access for managed Skill enable
+      tags: [Skills]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/skills/{skillId}/disable:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/SkillId"
+    post:
+      operationId: disableManagedInstanceSkill
+      summary: Disable one YORVA-managed Skill projection
+      tags: [Skills]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClosedEmptyObject"
+      responses:
+        "202":
+          description: The skill.disable Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsDisableManagedInstanceSkill
+      summary: Validate CORS access for managed Skill disable
       tags: [Skills]
       security: []
       responses:
@@ -2110,7 +2389,7 @@ components:
           type: string
         type:
           type: string
-          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, instance.start, instance.stop, instance.restart, model.validate, channel.connect, channel.disconnect]
+          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, instance.start, instance.stop, instance.restart, model.validate, channel.connect, channel.disconnect, skill.install, skill.update, skill.enable, skill.disable, skill.remove]
         targetType:
           type: string
         targetId:
@@ -2393,6 +2672,7 @@ components:
         - securityAudit
         - skillRead
         - skillMutate
+        - nativeSkills
         - mcpRead
         - mcpMutate
         - backupRead
@@ -2416,6 +2696,8 @@ components:
           type: boolean
         skillMutate:
           type: boolean
+        nativeSkills:
+          $ref: "#/components/schemas/NativeSkillCapabilities"
         mcpRead:
           type: boolean
         mcpMutate:
@@ -2432,6 +2714,33 @@ components:
           type: boolean
         rollback:
           type: boolean
+    NativeSkillCapability:
+      type: object
+      additionalProperties: false
+      required: [supported, reason]
+      properties:
+        supported:
+          type: boolean
+        reason:
+          type: string
+          maxLength: 4096
+    NativeSkillCapabilities:
+      type: object
+      additionalProperties: false
+      required: [inventory, nativeInstall, nativeUpdate, nativeRemove, nativeEnableDisable, nativeProfileBinding]
+      properties:
+        inventory:
+          $ref: "#/components/schemas/NativeSkillCapability"
+        nativeInstall:
+          $ref: "#/components/schemas/NativeSkillCapability"
+        nativeUpdate:
+          $ref: "#/components/schemas/NativeSkillCapability"
+        nativeRemove:
+          $ref: "#/components/schemas/NativeSkillCapability"
+        nativeEnableDisable:
+          $ref: "#/components/schemas/NativeSkillCapability"
+        nativeProfileBinding:
+          $ref: "#/components/schemas/NativeSkillCapability"
     Lifecycle:
       type: object
       additionalProperties: false
@@ -2567,7 +2876,7 @@ components:
     Skill:
       type: object
       additionalProperties: false
-      required: [id, installationState, enabledState, scanState, updateAvailable]
+      required: [id, ownership, projectionState, installationState, enabledState, scanState, updateAvailable]
       properties:
         id:
           type: string
@@ -2582,6 +2891,12 @@ components:
         version:
           type: string
           maxLength: 4096
+        ownership:
+          type: string
+          enum: [YORVA_MANAGED, EXTERNAL, RUNTIME_BUNDLED, UNKNOWN]
+        projectionState:
+          type: string
+          enum: [PROJECTED, NOT_PROJECTED, DRIFT_MISSING, DRIFT_MODIFIED, CONFLICT, UNKNOWN]
         installationState:
           type: string
           enum: [INSTALLED, NOT_INSTALLED, UNKNOWN]
@@ -2603,6 +2918,49 @@ components:
           maxItems: 256
           items:
             $ref: "#/components/schemas/Skill"
+    SkillSource:
+      type: object
+      additionalProperties: false
+      required: [sourceId, skillId, displayName, version]
+      properties:
+        sourceId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+        skillId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 256
+        version:
+          type: string
+          minLength: 1
+          maxLength: 128
+    SkillSourceList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 256
+          items:
+            $ref: "#/components/schemas/SkillSource"
+    SkillInstallRequest:
+      type: object
+      additionalProperties: false
+      required: [sourceId]
+      properties:
+        sourceId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
     MCPServer:
       type: object
       additionalProperties: false

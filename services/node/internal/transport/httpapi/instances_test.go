@@ -170,15 +170,19 @@ func TestInstanceCapabilitiesResponseProjectsAllManagementFlags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var fields map[string]bool
+	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(payload, &fields); err != nil {
 		t.Fatal(err)
 	}
-	if len(fields) != 15 {
-		t.Fatalf("capability JSON fields = %d, want 15: %s", len(fields), payload)
+	if len(fields) != 16 {
+		t.Fatalf("capability JSON fields = %d, want 16: %s", len(fields), payload)
 	}
-	for name, value := range fields {
-		if !value {
+	for name, raw := range fields {
+		if name == "nativeSkills" {
+			continue
+		}
+		var value bool
+		if err := json.Unmarshal(raw, &value); err != nil || !value {
 			t.Fatalf("capability %q was not projected true: %s", name, payload)
 		}
 	}

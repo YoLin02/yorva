@@ -19,6 +19,14 @@ const instance: Instance = {
   capabilities: {
     instances: true, lifecycle: false, healthRead: true, logsRead: true, securityAudit: false,
     skillRead: true, skillMutate: false, mcpRead: true, mcpMutate: false,
+    nativeSkills: {
+      inventory: { supported: true, reason: "dynamic_instance_readback" },
+      nativeInstall: { supported: false, reason: "deferred_upstream" },
+      nativeUpdate: { supported: false, reason: "deferred_upstream" },
+      nativeRemove: { supported: false, reason: "deferred_upstream" },
+      nativeEnableDisable: { supported: false, reason: "deferred_upstream" },
+      nativeProfileBinding: { supported: false, reason: "deferred_upstream" },
+    },
     backupRead: false, backupMutate: false, restore: false, upgradePlan: false, upgrade: false, rollback: false,
   },
 };
@@ -33,11 +41,11 @@ function managementClient(overrides: Partial<DaemonClient> = {}) {
       category: "ERRORS", entries: [{ timestamp: "2026-08-25T10:00:00Z", message: "bounded redacted entry" }], truncated: false, observedAt: "2026-08-25T10:00:00Z",
     }),
     listInstanceSkills: vi.fn().mockResolvedValue({ items: [{
-      id: "writer", sourceId: "official", version: "1.2.3", installationState: "INSTALLED",
+      id: "writer", sourceId: "official", version: "1.2.3", ownership: "EXTERNAL", projectionState: "PROJECTED", installationState: "INSTALLED",
       enabledState: "ENABLED", scanState: "CLEAN", updateAvailable: false,
     }] }),
     inspectInstanceSkill: vi.fn().mockResolvedValue({
-      id: "writer", sourceId: "official", version: "1.2.3", installationState: "INSTALLED",
+      id: "writer", sourceId: "official", version: "1.2.3", ownership: "EXTERNAL", projectionState: "PROJECTED", installationState: "INSTALLED",
       enabledState: "ENABLED", scanState: "CLEAN", updateAvailable: false,
     }),
     listInstanceMCPServers: vi.fn().mockResolvedValue({ items: [{
@@ -53,6 +61,12 @@ function managementClient(overrides: Partial<DaemonClient> = {}) {
       observedAt: "2026-08-25T10:00:00Z",
     }),
     listRuntimeBackups: vi.fn().mockResolvedValue({ scope: "RUNTIME", items: [] }),
+    listInstanceSkillSources: vi.fn().mockResolvedValue({ items: [] }),
+    installManagedSkill: vi.fn(),
+    updateManagedSkill: vi.fn(),
+    enableManagedSkill: vi.fn(),
+    disableManagedSkill: vi.fn(),
+    removeManagedSkill: vi.fn(),
     getRuntimeBackup: vi.fn(),
     ...overrides,
   } as unknown as DaemonClient;
@@ -83,6 +97,8 @@ describe("ManagementPanel", () => {
     expect(screen.getByText("No current Ready evidence")).toBeInTheDocument();
     expect(screen.queryByText("Ready")).not.toBeInTheDocument();
     expect(screen.getByText("Approved Docs")).toBeInTheDocument();
+    expect(screen.getByText("Runtime or externally owned; read-only in YORVA.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Inspect" }));
     await waitFor(() => expect(client.inspectInstanceSkill).toHaveBeenCalledWith("inst-coder", "writer", expect.any(AbortSignal)));
@@ -93,6 +109,31 @@ describe("ManagementPanel", () => {
     for (const prohibited of ["Authorization", "Bearer", "command", "header", "C:\\", "https://"]) {
       expect(visible).not.toContain(prohibited);
     }
+  });
+
+  it("installs from the approved catalog and exposes actions only for YORVA-managed Skills", async () => {
+    const installManagedSkill = vi.fn().mockResolvedValue({ id: "op-install", status: "PENDING" });
+    const disableManagedSkill = vi.fn().mockResolvedValue({ id: "op-disable", status: "PENDING" });
+    const client = managementClient({
+      listInstanceSkillSources: vi.fn().mockResolvedValue({ items: [{ sourceId: "yorva-demo", skillId: "yorva-managed-demo", displayName: "YORVA demo", version: "1.0.0" }] }),
+      listInstanceSkills: vi.fn().mockResolvedValue({ items: [{
+        id: "yorva-managed-demo", sourceId: "yorva-demo", version: "1.0.0", ownership: "YORVA_MANAGED", projectionState: "PROJECTED",
+        installationState: "INSTALLED", enabledState: "ENABLED", scanState: "CLEAN", updateAvailable: false,
+      }] }),
+      inspectInstanceSkill: vi.fn().mockResolvedValue({
+        id: "yorva-managed-demo", sourceId: "yorva-demo", version: "1.0.0", ownership: "YORVA_MANAGED", projectionState: "PROJECTED",
+        installationState: "INSTALLED", enabledState: "ENABLED", scanState: "CLEAN", updateAvailable: false,
+      }),
+      installManagedSkill,
+      disableManagedSkill,
+    });
+    renderPanel(client, { ...instance, capabilities: { ...instance.capabilities, skillMutate: true } });
+
+    expect(await screen.findByText("YORVA demo (1.0.0)")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Install" }));
+    await waitFor(() => expect(installManagedSkill).toHaveBeenCalledWith("inst-coder", "yorva-managed-demo", "yorva-demo", expect.any(String)));
+    fireEvent.click(screen.getByRole("button", { name: "Disable" }));
+    await waitFor(() => expect(disableManagedSkill).toHaveBeenCalledWith("inst-coder", "yorva-managed-demo", expect.any(String)));
   });
 
   it("does not issue reads or present fake actions when capabilities are false", () => {

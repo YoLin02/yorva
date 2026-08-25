@@ -1,4 +1,4 @@
-import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, ManagementBackup, ManagementBackupList, ManagementHealth, ManagementLogCategory, ManagementLogSnapshot, ManagementUpgradePlan, MCPServerList, MCPPresetList, ModelConfiguration, ModelCredential, ModelProviderCatalog, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery, Skill, SkillList } from "./types";
+import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, ManagementBackup, ManagementBackupList, ManagementHealth, ManagementLogCategory, ManagementLogSnapshot, ManagementUpgradePlan, MCPServerList, MCPPresetList, ModelConfiguration, ModelCredential, ModelProviderCatalog, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery, Skill, SkillList, SkillSourceList } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -144,6 +144,30 @@ export function createDaemonClient(session: DaemonSession) {
     inspectInstanceSkill: (instanceId: string, skillId: string, signal?: AbortSignal) =>
       request<Skill>(`/api/v1/instances/${encodeURIComponent(instanceId)}/skills/${encodeURIComponent(skillId)}`, {
         signal: withDesktopTimeout(signal),
+      }),
+    listInstanceSkillSources: (instanceId: string, signal?: AbortSignal) =>
+      request<SkillSourceList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/skill-sources`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    installManagedSkill: (instanceId: string, skillId: string, sourceId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/skills/${encodeURIComponent(skillId)}/install`, {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({ sourceId }),
+      }),
+    updateManagedSkill: (instanceId: string, skillId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      managedSkillEmptyMutation(instanceId, skillId, "update", idempotencyKey, signal),
+    enableManagedSkill: (instanceId: string, skillId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      managedSkillEmptyMutation(instanceId, skillId, "enable", idempotencyKey, signal),
+    disableManagedSkill: (instanceId: string, skillId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      managedSkillEmptyMutation(instanceId, skillId, "disable", idempotencyKey, signal),
+    removeManagedSkill: (instanceId: string, skillId: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/skills/${encodeURIComponent(skillId)}`, {
+        method: "DELETE",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: "{}",
       }),
     listInstanceMCPServers: (instanceId: string, signal?: AbortSignal) =>
       request<MCPServerList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers`, {
@@ -319,6 +343,21 @@ export function createDaemonClient(session: DaemonSession) {
       }),
     connectEvents,
   };
+
+  function managedSkillEmptyMutation(
+    instanceId: string,
+    skillId: string,
+    action: "update" | "enable" | "disable",
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<Operation> {
+    return request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/skills/${encodeURIComponent(skillId)}/${action}`, {
+      method: "POST",
+      signal: withDesktopTimeout(signal),
+      headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+      body: "{}",
+    });
+  }
 }
 
 async function decodeError(response: Response): Promise<Error> {

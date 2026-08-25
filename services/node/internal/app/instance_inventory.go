@@ -47,21 +47,22 @@ type ProfileMutator interface {
 }
 
 type InstanceCapabilities struct {
-	Instances     bool `json:"instances"`
-	Lifecycle     bool `json:"lifecycle"`
-	HealthRead    bool `json:"healthRead"`
-	LogsRead      bool `json:"logsRead"`
-	SecurityAudit bool `json:"securityAudit"`
-	SkillRead     bool `json:"skillRead"`
-	SkillMutate   bool `json:"skillMutate"`
-	MCPRead       bool `json:"mcpRead"`
-	MCPMutate     bool `json:"mcpMutate"`
-	BackupRead    bool `json:"backupRead"`
-	BackupMutate  bool `json:"backupMutate"`
-	Restore       bool `json:"restore"`
-	UpgradePlan   bool `json:"upgradePlan"`
-	Upgrade       bool `json:"upgrade"`
-	Rollback      bool `json:"rollback"`
+	Instances     bool                                 `json:"instances"`
+	Lifecycle     bool                                 `json:"lifecycle"`
+	HealthRead    bool                                 `json:"healthRead"`
+	LogsRead      bool                                 `json:"logsRead"`
+	SecurityAudit bool                                 `json:"securityAudit"`
+	SkillRead     bool                                 `json:"skillRead"`
+	SkillMutate   bool                                 `json:"skillMutate"`
+	NativeSkills  yorvaruntime.NativeSkillCapabilities `json:"nativeSkills"`
+	MCPRead       bool                                 `json:"mcpRead"`
+	MCPMutate     bool                                 `json:"mcpMutate"`
+	BackupRead    bool                                 `json:"backupRead"`
+	BackupMutate  bool                                 `json:"backupMutate"`
+	Restore       bool                                 `json:"restore"`
+	UpgradePlan   bool                                 `json:"upgradePlan"`
+	Upgrade       bool                                 `json:"upgrade"`
+	Rollback      bool                                 `json:"rollback"`
 }
 
 type InstanceView struct {
@@ -314,6 +315,7 @@ func (s *InstanceInventory) capabilities() InstanceCapabilities {
 		return capabilities
 	}
 	capabilities = instanceCapabilities(bundle.ManagementCapabilities(), bundle.Lifecycle != nil)
+	capabilities.NativeSkills = bundle.NativeSkillCapabilities
 	// BackupRead is backed by the Runtime-scoped SQLite index and therefore is
 	// published dynamically by the application composition, not Hermes static
 	// registration. Mutating backup and Restore capabilities remain false.
@@ -345,11 +347,30 @@ func unionInstanceCapabilities(left, right InstanceCapabilities) InstanceCapabil
 		HealthRead: left.HealthRead || right.HealthRead, LogsRead: left.LogsRead || right.LogsRead,
 		SecurityAudit: left.SecurityAudit || right.SecurityAudit,
 		SkillRead:     left.SkillRead || right.SkillRead, SkillMutate: left.SkillMutate || right.SkillMutate,
-		MCPRead: left.MCPRead || right.MCPRead, MCPMutate: left.MCPMutate || right.MCPMutate,
+		NativeSkills: unionNativeSkillCapabilities(left.NativeSkills, right.NativeSkills),
+		MCPRead:      left.MCPRead || right.MCPRead, MCPMutate: left.MCPMutate || right.MCPMutate,
 		BackupRead: left.BackupRead || right.BackupRead, BackupMutate: left.BackupMutate || right.BackupMutate,
 		Restore: left.Restore || right.Restore, UpgradePlan: left.UpgradePlan || right.UpgradePlan,
 		Upgrade: left.Upgrade || right.Upgrade, Rollback: left.Rollback || right.Rollback,
 	}
+}
+
+func unionNativeSkillCapabilities(left, right yorvaruntime.NativeSkillCapabilities) yorvaruntime.NativeSkillCapabilities {
+	return yorvaruntime.NativeSkillCapabilities{
+		Inventory:            unionNativeSkillCapability(left.Inventory, right.Inventory),
+		NativeInstall:        unionNativeSkillCapability(left.NativeInstall, right.NativeInstall),
+		NativeUpdate:         unionNativeSkillCapability(left.NativeUpdate, right.NativeUpdate),
+		NativeRemove:         unionNativeSkillCapability(left.NativeRemove, right.NativeRemove),
+		NativeEnableDisable:  unionNativeSkillCapability(left.NativeEnableDisable, right.NativeEnableDisable),
+		NativeProfileBinding: unionNativeSkillCapability(left.NativeProfileBinding, right.NativeProfileBinding),
+	}
+}
+
+func unionNativeSkillCapability(left, right yorvaruntime.NativeSkillCapability) yorvaruntime.NativeSkillCapability {
+	if left.Supported || left.Reason != "" {
+		return left
+	}
+	return right
 }
 
 func (s *InstanceInventory) lifecycleCapable() bool {

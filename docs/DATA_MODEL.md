@@ -133,7 +133,11 @@ UNIQUE(target_type, target_id) WHERE status IN ('PENDING', 'RUNNING')
   AND operation_type IN ('runtime.install', 'hermes.prerequisites')
 UNIQUE(target_type, target_id) WHERE status IN ('PENDING', 'RUNNING')
   AND target_type = 'instance'
-  AND operation_type IN ('instance.start', 'instance.stop', 'instance.restart')
+  AND operation_type IN (
+    'instance.start', 'instance.stop', 'instance.restart',
+    'channel.connect', 'channel.disconnect',
+    'skill.install', 'skill.update', 'skill.enable', 'skill.disable', 'skill.remove'
+  )
 ```
 
 If idempotency is used locally:
@@ -239,6 +243,40 @@ UNIQUE(scope_type, scope_id, secret_name)
 `provider_ref` must not itself contain the secret.
 
 ADR-0007 classifies Hermes Profile model provider credentials as Runtime-native state for the Windows consumer MVP. Those credentials do not create `secret_refs` rows and are not copied into any other SQLite table. Hermes remains their sole authority, including when the Hermes adapter uses the approved pinned Profile credential compatibility writer; YORVA stores only safe status/projection metadata where the Phase contract explicitly requires it.
+
+## Phase 7 `managed_skills`
+
+Phase 7 adds one YORVA-owned lifecycle record per Instance and Skill. The record binds
+the approved source and managed copy to the exact Runtime projection; it is not a shadow
+copy of Hermes-native Skill state.
+
+```text
+id                        TEXT PRIMARY KEY
+instance_id               TEXT NOT NULL REFERENCES instances(id) ON DELETE CASCADE
+skill_id                  TEXT NOT NULL
+source_id                 TEXT NOT NULL
+source_version            TEXT NOT NULL
+content_sha256            TEXT NOT NULL  -- lowercase whole-package SHA-256
+managed_relative_path     TEXT NOT NULL  -- rooted only under {dataDir}/skills/managed
+projection_relative_path  TEXT NOT NULL  -- adapter-derived exact Profile target
+deployment_id             TEXT NOT NULL UNIQUE
+desired_enabled           INTEGER NOT NULL  -- 0 | 1
+projection_state          TEXT NOT NULL
+installed_at              ... NOT NULL
+updated_at                ... NOT NULL
+```
+
+Constraints include `UNIQUE(instance_id, skill_id)`, closed bounded identifiers,
+lowercase SHA-256, traversal-free relative paths, closed desired state and closed
+projection state (`PROJECTED`, `NOT_PROJECTED`, `DRIFT_MISSING`, `DRIFT_MODIFIED`,
+`CONFLICT`, `UNKNOWN`).
+
+The managed package bytes live under `{dataDir}/skills/managed`; SQLite stores only the
+binding metadata. A mutation owns a Runtime destination only when this row, its
+deployment ID, the projection marker and observed whole-package digest agree. External,
+Runtime-bundled and unknown Skills are inventory classifications, not rows adopted into
+this table. Update replaces verified release evidence with compare-and-swap semantics;
+disable/remove cannot overwrite or delete a mismatched projection.
 
 ## 11. `backups`
 

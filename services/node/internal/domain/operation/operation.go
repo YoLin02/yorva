@@ -28,6 +28,16 @@ const TypeChannelConnect Type = "channel.connect"
 
 const TypeChannelDisconnect Type = "channel.disconnect"
 
+const TypeSkillInstall Type = "skill.install"
+
+const TypeSkillUpdate Type = "skill.update"
+
+const TypeSkillEnable Type = "skill.enable"
+
+const TypeSkillDisable Type = "skill.disable"
+
+const TypeSkillRemove Type = "skill.remove"
+
 type TargetType string
 
 const TargetRuntimeKind TargetType = "runtime-kind"
@@ -82,6 +92,10 @@ const (
 	StageChannelVerifying       Stage = "channel.verifying"
 	StageChannelCommitting      Stage = "channel.committing"
 	StageChannelDisconnect      Stage = "channel.disconnect"
+	StageSkillPreflight         Stage = "skill.preflight"
+	StageSkillProject           Stage = "skill.project"
+	StageSkillUnproject         Stage = "skill.unproject"
+	StageSkillReconcile         Stage = "skill.reconcile"
 )
 
 type Operation struct {

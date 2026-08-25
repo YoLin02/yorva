@@ -31,21 +31,36 @@ type InstanceLifecycleService interface {
 }
 
 type InstanceCapabilitiesResponse struct {
-	Instances     bool `json:"instances"`
-	Lifecycle     bool `json:"lifecycle"`
-	HealthRead    bool `json:"healthRead"`
-	LogsRead      bool `json:"logsRead"`
-	SecurityAudit bool `json:"securityAudit"`
-	SkillRead     bool `json:"skillRead"`
-	SkillMutate   bool `json:"skillMutate"`
-	MCPRead       bool `json:"mcpRead"`
-	MCPMutate     bool `json:"mcpMutate"`
-	BackupRead    bool `json:"backupRead"`
-	BackupMutate  bool `json:"backupMutate"`
-	Restore       bool `json:"restore"`
-	UpgradePlan   bool `json:"upgradePlan"`
-	Upgrade       bool `json:"upgrade"`
-	Rollback      bool `json:"rollback"`
+	Instances     bool                            `json:"instances"`
+	Lifecycle     bool                            `json:"lifecycle"`
+	HealthRead    bool                            `json:"healthRead"`
+	LogsRead      bool                            `json:"logsRead"`
+	SecurityAudit bool                            `json:"securityAudit"`
+	SkillRead     bool                            `json:"skillRead"`
+	SkillMutate   bool                            `json:"skillMutate"`
+	NativeSkills  NativeSkillCapabilitiesResponse `json:"nativeSkills"`
+	MCPRead       bool                            `json:"mcpRead"`
+	MCPMutate     bool                            `json:"mcpMutate"`
+	BackupRead    bool                            `json:"backupRead"`
+	BackupMutate  bool                            `json:"backupMutate"`
+	Restore       bool                            `json:"restore"`
+	UpgradePlan   bool                            `json:"upgradePlan"`
+	Upgrade       bool                            `json:"upgrade"`
+	Rollback      bool                            `json:"rollback"`
+}
+
+type NativeSkillCapabilityResponse struct {
+	Supported bool   `json:"supported"`
+	Reason    string `json:"reason"`
+}
+
+type NativeSkillCapabilitiesResponse struct {
+	Inventory            NativeSkillCapabilityResponse `json:"inventory"`
+	NativeInstall        NativeSkillCapabilityResponse `json:"nativeInstall"`
+	NativeUpdate         NativeSkillCapabilityResponse `json:"nativeUpdate"`
+	NativeRemove         NativeSkillCapabilityResponse `json:"nativeRemove"`
+	NativeEnableDisable  NativeSkillCapabilityResponse `json:"nativeEnableDisable"`
+	NativeProfileBinding NativeSkillCapabilityResponse `json:"nativeProfileBinding"`
 }
 
 type InstanceResponse struct {
@@ -248,6 +263,7 @@ func newInstanceCapabilitiesResponse(capabilities app.InstanceCapabilities) Inst
 		SecurityAudit: capabilities.SecurityAudit,
 		SkillRead:     capabilities.SkillRead,
 		SkillMutate:   capabilities.SkillMutate,
+		NativeSkills:  newNativeSkillCapabilitiesResponse(capabilities.NativeSkills),
 		MCPRead:       capabilities.MCPRead,
 		MCPMutate:     capabilities.MCPMutate,
 		BackupRead:    capabilities.BackupRead,
@@ -256,6 +272,17 @@ func newInstanceCapabilitiesResponse(capabilities app.InstanceCapabilities) Inst
 		UpgradePlan:   capabilities.UpgradePlan,
 		Upgrade:       capabilities.Upgrade,
 		Rollback:      capabilities.Rollback,
+	}
+}
+
+func newNativeSkillCapabilitiesResponse(capabilities yorvaruntime.NativeSkillCapabilities) NativeSkillCapabilitiesResponse {
+	project := func(value yorvaruntime.NativeSkillCapability) NativeSkillCapabilityResponse {
+		return NativeSkillCapabilityResponse{Supported: value.Supported, Reason: value.Reason}
+	}
+	return NativeSkillCapabilitiesResponse{
+		Inventory: project(capabilities.Inventory), NativeInstall: project(capabilities.NativeInstall),
+		NativeUpdate: project(capabilities.NativeUpdate), NativeRemove: project(capabilities.NativeRemove),
+		NativeEnableDisable: project(capabilities.NativeEnableDisable), NativeProfileBinding: project(capabilities.NativeProfileBinding),
 	}
 }
 

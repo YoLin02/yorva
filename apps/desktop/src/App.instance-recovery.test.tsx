@@ -67,6 +67,11 @@ const unavailableManagementCapabilities = {
   securityAudit: false,
   skillRead: false,
   skillMutate: false,
+  nativeSkills: {
+    inventory: { supported: false, reason: "" }, nativeInstall: { supported: false, reason: "deferred_upstream" },
+    nativeUpdate: { supported: false, reason: "deferred_upstream" }, nativeRemove: { supported: false, reason: "deferred_upstream" },
+    nativeEnableDisable: { supported: false, reason: "deferred_upstream" }, nativeProfileBinding: { supported: false, reason: "deferred_upstream" },
+  },
   mcpRead: false,
   mcpMutate: false,
   backupRead: false,

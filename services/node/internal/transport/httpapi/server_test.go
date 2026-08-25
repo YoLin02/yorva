@@ -390,23 +390,23 @@ func TestPhase7ReadOnlyManagementRoutesKeepCapabilityFalseStable(t *testing.T) {
 	}
 }
 
-func TestPhase7ReadOnlyManagementRouteContractIsGetOnly(t *testing.T) {
+func TestPhase7ManagementReadRoutesRejectUnspecifiedPost(t *testing.T) {
 	inventory := &managementRoutingInventory{}
 	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
-	for _, path := range []string{
-		"/api/v1/instances/inst-1/health",
-		"/api/v1/instances/inst-1/logs?category=ERRORS",
-		"/api/v1/instances/inst-1/skills",
-		"/api/v1/instances/inst-1/skills/skill-a",
-		"/api/v1/instances/inst-1/mcp-servers",
-		"/api/v1/instances/inst-1/mcp-catalog",
+	for path, allow := range map[string]string{
+		"/api/v1/instances/inst-1/health":               "GET, OPTIONS",
+		"/api/v1/instances/inst-1/logs?category=ERRORS": "GET, OPTIONS",
+		"/api/v1/instances/inst-1/skills":               "GET, OPTIONS",
+		"/api/v1/instances/inst-1/skills/skill-a":       "GET, DELETE, OPTIONS",
+		"/api/v1/instances/inst-1/mcp-servers":          "GET, OPTIONS",
+		"/api/v1/instances/inst-1/mcp-catalog":          "GET, OPTIONS",
 	} {
 		t.Run(path, func(t *testing.T) {
 			preflight := httptest.NewRequest(http.MethodOptions, path, nil)
 			preflight.Header.Set("Origin", "http://tauri.localhost")
 			preflightResponse := httptest.NewRecorder()
 			handler.ServeHTTP(preflightResponse, preflight)
-			if preflightResponse.Code != http.StatusNoContent || preflightResponse.Header().Get("Allow") != "GET, OPTIONS" {
+			if preflightResponse.Code != http.StatusNoContent || preflightResponse.Header().Get("Allow") != allow {
 				t.Fatalf("preflight = %d Allow %q", preflightResponse.Code, preflightResponse.Header().Get("Allow"))
 			}
 
@@ -414,7 +414,7 @@ func TestPhase7ReadOnlyManagementRouteContractIsGetOnly(t *testing.T) {
 			post.Header.Set("Authorization", "Bearer "+testToken)
 			postResponse := httptest.NewRecorder()
 			handler.ServeHTTP(postResponse, post)
-			if postResponse.Code != http.StatusMethodNotAllowed || postResponse.Header().Get("Allow") != "GET, OPTIONS" {
+			if postResponse.Code != http.StatusMethodNotAllowed || postResponse.Header().Get("Allow") != allow {
 				t.Fatalf("POST = %d Allow %q", postResponse.Code, postResponse.Header().Get("Allow"))
 			}
 		})

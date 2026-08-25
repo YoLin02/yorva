@@ -80,6 +80,11 @@ Hermes-native `API_SERVER_KEY` boundary for authenticated, loopback-only,
 no-redirect `/health/detailed` and `/v1/skills` management reads. Product capabilities
 still require focused qualification and wiring before they may become true.
 
+ADR-0018 was accepted by the Owner on 2026-08-25. B4 now separates Hermes-native
+capability truth from a YORVA-managed lifecycle. Unreliable Hermes-native mutations stay
+`deferred_upstream`; YORVA owns a small managed Skill store and copy projection into the
+exact Profile.
+
 ## 4. Qualified-surface facts and B1 questions
 
 Read-only inspection of official Hermes `0.20.5` confirms command entries for status,
@@ -114,14 +119,17 @@ Plaintext ZIP output is therefore not an acceptable YORVA backup product design.
 
 ### 5.2 Skills
 
-- exact Runtime/Profile live inventory and bounded inspect;
-- identity, source, version, enabled, update and audit/scan state;
-- install/update/remove only from approved inspected sources;
-- configure/enable/disable only through a qualified closed schema;
-- mandatory scan result with no force bypass;
-- authoritative read-back, external-change reconciliation and recovery.
+- exact Runtime/Profile inventory with bounded inspect;
+- separate Runtime-native inventory/mutation capability truth;
+- a YORVA-owned managed-copy SSOT under the daemon data directory;
+- install/update/remove only from compile-time approved inspected sources;
+- enable/disable through copy projection, not Hermes native Profile configuration;
+- one package digest and ownership marker bound to the SQLite deployment record;
+- external/bundled/unknown Skills remain visible and read-only;
+- drift detection, authoritative projection read-back and bounded recovery.
 
-Hermes remains authoritative for Skill files and state.
+Hermes remains authoritative for native Skill observation. YORVA is authoritative only
+for its managed copy, ownership record and expected Runtime projection.
 
 ### 5.3 MCP
 
@@ -291,7 +299,7 @@ input and never runs `--force`, `--force-venv` or an active-tree mutation.
 | B1 | Exact Hermes `0.20.5` surface qualification and risk map | Preserve evidence; a NO-GO closes that direct route rather than all P7 work |
 | B2 | Minimal capability contracts, registry flags, typed actions, Operation/error state, protocol skeleton and only decided migrations | Go contract/API/migration tests + OpenAPI drift |
 | B3 | Normalized Health/Logs/Security and Desktop | Parser/bounds/redaction/timeout/API/Desktop gate |
-| B4 | Skills | Source/scan/traversal/Profile isolation/recovery/manual smoke |
+| B4 | YORVA-managed Skills lifecycle + Hermes native capability truth | Source/ownership/conflict/Profile isolation/drift/restart/manual smoke |
 | B5 | MCP | No generic command surface, credential/session isolation, timeout/cancel/manual smoke |
 | B6 | Backup Create | Secret/temp/crash/archive integrity/space/manual smoke |
 | B7 | Restore | Corrupt/tamper/version/cross-scope/partial-failure/destructive smoke |

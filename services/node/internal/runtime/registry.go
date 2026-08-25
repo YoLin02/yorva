@@ -16,24 +16,28 @@ type Descriptor struct {
 }
 
 type Bundle struct {
-	Descriptor   Descriptor
-	Discoverer   Discoverer
-	Models       ModelConfigurator
-	Lifecycle    LifecycleManager
-	Channels     ChannelManager
-	Health       HealthInspector
-	Logs         LogReader
-	Security     SecurityAuditor
-	SkillRead    SkillReader
-	SkillMutate  SkillManager
-	MCPRead      MCPReader
-	MCPMutate    MCPManager
-	BackupRead   BackupReader
-	BackupMutate BackupManager
-	Restore      RestoreManager
-	UpgradePlan  UpgradePlanner
-	Upgrade      RuntimeUpgrader
-	Rollback     RuntimeRollbacker
+	Descriptor  Descriptor
+	Discoverer  Discoverer
+	Models      ModelConfigurator
+	Lifecycle   LifecycleManager
+	Channels    ChannelManager
+	Health      HealthInspector
+	Logs        LogReader
+	Security    SecurityAuditor
+	SkillRead   SkillReader
+	SkillMutate SkillManager
+	// SkillProjection is the YORVA-managed lifecycle. SkillMutate remains the
+	// independent Runtime-native mutation surface.
+	SkillProjection         SkillProjector
+	NativeSkillCapabilities NativeSkillCapabilities
+	MCPRead                 MCPReader
+	MCPMutate               MCPManager
+	BackupRead              BackupReader
+	BackupMutate            BackupManager
+	Restore                 RestoreManager
+	UpgradePlan             UpgradePlanner
+	Upgrade                 RuntimeUpgrader
+	Rollback                RuntimeRollbacker
 	// InstanceManagement resolves management readers whose availability depends
 	// on exact Runtime/Profile state. The registered Bundle keeps these fields
 	// nil so a version-wide static capability cannot over-claim support.
@@ -97,7 +101,7 @@ func (b Bundle) ManagementCapabilities() ManagementCapabilities {
 		LogsRead:      b.Logs != nil,
 		SecurityAudit: b.Security != nil,
 		SkillRead:     b.SkillRead != nil,
-		SkillMutate:   b.SkillMutate != nil,
+		SkillMutate:   b.SkillProjection != nil,
 		MCPRead:       b.MCPRead != nil,
 		MCPMutate:     b.MCPMutate != nil,
 		BackupRead:    b.BackupRead != nil,

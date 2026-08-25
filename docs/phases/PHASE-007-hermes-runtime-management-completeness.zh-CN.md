@@ -13,6 +13,7 @@
 > 实现授权：**Owner 于 2026-08-25 批准依赖驱动的并行 B-stage；共享合同先行，互不依赖的 Hermes adapter、测试与 UX lane 可并行，危险 mutation 必须等待对应 ADR/资格条件**
 > ADR 授权：**Owner 于 2026-08-25 正式接受 ADR-0013、ADR-0014、ADR-0015；允许按其边界实现，但每项 product capability 仍须通过精确版本资格和破坏性流程证据后才能置为 true。**
 > ADR 授权补充：**Owner 于 2026-08-25 接受 ADR-0016；exact Profile 的 `API_SERVER_KEY` 是 Hermes-native 唯一权威，仅允许 loopback、禁止重定向地读取 `/health/detailed` 与 `/v1/skills`。真实 Health/SkillRead capability 仍须在聚焦资格与接线通过后才能置为 true。**
+> B4 架构补充：**Owner 于 2026-08-25 接受 ADR-0018。Hermes Native Skills mutation 的不可靠部分保持 `deferred_upstream`；YORVA 通过自己的 managed store 与 exact Profile copy projection 提供 Skills 生命周期。**
 
 ## 0. 阶段定位
 
@@ -190,16 +191,16 @@ Profile/scope 精确、输出边界、失败语义、credential transport、并�
 
 ### 6.2 Skills 管理
 
-- 准确 Runtime/Profile scope 的 live inventory；
-- Skill identity、来源、版本、enabled、update 和 audit 状态；
-- bounded inspect/preview；
-- 获批来源的 install、update、uninstall；
-- enable/disable/configure 仅限经资格确认的 closed schema；
-- 供应链扫描结论与 blocked 状态；
-- 外部 Hermes 修改后的 reconciliation；
-- 网络、扫描、安装和 rollback/recovery 失败 UX。
+- 准确 Runtime/Profile scope 的 inventory 和 bounded inspect；
+- Hermes Native inventory/mutation capability 与 YORVA managed lifecycle 分层；
+- `{dataDir}/skills/managed` 作为 YORVA managed copy 的唯一权威；
+- 获批 closed source 的 install、update 和 remove；
+- enable = copy projection，disable = 只移除已证明属于 YORVA 的 projection；
+- SQLite ownership/deployment record、一个完整包 SHA-256 和小型 projection marker；
+- external、runtime bundled、unknown Skill 可见但默认只读；
+- `DRIFT_MISSING` / `DRIFT_MODIFIED` 检测与安全重新投影。
 
-YORVA 不复制 Skill 文件内容作为权威。SQLite 最多保存安全 Operation/audit metadata。
+Hermes 仍是 Native Skill observation 的权威；YORVA 只对自己的 managed copy、所有权记录和预期 projection 负责。
 
 ### 6.3 MCP 管理
 
@@ -526,7 +527,7 @@ B10 统一候选时执行。一个 lane 的非致命缺口不冻结其他 lane�
 | B1 — Hermes surface qualification | 对 `0.20.5` Skills/MCP/backup/import/update/status/doctor/log/security 建立资格与风险证据；直接 surface 的 NO-GO 只关闭对应路径 | evidence preserved；安全替代设计进入对应 lane，禁止包装被拒 surface |
 | B2 — Core capability / protocol / audit action | 添加最小 feature contracts、registry capability、typed actions、Operation/error 状态、OpenAPI skeleton 和 migration（仅已决部分） | Go contract/API/migration tests + OpenAPI drift |
 | B3 — Health / Logs / Security | 先交付 read-mostly normalized health、bounded redacted logs、显式 deep check 和 security audit | parser/size/redaction/timeout/API/Desktop focused Gate |
-| B4 — Skills | live inventory、inspect/audit、approved install/update/config/remove、reconciliation 和 Desktop | source/traversal/scan/Profile isolation/rollback/manual smoke |
+| B4 — Skills Lifecycle | Native capability truth、YORVA managed store、approved install/update/enable/disable/remove、inventory merge、reconcile 和 Desktop | source/ownership/external conflict/Profile isolation/drift/restart/manual smoke |
 | B5 — MCP | catalog/list/install/auth/test/tool-config/remove、secret authority、process/network cleanup 和 Desktop | no generic command surface、OAuth/session isolation、timeout/cancel/manual smoke |
 | B6 — Backup Create | scope/migration、加密或获批安全格式、create/verify/list/delete、Desktop | secret/temp/crash/archive-integrity/space/manual smoke |
 | B7 — Restore | preflight、stop/conflict、保护点、restore、reconcile、rollback 和 Desktop | corrupt/tamper/version/cross-scope/partial-failure/destructive manual smoke |

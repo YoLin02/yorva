@@ -298,11 +298,12 @@ POST /api/v1/operations/{operationId}/cancel
 
 Cancel may return `OPERATION_NOT_CANCELLABLE`.
 
-### Phase 7 read-only management
+### Phase 7 management reads and YORVA-managed Skills
 
 ```text
 GET /api/v1/instances/{instanceId}/health
 GET /api/v1/instances/{instanceId}/logs?category=RUNTIME|ERRORS|GATEWAY|MCP
+GET /api/v1/instances/{instanceId}/skill-sources
 GET /api/v1/instances/{instanceId}/skills
 GET /api/v1/instances/{instanceId}/skills/{skillId}
 GET /api/v1/instances/{instanceId}/mcp-servers
@@ -317,9 +318,40 @@ environment, credentials or tool descriptions. `CONFIGURED` is not `READY`; a `R
 MCP result includes explicit time-bounded evidence. An unwired or unqualified Runtime feature returns
 `CAPABILITY_NOT_SUPPORTED` and does not fall back to a human-readable CLI.
 
-No deep/live check, security audit, Skill or MCP mutation route is registered until a
-durable Operation owner and qualified adapter exist. Runtime-wide health also remains
-unregistered; the current qualified projection is exact-Instance scoped.
+Deep/live checks and security audit remain explicit Operations. Runtime-wide health
+also remains unregistered; the current qualified projection is exact-Instance scoped.
+
+The Skill source list is compile-time closed. Install accepts only `sourceId`; no Skill
+request accepts a URL, local path, command, environment, force flag or arbitrary bytes.
+Skill responses expose only safe identity and normalized state, including ownership
+(`YORVA_MANAGED`, `EXTERNAL`, `RUNTIME_BUNDLED`, `UNKNOWN`) and projection state
+(`PROJECTED`, `NOT_PROJECTED`, `DRIFT_MISSING`, `DRIFT_MODIFIED`, `CONFLICT`,
+`UNKNOWN`). They do not expose managed/projection paths, deployment IDs, markers,
+package digests or contents.
+
+YORVA-managed mutations are separate from Hermes-native mutations:
+
+```text
+POST   /api/v1/instances/{instanceId}/skills/{skillId}/install
+POST   /api/v1/instances/{instanceId}/skills/{skillId}/update
+POST   /api/v1/instances/{instanceId}/skills/{skillId}/enable
+POST   /api/v1/instances/{instanceId}/skills/{skillId}/disable
+DELETE /api/v1/instances/{instanceId}/skills/{skillId}
+```
+
+Every mutation requires `Idempotency-Key`, uses a closed body and returns a durable
+`202 Operation` of type `skill.install`, `skill.update`, `skill.enable`,
+`skill.disable` or `skill.remove`. Enable/disable means project/unproject the verified
+YORVA-managed copy; it is not Hermes-native Profile configuration. Existing external
+destinations and drifted managed projections return a stable conflict and remain
+unchanged. A successful projection change restarts an already running Instance; it does
+not start an Instance that was stopped.
+
+Instance capability responses report YORVA `skillRead` and `skillMutate` separately
+from the six `nativeSkills` fields: native inventory, install, update, remove,
+enable/disable and Profile binding. On exact Hermes `0.20.5`, unavailable native
+mutation/binding fields remain false with `deferred_upstream`; they are never inferred
+true from the YORVA-managed lifecycle.
 
 ### Read-only managed Upgrade plan
 
