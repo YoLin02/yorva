@@ -71,6 +71,17 @@ The new Backup/Restore regression set includes an encrypted create → mutate lo
 decrypt/restore round trip, index-insert cleanup, interrupted transaction recovery and
 ambiguous-state refusal. It uses temporary local data and no real account or credential.
 
+## Exact-candidate CI follow-up
+
+- Candidate `95fddf6acd3c885c0f7aa758251d7a6b2eb518c7`, CI run `32839147445`:
+  `Web and API contract` passed; `Go Node` failed in
+  `TestMCPManagementCancelsRunningOperation` because cancellation interrupted the adapter
+  before the durable `CANCELLED` state was published, allowing the worker to win the
+  terminal-state race. The original failed run is retained.
+- The fix publishes `CANCELLED` first and only then signals the adapter context. The
+  existing cancellation regression passed 100 consecutive local executions. A new exact
+  candidate CI run is required before this gate can pass.
+
 ## Remaining freeze gates
 
 This evidence does not claim B5 or B8 product qualification and does not replace Windows

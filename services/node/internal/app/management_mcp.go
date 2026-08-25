@@ -376,15 +376,17 @@ func (s *MCPManagement) CancelMCPOperation(ctx context.Context, operationID stri
 	s.mu.Lock()
 	cancel := s.cancels[operationID]
 	s.mu.Unlock()
-	if cancel != nil {
-		cancel()
-	}
 	now := s.now().UTC()
 	next := current
 	next.Status, next.ErrorCode, next.Retryable = operation.StatusCancelled, "", false
 	next.CompletedAt, next.UpdatedAt = &now, now
 	if err := s.persistOperation(ctx, current, next); err != nil {
 		return operation.Operation{}, ErrInstanceNotCancellable
+	}
+	// Publish the terminal state before interrupting the adapter. Otherwise the
+	// worker can observe cancellation first and win the final-state update race.
+	if cancel != nil {
+		cancel()
 	}
 	return next, nil
 }
