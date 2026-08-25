@@ -12,6 +12,7 @@
 > Owner 授权：2026-08-24，批准 P7-D1–D8 推荐方向及 B0–B10 实现顺序
 > 实现授权：**Owner 于 2026-08-25 批准依赖驱动的并行 B-stage；共享合同先行，互不依赖的 Hermes adapter、测试与 UX lane 可并行，危险 mutation 必须等待对应 ADR/资格条件**
 > ADR 授权：**Owner 于 2026-08-25 正式接受 ADR-0013、ADR-0014、ADR-0015；允许按其边界实现，但每项 product capability 仍须通过精确版本资格和破坏性流程证据后才能置为 true。**
+> 待决前置：**ADR-0016 提议把 exact Profile 的 `API_SERVER_KEY` 作为 Hermes-native 唯一权威，仅允许 loopback 的 `/health/detailed` 与 `/v1/skills` 管理读取；在 Owner 单独接受前，真实 Health/SkillRead capability 保持 false。**
 
 ## 0. 阶段定位
 

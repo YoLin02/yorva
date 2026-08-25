@@ -75,6 +75,10 @@ credential authority) and ADR-0015 (managed generation Upgrade/Rollback) were ac
 by the Owner on 2026-08-25. Acceptance authorizes implementation of their boundaries;
 it does not replace lane-specific qualification and destructive-flow evidence.
 
+ADR-0016 proposes the remaining Hermes `API_SERVER_KEY` authority needed to turn the
+conditional `/health/detailed` and `/v1/skills` reads into exact-Instance product
+capabilities. It remains non-authoritative until separately accepted by the Owner.
+
 ## 4. Qualified-surface facts and B1 questions
 
 Read-only inspection of official Hermes `0.20.5` confirms command entries for status,

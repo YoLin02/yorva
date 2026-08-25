@@ -51,7 +51,8 @@ type reviewedDescriptor struct {
 
 // reviewedDescriptors is a value-producing function rather than mutable
 // registry state. Adding an entry requires a source review and a code change.
-// ADR-0014 is still Proposed, so the qualified set starts with zero entries.
+// ADR-0014 is accepted, but no HTTPS preset has completed descriptor/source
+// qualification yet, so the product catalog remains intentionally empty.
 func reviewedDescriptors() [0]reviewedDescriptor {
 	return [0]reviewedDescriptor{}
 }
