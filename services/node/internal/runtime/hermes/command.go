@@ -20,7 +20,10 @@ const (
 	installCommandOutputLimit = 1024 * 1024
 )
 
-var errOutputLimit = errors.New("command output limit exceeded")
+var (
+	errOutputLimit       = errors.New("command output limit exceeded")
+	errCommandOutputRead = errors.New("command output could not be read")
+)
 
 type commandResult struct {
 	stdout   string
@@ -116,17 +119,17 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 	go read("stdout", stdout)
 	go read("stderr", stderr)
 
-	waited := make(chan error, 1)
-	go func() { waited <- command.Wait() }()
-
 	var stdoutData []byte
 	var stderrData []byte
-	var waitErr error
 	received := 0
-	waitComplete := false
 	limited := false
+	var readErr error
 	contextDone := commandCtx.Done()
-	for received < 2 || !waitComplete {
+	terminate := func() {
+		cleanupProcessTree()
+		_ = command.Process.Kill()
+	}
+	for received < 2 {
 		select {
 		case stream := <-streams:
 			received++
@@ -135,19 +138,26 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 			} else {
 				stderrData = stream.data
 			}
-			if errors.Is(stream.err, errOutputLimit) {
+			classified := classifyCommandReadError(stream.err)
+			if errors.Is(classified, errOutputLimit) {
 				limited = true
-				cleanupProcessTree()
-				_ = command.Process.Kill()
+				terminate()
+			} else if classified != nil {
+				if readErr == nil {
+					readErr = classified
+				}
+				terminate()
 			}
-		case waitErr = <-waited:
-			waitComplete = true
 		case <-contextDone:
-			cleanupProcessTree()
-			_ = command.Process.Kill()
+			terminate()
 			contextDone = nil
 		}
 	}
+
+	// StdoutPipe and StderrPipe require all reads to complete before Wait.
+	// Timeout/output failures terminate the owned process tree above so both
+	// readers reach EOF; only then is it safe to reap the command.
+	waitErr := command.Wait()
 
 	exitCode := -1
 	if command.ProcessState != nil {
@@ -167,7 +177,17 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 			timedOut: errors.Is(commandCtx.Err(), context.DeadlineExceeded),
 		}
 	}
+	if readErr != nil {
+		return commandResult{stdout: stdoutText, stderr: stderrText, exitCode: exitCode, err: readErr}
+	}
 	return commandResult{stdout: stdoutText, stderr: stderrText, exitCode: exitCode, err: waitErr}
+}
+
+func classifyCommandReadError(err error) error {
+	if err == nil || errors.Is(err, errOutputLimit) {
+		return err
+	}
+	return errCommandOutputRead
 }
 
 func readBounded(source io.Reader, limit int64) ([]byte, error) {

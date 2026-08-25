@@ -29,6 +29,18 @@ func TestReadBounded(t *testing.T) {
 	}
 }
 
+func TestClassifyCommandReadErrorIsStable(t *testing.T) {
+	if got := classifyCommandReadError(nil); got != nil {
+		t.Fatalf("nil read error = %v", got)
+	}
+	if got := classifyCommandReadError(errOutputLimit); !errors.Is(got, errOutputLimit) {
+		t.Fatalf("output limit = %v", got)
+	}
+	if got := classifyCommandReadError(errors.New("raw pipe detail")); !errors.Is(got, errCommandOutputRead) || got.Error() != errCommandOutputRead.Error() {
+		t.Fatalf("raw read error = %v, want stable runner error", got)
+	}
+}
+
 func TestMinimalEnvironmentExcludesSecrets(t *testing.T) {
 	t.Setenv("YORVA_TEST_PROVIDER_API_KEY", "must-not-leak")
 	for _, entry := range minimalEnvironment() {
