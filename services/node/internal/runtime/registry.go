@@ -15,11 +15,61 @@ type Descriptor struct {
 }
 
 type Bundle struct {
-	Descriptor Descriptor
-	Discoverer Discoverer
-	Models     ModelConfigurator
-	Lifecycle  LifecycleManager
-	Channels   ChannelManager
+	Descriptor   Descriptor
+	Discoverer   Discoverer
+	Models       ModelConfigurator
+	Lifecycle    LifecycleManager
+	Channels     ChannelManager
+	Health       HealthInspector
+	Logs         LogReader
+	Security     SecurityAuditor
+	SkillRead    SkillReader
+	SkillMutate  SkillManager
+	MCPRead      MCPReader
+	MCPMutate    MCPManager
+	BackupRead   BackupReader
+	BackupMutate BackupManager
+	Restore      RestoreManager
+	UpgradePlan  UpgradePlanner
+	Upgrade      RuntimeUpgrader
+	Rollback     RuntimeRollbacker
+}
+
+type ManagementCapabilities struct {
+	HealthRead    bool
+	LogsRead      bool
+	SecurityAudit bool
+	SkillRead     bool
+	SkillMutate   bool
+	MCPRead       bool
+	MCPMutate     bool
+	BackupRead    bool
+	BackupMutate  bool
+	Restore       bool
+	UpgradePlan   bool
+	Upgrade       bool
+	Rollback      bool
+}
+
+// ManagementCapabilities derives availability from compile-time wiring. An
+// absent feature contract is capability-false; registration alone never
+// advertises an unqualified management surface.
+func (b Bundle) ManagementCapabilities() ManagementCapabilities {
+	return ManagementCapabilities{
+		HealthRead:    b.Health != nil,
+		LogsRead:      b.Logs != nil,
+		SecurityAudit: b.Security != nil,
+		SkillRead:     b.SkillRead != nil,
+		SkillMutate:   b.SkillMutate != nil,
+		MCPRead:       b.MCPRead != nil,
+		MCPMutate:     b.MCPMutate != nil,
+		BackupRead:    b.BackupRead != nil,
+		BackupMutate:  b.BackupMutate != nil,
+		Restore:       b.Restore != nil,
+		UpgradePlan:   b.UpgradePlan != nil,
+		Upgrade:       b.Upgrade != nil,
+		Rollback:      b.Rollback != nil,
+	}
 }
 
 type Registry struct {

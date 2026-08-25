@@ -1,6 +1,6 @@
 # YORVA Phase 7 — Hermes Runtime Management Completeness
 
-> Status: **IN_PROGRESS — B0 PASS; B1 OFFICIAL-SURFACE QUALIFICATION ONLY**
+> Status: **IN_PROGRESS — B0 PASS; DEPENDENCY-DRIVEN PARALLEL IMPLEMENTATION**
 > Phase: 7
 > Owner: Repository Owner
 > Plan date: 2026-08-24
@@ -49,10 +49,12 @@ B0 is complete:
 - P7-D1–D8 and B0–B10 are Owner-approved;
 - the Chinese Spec and this execution mirror are synchronized.
 
-B1 may perform only read-only official-surface qualification, evidence capture and the
-required ADR work. Product API, migration, Desktop capability or Runtime mutation work
-cannot begin until B1 proves the applicable Hermes `0.20.5` surfaces and the necessary
-backup-secret, MCP-credential and generation-upgrade ADRs are accepted.
+B1 evidence controls each feature lane rather than acting as a global serial lock. A
+rejected direct Hermes surface remains unavailable, while non-overlapping parser,
+descriptor, verifier, transaction and focused-test work may proceed in parallel. Shared
+B2 contracts remain an integration prerequisite. A public or mutating MCP, Backup,
+Restore or Upgrade capability still requires its applicable accepted ADR and qualified
+closed path.
 
 ## 3. Owner decisions
 
@@ -258,7 +260,7 @@ input and never runs `--force`, `--force-venv` or an active-tree mutation.
 | Batch | Delivery | Gate |
 | --- | --- | --- |
 | B0 | Accepted P6.5 baseline, clean successor, decisions, bilingual Specs | **PASS — 2026-08-24** |
-| B1 | Exact Hermes `0.20.5` surface qualification and required ADRs | Evidence + Owner approval; no product capability code |
+| B1 | Exact Hermes `0.20.5` surface qualification and risk map | Preserve evidence; a NO-GO closes that direct route rather than all P7 work |
 | B2 | Minimal capability contracts, registry flags, typed actions, Operation/error state, protocol skeleton and only decided migrations | Go contract/API/migration tests + OpenAPI drift |
 | B3 | Normalized Health/Logs/Security and Desktop | Parser/bounds/redaction/timeout/API/Desktop gate |
 | B4 | Skills | Source/scan/traversal/Profile isolation/recovery/manual smoke |
@@ -269,8 +271,13 @@ input and never runs `--force`, `--force-venv` or an active-tree mutation.
 | B9 | Complete UX and recovery | End-to-end Desktop and daemon-restart recovery |
 | B10 | Candidate, full Gate, Windows smoke, exact CI, independent audit/fix/re-audit and Owner Gate | PASS before merge/final-main/tag |
 
-Each batch must pass before the next. Owner authorization permits continuous execution
-but does not bypass stop conditions.
+Execution is dependency-driven rather than purely serial. B2 owns shared contracts.
+Non-overlapping B3–B8 lanes may proceed concurrently when they do not depend on an
+undecided contract or ADR. B6 precedes B7, and B8 depends on a verified protection point
+and exact data-compatibility evidence. Each lane runs focused tests; B10 alone performs
+the full immutable-candidate audit. A non-critical lane defect does not freeze unrelated
+lanes, while security/data/cross-scope/arbitrary-execution violations close the affected
+surface immediately.
 
 ## 12. Verification matrix
 
@@ -294,6 +301,10 @@ B1 and later tests must cover at least:
 Use focused gates per batch. Run the full project Gate once for the frozen Phase 7
 candidate. Packaging/MSI runs only when product or packaging inputs change.
 
+Focused gates are development verification, not independent phase audits. The dedicated
+fresh-context auditor reviews the integrated B10 candidate after all selected lanes are
+complete.
+
 ## 13. Audit and acceptance
 
 B10 applies all twelve `AUDIT_STANDARD.md` dimensions and focuses on qualified surfaces,
@@ -310,7 +321,9 @@ Windows smoke, exact CI and an acceptable independent audit.
 
 ## 14. Mandatory stop conditions
 
-Stop the affected batch and return to the Owner if:
+Stop the affected dangerous surface and return it to the coordinator/Owner if any item
+below applies. Unrelated lanes continue unless the shared trust boundary or candidate is
+compromised:
 
 - the branch is not a successor of the formal P6.5 baseline;
 - an official surface cannot be non-interactive, scope-exact, bounded and verifiable;

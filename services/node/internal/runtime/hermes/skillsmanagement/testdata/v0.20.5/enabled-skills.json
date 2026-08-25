@@ -1,0 +1,15 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "name": "ascii-art",
+      "description": "ASCII art generation",
+      "category": "creative"
+    },
+    {
+      "name": "github",
+      "description": "GitHub workflow skill",
+      "category": null
+    }
+  ]
+}

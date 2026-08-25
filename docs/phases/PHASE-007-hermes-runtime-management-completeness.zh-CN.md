@@ -1,6 +1,6 @@
 # YORVA Phase 7 — Hermes Runtime 日常管理完善
 
-> 状态：**IN_PROGRESS — B0 已通过；当前只进入 B1 官方 surface qualification，尚未授权产品能力代码**
+> 状态：**IN_PROGRESS — B0 已通过；采用依赖驱动的并行实现，危险 surface 按 lane 保持关闭**
 > 阶段：Phase 7
 > Owner：Repository Owner
 > 计划日期：2026-08-24
@@ -10,7 +10,7 @@
 > 路线图条目：`ROADMAP.md` Phase 7 — Runtime management completeness
 > 英文执行镜像：`docs/phases/PHASE-007-hermes-runtime-management-completeness.md`
 > Owner 授权：2026-08-24，批准 P7-D1–D8 推荐方向及 B0–B10 实现顺序
-> 实现授权：**已授权按 B0–B10 顺序推进；B1 资格确认和必要 ADR 通过前禁止产品能力 code-bearing batch**
+> 实现授权：**Owner 于 2026-08-25 批准依赖驱动的并行 B-stage；共享合同先行，互不依赖的 Hermes adapter、测试与 UX lane 可并行，危险 mutation 必须等待对应 ADR/资格条件**
 
 ## 0. 阶段定位
 
@@ -43,8 +43,11 @@ Phase 7 实现只能在以下条件全部满足后开始：
   frozen baseline；
 - Phase 7 分支确实以后续接受基线为祖先，且没有把未接受的 Demo 工作混入；
 - 本文件的 P7-D1 至 P7-D8 已获得 Owner 决策；
-- Batch 1 的 Hermes `0.20.5` 官方 surface 资格确认完成；
-- 备份秘密处理、MCP credential authority 和 generation upgrade 的必要 ADR 已接受；
+- Batch 1 的 Hermes `0.20.5` 官方 surface 资格证据已形成，未通过的直接 surface 在对应
+  lane 保持关闭；
+- 备份秘密处理、MCP credential authority 和 generation upgrade 的必要 ADR 在对应公开
+  capability 或 mutation 接入前被接受；其不依赖的 parser、closed descriptor、archive
+  verifier、transaction 与测试工作可以并行准备；
 - 中英文 Spec 已同步，状态改为 `READY`；
 - Owner 明确授权开始实现和允许的 batch 推进方式。
 
@@ -146,9 +149,11 @@ YORVA 检测当前 managed generation 与本构建携带的目标 Hermes snapsho
 | P7-D7 本地鉴权 | P7 保持一个 authenticated local Desktop trust context，同时为每个 use case 固定 typed action 和 audit actor；Principal/Grant/RBAC 延后 P9/P10 | **APPROVED — 2026-08-24** |
 | P7-D8 版本资格 | stable `0.20.x` 可检测，但每个 P7 feature 只有通过 exact-version surface qualification 才报告 capability；未知 contract fail closed | **APPROVED — 2026-08-24** |
 
-Owner 随后的“按照这份文档进行实现”指令构成本表批准和执行授权。该授权不跳过
-第 1 节进入条件。P6.5 已按 Owner 选择形成正式冻结后继，B0 因此完成；当前仅进入
-B1 资格确认，不提前实现 B2–B9 产品能力。
+Owner 随后的“按照这份文档进行实现”指令构成本表批准和执行授权。2026-08-25 Owner
+进一步批准依赖驱动的并行 B-stage：B1 证据不再作为整个 P7 的串行全局锁，而是决定
+每个 lane 可使用或必须关闭的 surface。共享 B2 合同先行；互不修改同一模块、且不存在
+真实前置依赖的 B3–B9 工作可以并行。未接受 ADR 仍阻止对应公开 mutation/capability，
+但不阻止其他 lane 继续。
 
 ## 5. 已确认的 Hermes 0.20.5 规划事实
 
@@ -499,13 +504,15 @@ backup 静默删除或重新解释已有 backup row。
 
 ## 15. 实现计划表
 
-每一批只有在上一批 Gate 通过后才能进入。Owner 可以批准连续执行，但停止条件始终
-有效。
+采用依赖驱动而不是纯编号串行。B2 的共享合同是集成前置；其余 Batch 被拆成文件和
+模块所有权互不重叠的 lane。每个 lane 做聚焦测试与集成检查，完整十二维独立审计只在
+B10 统一候选时执行。一个 lane 的非致命缺口不冻结其他 lane；强制停止条件只阻断受
+影响的危险 surface，除非它破坏共享信任边界或候选完整性。
 
 | Batch | 交付 | Gate |
 | --- | --- | --- |
 | B0 — 基线与范围锁定 | 确认 P6.5 处置、建立 clean successor branch、确认 P7-D1–D8、同步中英文 Spec | ancestry/working-tree/scope review；无代码 |
-| B1 — Hermes surface qualification | 对 `0.20.5` Skills/MCP/backup/import/update/status/doctor/log/security 做 non-interactive、scope、output、secret、timeout、failure 和 postcondition 证明；建立必要 ADR | qualification evidence + Owner approval；不实现产品能力 |
+| B1 — Hermes surface qualification | 对 `0.20.5` Skills/MCP/backup/import/update/status/doctor/log/security 建立资格与风险证据；直接 surface 的 NO-GO 只关闭对应路径 | evidence preserved；安全替代设计进入对应 lane，禁止包装被拒 surface |
 | B2 — Core capability / protocol / audit action | 添加最小 feature contracts、registry capability、typed actions、Operation/error 状态、OpenAPI skeleton 和 migration（仅已决部分） | Go contract/API/migration tests + OpenAPI drift |
 | B3 — Health / Logs / Security | 先交付 read-mostly normalized health、bounded redacted logs、显式 deep check 和 security audit | parser/size/redaction/timeout/API/Desktop focused Gate |
 | B4 — Skills | live inventory、inspect/audit、approved install/update/config/remove、reconciliation 和 Desktop | source/traversal/scan/Profile isolation/rollback/manual smoke |
@@ -515,6 +522,21 @@ backup 静默删除或重新解释已有 backup row。
 | B8 — Managed Hermes Upgrade / Rollback | plan、new generation build、seal、activate、post-check、retention 和 rollback | exact-source/final-path/CAS/data compatibility/lifecycle/channel/manual smoke |
 | B9 — 完整 UX / Recovery | 跨 feature 状态、重试/恢复、i18n、accessibility、diagnostics 和 onboarding | end-to-end Desktop flow + daemon restart recovery |
 | B10 — Candidate / Audit / Freeze | 完整 Gate、Windows smoke、精确候选 CI、独立审计、必要修复与重审、Owner Gate | PASS 后才允许 merge/final-main/tag |
+
+并行 lane：
+
+```text
+B2 shared contracts ─┬─ B3 Health / Logs / Security
+                     ├─ B4 Skills
+                     ├─ B5 MCP
+                     ├─ B6 Backup Create ─ B7 Restore
+                     └─ B8 Upgrade / Rollback
+
+B3–B8 focused Gates ─→ B9 integration / recovery UX ─→ B10 full audit / freeze
+```
+
+B6/B7 共享 backup format，B8 依赖已验证保护点与 exact compatibility；这些是真实前置
+依赖，不能伪并行。其余 lane 不得编辑彼此 owning package 或重复生成同一合同。
 
 ## 16. 测试矩阵
 
@@ -560,6 +582,9 @@ backup 静默删除或重新解释已有 backup row。
 - 有真实外部副作用的 batch 运行独立、脱敏 Windows smoke。
 
 不重复运行未变化的完整 CI。
+
+聚焦 Gate 不是阶段审计。开发/测试智能体可以并行修复其 owning lane；不得为获得绿灯
+弱化测试。正式独立审计只对 B10 的不可变完整候选执行。
 
 ### 17.2 Phase 7 候选 Gate
 
@@ -646,7 +671,8 @@ Phase 7 只有在以下全部成立时才能进入 Audit：
 
 ## 20. 强制停止条件
 
-出现以下任一情况必须停止对应 batch 并交回 Owner：
+出现以下任一情况必须停止对应危险 surface 并交回主中枢/Owner。除共享信任边界被破坏
+外，其他独立 lane 继续：
 
 - P6.5 尚未冻结/放弃，或 P7 branch 不是正式 baseline 的后继；
 - official Hermes surface 不能提供 non-interactive、scope-exact、bounded、可验证结果；
