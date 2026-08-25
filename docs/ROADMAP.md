@@ -2,13 +2,47 @@
 
 ## Product direction
 
-YORVA starts as a local Hermes deployment/control experience and evolves into a general AI Runtime deployment and control platform.
+YORVA starts as a local Hermes deployment/control experience and evolves into a **local-first, Runtime-neutral Agent Runtime management infrastructure**.
+
+The long-term product path is deliberately ordered:
+
+```text
+manage one Runtime well
+→ manage many Instances on one machine
+→ validate the abstraction with a second Runtime
+→ turn yorvad into a durable YORVA Node
+→ manage many Nodes from YORVA Control
+→ manage configuration and desired state across a Fleet
+→ add enterprise governance only when real customer requirements justify it
+```
+
+YORVA is not intended to become an Agent application builder. Prompt authoring, workflow design, RAG orchestration, multi-Agent business logic and general-purpose Agent evaluation are outside the Runtime-management core unless a later ADR establishes a separate product layer.
+
+The product boundary is:
+
+```text
+YORVA Control        optional central multi-Node control plane
+        ↓
+YORVA Node           yorvad as the management authority for one machine
+        ↓
+Runtime Contract     normalized management intent and capabilities
+        ↓
+Runtime Adapter      concrete Runtime integration
+        ↓
+Runtime / Instance   Hermes and future native AI Runtimes
+```
+
+Local operation remains first-class. A future Control Plane must not become mandatory for local functionality, and it must never bypass the same application use cases used by the local Desktop.
 
 Roadmap rules:
 
 > Do not build the next phase to compensate for an unfinished current phase.
 
 > Every implementation phase must pass the audit/gate process in `PHASE_GOVERNANCE.md` and `AUDIT_STANDARD.md` before the next phase begins.
+
+> Validate Runtime-neutral abstractions with a real second Runtime before building distributed abstractions that depend on them.
+
+> Central management means typed Runtime/Instance management, not a generic remote shell, arbitrary process executor or unrestricted file API.
 
 `ROADMAP.md` defines direction and candidate deliverables. Detailed implementation is authorized by the current Phase Spec, not by roadmap text alone.
 
@@ -311,43 +345,163 @@ This infrastructure result is retained rather than relabeled: the exact-candidat
 already passed from the unchanged product commit and its downloaded artifact was independently
 hashed. No source, executable, resource or packaging input changed after that accepted MSI.
 
-## Phase 7 — Runtime management completeness
+## Phase 7 — Single-Node Runtime operations completeness
 
-Goal: make YORVA practical for daily local management.
+Goal: complete the local, terminal-free operating loop for multiple Runtime Instances on one machine before adding distributed management.
 
 Candidate deliverables:
 
-- Skills;
-- MCP;
-- backups/restores;
-- Hermes upgrades;
-- richer health/log views;
-- feature-specific recovery UX for Skills, MCP, backup/restore and upgrade workflows.
+- Skills management through stable Runtime integration paths;
+- MCP configuration and status through stable Runtime integration paths;
+- backup and restore workflows with explicit scope and recovery semantics;
+- Hermes upgrade workflow with provenance, compatibility and rollback/recovery rules;
+- richer Runtime/Instance health views;
+- richer structured log and diagnostics views;
+- multi-Instance operational overview on one Node;
+- feature-specific recovery UX for Skills, MCP, backup/restore, upgrade and lifecycle failures;
+- reconciliation after supported external Runtime state changes.
 
-Only implement features with stable Hermes integration paths.
+Only implement capabilities that have a stable Hermes integration path. Do not introduce distributed abstractions, Fleet concepts or a second Runtime inside Phase 7.
+
+Exit criteria:
+
+```text
+fresh supported machine
+→ install/open YORVA
+→ detect or install Hermes
+→ create multiple Instances
+→ configure models/credentials
+→ configure Skills and MCP where supported
+→ connect supported channels
+→ run multiple Instances
+→ inspect authoritative health/log state
+→ create and restore backup
+→ perform supported Runtime upgrade
+→ recover from bounded failures
+```
+
+The normal path must not require the user to open a terminal or directly edit Runtime files.
 
 ## Phase 8 — Local product hardening
 
-Goal: prepare a public local release.
+Goal: turn the completed single-Node experience into a dependable public local product before validating additional Runtime or remote-management scope.
 
 Deliverables:
 
 - Windows installer/update path;
-- macOS/Linux validation where feasible;
-- migration/upgrade tests;
-- crash recovery;
-- telemetry decision (opt-in or none; separate ADR if introduced);
-- security review;
+- migration and upgrade tests across supported YORVA versions;
+- application and daemon crash recovery;
+- machine reboot/startup continuity for supported local scenarios;
+- macOS/Linux validation where feasible, without weakening the Windows baseline;
+- telemetry decision (`opt-in` or none; separate ADR if introduced);
+- security review and threat-model refresh;
 - signed release pipeline;
-- user-facing diagnostics/export bundle without secrets.
+- user-facing diagnostics/export bundle without secrets;
+- documented support matrix and recovery guidance.
 
-## Phase 9 — Optional Control Plane prototype
+Exit criteria:
 
-Start only after local product is stable.
+- a supported user can install, update, restart and recover YORVA without development tooling;
+- supported local data survives version migration according to documented ownership rules;
+- failures produce actionable diagnostics without exposing credentials;
+- the local product remains fully usable without YORVA Control.
 
-Goal: manage multiple Nodes remotely without exposing inbound management ports.
+## Phase 9 — Second Runtime validation
 
-Technology:
+This phase is intentionally before distributed Control Plane work.
+
+Goal: prove that the Runtime Contract is genuinely Runtime-neutral before remote and Fleet abstractions depend on it.
+
+Runtime selection criteria:
+
+- real product or customer demand;
+- stable enough integration surfaces to support production-quality management;
+- meaningful overlap with existing YORVA capabilities;
+- enough differences from Hermes to expose false assumptions in Core;
+- no requirement to fake unsupported features merely to satisfy symmetry.
+
+Process:
+
+1. choose one real second Runtime;
+2. implement it through the current Runtime registry and focused capability interfaces where possible;
+3. record every contract friction point and Hermes-specific assumption exposed;
+4. generalize only concepts demonstrated by both Runtimes;
+5. keep truly Runtime-specific concepts inside adapter metadata or adapter-owned behavior;
+6. decide only after evidence whether a separate Runtime SDK/plugin process is justified.
+
+Candidate deliverables:
+
+- second Runtime descriptor and adapter;
+- discovery/compatibility integration;
+- installation integration only if the selected Runtime has a stable and safe installation surface;
+- Instance mapping where the Runtime exposes an independently manageable unit;
+- lifecycle/configuration/credential capability mapping where actually supported;
+- capability and unsupported-state normalization;
+- cross-Runtime contract tests;
+- Desktop and Node views that do not branch on concrete Runtime kind for generic behavior;
+- documented abstraction gaps and accepted non-uniform behavior.
+
+Explicitly not required:
+
+- a Runtime marketplace;
+- arbitrary third-party plugins;
+- a stable external Runtime SDK;
+- identical feature sets across Runtimes;
+- generic file/process access to compensate for weak Runtime integrations.
+
+Exit criteria:
+
+- Hermes and the second Runtime can coexist on one YORVA Node;
+- the same application layer can manage both through Runtime-neutral use cases;
+- unsupported capabilities are explicit rather than simulated;
+- Desktop generic flows do not require scattered `runtime == ...` logic;
+- any Core generalization is backed by evidence from at least two real Runtime implementations.
+
+## Phase 10 — YORVA Node
+
+Goal: turn `yorvad` from a Desktop companion daemon into a durable, headless Node management authority that can operate a machine independently of the Desktop UI.
+
+A YORVA Node owns management of the Runtimes and Instances on exactly one machine. Future YORVA Control manages Nodes; it does not directly manage OS processes or Runtime files.
+
+Candidate deliverables:
+
+- headless `yorvad` operating mode;
+- supported OS service integration, beginning with the primary Windows deployment target;
+- durable Node identity;
+- boot/restart recovery and inventory reconciliation;
+- authoritative Runtime and Instance inventory snapshot;
+- concurrent management of multiple supported Runtimes and multiple Instances;
+- Node health and management-readiness state;
+- bounded local resource/conflict reporting where required for safe Runtime operations;
+- local administrative bootstrap suitable for a server without Desktop UI;
+- remote-transport boundary designed for a later outbound Control connection without enabling it prematurely.
+
+Architectural rules:
+
+- Node management remains typed through application use cases;
+- no public unauthenticated management listener;
+- no universal `shell.exec`, `process.exec` or arbitrary file mutation API;
+- Runtime executable paths, commands and native process topology remain adapter-owned;
+- Desktop, when present, is a client of the same Node authority rather than a second management authority.
+
+Exit criteria:
+
+```text
+machine boots
+→ YORVA Node service starts
+→ Runtime inventory reconciles
+→ Instance inventory reconciles
+→ supported Runtime/Instance operations work without Desktop
+→ service restarts without losing management authority
+```
+
+## Phase 11 — YORVA Control Plane
+
+Start only after Phase 10 proves a stable Node boundary.
+
+Goal: manage multiple YORVA Nodes remotely without exposing inbound Node management ports and without bypassing Node application semantics.
+
+Initial technology direction:
 
 ```text
 Go modular monolith
@@ -356,66 +510,142 @@ HTTPS
 outbound Node WSS
 ```
 
-Deliverables:
+Candidate deliverables:
 
-- user/org minimum model;
-- device pairing;
+- minimum user/organization model;
+- Node/device pairing;
 - Node inventory;
-- heartbeat;
-- typed remote command;
-- remote Operation progress;
-- audit trail.
+- Node heartbeat and connectivity state;
+- Runtime/Instance inventory projection from each Node;
+- typed remote commands that map to existing Node application use cases;
+- remote Operation progress and terminal state;
+- bounded retry/idempotency rules for remote Operations;
+- audit trail for remote management actions;
+- safe disconnect/reconnect behavior;
+- Console views for Nodes, Runtimes, Instances and Operations.
 
-Explicitly not required for first prototype:
+First prototype explicitly does not require:
 
 - microservices;
 - billing;
-- complex RBAC;
+- complex enterprise RBAC;
 - Kubernetes;
-- Redis/Kafka unless proven necessary.
+- Redis/Kafka unless measured need appears;
+- desired-state reconciliation across a Fleet;
+- generic remote administration capabilities.
 
-## Phase 10 — Enterprise management
+Exit criteria:
 
-Driven by real customer requirements.
+- one Control Plane can pair and observe multiple Nodes;
+- a user can issue a supported typed Runtime/Instance operation to a selected Node;
+- the Node executes that operation through the same application layer as local requests;
+- progress/result survives bounded reconnect scenarios;
+- the Node never requires an inbound public management port.
+
+## Phase 12 — Fleet configuration and Desired State
+
+Goal: move from one-command-at-a-time remote management to safe, centralized configuration and drift management across many Nodes.
+
+Core concepts introduced here must remain Runtime-management concepts, not Agent application-definition concepts.
+
+Candidate concepts:
+
+- `FleetGroup` or equivalent Node grouping/tagging;
+- `InstanceTemplate` for normalized Runtime/Instance configuration intent;
+- versioned Desired State records;
+- Actual State projection from Nodes;
+- drift detection;
+- bounded reconciliation;
+- staged/batch rollout;
+- pause/resume and failure containment;
+- configuration diff/preview before rollout;
+- bulk Runtime/Instance operations;
+- policy-scoped Runtime upgrade rollout;
+- audit linkage from Desired State revision to resulting Operations.
+
+An Instance template may describe infrastructure/runtime concerns such as:
+
+```text
+Runtime kind/version constraint
+Instance lifecycle/startup policy
+Provider/model selection metadata
+Skills/MCP configuration where normalized
+Channel configuration where normalized
+backup/upgrade policy references
+```
+
+It must not silently expand into application-authoring concerns such as arbitrary system prompts, RAG pipelines, business workflows or multi-Agent orchestration.
+
+Desired State model:
+
+```text
+Control Desired State
+        ↓
+Node compares Desired State with Actual State
+        ↓
+Node executes typed YORVA use cases
+        ↓
+Actual State converges or reports bounded drift/failure
+```
+
+Exit criteria:
+
+- a user can target a group of Nodes/Instances with a versioned configuration intent;
+- the system can show Desired vs Actual State;
+- drift is visible and explainable;
+- reconciliation uses typed Node operations rather than arbitrary remote execution;
+- one failed Node does not cause uncontrolled Fleet-wide retry or mutation.
+
+## Phase 13 — Enterprise management
+
+Driven by real customer and deployment requirements after the Runtime, Node, Control and Fleet boundaries are proven.
 
 Possible scope:
 
-- organization/teams;
-- RBAC/policies;
-- SSO;
-- fleet groups;
-- bulk upgrade policy;
-- audit retention;
-- private deployment;
-- enterprise secret provider integration;
-- templates/distributions.
+- organizations/teams at production scale;
+- role-based access control and scoped policies;
+- SSO and enterprise identity integration;
+- approval boundaries for sensitive or production operations;
+- audit retention/export requirements;
+- private/on-premises Control deployment;
+- enterprise secret-provider integration;
+- tenant or organizational separation where required;
+- enterprise distribution/template governance;
+- compliance and policy reporting;
+- HA/backup requirements for YORVA Control when justified by deployments.
 
-Do not commit to all features before discovery.
+Do not commit to every enterprise feature before discovery. In particular, billing, SaaS multi-tenancy, microservices, Kubernetes deployment and external policy engines are not default requirements.
 
-## Phase 11 — Second Runtime
+## Product boundaries / non-goals
 
-This is the trigger to validate the Runtime abstraction.
+The following are not part of the core roadmap unless later evidence and an ADR create a distinct product layer:
 
-Process:
+- general Agent workflow builder;
+- RAG application platform;
+- prompt-management studio;
+- arbitrary multi-Agent orchestration framework;
+- general LLM gateway built only for feature parity with other platforms;
+- Kubernetes replacement or container orchestrator;
+- generic RMM/remote-shell product;
+- unrestricted remote file/process administration;
+- dynamic Runtime marketplace before a real plugin ecosystem is justified.
 
-1. choose a real second Runtime based on product demand;
-2. implement with current contract where possible;
-3. record friction/gaps;
-4. generalize only demonstrated common concepts;
-5. decide whether a separate Runtime SDK/plugin process is justified.
-
-A dynamic Runtime marketplace is not built before this phase proves the need.
+YORVA may integrate with upper-layer Agent platforms. Its core responsibility is to make Runtime and Instance deployment, configuration, lifecycle, recovery and Fleet operation reliable enough that those upper layers do not need to understand each Runtime's native operational details.
 
 ## Release naming suggestion
 
 ```text
 0.1  foundation + Hermes discovery/compatibility
 0.2  Hermes installation + multi-instance
-0.3  model configuration + Weixin/WeCom channels
-0.4  Skills/MCP/backup/upgrade
+0.3  model configuration + lifecycle + Weixin/WeCom channels
+0.4  single-Node Runtime operations completeness
 0.5  local hardening/public beta
-0.8  optional remote Control Plane beta
-1.0  stable local + remote management contract
+0.6  second Runtime validation
+0.7  headless YORVA Node
+0.8  multi-Node YORVA Control beta
+0.9  Fleet configuration + Desired State
+1.0  stable local + multi-Runtime + Node + Control management contract
+1.x  enterprise management driven by deployment requirements
 ```
 
 Version numbers are planning labels, not promises.
