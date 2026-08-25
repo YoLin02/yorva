@@ -57,6 +57,12 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	models, _ := instances.(ModelConfigurationService)
 	lifecycle, _ := instances.(InstanceLifecycleService)
 	channels, _ := instances.(ChannelService)
+	var skills ManagementSkillsService
+	var mcp ManagementMCPReadService
+	if targets, ok := instances.(app.ManagementTargetResolver); ok {
+		skills = app.NewManagementSkills(targets)
+		mcp = app.NewMCPManagement(targets)
+	}
 	mux.HandleFunc("GET /api/v1/health", health)
 	mux.Handle("GET /api/v1/node", requireBearer(token, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -91,6 +97,10 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("DELETE /api/v1/instances/{instanceId}/channels/{channelType}", requireBearer(token, disconnectInstanceChannel(channels)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/channels/{channelType}/pairings", requireBearer(token, getChannelPairingStatus(channels)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/channels/{channelType}/pairings/approve", requireBearer(token, approveChannelPairing(channels)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/skills", requireBearer(token, listInstanceSkills(skills)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/skills/{skillId}", requireBearer(token, inspectInstanceSkill(skills)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/mcp-servers", requireBearer(token, listMCPServers(mcp)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/mcp-catalog", requireBearer(token, listMCPPresets(mcp)))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
 	mux.Handle("GET /api/v1/operations/{operationId}/channel-qr", requireBearer(token, getChannelQR(channels)))
 	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
@@ -205,7 +215,34 @@ func allowedMethods(path string) (string, bool) {
 	case "channel-pairing-approve":
 		return "POST, OPTIONS", true
 	}
+	switch managementReadPathKind(path) {
+	case "skills", "skill", "mcp-servers", "mcp-catalog":
+		return "GET, OPTIONS", true
+	}
 	return "", false
+}
+
+func managementReadPathKind(path string) string {
+	const prefix = "/api/v1/instances/"
+	if !strings.HasPrefix(path, prefix) {
+		return ""
+	}
+	parts := strings.Split(strings.TrimPrefix(path, prefix), "/")
+	if len(parts) < 2 || parts[0] == "" {
+		return ""
+	}
+	switch {
+	case len(parts) == 2 && parts[1] == "skills":
+		return "skills"
+	case len(parts) == 3 && parts[1] == "skills" && parts[2] != "":
+		return "skill"
+	case len(parts) == 2 && parts[1] == "mcp-servers":
+		return "mcp-servers"
+	case len(parts) == 2 && parts[1] == "mcp-catalog":
+		return "mcp-catalog"
+	default:
+		return ""
+	}
 }
 
 func methodAllowed(method, allowed string) bool {

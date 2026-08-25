@@ -293,6 +293,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/skills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /** List safe authoritative Skills for one Instance */
+        get: operations["listInstanceSkills"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Instance Skills */
+        options: operations["optionsInstanceSkills"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/skills/{skillId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        /** Inspect one safe authoritative Instance Skill */
+        get: operations["inspectInstanceSkill"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for one Instance Skill */
+        options: operations["optionsInstanceSkill"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/mcp-servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /** List safe configured MCP state for one Instance */
+        get: operations["listInstanceMCPServers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for configured Instance MCP state */
+        options: operations["optionsInstanceMCPServers"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/mcp-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /** List reviewed MCP presets available to one Instance */
+        get: operations["listInstanceMCPPresets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for reviewed Instance MCP presets */
+        options: operations["optionsInstanceMCPPresets"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}/config": {
         parameters: {
             query?: never;
@@ -794,6 +875,40 @@ export interface components {
             capabilities: components["schemas"]["InstanceCapabilities"];
             errorCode: string | null;
         };
+        Skill: {
+            id: string;
+            sourceId?: string;
+            version?: string;
+            /** @enum {string} */
+            installationState: "INSTALLED" | "NOT_INSTALLED" | "UNKNOWN";
+            /** @enum {string} */
+            enabledState: "ENABLED" | "DISABLED" | "UNKNOWN";
+            /** @enum {string} */
+            scanState: "CLEAN" | "WARNING" | "BLOCKED" | "NOT_SCANNED" | "UNKNOWN";
+            updateAvailable: boolean;
+        };
+        SkillList: {
+            items: components["schemas"]["Skill"][];
+        };
+        MCPServer: {
+            id: string;
+            presetId: string;
+            /** @enum {string} */
+            state: "NOT_CONFIGURED" | "CONFIGURED" | "AUTH_REQUIRED" | "READY" | "FAILED" | "UNKNOWN";
+            readyAt: string | null;
+            /** Format: date-time */
+            observedAt: string;
+        };
+        MCPServerList: {
+            items: components["schemas"]["MCPServer"][];
+        };
+        MCPPreset: {
+            id: string;
+            displayName: string;
+        };
+        MCPPresetList: {
+            items: components["schemas"]["MCPPreset"][];
+        };
         ModelProviderPreset: {
             /** @enum {string} */
             id: "deepseek" | "qwen" | "kimi" | "minimax" | "glm" | "openrouter" | "openai" | "anthropic";
@@ -937,7 +1052,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description Authoritative Runtime model state could not be safely queried or changed. */
+        /** @description Authoritative Runtime management state could not be safely queried or changed. */
         ServiceUnavailable: {
             headers: {
                 [name: string]: unknown;
@@ -954,6 +1069,7 @@ export interface components {
         ChannelType: "weixin" | "wecom";
         OperationId: string;
         InstanceId: string;
+        SkillId: string;
     };
     requestBodies: never;
     headers: never;
@@ -1672,6 +1788,185 @@ export interface operations {
             header?: never;
             path: {
                 instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listInstanceSkills: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bounded exact-Instance Skill inventory without native paths or configuration contents. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceSkills: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    inspectInstanceSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Safe Skill identity, state, version, source identity, and scan projection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Skill"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listInstanceMCPServers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded configured MCP identity and CONFIGURED/READY state without URLs, headers, commands, environment, paths, secrets, or tool descriptions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPServerList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceMCPServers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listInstanceMCPPresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bounded safe projection of the compile-time reviewed preset set. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPPresetList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceMCPPresets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
             };
             cookie?: never;
         };

@@ -298,11 +298,33 @@ POST /api/v1/operations/{operationId}/cancel
 
 Cancel may return `OPERATION_NOT_CANCELLABLE`.
 
-### Backups
+### Phase 7 read-only management
 
 ```text
-POST /api/v1/instances/{instanceId}/backups
-GET  /api/v1/instances/{instanceId}/backups
+GET /api/v1/instances/{instanceId}/skills
+GET /api/v1/instances/{instanceId}/skills/{skillId}
+GET /api/v1/instances/{instanceId}/mcp-servers
+GET /api/v1/instances/{instanceId}/mcp-catalog
+```
+
+These resources are authenticated, bounded safe projections. They never return native
+paths, Skill contents/configuration, MCP URLs, headers, commands, environment, credentials
+or tool descriptions. `CONFIGURED` is not `READY`; a `READY` MCP result includes explicit
+time-bounded evidence. An unwired or unqualified Runtime feature returns
+`CAPABILITY_NOT_SUPPORTED` and does not fall back to a human-readable CLI.
+
+No Phase 7 Skill or MCP mutation route is registered until a durable Operation owner and
+qualified adapter exist.
+
+### Reserved Backup / Restore resources
+
+Backup scope is Runtime-wide, not Instance-wide. The following resources remain reserved
+and are not registered while ADR-0013, encryption/key authority and destructive Restore
+qualification are pending:
+
+```text
+GET  /api/v1/runtimes/{runtimeId}/backups
+POST /api/v1/runtimes/{runtimeId}/backups
 POST /api/v1/backups/{backupId}/restore
 DELETE /api/v1/backups/{backupId}
 ```

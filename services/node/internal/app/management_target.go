@@ -23,10 +23,23 @@ type ManagementTarget struct {
 	Bundle       yorvaruntime.Bundle
 }
 
+// RuntimeManagementTarget is the live Runtime installation selected for a
+// Runtime-scoped management use case such as backup or upgrade. InstallationID
+// is YORVA-owned coordination metadata and must not be passed to the adapter.
+type RuntimeManagementTarget struct {
+	Installation   yorvaruntime.Installation
+	InstallationID string
+	Bundle         yorvaruntime.Bundle
+}
+
 // ManagementTargetResolver resolves live-management ownership without making
 // the individual feature use cases depend on SQLite or Runtime discovery.
 type ManagementTargetResolver interface {
 	ResolveManagementTarget(context.Context, string) (ManagementTarget, error)
+}
+
+type RuntimeManagementTargetResolver interface {
+	ResolveRuntimeManagementTarget(context.Context, string) (RuntimeManagementTarget, error)
 }
 
 func (s *InstanceInventory) ResolveManagementTarget(ctx context.Context, instanceID string) (ManagementTarget, error) {
@@ -58,6 +71,16 @@ func (s *InstanceInventory) ResolveManagementTarget(ctx context.Context, instanc
 		return ManagementTarget{}, ErrRuntimeNotSupported
 	}
 
+	detected, err := s.discovery.Detect(ctx, accepted.RuntimeKind)
+	if err != nil || detected.RuntimeKind != accepted.RuntimeKind || detected.State != yorvaruntime.DiscoverySupported || detected.Selected == nil ||
+		detected.Selected.State != yorvaruntime.DiscoverySupported || detected.Selected.Path == "" ||
+		detected.Selected.Path != accepted.InstallPath || detected.Selected.Version == "" {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ManagementTarget{}, ctxErr
+		}
+		return ManagementTarget{}, ErrRuntimeNotSupported
+	}
+
 	bundle, ok := s.discovery.registry.Get(accepted.RuntimeKind)
 	if !ok || bundle.Descriptor.Kind != accepted.RuntimeKind {
 		return ManagementTarget{}, ErrRuntimeNotSupported
@@ -66,12 +89,57 @@ func (s *InstanceInventory) ResolveManagementTarget(ctx context.Context, instanc
 	return ManagementTarget{
 		Installation: yorvaruntime.Installation{
 			RuntimeKind:  accepted.RuntimeKind,
-			Path:         accepted.InstallPath,
-			Version:      accepted.Version,
-			SupportState: accepted.SupportState,
+			Path:         detected.Selected.Path,
+			Version:      detected.Selected.Version,
+			SupportState: detected.State,
 		},
 		NativeID: row.NativeID,
 		Bundle:   bundle,
+	}, nil
+}
+
+func (s *InstanceInventory) ResolveRuntimeManagementTarget(ctx context.Context, runtimeID string) (RuntimeManagementTarget, error) {
+	if s == nil || s.db == nil || s.discovery == nil || s.discovery.registry == nil || runtimeID == "" {
+		return RuntimeManagementTarget{}, ErrRuntimeNotSupported
+	}
+
+	kind := yorvaruntime.Kind(runtimeID)
+	detected, err := s.discovery.Detect(ctx, kind)
+	if err != nil || detected.RuntimeKind != kind || detected.State != yorvaruntime.DiscoverySupported ||
+		detected.Selected == nil || detected.Selected.State != yorvaruntime.DiscoverySupported ||
+		detected.Selected.Path == "" || detected.Selected.Version == "" {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return RuntimeManagementTarget{}, ctxErr
+		}
+		return RuntimeManagementTarget{}, ErrRuntimeNotSupported
+	}
+
+	accepted, err := s.db.GetAcceptedInstallation(ctx, s.nodeID, kind, detected.Selected.Path)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return RuntimeManagementTarget{}, ErrRuntimeNotSupported
+		}
+		return RuntimeManagementTarget{}, managementTargetError(ctx, err)
+	}
+	if accepted.NodeID != s.nodeID || accepted.RuntimeKind != kind || accepted.InstallPath != detected.Selected.Path ||
+		accepted.Status != "ACCEPTED" || accepted.SupportState != yorvaruntime.DiscoverySupported {
+		return RuntimeManagementTarget{}, ErrRuntimeNotSupported
+	}
+
+	bundle, ok := s.discovery.registry.Get(kind)
+	if !ok || bundle.Descriptor.Kind != kind {
+		return RuntimeManagementTarget{}, ErrRuntimeNotSupported
+	}
+
+	return RuntimeManagementTarget{
+		Installation: yorvaruntime.Installation{
+			RuntimeKind:  kind,
+			Path:         detected.Selected.Path,
+			Version:      detected.Selected.Version,
+			SupportState: detected.State,
+		},
+		InstallationID: accepted.ID,
+		Bundle:         bundle,
 	}, nil
 }
 

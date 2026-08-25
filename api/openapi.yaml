@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: YORVA Local Node API
   version: 0.0.0
-  description: Local loopback contract between YORVA Desktop and yorvad through Phase 6 lifecycle and messaging channels.
+  description: Local loopback contract between YORVA Desktop and yorvad through the safe Phase 7 read-only management surface.
 servers:
   - url: http://127.0.0.1:{port}
     variables:
@@ -22,6 +22,10 @@ tags:
     description: Safe model Provider presets, configuration, credentials, and explicit validation.
   - name: Channels
     description: Instance-scoped Weixin and WeCom connection state and Operations.
+  - name: Skills
+    description: Safe authoritative Instance Skill inventory and inspection.
+  - name: MCP
+    description: Safe authoritative configured MCP and reviewed preset inventory.
   - name: Settings
     description: Non-secret local management settings.
   - name: Operations
@@ -693,6 +697,169 @@ paths:
       operationId: optionsInstance
       summary: Validate CORS access for one Instance
       tags: [Instances]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/skills:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      operationId: listInstanceSkills
+      summary: List safe authoritative Skills for one Instance
+      tags: [Skills]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The bounded exact-Instance Skill inventory without native paths or configuration contents.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceSkills
+      summary: Validate CORS access for Instance Skills
+      tags: [Skills]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/skills/{skillId}:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/SkillId"
+    get:
+      operationId: inspectInstanceSkill
+      summary: Inspect one safe authoritative Instance Skill
+      tags: [Skills]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Safe Skill identity, state, version, source identity, and scan projection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Skill"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceSkill
+      summary: Validate CORS access for one Instance Skill
+      tags: [Skills]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/mcp-servers:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      operationId: listInstanceMCPServers
+      summary: List safe configured MCP state for one Instance
+      tags: [MCP]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Bounded configured MCP identity and CONFIGURED/READY state without URLs, headers, commands, environment, paths, secrets, or tool descriptions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MCPServerList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceMCPServers
+      summary: Validate CORS access for configured Instance MCP state
+      tags: [MCP]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/mcp-catalog:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      operationId: listInstanceMCPPresets
+      summary: List reviewed MCP presets available to one Instance
+      tags: [MCP]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The bounded safe projection of the compile-time reviewed preset set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MCPPresetList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceMCPPresets
+      summary: Validate CORS access for reviewed Instance MCP presets
+      tags: [MCP]
       security: []
       responses:
         "204":
@@ -1478,7 +1645,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     ServiceUnavailable:
-      description: Authoritative Runtime model state could not be safely queried or changed.
+      description: Authoritative Runtime management state could not be safely queried or changed.
       content:
         application/json:
           schema:
@@ -1522,6 +1689,15 @@ components:
       required: true
       schema:
         type: string
+    SkillId:
+      name: skillId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
   schemas:
     Health:
       type: object
@@ -1986,6 +2162,104 @@ components:
           $ref: "#/components/schemas/InstanceCapabilities"
         errorCode:
           type: ["string", "null"]
+    Skill:
+      type: object
+      additionalProperties: false
+      required: [id, installationState, enabledState, scanState, updateAvailable]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+        sourceId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+        version:
+          type: string
+          maxLength: 4096
+        installationState:
+          type: string
+          enum: [INSTALLED, NOT_INSTALLED, UNKNOWN]
+        enabledState:
+          type: string
+          enum: [ENABLED, DISABLED, UNKNOWN]
+        scanState:
+          type: string
+          enum: [CLEAN, WARNING, BLOCKED, NOT_SCANNED, UNKNOWN]
+        updateAvailable:
+          type: boolean
+    SkillList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 256
+          items:
+            $ref: "#/components/schemas/Skill"
+    MCPServer:
+      type: object
+      additionalProperties: false
+      required: [id, presetId, state, readyAt, observedAt]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+        presetId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+        state:
+          type: string
+          enum: [NOT_CONFIGURED, CONFIGURED, AUTH_REQUIRED, READY, FAILED, UNKNOWN]
+        readyAt:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: "null"
+        observedAt:
+          type: string
+          format: date-time
+    MCPServerList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 256
+          items:
+            $ref: "#/components/schemas/MCPServer"
+    MCPPreset:
+      type: object
+      additionalProperties: false
+      required: [id, displayName]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+        displayName:
+          type: string
+          maxLength: 4096
+    MCPPresetList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 256
+          items:
+            $ref: "#/components/schemas/MCPPreset"
     ModelProviderPreset:
       type: object
       additionalProperties: false

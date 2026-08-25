@@ -100,6 +100,27 @@ func TestInstanceInventoryResolveManagementTargetContextAndQueryFailure(t *testi
 	}
 }
 
+func TestInstanceInventoryResolveRuntimeManagementTargetUsesLiveAcceptedInstallation(t *testing.T) {
+	inventory, _, _, accepted := newB3ManagementTargetFixture(t)
+
+	target, err := inventory.ResolveRuntimeManagementTarget(context.Background(), "hermes")
+	if err != nil {
+		t.Fatalf("ResolveRuntimeManagementTarget() error = %v", err)
+	}
+	if target.InstallationID != accepted.ID || target.Installation.RuntimeKind != "hermes" ||
+		target.Installation.Path != accepted.InstallPath || target.Installation.Version != accepted.Version ||
+		target.Installation.SupportState != yorvaruntime.DiscoverySupported || target.Bundle.Descriptor.Kind != "hermes" {
+		t.Fatalf("target = %#v", target)
+	}
+
+	if _, err := inventory.ResolveRuntimeManagementTarget(context.Background(), ""); !errors.Is(err, ErrRuntimeNotSupported) {
+		t.Fatalf("empty runtime error = %v, want ErrRuntimeNotSupported", err)
+	}
+	if _, err := inventory.ResolveRuntimeManagementTarget(context.Background(), "unknown"); !errors.Is(err, ErrRuntimeNotSupported) {
+		t.Fatalf("unknown runtime error = %v, want ErrRuntimeNotSupported", err)
+	}
+}
+
 func newB3ManagementTargetFixture(t *testing.T) (*InstanceInventory, *sqlite.Database, string, sqlite.AcceptedInstallation) {
 	t.Helper()
 	ctx := context.Background()
@@ -134,6 +155,13 @@ func newB3ManagementTargetFixture(t *testing.T) (*InstanceInventory, *sqlite.Dat
 	registry := yorvaruntime.NewRegistry()
 	if err := registry.Register("hermes", yorvaruntime.Bundle{
 		Descriptor: yorvaruntime.Descriptor{Kind: "hermes", Name: "Hermes"},
+		Discoverer: inventoryDiscoverer{result: yorvaruntime.Discovery{
+			RuntimeKind: "hermes",
+			State:       yorvaruntime.DiscoverySupported,
+			Selected: &yorvaruntime.Candidate{
+				Path: accepted.InstallPath, Version: accepted.Version, State: yorvaruntime.DiscoverySupported,
+			},
+		}},
 	}); err != nil {
 		t.Fatal(err)
 	}
