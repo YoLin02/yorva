@@ -2,9 +2,10 @@ package backupmanagement
 
 import "errors"
 
-// ErrorCode is a stable, safe classification for structural verification
-// failures. It is suitable for adapter-level normalization; the Error string
-// intentionally contains no archive member name or parser detail.
+// ErrorCode is a stable, safe classification for backup container encryption,
+// authentication and structural verification failures. It is suitable for
+// adapter-level normalization; the Error string intentionally contains no
+// credential, archive member name or parser detail.
 type ErrorCode string
 
 const (
@@ -29,6 +30,11 @@ const (
 	ErrorPayloadChecksumMismatch    ErrorCode = "BACKUP_PAYLOAD_CHECKSUM_MISMATCH"
 	ErrorPayloadMemberCountMismatch ErrorCode = "BACKUP_PAYLOAD_MEMBER_COUNT_MISMATCH"
 	ErrorPayloadExpandedMismatch    ErrorCode = "BACKUP_PAYLOAD_EXPANDED_SIZE_MISMATCH"
+	ErrorEncryptionFailed           ErrorCode = "BACKUP_ENCRYPTION_FAILED"
+	ErrorDecryptionFailed           ErrorCode = "BACKUP_DECRYPTION_FAILED"
+	ErrorCredentialInvalid          ErrorCode = "BACKUP_DECRYPTION_CREDENTIAL_INVALID"
+	ErrorEncryptedArtifactLimit     ErrorCode = "BACKUP_ENCRYPTED_ARTIFACT_LIMIT"
+	ErrorOperationCanceled          ErrorCode = "BACKUP_CRYPTO_OPERATION_CANCELED"
 )
 
 var ErrVerification = errors.New("backup structural verification failed")
@@ -104,6 +110,16 @@ func errorMessage(code ErrorCode) string {
 		return "the backup payload member count does not match its manifest"
 	case ErrorPayloadExpandedMismatch:
 		return "the backup payload expanded size does not match its manifest"
+	case ErrorEncryptionFailed:
+		return "the backup artifact could not be encrypted"
+	case ErrorDecryptionFailed:
+		return "the backup artifact could not be authenticated and decrypted"
+	case ErrorCredentialInvalid:
+		return "the backup decryption credential did not match"
+	case ErrorEncryptedArtifactLimit:
+		return "the encrypted backup artifact exceeds its size limit"
+	case ErrorOperationCanceled:
+		return "the backup cryptographic operation was canceled"
 	default:
 		return "backup structural verification failed"
 	}

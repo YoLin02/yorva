@@ -1,8 +1,9 @@
 package backupmanagement
 
 const (
-	// EncryptionQualified remains false until ADR-0013 and a reviewed age
-	// implementation receive Owner approval and qualification evidence.
+	// EncryptionQualified remains false until the complete B6 product flow,
+	// including protected staging and atomic publication, is qualified. The age
+	// container primitive does not itself advertise a production capability.
 	EncryptionQualified = false
 	// RestoreMutationQualified remains false because this package performs no
 	// extraction, protection-point creation, Runtime mutation or rollback.
