@@ -6,6 +6,22 @@ import type { InstanceList, Operation } from "../api/types";
 import { messages } from "../i18n";
 import { InstancesPage } from "./InstancesPage";
 
+const unavailableManagementCapabilities = {
+  healthRead: false,
+  logsRead: false,
+  securityAudit: false,
+  skillRead: false,
+  skillMutate: false,
+  mcpRead: false,
+  mcpMutate: false,
+  backupRead: false,
+  backupMutate: false,
+  restore: false,
+  upgradePlan: false,
+  upgrade: false,
+  rollback: false,
+};
+
 const inventory: InstanceList = {
   runtimeId: "hermes",
   runtimeInstallationId: "rtinst_test",
@@ -22,7 +38,7 @@ const inventory: InstanceList = {
       lastSyncedAt: "2026-08-19T12:00:00Z",
       createdAt: "2026-08-19T12:00:00Z",
       updatedAt: "2026-08-19T12:00:00Z",
-      capabilities: { instances: true, lifecycle: false },
+      capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: false },
     },
     {
       instanceId: "inst_coder",
@@ -34,10 +50,10 @@ const inventory: InstanceList = {
       lastSyncedAt: "2026-08-19T12:00:00Z",
       createdAt: "2026-08-19T12:00:00Z",
       updatedAt: "2026-08-19T12:00:00Z",
-      capabilities: { instances: true, lifecycle: false },
+      capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: false },
     },
   ],
-  capabilities: { instances: true, lifecycle: false },
+  capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: false },
   errorCode: null,
 };
 
@@ -378,8 +394,8 @@ describe("InstancesPage", () => {
     } as unknown as DaemonClient;
     const lifecycleInventory: InstanceList = {
       ...inventory,
-      instances: [{ ...inventory.instances[1], capabilities: { instances: true, lifecycle: true } }],
-      capabilities: { instances: true, lifecycle: true },
+      instances: [{ ...inventory.instances[1], capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: true } }],
+      capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: true },
     };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -415,8 +431,8 @@ describe("InstancesPage", () => {
     } as unknown as DaemonClient;
     const lifecycleInventory: InstanceList = {
       ...inventory,
-      instances: [{ ...inventory.instances[1], capabilities: { instances: true, lifecycle: true } }],
-      capabilities: { instances: true, lifecycle: true },
+      instances: [{ ...inventory.instances[1], capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: true } }],
+      capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: true },
     };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(

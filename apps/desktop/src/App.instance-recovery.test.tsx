@@ -61,6 +61,21 @@ const discovery = {
   detectedAt: "2026-08-19T00:00:00Z",
   supportedRange: "=0.20.2",
 };
+const unavailableManagementCapabilities = {
+  healthRead: false,
+  logsRead: false,
+  securityAudit: false,
+  skillRead: false,
+  skillMutate: false,
+  mcpRead: false,
+  mcpMutate: false,
+  backupRead: false,
+  backupMutate: false,
+  restore: false,
+  upgradePlan: false,
+  upgrade: false,
+  rollback: false,
+};
 
 const inventory: InstanceList = {
   runtimeId: "hermes",
@@ -78,7 +93,7 @@ const inventory: InstanceList = {
       lastSyncedAt: "2026-08-19T00:00:00Z",
       createdAt: "2026-08-19T00:00:00Z",
       updatedAt: "2026-08-19T00:00:00Z",
-      capabilities: { instances: true, lifecycle: false },
+      capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: false },
     },
     {
       instanceId: "inst_coder",
@@ -90,10 +105,10 @@ const inventory: InstanceList = {
       lastSyncedAt: "2026-08-19T00:00:00Z",
       createdAt: "2026-08-19T00:00:00Z",
       updatedAt: "2026-08-19T00:00:00Z",
-      capabilities: { instances: true, lifecycle: false },
+      capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: false },
     },
   ],
-  capabilities: { instances: true, lifecycle: false },
+  capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: false },
   errorCode: null,
 };
 

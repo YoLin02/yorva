@@ -47,8 +47,21 @@ type ProfileMutator interface {
 }
 
 type InstanceCapabilities struct {
-	Instances bool `json:"instances"`
-	Lifecycle bool `json:"lifecycle"`
+	Instances     bool `json:"instances"`
+	Lifecycle     bool `json:"lifecycle"`
+	HealthRead    bool `json:"healthRead"`
+	LogsRead      bool `json:"logsRead"`
+	SecurityAudit bool `json:"securityAudit"`
+	SkillRead     bool `json:"skillRead"`
+	SkillMutate   bool `json:"skillMutate"`
+	MCPRead       bool `json:"mcpRead"`
+	MCPMutate     bool `json:"mcpMutate"`
+	BackupRead    bool `json:"backupRead"`
+	BackupMutate  bool `json:"backupMutate"`
+	Restore       bool `json:"restore"`
+	UpgradePlan   bool `json:"upgradePlan"`
+	Upgrade       bool `json:"upgrade"`
+	Rollback      bool `json:"rollback"`
 }
 
 type InstanceView struct {
@@ -164,9 +177,10 @@ func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string)
 		return InstanceList{}, err
 	}
 	views := make([]InstanceView, 0, len(rows))
+	capabilities := s.capabilities()
 	var lastSync *time.Time
 	for _, row := range rows {
-		views = append(views, instanceView(row, s.lifecycleCapable()))
+		views = append(views, instanceView(row, capabilities))
 		if row.LastSyncedAt != nil && (lastSync == nil || row.LastSyncedAt.After(*lastSync)) {
 			lastSync = row.LastSyncedAt
 		}
@@ -177,7 +191,7 @@ func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string)
 		Freshness:             freshness,
 		LastSyncedAt:          lastSync,
 		Instances:             views,
-		Capabilities:          InstanceCapabilities{Instances: true, Lifecycle: s.lifecycleCapable()},
+		Capabilities:          capabilities,
 	}
 	if queryErr != nil {
 		result.ErrorCode = errorCodeFrom(queryErr)
@@ -196,7 +210,7 @@ func (s *InstanceInventory) GetInstance(ctx context.Context, instanceID string) 
 	if err != nil {
 		return InstanceView{}, err
 	}
-	return instanceView(row, s.lifecycleCapable()), nil
+	return instanceView(row, s.capabilities()), nil
 }
 
 func (s *InstanceInventory) ensureInstallation(ctx context.Context, discovery yorvaruntime.Discovery) (sqlite.AcceptedInstallation, error) {
@@ -259,7 +273,7 @@ func (s *InstanceInventory) lockInstance(id string) func() {
 	return s.lockInstallation("instance:" + id)
 }
 
-func instanceView(row instance.Instance, lifecycle bool) InstanceView {
+func instanceView(row instance.Instance, capabilities InstanceCapabilities) InstanceView {
 	return InstanceView{
 		InstanceID:            row.ID,
 		RuntimeInstallationID: row.RuntimeInstallationID,
@@ -270,16 +284,42 @@ func instanceView(row instance.Instance, lifecycle bool) InstanceView {
 		LastSyncedAt:          row.LastSyncedAt,
 		CreatedAt:             row.CreatedAt,
 		UpdatedAt:             row.UpdatedAt,
-		Capabilities:          InstanceCapabilities{Instances: true, Lifecycle: lifecycle},
+		Capabilities:          capabilities,
 	}
 }
 
-func (s *InstanceInventory) lifecycleCapable() bool {
+func (s *InstanceInventory) capabilities() InstanceCapabilities {
+	capabilities := InstanceCapabilities{Instances: true}
 	if s == nil || s.discovery == nil || s.discovery.registry == nil {
-		return false
+		return capabilities
 	}
 	bundle, ok := s.discovery.registry.Get(yorvaruntime.Kind(hermesRuntimeID))
-	return ok && bundle.Lifecycle != nil
+	if !ok {
+		return capabilities
+	}
+	return instanceCapabilities(bundle.ManagementCapabilities(), bundle.Lifecycle != nil)
+}
+
+func instanceCapabilities(management yorvaruntime.ManagementCapabilities, lifecycle bool) InstanceCapabilities {
+	capabilities := InstanceCapabilities{Instances: true, Lifecycle: lifecycle}
+	capabilities.HealthRead = management.HealthRead
+	capabilities.LogsRead = management.LogsRead
+	capabilities.SecurityAudit = management.SecurityAudit
+	capabilities.SkillRead = management.SkillRead
+	capabilities.SkillMutate = management.SkillMutate
+	capabilities.MCPRead = management.MCPRead
+	capabilities.MCPMutate = management.MCPMutate
+	capabilities.BackupRead = management.BackupRead
+	capabilities.BackupMutate = management.BackupMutate
+	capabilities.Restore = management.Restore
+	capabilities.UpgradePlan = management.UpgradePlan
+	capabilities.Upgrade = management.Upgrade
+	capabilities.Rollback = management.Rollback
+	return capabilities
+}
+
+func (s *InstanceInventory) lifecycleCapable() bool {
+	return s.capabilities().Lifecycle
 }
 
 func classifyProfileListError(err error) error {
@@ -514,10 +554,11 @@ func (s *InstanceInventory) reconcileLocked(ctx context.Context, installationID,
 		return InstanceList{}, err
 	}
 	views := make([]InstanceView, 0, len(rows))
+	capabilities := s.capabilities()
 	for _, row := range rows {
-		views = append(views, instanceView(row, s.lifecycleCapable()))
+		views = append(views, instanceView(row, capabilities))
 	}
-	return InstanceList{RuntimeInstallationID: installationID, Freshness: "FRESH", Instances: views}, nil
+	return InstanceList{RuntimeInstallationID: installationID, Freshness: "FRESH", Instances: views, Capabilities: capabilities}, nil
 }
 
 func (s *InstanceInventory) profilePresent(ctx context.Context, installationID, name string) (bool, error) {

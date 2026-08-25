@@ -31,8 +31,21 @@ type InstanceLifecycleService interface {
 }
 
 type InstanceCapabilitiesResponse struct {
-	Instances bool `json:"instances"`
-	Lifecycle bool `json:"lifecycle"`
+	Instances     bool `json:"instances"`
+	Lifecycle     bool `json:"lifecycle"`
+	HealthRead    bool `json:"healthRead"`
+	LogsRead      bool `json:"logsRead"`
+	SecurityAudit bool `json:"securityAudit"`
+	SkillRead     bool `json:"skillRead"`
+	SkillMutate   bool `json:"skillMutate"`
+	MCPRead       bool `json:"mcpRead"`
+	MCPMutate     bool `json:"mcpMutate"`
+	BackupRead    bool `json:"backupRead"`
+	BackupMutate  bool `json:"backupMutate"`
+	Restore       bool `json:"restore"`
+	UpgradePlan   bool `json:"upgradePlan"`
+	Upgrade       bool `json:"upgrade"`
+	Rollback      bool `json:"rollback"`
 }
 
 type InstanceResponse struct {
@@ -87,7 +100,7 @@ func listRuntimeInstances(inventory InstanceInventoryService) http.Handler {
 			Freshness:             result.Freshness,
 			LastSyncedAt:          result.LastSyncedAt,
 			Instances:             items,
-			Capabilities:          InstanceCapabilitiesResponse{Instances: result.Capabilities.Instances, Lifecycle: result.Capabilities.Lifecycle},
+			Capabilities:          newInstanceCapabilitiesResponse(result.Capabilities),
 			ErrorCode:             nullableErrorCode(result.ErrorCode),
 		})
 	})
@@ -222,7 +235,27 @@ func newInstanceResponse(item app.InstanceView) InstanceResponse {
 		LastSyncedAt:          item.LastSyncedAt,
 		CreatedAt:             item.CreatedAt,
 		UpdatedAt:             item.UpdatedAt,
-		Capabilities:          InstanceCapabilitiesResponse{Instances: item.Capabilities.Instances, Lifecycle: item.Capabilities.Lifecycle},
+		Capabilities:          newInstanceCapabilitiesResponse(item.Capabilities),
+	}
+}
+
+func newInstanceCapabilitiesResponse(capabilities app.InstanceCapabilities) InstanceCapabilitiesResponse {
+	return InstanceCapabilitiesResponse{
+		Instances:     capabilities.Instances,
+		Lifecycle:     capabilities.Lifecycle,
+		HealthRead:    capabilities.HealthRead,
+		LogsRead:      capabilities.LogsRead,
+		SecurityAudit: capabilities.SecurityAudit,
+		SkillRead:     capabilities.SkillRead,
+		SkillMutate:   capabilities.SkillMutate,
+		MCPRead:       capabilities.MCPRead,
+		MCPMutate:     capabilities.MCPMutate,
+		BackupRead:    capabilities.BackupRead,
+		BackupMutate:  capabilities.BackupMutate,
+		Restore:       capabilities.Restore,
+		UpgradePlan:   capabilities.UpgradePlan,
+		Upgrade:       capabilities.Upgrade,
+		Rollback:      capabilities.Rollback,
 	}
 }
 

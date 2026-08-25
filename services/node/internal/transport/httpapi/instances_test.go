@@ -99,7 +99,7 @@ func TestListAndGetInstancesContract(t *testing.T) {
 		get: app.InstanceView{
 			InstanceID: "inst_1", RuntimeInstallationID: "rtinst_1", Name: "default",
 			Default: true, Protected: true, Availability: instance.Available,
-			CreatedAt: now, UpdatedAt: now,
+			CreatedAt: now, UpdatedAt: now, Capabilities: app.InstanceCapabilities{Instances: true},
 		},
 	}
 	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
@@ -115,8 +115,11 @@ func TestListAndGetInstancesContract(t *testing.T) {
 	if err := json.Unmarshal(listRes.Body.Bytes(), &listed); err != nil {
 		t.Fatal(err)
 	}
-	if listed.RuntimeID != "hermes" || listed.Capabilities.Lifecycle || listed.Instances[0].InstanceID != "inst_1" {
+	if listed.RuntimeID != "hermes" || listed.Capabilities != (InstanceCapabilitiesResponse{Instances: true}) || listed.Instances[0].InstanceID != "inst_1" {
 		t.Fatalf("list body = %#v", listed)
+	}
+	if listed.Instances[0].Capabilities != listed.Capabilities {
+		t.Fatalf("list and item capabilities diverged: list=%#v item=%#v", listed.Capabilities, listed.Instances[0].Capabilities)
 	}
 	if listed.Instances[0].Name != "default" || strings.Contains(listRes.Body.String(), `"nativeId"`) {
 		t.Fatalf("native leak or unexpected body: %s", listRes.Body.String())
@@ -129,6 +132,13 @@ func TestListAndGetInstancesContract(t *testing.T) {
 	if getRes.Code != http.StatusOK {
 		t.Fatalf("get status = %d %s", getRes.Code, getRes.Body.String())
 	}
+	var got InstanceResponse
+	if err := json.Unmarshal(getRes.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Capabilities != (InstanceCapabilitiesResponse{Instances: true}) {
+		t.Fatalf("get capabilities = %#v, want management closed", got.Capabilities)
+	}
 
 	lifeReq := httptest.NewRequest(http.MethodPost, "/api/v1/instances/inst_1/start", nil)
 	lifeReq.Header.Set("Authorization", "Bearer "+testToken)
@@ -136,6 +146,41 @@ func TestListAndGetInstancesContract(t *testing.T) {
 	handler.ServeHTTP(lifeRes, lifeReq)
 	if lifeRes.Code != http.StatusConflict || !strings.Contains(lifeRes.Body.String(), string(yorvaruntime.ErrorCapabilityNotSupported)) {
 		t.Fatalf("lifecycle = %d %s", lifeRes.Code, lifeRes.Body.String())
+	}
+}
+
+func TestInstanceCapabilitiesResponseProjectsAllManagementFlags(t *testing.T) {
+	capabilities := app.InstanceCapabilities{
+		Instances: true, Lifecycle: true, HealthRead: true, LogsRead: true,
+		SecurityAudit: true, SkillRead: true, SkillMutate: true, MCPRead: true,
+		MCPMutate: true, BackupRead: true, BackupMutate: true, Restore: true,
+		UpgradePlan: true, Upgrade: true, Rollback: true,
+	}
+	want := InstanceCapabilitiesResponse{
+		Instances: true, Lifecycle: true, HealthRead: true, LogsRead: true,
+		SecurityAudit: true, SkillRead: true, SkillMutate: true, MCPRead: true,
+		MCPMutate: true, BackupRead: true, BackupMutate: true, Restore: true,
+		UpgradePlan: true, Upgrade: true, Rollback: true,
+	}
+	if got := newInstanceCapabilitiesResponse(capabilities); got != want {
+		t.Fatalf("HTTP capability projection = %#v, want %#v", got, want)
+	}
+
+	payload, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]bool
+	if err := json.Unmarshal(payload, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if len(fields) != 15 {
+		t.Fatalf("capability JSON fields = %d, want 15: %s", len(fields), payload)
+	}
+	for name, value := range fields {
+		if !value {
+			t.Fatalf("capability %q was not projected true: %s", name, payload)
+		}
 	}
 }
 

@@ -747,6 +747,19 @@ export interface components {
         InstanceCapabilities: {
             instances: boolean;
             lifecycle: boolean;
+            healthRead: boolean;
+            logsRead: boolean;
+            securityAudit: boolean;
+            skillRead: boolean;
+            skillMutate: boolean;
+            mcpRead: boolean;
+            mcpMutate: boolean;
+            backupRead: boolean;
+            backupMutate: boolean;
+            restore: boolean;
+            upgradePlan: boolean;
+            upgrade: boolean;
+            rollback: boolean;
         };
         Lifecycle: {
             /** @enum {string} */

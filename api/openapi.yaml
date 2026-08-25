@@ -1868,11 +1868,52 @@ components:
     InstanceCapabilities:
       type: object
       additionalProperties: false
-      required: [instances, lifecycle]
+      required:
+        - instances
+        - lifecycle
+        - healthRead
+        - logsRead
+        - securityAudit
+        - skillRead
+        - skillMutate
+        - mcpRead
+        - mcpMutate
+        - backupRead
+        - backupMutate
+        - restore
+        - upgradePlan
+        - upgrade
+        - rollback
       properties:
         instances:
           type: boolean
         lifecycle:
+          type: boolean
+        healthRead:
+          type: boolean
+        logsRead:
+          type: boolean
+        securityAudit:
+          type: boolean
+        skillRead:
+          type: boolean
+        skillMutate:
+          type: boolean
+        mcpRead:
+          type: boolean
+        mcpMutate:
+          type: boolean
+        backupRead:
+          type: boolean
+        backupMutate:
+          type: boolean
+        restore:
+          type: boolean
+        upgradePlan:
+          type: boolean
+        upgrade:
+          type: boolean
+        rollback:
           type: boolean
     Lifecycle:
       type: object

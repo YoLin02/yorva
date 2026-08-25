@@ -6,6 +6,22 @@ import type { Instance, ModelConfiguration } from "../../api/types";
 import { messages } from "../../i18n";
 import { ModelConfigurationPanel } from "./ModelConfigurationPanel";
 
+const unavailableManagementCapabilities = {
+  healthRead: false,
+  logsRead: false,
+  securityAudit: false,
+  skillRead: false,
+  skillMutate: false,
+  mcpRead: false,
+  mcpMutate: false,
+  backupRead: false,
+  backupMutate: false,
+  restore: false,
+  upgradePlan: false,
+  upgrade: false,
+  rollback: false,
+};
+
 const instance: Instance = {
   instanceId: "inst_coder",
   runtimeInstallationId: "rtinst_test",
@@ -16,7 +32,7 @@ const instance: Instance = {
   lastSyncedAt: "2026-08-19T12:00:00Z",
   createdAt: "2026-08-19T12:00:00Z",
   updatedAt: "2026-08-19T12:00:00Z",
-  capabilities: { instances: true, lifecycle: false },
+  capabilities: { ...unavailableManagementCapabilities, instances: true, lifecycle: false },
 };
 
 const unconfigured: ModelConfiguration = {
