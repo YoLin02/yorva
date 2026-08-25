@@ -293,6 +293,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read normalized health for one Instance
+         * @description Returns only normalized state and bounded finding codes. It never returns native paths, process identifiers, commands, environment, raw adapter output, or secrets.
+         */
+        get: operations["getInstanceHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Instance health */
+        options: operations["optionsInstanceHealth"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read one bounded redacted log snapshot for an Instance
+         * @description The category is closed and required. The response is capped at 256 entries and 64 KiB of normalized message content by the Runtime contract; no source path or raw log export is returned.
+         */
+        get: operations["getInstanceLogSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for bounded Instance logs */
+        options: operations["optionsInstanceLogSnapshot"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}/skills": {
         parameters: {
             query?: never;
@@ -874,6 +920,33 @@ export interface components {
             instances: components["schemas"]["Instance"][];
             capabilities: components["schemas"]["InstanceCapabilities"];
             errorCode: string | null;
+        };
+        ManagementHealthFinding: {
+            code: string;
+            /** @enum {string} */
+            state: "HEALTHY" | "DEGRADED" | "UNHEALTHY" | "UNKNOWN";
+        };
+        ManagementHealth: {
+            /** @enum {string} */
+            state: "HEALTHY" | "DEGRADED" | "UNHEALTHY" | "UNKNOWN";
+            findings: components["schemas"]["ManagementHealthFinding"][];
+            partial: boolean;
+            /** Format: date-time */
+            observedAt: string;
+        };
+        ManagementLogEntry: {
+            /** Format: date-time */
+            timestamp: string;
+            /** @description Redacted normalized content. The complete snapshot is additionally capped at 64 KiB by the Runtime contract. */
+            message: string;
+        };
+        ManagementLogSnapshot: {
+            /** @enum {string} */
+            category: "RUNTIME" | "ERRORS" | "GATEWAY" | "MCP";
+            entries: components["schemas"]["ManagementLogEntry"][];
+            truncated: boolean;
+            /** Format: date-time */
+            observedAt: string;
         };
         Skill: {
             id: string;
@@ -1788,6 +1861,98 @@ export interface operations {
             header?: never;
             path: {
                 instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getInstanceHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Safe bounded health observation for the exact Instance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagementHealth"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getInstanceLogSnapshot: {
+        parameters: {
+            query: {
+                /** @description One allowlisted normalized log category. Repeated or additional query fields are rejected. */
+                category: "RUNTIME" | "ERRORS" | "GATEWAY" | "MCP";
+            };
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Safe bounded redacted log snapshot for the exact Instance and category. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagementLogSnapshot"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsInstanceLogSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
             };
             cookie?: never;
         };

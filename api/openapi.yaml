@@ -18,6 +18,8 @@ tags:
     description: Runtime discovery, compatibility, and Hermes installation Operations.
   - name: Instances
     description: Hermes Profile inventory as normalized YORVA Instances.
+  - name: Diagnostics
+    description: Safe normalized Instance health and bounded redacted log snapshots.
   - name: Models
     description: Safe model Provider presets, configuration, credentials, and explicit validation.
   - name: Channels
@@ -697,6 +699,98 @@ paths:
       operationId: optionsInstance
       summary: Validate CORS access for one Instance
       tags: [Instances]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/health:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      operationId: getInstanceHealth
+      summary: Read normalized health for one Instance
+      description: Returns only normalized state and bounded finding codes. It never returns native paths, process identifiers, commands, environment, raw adapter output, or secrets.
+      tags: [Diagnostics]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Safe bounded health observation for the exact Instance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementHealth"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceHealth
+      summary: Validate CORS access for Instance health
+      tags: [Diagnostics]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/logs:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+    get:
+      operationId: getInstanceLogSnapshot
+      summary: Read one bounded redacted log snapshot for an Instance
+      description: The category is closed and required. The response is capped at 256 entries and 64 KiB of normalized message content by the Runtime contract; no source path or raw log export is returned.
+      tags: [Diagnostics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          required: true
+          description: One allowlisted normalized log category. Repeated or additional query fields are rejected.
+          schema:
+            type: string
+            enum: [RUNTIME, ERRORS, GATEWAY, MCP]
+      responses:
+        "200":
+          description: Safe bounded redacted log snapshot for the exact Instance and category.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementLogSnapshot"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsInstanceLogSnapshot
+      summary: Validate CORS access for bounded Instance logs
+      tags: [Diagnostics]
       security: []
       responses:
         "204":
@@ -2162,6 +2256,67 @@ components:
           $ref: "#/components/schemas/InstanceCapabilities"
         errorCode:
           type: ["string", "null"]
+    ManagementHealthFinding:
+      type: object
+      additionalProperties: false
+      required: [code, state]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+        state:
+          type: string
+          enum: [HEALTHY, DEGRADED, UNHEALTHY, UNKNOWN]
+    ManagementHealth:
+      type: object
+      additionalProperties: false
+      required: [state, findings, partial, observedAt]
+      properties:
+        state:
+          type: string
+          enum: [HEALTHY, DEGRADED, UNHEALTHY, UNKNOWN]
+        findings:
+          type: array
+          maxItems: 256
+          items:
+            $ref: "#/components/schemas/ManagementHealthFinding"
+        partial:
+          type: boolean
+        observedAt:
+          type: string
+          format: date-time
+    ManagementLogEntry:
+      type: object
+      additionalProperties: false
+      required: [timestamp, message]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        message:
+          type: string
+          maxLength: 4096
+          description: Redacted normalized content. The complete snapshot is additionally capped at 64 KiB by the Runtime contract.
+    ManagementLogSnapshot:
+      type: object
+      additionalProperties: false
+      required: [category, entries, truncated, observedAt]
+      properties:
+        category:
+          type: string
+          enum: [RUNTIME, ERRORS, GATEWAY, MCP]
+        entries:
+          type: array
+          maxItems: 256
+          items:
+            $ref: "#/components/schemas/ManagementLogEntry"
+        truncated:
+          type: boolean
+        observedAt:
+          type: string
+          format: date-time
     Skill:
       type: object
       additionalProperties: false

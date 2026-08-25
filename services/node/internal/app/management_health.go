@@ -53,7 +53,7 @@ func (s *ManagementHealth) GetInstanceLogSnapshot(ctx context.Context, instanceI
 	if err != nil {
 		return yorvaruntime.LogSnapshot{}, managementQueryError(ctx, err)
 	}
-	if err := result.Validate(); err != nil {
+	if err := result.Validate(); err != nil || result.Category != category {
 		return yorvaruntime.LogSnapshot{}, ErrManagementQueryFailed
 	}
 	return result, nil

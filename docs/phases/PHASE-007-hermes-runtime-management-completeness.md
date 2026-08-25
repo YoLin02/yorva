@@ -206,6 +206,17 @@ B1 evidence locks final paths before B2 changes OpenAPI. Candidate resources cov
 health/deep checks/security audit/logs; Instance Skills and MCP; Runtime backups and
 Restore; and Runtime upgrade-plan/upgrade/rollback.
 
+The current OpenAPI locks the first static health projection to the exact Instance:
+
+```text
+GET /api/v1/instances/{instanceId}/health
+GET /api/v1/instances/{instanceId}/logs?category=RUNTIME|ERRORS|GATEWAY|MCP
+```
+
+This is not relabeled as Runtime-wide health. Runtime-wide health stays unregistered
+until a separately qualified Runtime target exists. Deep/live checks and security audit
+remain explicit Operations; no synchronous GET shortcut is registered.
+
 All mutations use closed typed bodies and `Idempotency-Key`. Secrets are write-only.
 Source identifiers, presets, tool selection, log category/filter and every mutation
 field are allowlisted. Long work returns `202 Operation`. Desktop uses TanStack Query for

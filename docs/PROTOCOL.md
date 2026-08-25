@@ -301,20 +301,25 @@ Cancel may return `OPERATION_NOT_CANCELLABLE`.
 ### Phase 7 read-only management
 
 ```text
+GET /api/v1/instances/{instanceId}/health
+GET /api/v1/instances/{instanceId}/logs?category=RUNTIME|ERRORS|GATEWAY|MCP
 GET /api/v1/instances/{instanceId}/skills
 GET /api/v1/instances/{instanceId}/skills/{skillId}
 GET /api/v1/instances/{instanceId}/mcp-servers
 GET /api/v1/instances/{instanceId}/mcp-catalog
 ```
 
-These resources are authenticated, bounded safe projections. They never return native
-paths, Skill contents/configuration, MCP URLs, headers, commands, environment, credentials
-or tool descriptions. `CONFIGURED` is not `READY`; a `READY` MCP result includes explicit
-time-bounded evidence. An unwired or unqualified Runtime feature returns
+These resources are authenticated, bounded safe projections. Health contains only
+normalized state and finding codes. Logs require exactly one allowlisted category and
+return a fixed-size redacted snapshot, never a source path or raw export. The resources
+never return native paths, Skill contents/configuration, MCP URLs, headers, commands,
+environment, credentials or tool descriptions. `CONFIGURED` is not `READY`; a `READY`
+MCP result includes explicit time-bounded evidence. An unwired or unqualified Runtime feature returns
 `CAPABILITY_NOT_SUPPORTED` and does not fall back to a human-readable CLI.
 
-No Phase 7 Skill or MCP mutation route is registered until a durable Operation owner and
-qualified adapter exist.
+No deep/live check, security audit, Skill or MCP mutation route is registered until a
+durable Operation owner and qualified adapter exist. Runtime-wide health also remains
+unregistered; the current qualified projection is exact-Instance scoped.
 
 ### Reserved Backup / Restore resources
 

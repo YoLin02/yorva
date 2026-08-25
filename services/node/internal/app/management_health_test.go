@@ -151,6 +151,18 @@ func TestManagementHealthQueriesRejectMalformedAdapterResults(t *testing.T) {
 	}
 }
 
+func TestManagementHealthRejectsMismatchedLogCategory(t *testing.T) {
+	adapter := &b3FakeManagementAdapter{logs: yorvaruntime.LogSnapshot{
+		Category:   yorvaruntime.LogCategoryGateway,
+		ObservedAt: time.Date(2026, 8, 25, 12, 0, 0, 0, time.UTC),
+	}}
+	queries := NewManagementHealth(&b3FakeTargetResolver{target: ManagementTarget{Bundle: yorvaruntime.Bundle{Logs: adapter}}})
+
+	if _, err := queries.GetInstanceLogSnapshot(context.Background(), "inst_1", yorvaruntime.LogCategoryErrors); !errors.Is(err, ErrManagementQueryFailed) {
+		t.Fatalf("mismatched category error = %v", err)
+	}
+}
+
 func TestManagementHealthQueriesNormalizeResolverAndAdapterErrors(t *testing.T) {
 	queries := NewManagementHealth(&b3FakeTargetResolver{err: errors.New("database details")})
 	if _, err := queries.GetInstanceHealth(context.Background(), "inst_1"); !errors.Is(err, ErrManagementQueryFailed) || err.Error() != ErrManagementQueryFailed.Error() {

@@ -59,9 +59,11 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	channels, _ := instances.(ChannelService)
 	var skills ManagementSkillsService
 	var mcp ManagementMCPReadService
+	var managementHealth InstanceManagementHealthService
 	if targets, ok := instances.(app.ManagementTargetResolver); ok {
 		skills = app.NewManagementSkills(targets)
 		mcp = app.NewMCPManagement(targets)
+		managementHealth = app.NewManagementHealth(targets)
 	}
 	mux.HandleFunc("GET /api/v1/health", health)
 	mux.Handle("GET /api/v1/node", requireBearer(token, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -92,6 +94,8 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("POST /api/v1/instances/{instanceId}/start", requireBearer(token, startInstanceLifecycle(lifecycle, app.LifecycleStart)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/stop", requireBearer(token, startInstanceLifecycle(lifecycle, app.LifecycleStop)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/restart", requireBearer(token, startInstanceLifecycle(lifecycle, app.LifecycleRestart)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/health", requireBearer(token, getInstanceHealth(managementHealth)))
+	mux.Handle("GET /api/v1/instances/{instanceId}/logs", requireBearer(token, getInstanceLogSnapshot(managementHealth)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/channels", requireBearer(token, listInstanceChannels(channels)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/channels/{channelType}/connect", requireBearer(token, connectInstanceChannel(channels)))
 	mux.Handle("DELETE /api/v1/instances/{instanceId}/channels/{channelType}", requireBearer(token, disconnectInstanceChannel(channels)))
@@ -216,7 +220,7 @@ func allowedMethods(path string) (string, bool) {
 		return "POST, OPTIONS", true
 	}
 	switch managementReadPathKind(path) {
-	case "skills", "skill", "mcp-servers", "mcp-catalog":
+	case "health", "logs", "skills", "skill", "mcp-servers", "mcp-catalog":
 		return "GET, OPTIONS", true
 	}
 	return "", false
@@ -232,6 +236,10 @@ func managementReadPathKind(path string) string {
 		return ""
 	}
 	switch {
+	case len(parts) == 2 && parts[1] == "health":
+		return "health"
+	case len(parts) == 2 && parts[1] == "logs":
+		return "logs"
 	case len(parts) == 2 && parts[1] == "skills":
 		return "skills"
 	case len(parts) == 3 && parts[1] == "skills" && parts[2] != "":

@@ -63,6 +63,26 @@ type routingMCPReader struct {
 	preset yorvaruntime.MCPPreset
 }
 
+type routingHealthInspector struct {
+	observation yorvaruntime.HealthObservation
+}
+
+func (f routingHealthInspector) InspectRuntimeHealth(context.Context, yorvaruntime.Installation) (yorvaruntime.HealthObservation, error) {
+	return f.observation, nil
+}
+
+func (f routingHealthInspector) InspectInstanceHealth(context.Context, yorvaruntime.Installation, string) (yorvaruntime.HealthObservation, error) {
+	return f.observation, nil
+}
+
+type routingLogReader struct {
+	snapshot yorvaruntime.LogSnapshot
+}
+
+func (f routingLogReader) ReadLogSnapshot(context.Context, yorvaruntime.Installation, string, yorvaruntime.LogCategory) (yorvaruntime.LogSnapshot, error) {
+	return f.snapshot, nil
+}
+
 func (f routingMCPReader) ListMCPServers(context.Context, yorvaruntime.Installation, string) ([]yorvaruntime.MCPServer, error) {
 	return []yorvaruntime.MCPServer{f.server}, nil
 }
@@ -265,6 +285,12 @@ func TestPhase7ReadOnlyManagementRoutesAreAuthenticatedAndTargetExactInstance(t 
 		Installation: yorvaruntime.Installation{RuntimeKind: "hermes", Version: "0.20.5", SupportState: yorvaruntime.DiscoverySupported},
 		NativeID:     "profile-a",
 		Bundle: yorvaruntime.Bundle{
+			Health: routingHealthInspector{observation: yorvaruntime.HealthObservation{
+				State: yorvaruntime.HealthHealthy, Findings: []yorvaruntime.HealthFinding{{Code: "gateway", State: yorvaruntime.HealthHealthy}}, ObservedAt: now,
+			}},
+			Logs: routingLogReader{snapshot: yorvaruntime.LogSnapshot{
+				Category: yorvaruntime.LogCategoryErrors, Entries: []yorvaruntime.LogEntry{{Timestamp: now, Message: "bounded safe log"}}, ObservedAt: now,
+			}},
 			SkillRead: routingSkillReader{skill: yorvaruntime.Skill{
 				ID: "skill-a", SourceID: "source-a", Version: "1.0.0", InstallationState: yorvaruntime.SkillInstalled,
 				EnabledState: yorvaruntime.SkillEnabled, ScanState: yorvaruntime.SkillScanClean,
@@ -281,6 +307,8 @@ func TestPhase7ReadOnlyManagementRoutesAreAuthenticatedAndTargetExactInstance(t 
 		path       string
 		bodyMarker string
 	}{
+		{path: "/api/v1/instances/inst-1/health", bodyMarker: `"state":"HEALTHY"`},
+		{path: "/api/v1/instances/inst-1/logs?category=ERRORS", bodyMarker: `"message":"bounded safe log"`},
 		{path: "/api/v1/instances/inst-1/skills", bodyMarker: `"id":"skill-a"`},
 		{path: "/api/v1/instances/inst-1/skills/skill-a", bodyMarker: `"id":"skill-a"`},
 		{path: "/api/v1/instances/inst-1/mcp-servers", bodyMarker: `"id":"server-a"`},
@@ -313,6 +341,8 @@ func TestPhase7ReadOnlyManagementRoutesKeepCapabilityFalseStable(t *testing.T) {
 	inventory := &managementRoutingInventory{target: app.ManagementTarget{Bundle: yorvaruntime.Bundle{}}}
 	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
 	for _, path := range []string{
+		"/api/v1/instances/inst-1/health",
+		"/api/v1/instances/inst-1/logs?category=ERRORS",
 		"/api/v1/instances/inst-1/skills",
 		"/api/v1/instances/inst-1/skills/skill-a",
 		"/api/v1/instances/inst-1/mcp-servers",
@@ -335,6 +365,8 @@ func TestPhase7ReadOnlyManagementRouteContractIsGetOnly(t *testing.T) {
 	inventory := &managementRoutingInventory{}
 	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
 	for _, path := range []string{
+		"/api/v1/instances/inst-1/health",
+		"/api/v1/instances/inst-1/logs?category=ERRORS",
 		"/api/v1/instances/inst-1/skills",
 		"/api/v1/instances/inst-1/skills/skill-a",
 		"/api/v1/instances/inst-1/mcp-servers",
@@ -358,6 +390,39 @@ func TestPhase7ReadOnlyManagementRouteContractIsGetOnly(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPhase7InstanceLogRouteRejectsNonClosedQuery(t *testing.T) {
+	inventory := &managementRoutingInventory{target: app.ManagementTarget{Bundle: yorvaruntime.Bundle{Logs: routingLogReader{}}}}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
+	for _, path := range []string{
+		"/api/v1/instances/inst-1/logs",
+		"/api/v1/instances/inst-1/logs?category=UNKNOWN",
+		"/api/v1/instances/inst-1/logs?category=ERRORS&category=MCP",
+		"/api/v1/instances/inst-1/logs?category=ERRORS&filter=secret",
+	} {
+		t.Run(path, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			request.Header.Set("Authorization", "Bearer "+testToken)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("response = %d %s", response.Code, response.Body.String())
+			}
+			assertProtocolError(t, response, "INVALID_REQUEST")
+		})
+	}
+}
+
+func TestPhase7SecurityAuditReadRemainsUnregistered(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/instances/inst-1/security-audit", nil)
+	request.Header.Set("Authorization", "Bearer "+testToken)
+	response := httptest.NewRecorder()
+	newTestHandler().ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("security audit status = %d, want 404", response.Code)
+	}
+	assertProtocolError(t, response, "NOT_FOUND")
 }
 
 func TestPhase7RuntimeHealthRemainsUnregisteredWithoutRuntimeTarget(t *testing.T) {

@@ -397,7 +397,7 @@ Operation transient state 与 durable backup metadata 分开。只有 checksum/f
 Batch 1 后由 OpenAPI 锁定最终路径。候选资源如下：
 
 ```text
-GET  /api/v1/runtimes/{runtimeId}/health
+GET  /api/v1/instances/{instanceId}/health
 POST /api/v1/runtimes/{runtimeId}/health/deep-checks
 POST /api/v1/runtimes/{runtimeId}/security-audits
 GET  /api/v1/instances/{instanceId}/logs
@@ -425,6 +425,11 @@ GET  /api/v1/runtimes/{runtimeId}/upgrade-plan
 POST /api/v1/runtimes/{runtimeId}/upgrade
 POST /api/v1/runtimes/{runtimeId}/rollback
 ```
+
+Batch 1/当前 OpenAPI 已把首个静态 health 投影锁为 exact-Instance 资源；它不被表述为
+Runtime-wide 健康。Runtime-wide health 继续保持未注册，直到出现独立且已资格确认的
+Runtime 目标语义。Logs 同样只接受一个固定类别。Security audit 与 deep/live check 仍是
+显式 Operation，不注册同步 GET 捷径。
 
 规则：
 
