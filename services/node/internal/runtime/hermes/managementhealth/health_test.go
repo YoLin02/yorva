@@ -61,6 +61,42 @@ func TestParseLivenessRejectsMalformedAndOversized(t *testing.T) {
 	}
 }
 
+func TestHealthParsersRequireExactQualifiedVersion(t *testing.T) {
+	versions := []struct {
+		name    string
+		version string
+		accept  bool
+	}{
+		{name: "qualified", version: "0.20.5", accept: true},
+		{name: "different patch", version: "0.20.6"},
+		{name: "development suffix", version: "0.20.5-dev"},
+		{name: "empty", version: ""},
+		{name: "overlong", version: strings.Repeat("1", 128)},
+	}
+
+	for _, tt := range versions {
+		t.Run(tt.name, func(t *testing.T) {
+			liveness := `{"status":"ok","platform":"hermes-agent","version":"` + tt.version + `"}`
+			_, livenessErr := ParseLiveness([]byte(liveness))
+			detailed := strings.Replace(detailedHealthFixture, `"version":"0.20.5"`, `"version":"`+tt.version+`"`, 1)
+			_, detailedErr := ParseDetailedHealth([]byte(detailed))
+
+			if tt.accept {
+				if livenessErr != nil || detailedErr != nil {
+					t.Fatalf("qualified version errors: liveness=%v detailed=%v", livenessErr, detailedErr)
+				}
+				return
+			}
+			if !errors.Is(livenessErr, ErrMalformedResponse) {
+				t.Fatalf("ParseLiveness() error = %v, want %v", livenessErr, ErrMalformedResponse)
+			}
+			if !errors.Is(detailedErr, ErrMalformedResponse) {
+				t.Fatalf("ParseDetailedHealth() error = %v, want %v", detailedErr, ErrMalformedResponse)
+			}
+		})
+	}
+}
+
 func TestParseDetailedHealthProjectsOnlySafeFields(t *testing.T) {
 	got, err := ParseDetailedHealth([]byte(detailedHealthFixture))
 	if err != nil {

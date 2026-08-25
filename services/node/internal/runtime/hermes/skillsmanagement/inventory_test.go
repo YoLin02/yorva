@@ -69,6 +69,26 @@ func TestParseEnabledInventoryAcceptsClosedBoundaries(t *testing.T) {
 	}
 }
 
+func TestParseEnabledInventoryAcceptsOfficialMixedCaseAndReplacementText(t *testing.T) {
+	scope := mustProfileScope(t, "default")
+	body := []byte(`{"object":"list","data":[{"name":"My-Skill","description":"upstream replacement: \ufffd","category":"Creative-Tools"},{"name":"my-skill","description":"case-sensitive identity","category":null},{"name":"My.Skill_2","description":"core-valid punctuation","category":null}]}`)
+	inventory, err := ParseEnabledInventory(scope, body)
+	if err != nil {
+		t.Fatalf("ParseEnabledInventory() error = %v", err)
+	}
+	if len(inventory.Skills) != 3 {
+		t.Fatalf("len(Skills) = %d, want 3", len(inventory.Skills))
+	}
+	if inventory.Skills[0].ID != "My-Skill" || inventory.Skills[0].Category != "Creative-Tools" || !strings.Contains(inventory.Skills[0].Description, "�") {
+		t.Fatalf("mixed-case/replacement projection = %#v", inventory.Skills[0])
+	}
+	for index := range inventory.Skills {
+		if err := inventory.Skills[index].RuntimeSkill().Validate(); err != nil {
+			t.Fatalf("Skills[%d].RuntimeSkill().Validate() error = %v", index, err)
+		}
+	}
+}
+
 func TestParseEnabledInventoryRejectsUnknownMissingWrongAndTrailingData(t *testing.T) {
 	scope := mustProfileScope(t, "default")
 	tests := []struct {
@@ -90,11 +110,15 @@ func TestParseEnabledInventoryRejectsUnknownMissingWrongAndTrailingData(t *testi
 		{name: "object description", body: `{"object":"list","data":[{"name":"skill","description":{},"category":null}]}`, want: ErrInventoryContractMismatch},
 		{name: "numeric category", body: `{"object":"list","data":[{"name":"skill","description":"d","category":1}]}`, want: ErrInventoryContractMismatch},
 		{name: "empty category string", body: `{"object":"list","data":[{"name":"skill","description":"d","category":""}]}`, want: ErrInventoryContractMismatch},
-		{name: "uppercase name", body: `{"object":"list","data":[{"name":"Skill","description":"d","category":null}]}`, want: ErrInventoryContractMismatch},
+		{name: "whitespace name", body: `{"object":"list","data":[{"name":"My Skill","description":"d","category":null}]}`, want: ErrInventoryContractMismatch},
+		{name: "leading whitespace name", body: `{"object":"list","data":[{"name":" My-Skill","description":"d","category":null}]}`, want: ErrInventoryContractMismatch},
+		{name: "control name", body: `{"object":"list","data":[{"name":"My\u000aSkill","description":"d","category":null}]}`, want: ErrInventoryContractMismatch},
 		{name: "path name", body: `{"object":"list","data":[{"name":"../skill","description":"d","category":null}]}`, want: ErrInventoryContractMismatch},
+		{name: "backslash path name", body: `{"object":"list","data":[{"name":"category\\skill","description":"d","category":null}]}`, want: ErrInventoryContractMismatch},
 		{name: "path category", body: `{"object":"list","data":[{"name":"skill","description":"d","category":"a/b"}]}`, want: ErrInventoryContractMismatch},
+		{name: "whitespace category", body: `{"object":"list","data":[{"name":"skill","description":"d","category":"Creative Tools"}]}`, want: ErrInventoryContractMismatch},
+		{name: "control category", body: `{"object":"list","data":[{"name":"skill","description":"d","category":"Creative\u0009Tools"}]}`, want: ErrInventoryContractMismatch},
 		{name: "decoded null", body: `{"object":"list","data":[{"name":"skill","description":"a\u0000b","category":null}]}`, want: ErrInventoryContractMismatch},
-		{name: "invalid surrogate", body: `{"object":"list","data":[{"name":"skill","description":"\ud800","category":null}]}`, want: ErrInventoryContractMismatch},
 		{name: "trailing object", body: `{"object":"list","data":[]} {}`, want: ErrInventoryContractMismatch},
 		{name: "truncated", body: `{"object":"list","data":[`, want: ErrInventoryMalformed},
 	}

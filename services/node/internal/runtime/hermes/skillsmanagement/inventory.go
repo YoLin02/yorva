@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"regexp"
+	"unicode"
 	"unicode/utf8"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
@@ -25,8 +26,10 @@ var (
 	ErrInventoryContractMismatch = errors.New("Hermes enabled Skill inventory contract is unknown")
 	ErrInventoryDuplicate        = errors.New("Hermes enabled Skill inventory contains a duplicate")
 
-	skillNamePattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
-	skillCategoryPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
+	// Hermes 0.20.5 takes the frontmatter name as-is (up to 64
+	// characters) and deduplicates it case-sensitively. Keep the subset that
+	// can cross the Runtime-neutral Skill ID contract without normalization.
+	skillNamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
 )
 
 // EnabledSkill is the closed projection supported by Hermes 0.20.5
@@ -181,7 +184,7 @@ func parseSkillObject(decoder *json.Decoder) (EnabledSkill, error) {
 			if !boundedString(name, MaxSkillNameBytes) {
 				return EnabledSkill{}, ErrInventoryTooLarge
 			}
-			if !skillNamePattern.MatchString(name) {
+			if !skillNamePattern.MatchString(name) || name == "." || name == ".." {
 				return EnabledSkill{}, ErrInventoryContractMismatch
 			}
 			nameSeen = true
@@ -203,7 +206,7 @@ func parseSkillObject(decoder *json.Decoder) (EnabledSkill, error) {
 			if !isNull && !boundedString(category, MaxSkillCategoryBytes) {
 				return EnabledSkill{}, ErrInventoryTooLarge
 			}
-			if !isNull && !skillCategoryPattern.MatchString(category) {
+			if !isNull && !validInventoryCategory(category) {
 				return EnabledSkill{}, ErrInventoryContractMismatch
 			}
 			categorySeen = true
@@ -245,7 +248,7 @@ func readString(decoder *json.Decoder) (string, error) {
 		return "", ErrInventoryMalformed
 	}
 	value, ok := token.(string)
-	if !ok || containsInvalidDecodedRune(value) {
+	if !ok || containsNUL(value) {
 		return "", ErrInventoryContractMismatch
 	}
 	return value, nil
@@ -260,7 +263,7 @@ func readNullableString(decoder *json.Decoder) (string, bool, error) {
 		return "", true, nil
 	}
 	value, ok := token.(string)
-	if !ok || containsInvalidDecodedRune(value) {
+	if !ok || containsNUL(value) {
 		return "", false, ErrInventoryContractMismatch
 	}
 	return value, false, nil
@@ -282,11 +285,23 @@ func boundedString(value string, maxBytes int) bool {
 	return len(value) <= maxBytes && utf8.RuneCountInString(value) <= maxBytes
 }
 
-func containsInvalidDecodedRune(value string) bool {
+func containsNUL(value string) bool {
 	for _, character := range value {
-		if character == '\x00' || character == utf8.RuneError {
+		if character == '\x00' {
 			return true
 		}
 	}
 	return false
+}
+
+func validInventoryCategory(value string) bool {
+	if value == "" || value == "." || value == ".." {
+		return false
+	}
+	for _, character := range value {
+		if character == '/' || character == '\\' || unicode.IsSpace(character) || unicode.IsControl(character) {
+			return false
+		}
+	}
+	return true
 }

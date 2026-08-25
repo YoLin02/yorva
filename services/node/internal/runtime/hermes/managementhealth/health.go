@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"regexp"
 )
 
 const (
+	qualifiedHermesVersion   = "0.20.5"
 	MaxLivenessResponseBytes = 2 * 1024
 	MaxDetailedResponseBytes = 32 * 1024
 	maxDetailedPlatforms     = 32
@@ -104,8 +104,6 @@ type queueCheckWire struct {
 	ActiveDelegations  *int    `json:"active_delegations,omitempty"`
 }
 
-var safeVersion = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z.+_-]{0,31}$`)
-
 var detailedCheckOrder = []string{
 	"state_db",
 	"session_store",
@@ -121,7 +119,7 @@ func ParseLiveness(data []byte) (Liveness, error) {
 	if err := decodeStrict(data, MaxLivenessResponseBytes, &wire); err != nil {
 		return Liveness{}, err
 	}
-	if wire.Status != "ok" || wire.Platform != "hermes-agent" || !safeVersion.MatchString(wire.Version) {
+	if wire.Status != "ok" || wire.Platform != "hermes-agent" || wire.Version != qualifiedHermesVersion {
 		return Liveness{}, fmt.Errorf("%w: invalid liveness fields", ErrMalformedResponse)
 	}
 	return Liveness{Alive: true, Version: wire.Version}, nil
@@ -135,7 +133,7 @@ func ParseDetailedHealth(data []byte) (DetailedHealth, error) {
 	if err := decodeStrict(data, MaxDetailedResponseBytes, &wire); err != nil {
 		return DetailedHealth{}, err
 	}
-	if wire.Platform != "hermes-agent" || !safeVersion.MatchString(wire.Version) {
+	if wire.Platform != "hermes-agent" || wire.Version != qualifiedHermesVersion {
 		return DetailedHealth{}, fmt.Errorf("%w: invalid detailed health identity", ErrMalformedResponse)
 	}
 	if wire.Status != wire.Readiness.Status {
