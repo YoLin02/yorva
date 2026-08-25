@@ -318,6 +318,9 @@ Specs: `docs/phases/PHASE-007-hermes-runtime-management-completeness.zh-CN.md` (
 Baseline: `phase-0065-developer-led-demo-baseline` → `5f68e48f17e7e342e1781b37613b19d4bd1f060b`
 Branch: `codex/phase7-hermes-runtime-management`
 Owner decisions: P7-D1–D8 and B0–B10 **APPROVED** 2026-08-24
+ADR-0013–ADR-0016 **ACCEPTED** 2026-08-25. The Owner selected GitHub repos
+read-only as B5's sole first HTTPS MCP qualification candidate on 2026-08-25;
+selection does not enable the registry entry before authenticated Windows evidence.
 Current execution: B1 evidence is preserved as a per-surface risk map; B2 shared contracts
 and independent B3–B8 lanes proceed in parallel where no real prerequisite exists.
 Focused lane tests precede one integrated B10 independent audit.

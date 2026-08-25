@@ -109,8 +109,13 @@ func TestInstanceInventoryResolveRuntimeManagementTargetUsesLiveAcceptedInstalla
 	}
 	if target.InstallationID != accepted.ID || target.Installation.RuntimeKind != "hermes" ||
 		target.Installation.Path != accepted.InstallPath || target.Installation.Version != accepted.Version ||
-		target.Installation.SupportState != yorvaruntime.DiscoverySupported || target.Bundle.Descriptor.Kind != "hermes" {
+		target.Installation.SupportState != yorvaruntime.DiscoverySupported || target.Bundle.Descriptor.Kind != "hermes" ||
+		target.Bundle.BackupRead == nil || target.Bundle.BackupMutate != nil || target.Bundle.Restore != nil {
 		t.Fatalf("target = %#v", target)
+	}
+	backups, err := target.Bundle.BackupRead.ListBackups(context.Background(), target.Installation)
+	if err != nil || len(backups) != 0 {
+		t.Fatalf("bound Runtime backup index = %#v, %v", backups, err)
 	}
 
 	if _, err := inventory.ResolveRuntimeManagementTarget(context.Background(), ""); !errors.Is(err, ErrRuntimeNotSupported) {

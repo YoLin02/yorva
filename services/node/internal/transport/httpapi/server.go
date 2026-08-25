@@ -60,10 +60,16 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	var skills ManagementSkillsService
 	var mcp ManagementMCPReadService
 	var managementHealth InstanceManagementHealthService
+	var managementUpgrade ManagementUpgradePlanService
+	var managementBackups ManagementBackupReadService
 	if targets, ok := instances.(app.ManagementTargetResolver); ok {
 		skills = app.NewManagementSkills(targets)
 		mcp = app.NewMCPManagement(targets)
 		managementHealth = app.NewManagementHealth(targets)
+	}
+	if targets, ok := instances.(app.RuntimeManagementTargetResolver); ok {
+		managementUpgrade = app.NewManagementUpgrade(targets)
+		managementBackups = app.NewBackupManagement(targets)
 	}
 	mux.HandleFunc("GET /api/v1/health", health)
 	mux.Handle("GET /api/v1/node", requireBearer(token, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -79,6 +85,9 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("PUT /api/v1/settings/hermes/download-sources", requireBearer(token, putHermesDownloadSources(sourceSettings)))
 	mux.Handle("DELETE /api/v1/settings/hermes/download-sources", requireBearer(token, deleteHermesDownloadSources(sourceSettings)))
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, listRuntimeInstances(instances)))
+	mux.Handle("GET /api/v1/runtimes/{runtimeId}/upgrade-plan", requireBearer(token, getRuntimeUpgradePlan(managementUpgrade)))
+	mux.Handle("GET /api/v1/runtimes/{runtimeId}/backups", requireBearer(token, listRuntimeBackups(managementBackups)))
+	mux.Handle("GET /api/v1/runtimes/{runtimeId}/backups/{backupId}", requireBearer(token, getRuntimeBackup(managementBackups)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, createRuntimeInstance(instances)))
 	mux.Handle("GET /api/v1/runtimes/hermes/model-provider-presets", requireBearer(token, listModelProviderPresets(models)))
 	mux.Handle("GET /api/v1/instances/{instanceId}", requireBearer(token, getInstance(instances)))
@@ -191,6 +200,16 @@ func allowedMethods(path string) (string, bool) {
 			return "POST, OPTIONS", true
 		}
 	}
+	const upgradePlanSuffix = "/upgrade-plan"
+	if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, upgradePlanSuffix) {
+		kind := strings.TrimSuffix(strings.TrimPrefix(path, prefix), upgradePlanSuffix)
+		if kind != "" && !strings.Contains(kind, "/") {
+			return "GET, OPTIONS", true
+		}
+	}
+	if kind := runtimeBackupReadPathKind(path); kind != "" {
+		return "GET, OPTIONS", true
+	}
 	switch instancePathKind(path) {
 	case "list":
 		return "GET, POST, OPTIONS", true
@@ -224,6 +243,21 @@ func allowedMethods(path string) (string, bool) {
 		return "GET, OPTIONS", true
 	}
 	return "", false
+}
+
+func runtimeBackupReadPathKind(path string) string {
+	const prefix = "/api/v1/runtimes/"
+	if !strings.HasPrefix(path, prefix) {
+		return ""
+	}
+	parts := strings.Split(strings.TrimPrefix(path, prefix), "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "backups" {
+		return "list"
+	}
+	if len(parts) == 3 && parts[0] != "" && parts[1] == "backups" && parts[2] != "" {
+		return "get"
+	}
+	return ""
 }
 
 func managementReadPathKind(path string) string {

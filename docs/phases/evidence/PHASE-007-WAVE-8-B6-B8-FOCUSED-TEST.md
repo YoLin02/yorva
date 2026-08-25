@@ -117,3 +117,28 @@ The R1 reviewer also reconfirmed:
 
 This PASS accepts the current safety foundations only. It does not authorize product
 Backup publication, Restore, Upgrade or Rollback and it is not the Phase 7 B10 audit.
+
+## B6 unconnected publication foundation
+
+Date: 2026-08-25
+
+The B6 adapter foundation now also contains an unconnected publisher for one already
+constructed and structurally valid canonical plaintext container. It accepts only one
+opaque locally inspected `.yorva-backup.age` destination and one request-scoped
+in-memory X25519 identity or passphrase. It creates current-user-only private sibling
+staging, checks destination space before staging, verifies the final persisted age
+ciphertext, durably flushes it, publishes without overwrite, and re-hashes the final
+file. Returned metadata contains no path, destination capability, identity or secret.
+
+Focused coverage includes collision and publish-boundary collision, symlink/reparse and
+ADS rejection, changed-parent detection, insufficient space before staging, late
+cancellation, publication failure cleanup, atomic visibility, protected Windows DACL,
+final checksum and decrypt verification. The focused package test, vet, diff check and
+Linux cross-compile passed.
+
+This is not a complete Runtime backup and does not change capability truth. Production
+wiring remains blocked on separately owned boundaries: the native-picker destination
+reference resolver, OS-backed device-identity `SecretStore`, Runtime-scope safe index
+integration, and an exact qualified Hermes Runtime/Profile source enumerator. No fake
+substitute is introduced here; `EncryptionQualified` remains false and no mutation route
+or Bundle capability is registered.

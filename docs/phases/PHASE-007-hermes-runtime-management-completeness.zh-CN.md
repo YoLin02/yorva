@@ -12,7 +12,7 @@
 > Owner 授权：2026-08-24，批准 P7-D1–D8 推荐方向及 B0–B10 实现顺序
 > 实现授权：**Owner 于 2026-08-25 批准依赖驱动的并行 B-stage；共享合同先行，互不依赖的 Hermes adapter、测试与 UX lane 可并行，危险 mutation 必须等待对应 ADR/资格条件**
 > ADR 授权：**Owner 于 2026-08-25 正式接受 ADR-0013、ADR-0014、ADR-0015；允许按其边界实现，但每项 product capability 仍须通过精确版本资格和破坏性流程证据后才能置为 true。**
-> 待决前置：**ADR-0016 提议把 exact Profile 的 `API_SERVER_KEY` 作为 Hermes-native 唯一权威，仅允许 loopback 的 `/health/detailed` 与 `/v1/skills` 管理读取；在 Owner 单独接受前，真实 Health/SkillRead capability 保持 false。**
+> ADR 授权补充：**Owner 于 2026-08-25 接受 ADR-0016；exact Profile 的 `API_SERVER_KEY` 是 Hermes-native 唯一权威，仅允许 loopback、禁止重定向地读取 `/health/detailed` 与 `/v1/skills`。真实 Health/SkillRead capability 仍须在聚焦资格与接线通过后才能置为 true。**
 
 ## 0. 阶段定位
 
@@ -441,6 +441,10 @@ Runtime 目标语义。Logs 同样只接受一个固定类别。Security audit �
 - 不接受 shell command、environment key/value、arbitrary local path 或 URL query secret；
 - 用户选择的 backup destination 是明确 local-only capability，不自动成为未来 remote
   command 参数；
+- Runtime-scope backup index 可在仓储可用后独立发布为 authenticated read-only
+  capability。list/get 只返回最近一次观测的安全元数据，不打开、解密、hash、reconcile
+  或修改 artifact；Backup create/delete 与 Restore capability 在各自完整 Operation
+  路径通过 Gate 前继续保持 false；
 - long-running work 返回 `202 Operation`；
 - Desktop 通过 TanStack Query 持有 daemon state，SSE 只做 invalidation/progress 通知。
 

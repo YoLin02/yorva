@@ -177,10 +177,20 @@ func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string)
 		return InstanceList{}, err
 	}
 	views := make([]InstanceView, 0, len(rows))
-	capabilities := s.capabilities()
+	bundle, _ := s.discovery.registry.Get(yorvaruntime.Kind(hermesRuntimeID))
+	installationTarget := yorvaruntime.Installation{
+		RuntimeKind:  yorvaruntime.Kind(hermesRuntimeID),
+		Path:         discovery.Selected.Path,
+		Version:      discovery.Selected.Version,
+		SupportState: discovery.State,
+	}
+	capabilities := instanceCapabilities(bundle.ManagementCapabilities(), bundle.Lifecycle != nil)
 	var lastSync *time.Time
 	for _, row := range rows {
-		views = append(views, instanceView(row, capabilities))
+		resolved := bundle.ResolveInstanceManagement(ctx, installationTarget, row.NativeID)
+		rowCapabilities := instanceCapabilities(resolved.ManagementCapabilities(), resolved.Lifecycle != nil)
+		views = append(views, instanceView(row, rowCapabilities))
+		capabilities = unionInstanceCapabilities(capabilities, rowCapabilities)
 		if row.LastSyncedAt != nil && (lastSync == nil || row.LastSyncedAt.After(*lastSync)) {
 			lastSync = row.LastSyncedAt
 		}
@@ -210,7 +220,13 @@ func (s *InstanceInventory) GetInstance(ctx context.Context, instanceID string) 
 	if err != nil {
 		return InstanceView{}, err
 	}
-	return instanceView(row, s.capabilities()), nil
+	capabilities := s.capabilities()
+	if target, targetErr := s.ResolveManagementTarget(ctx, instanceID); targetErr == nil {
+		capabilities = instanceCapabilities(target.Bundle.ManagementCapabilities(), target.Bundle.Lifecycle != nil)
+	} else if ctxErr := ctx.Err(); ctxErr != nil {
+		return InstanceView{}, ctxErr
+	}
+	return instanceView(row, capabilities), nil
 }
 
 func (s *InstanceInventory) ensureInstallation(ctx context.Context, discovery yorvaruntime.Discovery) (sqlite.AcceptedInstallation, error) {
@@ -297,7 +313,12 @@ func (s *InstanceInventory) capabilities() InstanceCapabilities {
 	if !ok {
 		return capabilities
 	}
-	return instanceCapabilities(bundle.ManagementCapabilities(), bundle.Lifecycle != nil)
+	capabilities = instanceCapabilities(bundle.ManagementCapabilities(), bundle.Lifecycle != nil)
+	// BackupRead is backed by the Runtime-scoped SQLite index and therefore is
+	// published dynamically by the application composition, not Hermes static
+	// registration. Mutating backup and Restore capabilities remain false.
+	capabilities.BackupRead = capabilities.BackupRead || s.db != nil
+	return capabilities
 }
 
 func instanceCapabilities(management yorvaruntime.ManagementCapabilities, lifecycle bool) InstanceCapabilities {
@@ -316,6 +337,19 @@ func instanceCapabilities(management yorvaruntime.ManagementCapabilities, lifecy
 	capabilities.Upgrade = management.Upgrade
 	capabilities.Rollback = management.Rollback
 	return capabilities
+}
+
+func unionInstanceCapabilities(left, right InstanceCapabilities) InstanceCapabilities {
+	return InstanceCapabilities{
+		Instances: left.Instances || right.Instances, Lifecycle: left.Lifecycle || right.Lifecycle,
+		HealthRead: left.HealthRead || right.HealthRead, LogsRead: left.LogsRead || right.LogsRead,
+		SecurityAudit: left.SecurityAudit || right.SecurityAudit,
+		SkillRead:     left.SkillRead || right.SkillRead, SkillMutate: left.SkillMutate || right.SkillMutate,
+		MCPRead: left.MCPRead || right.MCPRead, MCPMutate: left.MCPMutate || right.MCPMutate,
+		BackupRead: left.BackupRead || right.BackupRead, BackupMutate: left.BackupMutate || right.BackupMutate,
+		Restore: left.Restore || right.Restore, UpgradePlan: left.UpgradePlan || right.UpgradePlan,
+		Upgrade: left.Upgrade || right.Upgrade, Rollback: left.Rollback || right.Rollback,
+	}
 }
 
 func (s *InstanceInventory) lifecycleCapable() bool {

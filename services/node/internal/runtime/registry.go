@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"sort"
 	"sync"
@@ -33,6 +34,42 @@ type Bundle struct {
 	UpgradePlan  UpgradePlanner
 	Upgrade      RuntimeUpgrader
 	Rollback     RuntimeRollbacker
+	// InstanceManagement resolves management readers whose availability depends
+	// on exact Runtime/Profile state. The registered Bundle keeps these fields
+	// nil so a version-wide static capability cannot over-claim support.
+	InstanceManagement InstanceManagementResolver
+}
+
+type InstanceManagementFeatures struct {
+	Health    HealthInspector
+	Logs      LogReader
+	Security  SecurityAuditor
+	SkillRead SkillReader
+	MCPRead   MCPReader
+}
+
+// InstanceManagementResolver may only add read capabilities for one already
+// resolved Installation/Profile. Mutating capabilities remain compile-time
+// Bundle wiring and cannot be enabled by an ordinary read.
+type InstanceManagementResolver interface {
+	ResolveInstanceManagement(context.Context, Installation, string) (InstanceManagementFeatures, error)
+}
+
+func (b Bundle) ResolveInstanceManagement(ctx context.Context, installation Installation, nativeID string) Bundle {
+	if b.InstanceManagement == nil {
+		return b
+	}
+	features, err := b.InstanceManagement.ResolveInstanceManagement(ctx, installation, nativeID)
+	if err != nil {
+		return b
+	}
+	resolved := b
+	resolved.Health = features.Health
+	resolved.Logs = features.Logs
+	resolved.Security = features.Security
+	resolved.SkillRead = features.SkillRead
+	resolved.MCPRead = features.MCPRead
+	return resolved
 }
 
 type ManagementCapabilities struct {

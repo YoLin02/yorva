@@ -1,4 +1,4 @@
-import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, ManagementHealth, ManagementLogCategory, ManagementLogSnapshot, MCPServerList, MCPPresetList, ModelConfiguration, ModelCredential, ModelProviderCatalog, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery, Skill, SkillList } from "./types";
+import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, ManagementBackup, ManagementBackupList, ManagementHealth, ManagementLogCategory, ManagementLogSnapshot, ManagementUpgradePlan, MCPServerList, MCPPresetList, ModelConfiguration, ModelCredential, ModelProviderCatalog, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery, Skill, SkillList } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -151,6 +151,18 @@ export function createDaemonClient(session: DaemonSession) {
       }),
     listInstanceMCPPresets: (instanceId: string, signal?: AbortSignal) =>
       request<MCPPresetList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-catalog`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    getRuntimeUpgradePlan: (runtimeId: string, signal?: AbortSignal) =>
+      request<ManagementUpgradePlan>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/upgrade-plan`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    listRuntimeBackups: (runtimeId: string, signal?: AbortSignal) =>
+      request<ManagementBackupList>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/backups`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    getRuntimeBackup: (runtimeId: string, backupId: string, signal?: AbortSignal) =>
+      request<ManagementBackup>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/backups/${encodeURIComponent(backupId)}`, {
         signal: withDesktopTimeout(signal),
       }),
     connectWeixin: (instanceId: string, idempotencyKey: string, signal?: AbortSignal) =>

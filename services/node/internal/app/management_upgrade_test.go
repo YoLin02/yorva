@@ -55,6 +55,8 @@ func completeUnqualifiedUpgradePlan() yorvaruntime.UpgradePlan {
 		Rollback:                yorvaruntime.RollbackEligible,
 		CurrentVersion:          "0.20.2",
 		TargetVersion:           "0.20.5",
+		CandidateLabel:          "Hermes 0.20.5 packaged snapshot",
+		Compatibility:           yorvaruntime.UpgradeCompatibilityProven,
 		Managed:                 true,
 		InventoryComplete:       true,
 		ProtectionPointRequired: true,

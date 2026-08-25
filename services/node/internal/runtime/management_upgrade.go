@@ -30,11 +30,52 @@ func (s RollbackEligibilityState) Valid() bool {
 	return s == RollbackEligible || s == RollbackIneligible || s == RollbackUnknown
 }
 
+type UpgradeCompatibilityState string
+
+const (
+	UpgradeCompatibilityNotRequired UpgradeCompatibilityState = "NOT_REQUIRED"
+	UpgradeCompatibilityProven      UpgradeCompatibilityState = "PROVEN"
+	UpgradeCompatibilityUnsafe      UpgradeCompatibilityState = "UNSAFE"
+	UpgradeCompatibilityUnknown     UpgradeCompatibilityState = "UNKNOWN"
+)
+
+func (s UpgradeCompatibilityState) Valid() bool {
+	return s == UpgradeCompatibilityNotRequired || s == UpgradeCompatibilityProven ||
+		s == UpgradeCompatibilityUnsafe || s == UpgradeCompatibilityUnknown
+}
+
+// UpgradePlanReason is a closed, safe explanation for a non-actionable plan.
+// It deliberately omits paths, source digests, commands and internal record IDs.
+type UpgradePlanReason string
+
+const (
+	UpgradeReasonManagedEvidenceUnknown UpgradePlanReason = "MANAGED_EVIDENCE_UNKNOWN"
+	UpgradeReasonCurrentIdentityUnknown UpgradePlanReason = "CURRENT_IDENTITY_UNKNOWN"
+	UpgradeReasonInventoryUnknown       UpgradePlanReason = "INVENTORY_UNKNOWN"
+	UpgradeReasonProtectionRequired     UpgradePlanReason = "PROTECTION_POINT_REQUIRED"
+	UpgradeReasonCompatibilityUnknown   UpgradePlanReason = "COMPATIBILITY_UNKNOWN"
+	UpgradeReasonPostchecksUnqualified  UpgradePlanReason = "POSTCHECKS_UNQUALIFIED"
+)
+
+func (r UpgradePlanReason) Valid() bool {
+	switch r {
+	case UpgradeReasonManagedEvidenceUnknown, UpgradeReasonCurrentIdentityUnknown,
+		UpgradeReasonInventoryUnknown, UpgradeReasonProtectionRequired,
+		UpgradeReasonCompatibilityUnknown, UpgradeReasonPostchecksUnqualified:
+		return true
+	default:
+		return false
+	}
+}
+
 type UpgradePlan struct {
 	State                     UpgradeAvailabilityState
 	Rollback                  RollbackEligibilityState
 	CurrentVersion            string
 	TargetVersion             string
+	CandidateLabel            string
+	Compatibility             UpgradeCompatibilityState
+	Reasons                   []UpgradePlanReason
 	Managed                   bool
 	InventoryComplete         bool
 	ProtectionPointRequired   bool
@@ -55,6 +96,22 @@ func (p UpgradePlan) Validate() error {
 	if err := validateBoundedText("target Runtime version", p.TargetVersion); err != nil {
 		return err
 	}
+	if err := validateBoundedText("upgrade candidate label", p.CandidateLabel); err != nil {
+		return err
+	}
+	if !p.Compatibility.Valid() || len(p.Reasons) > 16 {
+		return ErrInvalidManagementContract
+	}
+	seenReasons := make(map[UpgradePlanReason]struct{}, len(p.Reasons))
+	for _, reason := range p.Reasons {
+		if !reason.Valid() {
+			return ErrInvalidManagementContract
+		}
+		if _, duplicate := seenReasons[reason]; duplicate {
+			return ErrInvalidManagementContract
+		}
+		seenReasons[reason] = struct{}{}
+	}
 	if p.State == UpgradeAvailable && (p.CurrentVersion == "" || p.TargetVersion == "") {
 		return ErrInvalidManagementContract
 	}
@@ -63,9 +120,12 @@ func (p UpgradePlan) Validate() error {
 	}
 	if p.PlanEvidenceComplete {
 		if p.State != UpgradeAvailable || !p.Managed || !p.InventoryComplete || p.Rollback != RollbackEligible ||
-			(p.ProtectionPointRequired && !p.ProtectionPointReady) {
+			(p.ProtectionPointRequired && !p.ProtectionPointReady) || p.Compatibility != UpgradeCompatibilityProven || len(p.Reasons) != 0 {
 			return ErrInvalidManagementContract
 		}
+	}
+	if p.State == UpgradeUpToDate && p.Compatibility != UpgradeCompatibilityNotRequired {
+		return ErrInvalidManagementContract
 	}
 	if p.UpgradeMutationQualified && !p.PlanEvidenceComplete {
 		return ErrInvalidManagementContract

@@ -320,6 +320,21 @@ UNKNOWN_VERSION
 
 Unknown versions should fail conservatively for mutating operations that depend on unstable behavior while still allowing safe detection/status where possible.
 
+### Managed Upgrade plan truth
+
+Hermes exposes a read-only `UpgradePlan` capability only when the adapter can re-read a
+live valid `active.json`, verify the matching sealed generation and compare it with the
+one exact packaged snapshot compiled into YORVA. The plan capability is not Upgrade or
+Rollback mutation authority. Those two capabilities remain false until exact
+compatibility, protection-point and post-check qualification is complete.
+
+The public projection contains only the current version, a product-facing packaged
+candidate label/version, managed status, compatibility status, protection-point
+requirement and closed blocked-reason codes. Source commits, hashes, seals, filesystem
+paths, commands, URLs and internal protection-point identities stay adapter-internal.
+For the current `0.20.2` to packaged `0.20.5` pair, compatibility and protection evidence
+are not qualified, so the plan is `UNKNOWN` and never authorizes a mutation.
+
 ## 13. Error normalization
 
 Adapter-specific failures map to stable errors such as:

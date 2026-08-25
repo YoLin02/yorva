@@ -23,10 +23,16 @@ type ArtifactMetadata struct {
 	FormatVersion      string
 	SchemaVersion      int
 	PolicyVersion      int
+	BackupID           string
+	CreatedAt          string
 	Scope              string
 	RuntimeKind        string
 	RuntimeVersion     string
+	Installation       InstallationIdentity
+	InclusionPolicy    string
 	IncludedCategories []DataCategory
+	ExclusionPolicy    string
+	ExcludedCategories []ExcludedDataCategory
 	PayloadSizeBytes   int64
 	PayloadSHA256      string
 	PayloadMemberCount int

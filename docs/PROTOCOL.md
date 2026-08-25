@@ -321,14 +321,46 @@ No deep/live check, security audit, Skill or MCP mutation route is registered un
 durable Operation owner and qualified adapter exist. Runtime-wide health also remains
 unregistered; the current qualified projection is exact-Instance scoped.
 
-### Reserved Backup / Restore resources
+### Read-only managed Upgrade plan
 
-Backup scope is Runtime-wide, not Instance-wide. The following resources remain reserved
-and are not registered while ADR-0013, encryption/key authority and destructive Restore
-qualification are pending:
+```text
+GET /api/v1/runtimes/{runtimeId}/upgrade-plan
+```
+
+This authenticated GET derives its answer from the live valid active pointer, matching
+sealed generation and compiled packaged candidate. Its closed DTO exposes a safe
+candidate label/version, managed status, compatibility (`NOT_REQUIRED`, `PROVEN`,
+`UNSAFE`, or `UNKNOWN`), protection-point requirement/readiness and stable blocked
+reason codes. It never exposes source commits, hashes, paths, commands, URLs, seals or
+protection-point identifiers.
+
+`capabilities.upgradePlan` means only that this read is available.
+`capabilities.upgrade` and `capabilities.rollback` independently represent mutation
+qualification and remain false for the current Hermes pair. No Upgrade/Rollback
+mutation route or Operation is registered, and `UNKNOWN`/`BLOCKED` plans are never
+actionable.
+
+### Runtime backup index and reserved mutations
+
+Backup scope is Runtime-wide, not Instance-wide. Phase 7 registers only the authenticated
+safe-index reads:
 
 ```text
 GET  /api/v1/runtimes/{runtimeId}/backups
+GET  /api/v1/runtimes/{runtimeId}/backups/{backupId}
+```
+
+These reads return the backup ID, last-observed state, format/Runtime versions, encrypted
+size and SHA-256, creation/last-verification times, and non-secret key mode. They never
+return the artifact path, destination capability, key reference, passphrase, credentials
+or archive members. `AVAILABLE` and `verifiedAt` are the last successful controlled
+verification recorded by YORVA; an ordinary GET does not access, decrypt, hash, reconcile
+or mutate the artifact and does not claim current Restore eligibility.
+
+The following mutations remain reserved and unregistered while their Operation,
+destination capability and destructive Restore qualification are incomplete:
+
+```text
 POST /api/v1/runtimes/{runtimeId}/backups
 POST /api/v1/backups/{backupId}/restore
 DELETE /api/v1/backups/{backupId}

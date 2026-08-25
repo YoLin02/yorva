@@ -93,6 +93,41 @@ describe("daemon client management reads", () => {
     expect(requestSignal.aborted).toBe(true);
   });
 
+  it("reads the encoded Runtime upgrade plan with authenticated bounded GET", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ state: "UNKNOWN" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createDaemonClient(session).getRuntimeUpgradePlan("hermes/unsafe?");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:49152/api/v1/runtimes/hermes%2Funsafe%3F/upgrade-plan",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init.method ?? "GET").toBe("GET");
+    expect(init.body).toBeUndefined();
+    expect(init.headers).toEqual(expect.objectContaining({ Authorization: "Bearer session-secret" }));
+  });
+
+  it("reads only encoded Runtime backup inventory resources", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ scope: "RUNTIME", items: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createDaemonClient(session);
+
+    await client.listRuntimeBackups("hermes/unsafe?");
+    await client.getRuntimeBackup("hermes/unsafe?", "backup/id#");
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://127.0.0.1:49152/api/v1/runtimes/hermes%2Funsafe%3F/backups",
+      "http://127.0.0.1:49152/api/v1/runtimes/hermes%2Funsafe%3F/backups/backup%2Fid%23",
+    ]);
+    for (const [, init] of fetchMock.mock.calls as [string, RequestInit][]) {
+      expect(init.method ?? "GET").toBe("GET");
+      expect(init.body).toBeUndefined();
+      expect(init.headers).toEqual(expect.objectContaining({ Authorization: "Bearer session-secret" }));
+    }
+  });
+
   it("aborts management reads when the bounded Desktop timeout fires", async () => {
     const timeoutController = new AbortController();
     vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeoutController.signal);

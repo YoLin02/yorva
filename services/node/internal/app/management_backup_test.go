@@ -25,12 +25,12 @@ func (f *b6RuntimeTargetResolver) ResolveRuntimeManagementTarget(_ context.Conte
 }
 
 type b6BackupReader struct {
-	backups       []yorvaruntime.Backup
-	verified      yorvaruntime.Backup
-	listErr       error
-	verifyErr     error
-	gotInstall    yorvaruntime.Installation
-	gotVerifiedID string
+	backups     []yorvaruntime.Backup
+	inspected   yorvaruntime.Backup
+	listErr     error
+	inspectErr  error
+	gotInstall  yorvaruntime.Installation
+	gotBackupID string
 }
 
 func (f *b6BackupReader) ListBackups(_ context.Context, installation yorvaruntime.Installation) ([]yorvaruntime.Backup, error) {
@@ -38,10 +38,10 @@ func (f *b6BackupReader) ListBackups(_ context.Context, installation yorvaruntim
 	return f.backups, f.listErr
 }
 
-func (f *b6BackupReader) VerifyBackup(_ context.Context, installation yorvaruntime.Installation, backupID string) (yorvaruntime.Backup, error) {
+func (f *b6BackupReader) GetBackup(_ context.Context, installation yorvaruntime.Installation, backupID string) (yorvaruntime.Backup, error) {
 	f.gotInstall = installation
-	f.gotVerifiedID = backupID
-	return f.verified, f.verifyErr
+	f.gotBackupID = backupID
+	return f.inspected, f.inspectErr
 }
 
 type b6BackupManager struct {
@@ -66,14 +66,12 @@ func (f *b6BackupManager) DeleteBackup(_ context.Context, _ yorvaruntime.Install
 	return f.deleteErr
 }
 
-func TestBackupManagementListInspectAndVerifyRuntimeScope(t *testing.T) {
+func TestBackupManagementListAndInspectRuntimeScope(t *testing.T) {
 	now := time.Date(2026, 8, 25, 13, 0, 0, 0, time.FixedZone("test", 8*60*60))
 	available := b6AvailableBackup("backup-1", now)
-	failed := yorvaruntime.Backup{
-		ID: "backup-2", State: yorvaruntime.BackupFailed, SizeBytes: 12,
-		FormatVersion: `secret/path`, RuntimeVersion: `key=secret`, ChecksumSHA256: strings.Repeat("f", 64), CreatedAt: now,
-	}
-	reader := &b6BackupReader{backups: []yorvaruntime.Backup{available, failed}, verified: available}
+	missing := b6AvailableBackup("backup-2", now)
+	missing.State = yorvaruntime.BackupMissing
+	reader := &b6BackupReader{backups: []yorvaruntime.Backup{available, missing}, inspected: available}
 	installation := yorvaruntime.Installation{RuntimeKind: "hermes", Path: `C:\hermes\hermes.exe`, Version: "0.20.5", SupportState: yorvaruntime.DiscoverySupported}
 	resolver := &b6RuntimeTargetResolver{target: RuntimeManagementTarget{
 		Installation: installation, InstallationID: "rtinst_1", Bundle: yorvaruntime.Bundle{BackupRead: reader},
@@ -87,27 +85,23 @@ func TestBackupManagementListInspectAndVerifyRuntimeScope(t *testing.T) {
 	if resolver.gotID != "hermes" || reader.gotInstall != installation {
 		t.Fatalf("target = runtime %q, installation %#v", resolver.gotID, reader.gotInstall)
 	}
-	if items[0].Scope != BackupScopeRuntime || items[0].ArtifactVerified || items[0].CreatedAt == nil || items[0].CreatedAt.Location() != time.UTC {
+	if items[0].Scope != BackupScopeRuntime || items[0].CreatedAt.Location() != time.UTC || items[0].VerifiedAt.Location() != time.UTC {
 		t.Fatalf("available list projection = %#v", items[0])
 	}
-	if items[1].FormatVersion != "" || items[1].RuntimeVersion != "" || items[1].ChecksumSHA256 != "" || items[1].CreatedAt != nil {
-		t.Fatalf("non-available metadata was exposed: %#v", items[1])
+	if items[1].State != yorvaruntime.BackupMissing || items[1].FormatVersion == "" || items[1].VerifiedAt.IsZero() {
+		t.Fatalf("last-observed missing metadata = %#v", items[1])
 	}
 
 	inspected, err := service.InspectBackup(context.Background(), "hermes", "backup-1")
-	if err != nil || inspected.ID != "backup-1" || inspected.ArtifactVerified {
+	if err != nil || inspected.ID != "backup-1" {
 		t.Fatalf("InspectBackup() = %#v, %v", inspected, err)
 	}
+	reader.inspectErr = yorvaruntime.ErrBackupNotFound
 	if _, err := service.InspectBackup(context.Background(), "hermes", "backup-missing"); !errors.Is(err, ErrBackupNotFound) {
 		t.Fatalf("missing inspect error = %v", err)
 	}
-
-	verified, err := service.VerifyBackup(context.Background(), "hermes", "backup-1")
-	if err != nil || !verified.ArtifactVerified || verified.State != yorvaruntime.BackupAvailable {
-		t.Fatalf("VerifyBackup() = %#v, %v", verified, err)
-	}
-	if reader.gotVerifiedID != "backup-1" {
-		t.Fatalf("verified ID = %q", reader.gotVerifiedID)
+	if reader.gotBackupID != "backup-missing" {
+		t.Fatalf("inspected ID = %q", reader.gotBackupID)
 	}
 }
 
@@ -115,9 +109,6 @@ func TestBackupManagementFailsClosedForCapabilityAndInvalidResults(t *testing.T)
 	service := NewBackupManagement(&b6RuntimeTargetResolver{target: RuntimeManagementTarget{Bundle: yorvaruntime.Bundle{}}})
 	if _, err := service.ListBackups(context.Background(), "hermes"); !errors.Is(err, ErrManagementCapabilityUnsupported) {
 		t.Fatalf("list capability error = %v", err)
-	}
-	if _, err := service.VerifyBackup(context.Background(), "hermes", "backup-1"); !errors.Is(err, ErrManagementCapabilityUnsupported) {
-		t.Fatalf("verify capability error = %v", err)
 	}
 
 	now := time.Now().UTC()
@@ -130,11 +121,6 @@ func TestBackupManagementFailsClosedForCapabilityAndInvalidResults(t *testing.T)
 		{name: "unsafe format", backups: []yorvaruntime.Backup{func() yorvaruntime.Backup {
 			value := b6AvailableBackup("backup-1", now)
 			value.FormatVersion = "secret/path"
-			return value
-		}()}},
-		{name: "oversized artifact", backups: []yorvaruntime.Backup{func() yorvaruntime.Backup {
-			value := b6AvailableBackup("backup-1", now)
-			value.SizeBytes = managementBackupMaxArtifactBytes + 1
 			return value
 		}()}},
 	}
@@ -150,7 +136,7 @@ func TestBackupManagementFailsClosedForCapabilityAndInvalidResults(t *testing.T)
 
 	tooMany := make([]yorvaruntime.Backup, managementBackupCollectionLimit+1)
 	for i := range tooMany {
-		tooMany[i] = yorvaruntime.Backup{ID: fmt.Sprintf("backup-%d", i), State: yorvaruntime.BackupFailed}
+		tooMany[i] = b6AvailableBackup(fmt.Sprintf("backup-%d", i), now)
 	}
 	service = NewBackupManagement(&b6RuntimeTargetResolver{target: RuntimeManagementTarget{Bundle: yorvaruntime.Bundle{BackupRead: &b6BackupReader{backups: tooMany}}}})
 	if _, err := service.ListBackups(context.Background(), "hermes"); !errors.Is(err, ErrManagementQueryFailed) {
@@ -158,27 +144,15 @@ func TestBackupManagementFailsClosedForCapabilityAndInvalidResults(t *testing.T)
 	}
 }
 
-func TestBackupManagementVerifyRejectsFalseSuccess(t *testing.T) {
+func TestBackupManagementInspectRejectsFalseIdentity(t *testing.T) {
 	now := time.Now().UTC()
-	tests := []struct {
-		name   string
-		result yorvaruntime.Backup
-	}{
-		{name: "wrong identity", result: b6AvailableBackup("backup-other", now)},
-		{name: "failed state", result: yorvaruntime.Backup{ID: "backup-1", State: yorvaruntime.BackupFailed}},
-		{name: "malformed available", result: yorvaruntime.Backup{ID: "backup-1", State: yorvaruntime.BackupAvailable}},
+	reader := &b6BackupReader{inspected: b6AvailableBackup("backup-other", now)}
+	service := NewBackupManagement(&b6RuntimeTargetResolver{target: RuntimeManagementTarget{Bundle: yorvaruntime.Bundle{BackupRead: reader}}})
+	if _, err := service.InspectBackup(context.Background(), "hermes", "backup-1"); !errors.Is(err, ErrManagementQueryFailed) {
+		t.Fatalf("error = %v, want ErrManagementQueryFailed", err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			reader := &b6BackupReader{verified: tt.result}
-			service := NewBackupManagement(&b6RuntimeTargetResolver{target: RuntimeManagementTarget{Bundle: yorvaruntime.Bundle{BackupRead: reader}}})
-			if _, err := service.VerifyBackup(context.Background(), "hermes", "backup-1"); !errors.Is(err, ErrManagementQueryFailed) {
-				t.Fatalf("error = %v, want ErrManagementQueryFailed", err)
-			}
-		})
-	}
-	service := NewBackupManagement(&b6RuntimeTargetResolver{target: RuntimeManagementTarget{Bundle: yorvaruntime.Bundle{BackupRead: &b6BackupReader{}}}})
-	if _, err := service.VerifyBackup(context.Background(), "hermes", "https://unsafe.invalid"); !errors.Is(err, ErrBackupNotFound) {
+	service = NewBackupManagement(&b6RuntimeTargetResolver{target: RuntimeManagementTarget{Bundle: yorvaruntime.Bundle{BackupRead: &b6BackupReader{}}}})
+	if _, err := service.InspectBackup(context.Background(), "hermes", "https://unsafe.invalid"); !errors.Is(err, ErrBackupNotFound) {
 		t.Fatalf("unsafe backup ID error = %v", err)
 	}
 }
@@ -217,7 +191,7 @@ func TestBackupCreateDeleteWorkersUseOnlyQualifiedBundleWiring(t *testing.T) {
 	resolver = &b6RuntimeTargetResolver{target: RuntimeManagementTarget{Bundle: yorvaruntime.Bundle{BackupMutate: manager}}}
 	service = NewBackupManagement(resolver)
 	created, err := service.CreateBackup(context.Background(), "hermes", yorvaruntime.BackupCreateRequest{DestinationRef: "pick_123"}, nil)
-	if err != nil || !created.ArtifactVerified || manager.gotRequest.DestinationRef != "pick_123" {
+	if err != nil || created.State != yorvaruntime.BackupAvailable || manager.gotRequest.DestinationRef != "pick_123" {
 		t.Fatalf("CreateBackup() = %#v, %v; request %#v", created, err, manager.gotRequest)
 	}
 	if err := service.DeleteBackup(context.Background(), "hermes", "backup-1", nil); err != nil || manager.gotDeleteID != "backup-1" {
@@ -242,5 +216,6 @@ func b6AvailableBackup(id string, createdAt time.Time) yorvaruntime.Backup {
 	return yorvaruntime.Backup{
 		ID: id, State: yorvaruntime.BackupAvailable, FormatVersion: "v1", RuntimeVersion: "0.20.5",
 		SizeBytes: 1024, ChecksumSHA256: strings.Repeat("a", 64), CreatedAt: createdAt,
+		VerifiedAt: createdAt.Add(time.Minute), KeyMode: yorvaruntime.BackupKeyDevice,
 	}
 }

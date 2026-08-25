@@ -350,6 +350,32 @@ type Messages = {
     readyAt: string;
     observedAt: string;
     neverReady: string;
+    upgradeTitle: string;
+    upgradeDescription: string;
+    currentVersion: string;
+    candidate: string;
+    managedStatusLabel: string;
+    compatibilityLabel: string;
+    protectionPoint: string;
+    protectionRequired: string;
+    protectionNotRequired: string;
+    protectionNotReady: string;
+    upgradeState: Record<"UP_TO_DATE" | "AVAILABLE" | "BLOCKED" | "UNKNOWN", string>;
+    managedState: Record<"MANAGED" | "UNKNOWN", string>;
+    compatibilityState: Record<"NOT_REQUIRED" | "PROVEN" | "UNSAFE" | "UNKNOWN", string>;
+    upgradeReasons: Record<"MANAGED_EVIDENCE_UNKNOWN" | "CURRENT_IDENTITY_UNKNOWN" | "INVENTORY_UNKNOWN" | "PROTECTION_POINT_REQUIRED" | "COMPATIBILITY_UNKNOWN" | "POSTCHECKS_UNQUALIFIED", string>;
+    backupsTitle: string;
+    backupsDescription: string;
+    noBackups: string;
+    backupLastObserved: string;
+    backupCreated: string;
+    backupVerified: string;
+    backupFormat: string;
+    backupSize: string;
+    backupChecksum: string;
+    backupKey: string;
+    backupKeyMode: Record<"DEVICE" | "PASSPHRASE", string>;
+    backupState: Record<"AVAILABLE" | "MISSING" | "CHANGED" | "UNDECRYPTABLE" | "MALFORMED" | "UNKNOWN", string>;
     healthState: Record<"HEALTHY" | "DEGRADED" | "UNHEALTHY" | "UNKNOWN", string>;
     logCategories: Record<"RUNTIME" | "ERRORS" | "GATEWAY" | "MCP", string>;
     installationState: Record<"INSTALLED" | "NOT_INSTALLED" | "UNKNOWN", string>;
@@ -842,6 +868,39 @@ const english: Messages = {
     readyAt: "Ready evidence",
     observedAt: "Observed",
     neverReady: "No current Ready evidence",
+    upgradeTitle: "Upgrade plan",
+    upgradeDescription: "Read-only evidence for the exact managed Runtime and packaged candidate. Upgrade and rollback remain unavailable.",
+    currentVersion: "Current Runtime",
+    candidate: "Packaged candidate",
+    managedStatusLabel: "Managed status",
+    compatibilityLabel: "Compatibility",
+    protectionPoint: "Protection point",
+    protectionRequired: "Required and verified",
+    protectionNotRequired: "Not required",
+    protectionNotReady: "Required; no verified protection point",
+    upgradeState: { UP_TO_DATE: "Up to date", AVAILABLE: "Plan available", BLOCKED: "Blocked", UNKNOWN: "Evidence incomplete" },
+    managedState: { MANAGED: "Managed", UNKNOWN: "Unknown" },
+    compatibilityState: { NOT_REQUIRED: "Not required", PROVEN: "Proven", UNSAFE: "Unsafe", UNKNOWN: "Unknown" },
+    upgradeReasons: {
+      MANAGED_EVIDENCE_UNKNOWN: "The live managed pointer and sealed generation could not be proven.",
+      CURRENT_IDENTITY_UNKNOWN: "The exact current Runtime snapshot could not be identified.",
+      INVENTORY_UNKNOWN: "The affected Runtime inventory is not complete.",
+      PROTECTION_POINT_REQUIRED: "A verified protection point is required before any upgrade.",
+      COMPATIBILITY_UNKNOWN: "Exact current-to-candidate compatibility is not proven.",
+      POSTCHECKS_UNQUALIFIED: "The required post-upgrade checks are not fully qualified.",
+    },
+    backupsTitle: "Runtime backups",
+    backupsDescription: "Last-observed encrypted backup index. Refresh does not open, decrypt, or re-verify an artifact.",
+    noBackups: "No verified Runtime backups are indexed.",
+    backupLastObserved: "Last-observed state",
+    backupCreated: "Created",
+    backupVerified: "Last verified",
+    backupFormat: "Format / Runtime",
+    backupSize: "Encrypted size",
+    backupChecksum: "SHA-256",
+    backupKey: "Key mode",
+    backupKeyMode: { DEVICE: "Device-managed key", PASSPHRASE: "Portable passphrase" },
+    backupState: { AVAILABLE: "Available when last verified", MISSING: "Missing", CHANGED: "Changed", UNDECRYPTABLE: "Cannot decrypt", MALFORMED: "Malformed", UNKNOWN: "Unknown" },
     healthState: { HEALTHY: "Healthy", DEGRADED: "Degraded", UNHEALTHY: "Unhealthy", UNKNOWN: "Unknown" },
     logCategories: { RUNTIME: "Runtime", ERRORS: "Errors", GATEWAY: "Gateway", MCP: "MCP" },
     installationState: { INSTALLED: "Installed", NOT_INSTALLED: "Not installed", UNKNOWN: "Unknown" },
@@ -1337,6 +1396,39 @@ const simplifiedChinese: Messages = {
     readyAt: "就绪证据",
     observedAt: "状态时间",
     neverReady: "当前没有就绪证据",
+    upgradeTitle: "升级计划",
+    upgradeDescription: "只读展示当前受管 Runtime 与内置候选版本的精确证据；升级与回滚仍不可用。",
+    currentVersion: "当前 Runtime",
+    candidate: "内置候选版本",
+    managedStatusLabel: "受管状态",
+    compatibilityLabel: "兼容性",
+    protectionPoint: "保护点",
+    protectionRequired: "已要求且已验证",
+    protectionNotRequired: "不需要",
+    protectionNotReady: "必须具备；当前没有已验证保护点",
+    upgradeState: { UP_TO_DATE: "已是最新", AVAILABLE: "计划可用", BLOCKED: "已阻止", UNKNOWN: "证据不完整" },
+    managedState: { MANAGED: "受管", UNKNOWN: "未知" },
+    compatibilityState: { NOT_REQUIRED: "不需要", PROVEN: "已证明", UNSAFE: "不安全", UNKNOWN: "未知" },
+    upgradeReasons: {
+      MANAGED_EVIDENCE_UNKNOWN: "无法证明实时受管指针与密封 generation。",
+      CURRENT_IDENTITY_UNKNOWN: "无法确认当前 Runtime 的精确快照身份。",
+      INVENTORY_UNKNOWN: "受影响的 Runtime 清单尚不完整。",
+      PROTECTION_POINT_REQUIRED: "执行任何升级前都必须具备已验证保护点。",
+      COMPATIBILITY_UNKNOWN: "尚未证明当前版本到候选版本的精确兼容性。",
+      POSTCHECKS_UNQUALIFIED: "所需的升级后检查尚未全部通过资格确认。",
+    },
+    backupsTitle: "Runtime 备份",
+    backupsDescription: "展示加密备份索引的最近一次观测结果；刷新不会打开、解密或重新验证备份文件。",
+    noBackups: "当前没有已验证并建立索引的 Runtime 备份。",
+    backupLastObserved: "最近观测状态",
+    backupCreated: "创建时间",
+    backupVerified: "最近验证时间",
+    backupFormat: "格式 / Runtime",
+    backupSize: "加密文件大小",
+    backupChecksum: "SHA-256",
+    backupKey: "密钥模式",
+    backupKeyMode: { DEVICE: "设备托管密钥", PASSPHRASE: "便携口令" },
+    backupState: { AVAILABLE: "最近验证时可用", MISSING: "文件缺失", CHANGED: "文件已变化", UNDECRYPTABLE: "无法解密", MALFORMED: "格式损坏", UNKNOWN: "未知" },
     healthState: { HEALTHY: "健康", DEGRADED: "降级", UNHEALTHY: "不健康", UNKNOWN: "未知" },
     logCategories: { RUNTIME: "Runtime", ERRORS: "错误", GATEWAY: "网关", MCP: "MCP" },
     installationState: { INSTALLED: "已安装", NOT_INSTALLED: "未安装", UNKNOWN: "未知" },

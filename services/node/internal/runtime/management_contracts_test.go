@@ -76,7 +76,7 @@ func TestNormalizedManagementStatesFailClosed(t *testing.T) {
 			t.Fatalf("MCP state %q is invalid", state)
 		}
 	}
-	validBackup := []BackupState{BackupCreating, BackupAvailable, BackupRestoring, BackupFailed, BackupDeleting}
+	validBackup := []BackupState{BackupCreating, BackupAvailable, BackupRestoring, BackupFailed, BackupDeleting, BackupMissing, BackupChanged, BackupUndecryptable, BackupMalformed, BackupUnknown}
 	for _, state := range validBackup {
 		if !state.Valid() {
 			t.Fatalf("backup state %q is invalid", state)
@@ -106,7 +106,7 @@ func TestNormalizedManagementStatesFailClosed(t *testing.T) {
 			t.Fatalf("upgrade outcome %q is invalid", state)
 		}
 	}
-	if HealthState("healthy").Valid() || SecuritySeverity("SEVERE").Valid() || SkillScanState("PASSED").Valid() || MCPState("RUNNING").Valid() || BackupState("UNKNOWN").Valid() || UpgradeAvailabilityState("READY").Valid() {
+	if HealthState("healthy").Valid() || SecuritySeverity("SEVERE").Valid() || SkillScanState("PASSED").Valid() || MCPState("RUNNING").Valid() || BackupState("UNRECOGNIZED").Valid() || UpgradeAvailabilityState("READY").Valid() {
 		t.Fatal("unknown normalized state was accepted")
 	}
 }
@@ -192,6 +192,8 @@ func TestAvailableBackupRequiresVerifiedMetadata(t *testing.T) {
 		SizeBytes:      1024,
 		ChecksumSHA256: strings.Repeat("a", 64),
 		CreatedAt:      now,
+		VerifiedAt:     now,
+		KeyMode:        BackupKeyDevice,
 	}
 	if err := backup.Validate(); err != nil {
 		t.Fatalf("verified available backup rejected: %v", err)
@@ -209,6 +211,8 @@ func TestUpgradePlanRequiresManagedCompleteAvailability(t *testing.T) {
 		Rollback:             RollbackEligible,
 		CurrentVersion:       "0.20.2",
 		TargetVersion:        "0.20.5",
+		CandidateLabel:       "Hermes 0.20.5 packaged snapshot",
+		Compatibility:        UpgradeCompatibilityProven,
 		Managed:              true,
 		InventoryComplete:    true,
 		PlanEvidenceComplete: true,

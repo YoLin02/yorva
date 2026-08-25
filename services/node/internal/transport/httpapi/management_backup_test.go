@@ -17,7 +17,6 @@ import (
 type b6BackupReadService struct {
 	items       []app.BackupView
 	inspected   app.BackupView
-	verified    app.BackupView
 	err         error
 	gotRuntime  string
 	gotBackupID string
@@ -34,23 +33,17 @@ func (f *b6BackupReadService) InspectBackup(_ context.Context, runtimeID, backup
 	return f.inspected, f.err
 }
 
-func (f *b6BackupReadService) VerifyBackup(_ context.Context, runtimeID, backupID string) (app.BackupView, error) {
-	f.gotRuntime = runtimeID
-	f.gotBackupID = backupID
-	return f.verified, f.err
-}
-
 func TestBackupReadHandlersUseRuntimePathAndSafeDTO(t *testing.T) {
 	now := time.Date(2026, 8, 25, 14, 0, 0, 0, time.FixedZone("test", 8*60*60))
 	available := app.BackupView{
 		ID: "backup-1", Scope: app.BackupScopeRuntime, State: yorvaruntime.BackupAvailable,
 		FormatVersion: "v1", RuntimeVersion: "0.20.5", SizeBytes: 1024,
-		ChecksumSHA256: strings.Repeat("a", 64), CreatedAt: &now,
+		ChecksumSHA256: strings.Repeat("a", 64), CreatedAt: now, VerifiedAt: now.Add(time.Minute), KeyMode: yorvaruntime.BackupKeyDevice,
 	}
-	failed := app.BackupView{ID: "backup-2", Scope: app.BackupScopeRuntime, State: yorvaruntime.BackupFailed}
-	verified := available
-	verified.ArtifactVerified = true
-	service := &b6BackupReadService{items: []app.BackupView{available, failed}, inspected: available, verified: verified}
+	missing := available
+	missing.ID = "backup-2"
+	missing.State = yorvaruntime.BackupMissing
+	service := &b6BackupReadService{items: []app.BackupView{available, missing}, inspected: available}
 
 	tests := []struct {
 		name       string
@@ -59,9 +52,8 @@ func TestBackupReadHandlersUseRuntimePathAndSafeDTO(t *testing.T) {
 		backupID   string
 		wantFields []string
 	}{
-		{name: "list", handler: listRuntimeBackups(service), path: "/backups", wantFields: []string{`"scope":"RUNTIME"`, `"items":[`, `"artifactVerified":false`, `"formatVersion":null`}},
-		{name: "inspect", handler: getRuntimeBackup(service), path: "/backups/backup-1", backupID: "backup-1", wantFields: []string{`"backupId":"backup-1"`, `"scope":"RUNTIME"`, `"artifactVerified":false`}},
-		{name: "verify", handler: verifyRuntimeBackup(service), path: "/backups/backup-1/verification", backupID: "backup-1", wantFields: []string{`"backupId":"backup-1"`, `"artifactVerified":true`, `"checksumSha256":"`}},
+		{name: "list", handler: listRuntimeBackups(service), path: "/backups", wantFields: []string{`"scope":"RUNTIME"`, `"items":[`, `"state":"MISSING"`, `"verifiedAt":"`, `"keyMode":"DEVICE"`}},
+		{name: "inspect", handler: getRuntimeBackup(service), path: "/backups/backup-1", backupID: "backup-1", wantFields: []string{`"backupId":"backup-1"`, `"scope":"RUNTIME"`, `"checksumSha256":"`}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

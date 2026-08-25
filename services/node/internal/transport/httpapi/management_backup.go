@@ -14,19 +14,19 @@ import (
 type ManagementBackupReadService interface {
 	ListBackups(context.Context, string) ([]app.BackupView, error)
 	InspectBackup(context.Context, string, string) (app.BackupView, error)
-	VerifyBackup(context.Context, string, string) (app.BackupView, error)
 }
 
 type ManagementBackupResponse struct {
-	ID               string                   `json:"backupId"`
-	Scope            app.BackupScope          `json:"scope"`
-	State            yorvaruntime.BackupState `json:"state"`
-	FormatVersion    *string                  `json:"formatVersion"`
-	RuntimeVersion   *string                  `json:"runtimeVersion"`
-	SizeBytes        int64                    `json:"sizeBytes"`
-	ChecksumSHA256   *string                  `json:"checksumSha256"`
-	CreatedAt        *time.Time               `json:"createdAt"`
-	ArtifactVerified bool                     `json:"artifactVerified"`
+	ID             string                     `json:"backupId"`
+	Scope          app.BackupScope            `json:"scope"`
+	State          yorvaruntime.BackupState   `json:"state"`
+	FormatVersion  string                     `json:"formatVersion"`
+	RuntimeVersion string                     `json:"runtimeVersion"`
+	SizeBytes      int64                      `json:"sizeBytes"`
+	ChecksumSHA256 string                     `json:"checksumSha256"`
+	CreatedAt      time.Time                  `json:"createdAt"`
+	VerifiedAt     time.Time                  `json:"verifiedAt"`
+	KeyMode        yorvaruntime.BackupKeyMode `json:"keyMode"`
 }
 
 type ManagementBackupListResponse struct {
@@ -68,49 +68,13 @@ func getRuntimeBackup(service ManagementBackupReadService) http.Handler {
 	})
 }
 
-func verifyRuntimeBackup(service ManagementBackupReadService) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if service == nil {
-			writeBackupManagementError(w, r, app.ErrManagementCapabilityUnsupported)
-			return
-		}
-		backup, err := service.VerifyBackup(r.Context(), r.PathValue("runtimeId"), r.PathValue("backupId"))
-		if err != nil {
-			writeBackupManagementError(w, r, err)
-			return
-		}
-		writeBackupManagementJSON(w, newManagementBackupResponse(backup))
-	})
-}
-
 func newManagementBackupResponse(backup app.BackupView) ManagementBackupResponse {
 	return ManagementBackupResponse{
-		ID:               backup.ID,
-		Scope:            backup.Scope,
-		State:            backup.State,
-		FormatVersion:    optionalBackupString(backup.FormatVersion),
-		RuntimeVersion:   optionalBackupString(backup.RuntimeVersion),
-		SizeBytes:        backup.SizeBytes,
-		ChecksumSHA256:   optionalBackupString(backup.ChecksumSHA256),
-		CreatedAt:        copyBackupTime(backup.CreatedAt),
-		ArtifactVerified: backup.ArtifactVerified,
+		ID: backup.ID, Scope: backup.Scope, State: backup.State,
+		FormatVersion: backup.FormatVersion, RuntimeVersion: backup.RuntimeVersion,
+		SizeBytes: backup.SizeBytes, ChecksumSHA256: backup.ChecksumSHA256,
+		CreatedAt: backup.CreatedAt.UTC(), VerifiedAt: backup.VerifiedAt.UTC(), KeyMode: backup.KeyMode,
 	}
-}
-
-func optionalBackupString(value string) *string {
-	if value == "" {
-		return nil
-	}
-	result := value
-	return &result
-}
-
-func copyBackupTime(value *time.Time) *time.Time {
-	if value == nil {
-		return nil
-	}
-	result := value.UTC()
-	return &result
 }
 
 func writeBackupManagementJSON(w http.ResponseWriter, value any) {

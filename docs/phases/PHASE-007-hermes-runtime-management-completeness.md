@@ -75,9 +75,10 @@ credential authority) and ADR-0015 (managed generation Upgrade/Rollback) were ac
 by the Owner on 2026-08-25. Acceptance authorizes implementation of their boundaries;
 it does not replace lane-specific qualification and destructive-flow evidence.
 
-ADR-0016 proposes the remaining Hermes `API_SERVER_KEY` authority needed to turn the
-conditional `/health/detailed` and `/v1/skills` reads into exact-Instance product
-capabilities. It remains non-authoritative until separately accepted by the Owner.
+ADR-0016 was accepted by the Owner on 2026-08-25. It authorizes the exact-Profile
+Hermes-native `API_SERVER_KEY` boundary for authenticated, loopback-only,
+no-redirect `/health/detailed` and `/v1/skills` management reads. Product capabilities
+still require focused qualification and wiring before they may become true.
 
 ## 4. Qualified-surface facts and B1 questions
 
@@ -235,6 +236,12 @@ daemon state and SSE only for invalidation/progress.
 No request accepts arbitrary command, environment, local path or secret-bearing URL.
 A user-selected backup destination remains a narrowly scoped local capability and cannot
 silently become a future remote file command.
+
+The Runtime-scoped backup index may be exposed independently as an authenticated read-only
+capability once its repository is available. List/get return last-observed safe metadata
+only; they do not open, decrypt, hash, reconcile, or mutate an artifact. Backup create,
+delete and Restore capabilities remain independently false until their complete qualified
+Operation paths pass their gates.
 
 ## 9. Operations and conflicts
 

@@ -35,6 +35,13 @@ const (
 	ErrorCredentialInvalid          ErrorCode = "BACKUP_DECRYPTION_CREDENTIAL_INVALID"
 	ErrorEncryptedArtifactLimit     ErrorCode = "BACKUP_ENCRYPTED_ARTIFACT_LIMIT"
 	ErrorOperationCanceled          ErrorCode = "BACKUP_CRYPTO_OPERATION_CANCELED"
+	ErrorDestinationInvalid         ErrorCode = "BACKUP_DESTINATION_INVALID"
+	ErrorDestinationConflict        ErrorCode = "BACKUP_DESTINATION_CONFLICT"
+	ErrorDestinationUnsafe          ErrorCode = "BACKUP_DESTINATION_UNSAFE"
+	ErrorInsufficientSpace          ErrorCode = "BACKUP_DESTINATION_INSUFFICIENT_SPACE"
+	ErrorStagingFailed              ErrorCode = "BACKUP_STAGING_FAILED"
+	ErrorPublicationFailed          ErrorCode = "BACKUP_PUBLICATION_FAILED"
+	ErrorPublicationReconcile       ErrorCode = "BACKUP_PUBLICATION_RECONCILE_REQUIRED"
 )
 
 var ErrVerification = errors.New("backup structural verification failed")
@@ -120,6 +127,20 @@ func errorMessage(code ErrorCode) string {
 		return "the encrypted backup artifact exceeds its size limit"
 	case ErrorOperationCanceled:
 		return "the backup cryptographic operation was canceled"
+	case ErrorDestinationInvalid:
+		return "the selected local backup destination is invalid"
+	case ErrorDestinationConflict:
+		return "the selected local backup destination already exists"
+	case ErrorDestinationUnsafe:
+		return "the selected local backup destination is unsafe"
+	case ErrorInsufficientSpace:
+		return "the selected local backup destination has insufficient free space"
+	case ErrorStagingFailed:
+		return "private backup staging could not be completed"
+	case ErrorPublicationFailed:
+		return "the encrypted backup artifact could not be published"
+	case ErrorPublicationReconcile:
+		return "the encrypted backup artifact was published but requires reconciliation"
 	default:
 		return "backup structural verification failed"
 	}

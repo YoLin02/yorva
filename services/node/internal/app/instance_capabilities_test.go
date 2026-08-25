@@ -86,7 +86,7 @@ func (managementCapabilityFixture) ListBackups(context.Context, yorvaruntime.Ins
 	return nil, nil
 }
 
-func (managementCapabilityFixture) VerifyBackup(context.Context, yorvaruntime.Installation, string) (yorvaruntime.Backup, error) {
+func (managementCapabilityFixture) GetBackup(context.Context, yorvaruntime.Installation, string) (yorvaruntime.Backup, error) {
 	return yorvaruntime.Backup{}, nil
 }
 
@@ -147,13 +147,13 @@ func TestInstanceCapabilitiesProjectRegistryManagementWiring(t *testing.T) {
 	}
 }
 
-func TestInstanceCapabilitiesKeepUnwiredHermesManagementClosed(t *testing.T) {
+func TestInstanceCapabilitiesExposeHermesUpgradePlanReadOnly(t *testing.T) {
 	registry := yorvaruntime.NewRegistry()
 	if err := hermes.Register(registry); err != nil {
 		t.Fatal(err)
 	}
 	inventory := &InstanceInventory{discovery: &RuntimeDiscovery{registry: registry}}
-	if got := inventory.capabilities(); got != (InstanceCapabilities{Instances: true, Lifecycle: true}) {
-		t.Fatalf("actual Hermes capabilities = %#v, want existing capabilities only", got)
+	if got := inventory.capabilities(); got != (InstanceCapabilities{Instances: true, Lifecycle: true, UpgradePlan: true}) {
+		t.Fatalf("actual Hermes capabilities = %#v, want read plan without mutation", got)
 	}
 }

@@ -28,6 +28,10 @@ tags:
     description: Safe authoritative Instance Skill inventory and inspection.
   - name: MCP
     description: Safe authoritative configured MCP and reviewed preset inventory.
+  - name: Backups
+    description: Safe last-observed Runtime backup index reads; create, delete, and Restore remain unavailable.
+  - name: Upgrades
+    description: Read-only managed Runtime upgrade planning; mutation remains capability-gated and unregistered.
   - name: Settings
     description: Non-secret local management settings.
   - name: Operations
@@ -168,6 +172,151 @@ paths:
       operationId: optionsRuntimeDetection
       summary: Validate CORS access for Runtime discovery
       tags: [Runtimes]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/runtimes/{runtimeId}/upgrade-plan:
+    parameters:
+      - name: runtimeId
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [hermes]
+    get:
+      operationId: getRuntimeUpgradePlan
+      summary: Read the exact managed Runtime upgrade plan
+      description: Returns a safe projection derived from the live active pointer, matching sealed generation, and the compiled packaged candidate. It never authorizes or starts Upgrade or Rollback mutation.
+      tags: [Upgrades]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The current read-only upgrade plan, including explicit unknown or blocked evidence.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementUpgradePlan"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsRuntimeUpgradePlan
+      summary: Validate CORS access for the read-only Runtime upgrade plan
+      tags: [Upgrades]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/runtimes/{runtimeId}/backups:
+    parameters:
+      - name: runtimeId
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [hermes]
+    get:
+      operationId: listRuntimeBackups
+      summary: List last-observed Runtime backup index entries
+      description: Reads only the safe YORVA index. It does not access, decrypt, hash, or mutate an artifact; AVAILABLE and verifiedAt describe the last successful controlled verification, not current Restore eligibility.
+      tags: [Backups]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Safe Runtime-scoped backup index snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementBackupList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsRuntimeBackups
+      summary: Validate CORS access for Runtime backup inventory
+      tags: [Backups]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/runtimes/{runtimeId}/backups/{backupId}:
+    parameters:
+      - name: runtimeId
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [hermes]
+      - name: backupId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+    get:
+      operationId: getRuntimeBackup
+      summary: Read one last-observed Runtime backup index entry
+      description: Returns no artifact path, destination reference, decryption key reference, passphrase, credential, or archive-member detail. The request performs no live artifact verification.
+      tags: [Backups]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Safe Runtime-scoped backup index entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagementBackup"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsRuntimeBackup
+      summary: Validate CORS access for one Runtime backup index entry
+      tags: [Backups]
       security: []
       responses:
         "204":
@@ -2135,6 +2284,104 @@ components:
           minLength: 1
           maxLength: 64
           pattern: "^[a-z][a-z0-9_-]{0,63}$"
+    ManagementUpgradeCandidate:
+      type: object
+      additionalProperties: false
+      required: [label, version]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 128
+        version:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    ManagementUpgradePlan:
+      type: object
+      additionalProperties: false
+      required: [state, currentVersion, candidate, managedStatus, compatibility, protectionPointRequired, protectionPointReady, blockedReasons, observedAt]
+      properties:
+        state:
+          type: string
+          enum: [UP_TO_DATE, AVAILABLE, BLOCKED, UNKNOWN]
+        currentVersion:
+          type: string
+          minLength: 1
+          maxLength: 32
+        candidate:
+          $ref: "#/components/schemas/ManagementUpgradeCandidate"
+        managedStatus:
+          type: string
+          enum: [MANAGED, UNKNOWN]
+        compatibility:
+          type: string
+          enum: [NOT_REQUIRED, PROVEN, UNSAFE, UNKNOWN]
+        protectionPointRequired:
+          type: boolean
+        protectionPointReady:
+          type: boolean
+        blockedReasons:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items:
+            type: string
+            enum: [MANAGED_EVIDENCE_UNKNOWN, CURRENT_IDENTITY_UNKNOWN, INVENTORY_UNKNOWN, PROTECTION_POINT_REQUIRED, COMPATIBILITY_UNKNOWN, POSTCHECKS_UNQUALIFIED]
+        observedAt:
+          type: string
+          format: date-time
+    ManagementBackup:
+      type: object
+      additionalProperties: false
+      required: [backupId, scope, state, formatVersion, runtimeVersion, sizeBytes, checksumSha256, createdAt, verifiedAt, keyMode]
+      properties:
+        backupId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        scope:
+          type: string
+          enum: [RUNTIME]
+        state:
+          type: string
+          enum: [AVAILABLE, MISSING, CHANGED, UNDECRYPTABLE, MALFORMED, UNKNOWN]
+        formatVersion:
+          type: string
+          minLength: 1
+          maxLength: 64
+        runtimeVersion:
+          type: string
+          minLength: 1
+          maxLength: 64
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 1
+        checksumSha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        createdAt:
+          type: string
+          format: date-time
+        verifiedAt:
+          type: string
+          format: date-time
+        keyMode:
+          type: string
+          enum: [DEVICE, PASSPHRASE]
+    ManagementBackupList:
+      type: object
+      additionalProperties: false
+      required: [scope, items]
+      properties:
+        scope:
+          type: string
+          enum: [RUNTIME]
+        items:
+          type: array
+          maxItems: 256
+          items:
+            $ref: "#/components/schemas/ManagementBackup"
     InstanceCapabilities:
       type: object
       additionalProperties: false

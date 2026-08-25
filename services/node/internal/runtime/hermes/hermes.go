@@ -12,9 +12,11 @@ func Register(registry *yorvaruntime.Registry) error {
 			Name:        "Hermes Agent",
 			Description: "Hermes Agent Runtime",
 		},
-		Discoverer: NewDetector(),
-		Models:     NewModelManager(),
-		Lifecycle:  NewLifecycleManager(),
-		Channels:   NewChannelManager(),
+		Discoverer:         NewDetector(),
+		Models:             NewModelManager(),
+		Lifecycle:          NewLifecycleManager(),
+		Channels:           NewChannelManager(),
+		UpgradePlan:        NewUpgradePlanner(),
+		InstanceManagement: NewAPIManagementReader(),
 	})
 }

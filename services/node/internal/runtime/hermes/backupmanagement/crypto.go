@@ -245,6 +245,9 @@ func decryptAndVerify(
 	}
 	verified, err := VerifyArtifact(contextReaderAt{ctx: ctx, reader: recordedPlaintext}, plaintextSize, limits)
 	if recordedPlaintext.recordedError() != nil {
+		if err := contextError(ctx); err != nil {
+			return EncryptedArtifactVerification{}, err
+		}
 		return EncryptedArtifactVerification{}, verificationError(ErrorDecryptionFailed)
 	}
 	if err != nil {

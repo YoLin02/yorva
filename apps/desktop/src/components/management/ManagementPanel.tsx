@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import type { DaemonClient } from "../../api/client";
-import type { Instance, MCPServer, ManagementHealth, ManagementLogSnapshot, Skill } from "../../api/types";
+import type { Instance, MCPServer, ManagementBackup, ManagementHealth, ManagementLogSnapshot, ManagementUpgradePlan, Skill } from "../../api/types";
 import { formatDateTime } from "../../formatDateTime";
 import type { AppMessages, Locale } from "../../i18n";
 import type { BadgeTone } from "../../types/ui";
@@ -22,6 +22,8 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
   const logsRead = instance.capabilities.logsRead;
   const skillRead = instance.capabilities.skillRead;
   const mcpRead = instance.capabilities.mcpRead;
+  const upgradePlanRead = instance.capabilities.upgradePlan;
+  const backupRead = instance.capabilities.backupRead;
   const healthQuery = useQuery({
     queryKey: ["instance-management-health", instance.instanceId, client.scope],
     queryFn: ({ signal }) => client.getInstanceHealth(instance.instanceId, signal),
@@ -58,6 +60,18 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
     enabled: mcpRead,
     retry: false,
   });
+  const upgradePlanQuery = useQuery({
+    queryKey: ["runtime-upgrade-plan", "hermes", client.scope],
+    queryFn: ({ signal }) => client.getRuntimeUpgradePlan("hermes", signal),
+    enabled: upgradePlanRead,
+    retry: false,
+  });
+  const backupsQuery = useQuery({
+    queryKey: ["runtime-backups", "hermes", client.scope],
+    queryFn: ({ signal }) => client.listRuntimeBackups("hermes", signal),
+    enabled: backupRead,
+    retry: false,
+  });
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -78,8 +92,10 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
       void serversQuery.refetch();
       void presetsQuery.refetch();
     }
+    if (upgradePlanRead) void upgradePlanQuery.refetch();
+    if (backupRead) void backupsQuery.refetch();
   };
-  const busy = healthQuery.isFetching || logsQuery.isFetching || skillsQuery.isFetching || skillQuery.isFetching || serversQuery.isFetching || presetsQuery.isFetching;
+  const busy = healthQuery.isFetching || logsQuery.isFetching || skillsQuery.isFetching || skillQuery.isFetching || serversQuery.isFetching || presetsQuery.isFetching || upgradePlanQuery.isFetching || backupsQuery.isFetching;
 
   return (
     <section className="management-panel" aria-labelledby="management-panel-title">
@@ -89,7 +105,7 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
           <p className="page-copy">{copy.management.description}</p>
         </div>
         <div className="management-header-actions">
-          <Button onClick={refresh} disabled={busy || (!healthRead && !logsRead && !skillRead && !mcpRead)} className="button-compact button-neutral">
+          <Button onClick={refresh} disabled={busy || (!healthRead && !logsRead && !skillRead && !mcpRead && !upgradePlanRead && !backupRead)} className="button-compact button-neutral">
             <IconRefresh className={busy ? "spin" : undefined} />
             {copy.management.refresh}
           </Button>
@@ -127,6 +143,33 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
             {logsQuery.isError ? <ManagementQueryError copy={copy} onRetry={() => void logsQuery.refetch()} /> : null}
             {logsQuery.data ? <LogView snapshot={logsQuery.data} copy={copy} locale={locale} /> : null}
           </DiagnosticBlock>
+        </div>
+      </ManagementSection>
+
+      <ManagementSection
+        title={copy.management.upgradeTitle}
+        description={copy.management.upgradeDescription}
+        supported={upgradePlanRead}
+        loading={upgradePlanQuery.isLoading}
+        error={upgradePlanQuery.isError}
+        copy={copy}
+        onRetry={() => void upgradePlanQuery.refetch()}
+      >
+        {upgradePlanQuery.data ? <UpgradePlanView plan={upgradePlanQuery.data} copy={copy} locale={locale} /> : null}
+      </ManagementSection>
+
+      <ManagementSection
+        title={copy.management.backupsTitle}
+        description={copy.management.backupsDescription}
+        supported={backupRead}
+        loading={backupsQuery.isLoading}
+        error={backupsQuery.isError}
+        copy={copy}
+        onRetry={() => void backupsQuery.refetch()}
+      >
+        {backupsQuery.data?.items.length === 0 ? <p className="management-empty">{copy.management.noBackups}</p> : null}
+        <div className="management-list">
+          {backupsQuery.data?.items.map((backup) => <BackupCard key={backup.backupId} backup={backup} copy={copy} locale={locale} />)}
         </div>
       </ManagementSection>
 
@@ -179,6 +222,64 @@ export function ManagementPanel({ client, instance, copy, locale, onClose }: {
       </ManagementSection>
     </section>
   );
+}
+
+function BackupCard({ backup, copy, locale }: { backup: ManagementBackup; copy: AppMessages; locale: Locale }) {
+  return (
+    <article className="management-item">
+      <div className="management-item-heading">
+        <code>{backup.backupId}</code>
+        <Badge tone={backupStateTone(backup.state)}>{copy.management.backupState[backup.state]}</Badge>
+      </div>
+      <dl className="management-detail-grid">
+        <div><dt>{copy.management.backupLastObserved}</dt><dd>{copy.management.backupState[backup.state]}</dd></div>
+        <div><dt>{copy.management.backupCreated}</dt><dd>{formatDateTime(backup.createdAt, locale)}</dd></div>
+        <div><dt>{copy.management.backupVerified}</dt><dd>{formatDateTime(backup.verifiedAt, locale)}</dd></div>
+        <div><dt>{copy.management.backupFormat}</dt><dd>{backup.formatVersion} / {backup.runtimeVersion}</dd></div>
+        <div><dt>{copy.management.backupSize}</dt><dd>{new Intl.NumberFormat(locale).format(backup.sizeBytes)} B</dd></div>
+        <div><dt>{copy.management.backupChecksum}</dt><dd><code>{backup.checksumSha256}</code></dd></div>
+        <div><dt>{copy.management.backupKey}</dt><dd>{copy.management.backupKeyMode[backup.keyMode]}</dd></div>
+      </dl>
+    </article>
+  );
+}
+
+function backupStateTone(state: ManagementBackup["state"]): BadgeTone {
+  if (state === "AVAILABLE") return "ok";
+  if (state === "UNKNOWN") return "neutral";
+  return "warn";
+}
+
+function UpgradePlanView({ plan, copy, locale }: { plan: ManagementUpgradePlan; copy: AppMessages; locale: Locale }) {
+  return (
+    <article className="management-item">
+      <div className="management-item-heading">
+        <Badge tone={upgradePlanTone(plan.state)}>{copy.management.upgradeState[plan.state]}</Badge>
+        <time dateTime={plan.observedAt}>{formatDateTime(plan.observedAt, locale)}</time>
+      </div>
+      <dl className="management-detail-grid">
+        <div><dt>{copy.management.currentVersion}</dt><dd>{plan.currentVersion}</dd></div>
+        <div><dt>{copy.management.candidate}</dt><dd>{plan.candidate.label} ({plan.candidate.version})</dd></div>
+        <div><dt>{copy.management.managedStatusLabel}</dt><dd>{copy.management.managedState[plan.managedStatus]}</dd></div>
+        <div><dt>{copy.management.compatibilityLabel}</dt><dd>{copy.management.compatibilityState[plan.compatibility]}</dd></div>
+        <div><dt>{copy.management.protectionPoint}</dt><dd>{protectionPointCopy(plan, copy)}</dd></div>
+      </dl>
+      {plan.blockedReasons.length > 0 ? (
+        <ul className="management-finding-list">{plan.blockedReasons.map((reason) => <li key={reason}>{copy.management.upgradeReasons[reason]}</li>)}</ul>
+      ) : null}
+    </article>
+  );
+}
+
+function protectionPointCopy(plan: ManagementUpgradePlan, copy: AppMessages): string {
+  if (!plan.protectionPointRequired) return copy.management.protectionNotRequired;
+  return plan.protectionPointReady ? copy.management.protectionRequired : copy.management.protectionNotReady;
+}
+
+function upgradePlanTone(state: ManagementUpgradePlan["state"]): BadgeTone {
+  if (state === "UP_TO_DATE") return "ok";
+  if (state === "BLOCKED") return "error";
+  return "warn";
 }
 
 function DiagnosticBlock({ title, supported, copy, children }: {

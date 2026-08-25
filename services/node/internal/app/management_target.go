@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/YoLin02/yorva/services/node/internal/domain/instance"
+	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -86,15 +87,18 @@ func (s *InstanceInventory) ResolveManagementTarget(ctx context.Context, instanc
 		return ManagementTarget{}, ErrRuntimeNotSupported
 	}
 
+	installation := yorvaruntime.Installation{
+		RuntimeKind:  accepted.RuntimeKind,
+		Path:         detected.Selected.Path,
+		Version:      detected.Selected.Version,
+		SupportState: detected.State,
+	}
+	bundle = bundle.ResolveInstanceManagement(ctx, installation, row.NativeID)
+
 	return ManagementTarget{
-		Installation: yorvaruntime.Installation{
-			RuntimeKind:  accepted.RuntimeKind,
-			Path:         detected.Selected.Path,
-			Version:      detected.Selected.Version,
-			SupportState: detected.State,
-		},
-		NativeID: row.NativeID,
-		Bundle:   bundle,
+		Installation: installation,
+		NativeID:     row.NativeID,
+		Bundle:       bundle,
 	}, nil
 }
 
@@ -130,6 +134,10 @@ func (s *InstanceInventory) ResolveRuntimeManagementTarget(ctx context.Context, 
 	if !ok || bundle.Descriptor.Kind != kind {
 		return RuntimeManagementTarget{}, ErrRuntimeNotSupported
 	}
+	// Runtime backup inventory is YORVA-owned and becomes readable only after
+	// both a live accepted installation and the Runtime-scoped index repository
+	// have been resolved. This does not enable create, delete, or Restore.
+	bundle.BackupRead = sqlite.NewRuntimeBackupReader(s.db, accepted.ID)
 
 	return RuntimeManagementTarget{
 		Installation: yorvaruntime.Installation{

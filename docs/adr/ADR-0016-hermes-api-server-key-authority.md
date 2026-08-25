@@ -1,8 +1,8 @@
 # ADR-0016: Hermes API Server Key Authority for Management Reads
 
-- Status: Proposed — not implementation authority
+- Status: Accepted
 - Date: 2026-08-25
-- Owner approval: Pending
+- Owner approval: Accepted 2026-08-25
 - Related: ADR-0007, ADR-0012, Phase 7 B3/B4, Phase 7 B1 qualification evidence
 
 ## Context
@@ -18,7 +18,7 @@ endpoint would also turn an ordinary management read into a credential-forwardin
 remote-agent surface. Without a decision, detailed Health and enabled-Skills inventory
 must remain capability-false.
 
-## Proposed decision
+## Decision
 
 ### Sole authority and lifecycle
 

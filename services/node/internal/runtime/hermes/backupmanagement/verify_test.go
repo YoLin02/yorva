@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -36,6 +37,11 @@ func TestVerifyArtifactNormal(t *testing.T) {
 	}
 	if result.Metadata.RuntimeKind != RuntimeKind || result.Metadata.RuntimeVersion != "0.20.5" {
 		t.Fatalf("metadata = %#v", result.Metadata)
+	}
+	if result.Metadata.BackupID != validTestManifest().BackupID || result.Metadata.CreatedAt != validTestManifest().CreatedAt ||
+		result.Metadata.Installation != validTestManifest().Installation || result.Metadata.InclusionPolicy != InclusionPolicyID ||
+		result.Metadata.ExclusionPolicy != ExclusionPolicyID || !slices.Equal(result.Metadata.ExcludedCategories, validTestManifest().ExcludedCategories) {
+		t.Fatalf("identity/policy metadata = %#v", result.Metadata)
 	}
 	if result.Metadata.PayloadMemberCount != len(members) {
 		t.Fatalf("member count = %d, want %d", result.Metadata.PayloadMemberCount, len(members))

@@ -27,15 +27,18 @@ func (f *fakeManagementUpgradePlanService) PlanUpgrade(_ context.Context, runtim
 
 func httpUpgradePlan() yorvaruntime.UpgradePlan {
 	return yorvaruntime.UpgradePlan{
-		State:                   yorvaruntime.UpgradeAvailable,
-		Rollback:                yorvaruntime.RollbackEligible,
+		State:                   yorvaruntime.UpgradeUnknown,
+		Rollback:                yorvaruntime.RollbackUnknown,
 		CurrentVersion:          "0.20.2",
 		TargetVersion:           "0.20.5",
+		CandidateLabel:          "Hermes 0.20.5 packaged snapshot",
+		Compatibility:           yorvaruntime.UpgradeCompatibilityUnknown,
+		Reasons:                 []yorvaruntime.UpgradePlanReason{yorvaruntime.UpgradeReasonCompatibilityUnknown, yorvaruntime.UpgradeReasonProtectionRequired},
 		Managed:                 true,
-		InventoryComplete:       true,
+		InventoryComplete:       false,
 		ProtectionPointRequired: true,
-		ProtectionPointReady:    true,
-		PlanEvidenceComplete:    true,
+		ProtectionPointReady:    false,
+		PlanEvidenceComplete:    false,
 		ObservedAt:              time.Date(2026, 8, 25, 12, 0, 0, 0, time.UTC),
 	}
 }
@@ -55,9 +58,8 @@ func TestManagementUpgradeHTTPReturnsClosedSafePlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
-		"state", "rollbackEligibility", "currentVersion", "targetVersion", "managed",
-		"inventoryComplete", "protectionPointRequired", "protectionPointReady", "planEvidenceComplete",
-		"upgradeMutationQualified", "rollbackMutationQualified", "upgradeExecutable", "rollbackExecutable", "observedAt",
+		"state", "currentVersion", "candidate", "managedStatus", "compatibility",
+		"protectionPointRequired", "protectionPointReady", "blockedReasons", "observedAt",
 	}
 	if len(body) != len(want) {
 		t.Fatalf("fields = %v", body)
@@ -67,20 +69,17 @@ func TestManagementUpgradeHTTPReturnsClosedSafePlan(t *testing.T) {
 			t.Fatalf("missing field %q in %s", field, response.Body.String())
 		}
 	}
-	for _, field := range []string{"upgradeMutationQualified", "rollbackMutationQualified", "upgradeExecutable", "rollbackExecutable"} {
-		if string(body[field]) != "false" {
-			t.Fatalf("unqualified plan reported %s=%s", field, body[field])
+	if string(body["compatibility"]) != `"UNKNOWN"` || string(body["managedStatus"]) != `"MANAGED"` {
+		t.Fatalf("safe plan truth lost: %s", response.Body.String())
+	}
+	for _, forbiddenField := range []string{"executable", "planEvidenceComplete", "upgradeMutationQualified", "rollbackMutationQualified"} {
+		if _, ambiguous := body[forbiddenField]; ambiguous {
+			t.Fatalf("internal qualification field %q remained: %s", forbiddenField, response.Body.String())
 		}
 	}
-	if string(body["planEvidenceComplete"]) != "true" {
-		t.Fatalf("planning evidence truth lost: %s", body["planEvidenceComplete"])
-	}
-	if _, ambiguous := body["executable"]; ambiguous {
-		t.Fatalf("ambiguous executable field remained: %s", response.Body.String())
-	}
 	for _, forbidden := range []string{
-		"path", "command", "argv", "environment", "url", "secret", "credential", "token",
-		"seal", "sha256", "installationId", "protectionPointId",
+		"path", "command", "argv", "environment", "url", "secret", "credential", "token", "commit", "digest",
+		"seal", "sha256", "installationId", "protectionPointId", "executable",
 	} {
 		if strings.Contains(strings.ToLower(response.Body.String()), strings.ToLower(forbidden)) {
 			t.Fatalf("response exposed forbidden field %q: %s", forbidden, response.Body.String())

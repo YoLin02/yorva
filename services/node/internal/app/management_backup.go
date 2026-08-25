@@ -11,7 +11,6 @@ import (
 
 const (
 	managementBackupCollectionLimit              = 256
-	managementBackupMaxArtifactBytes             = int64(2 << 30)
 	managementBackupMetadataMaxBytes             = 64
 	BackupScopeRuntime               BackupScope = "RUNTIME"
 )
@@ -24,15 +23,16 @@ type BackupScope string
 // paths, destination capabilities, encryption key references, credentials and
 // archive member details.
 type BackupView struct {
-	ID               string
-	Scope            BackupScope
-	State            yorvaruntime.BackupState
-	FormatVersion    string
-	RuntimeVersion   string
-	SizeBytes        int64
-	ChecksumSHA256   string
-	CreatedAt        *time.Time
-	ArtifactVerified bool
+	ID             string
+	Scope          BackupScope
+	State          yorvaruntime.BackupState
+	FormatVersion  string
+	RuntimeVersion string
+	SizeBytes      int64
+	ChecksumSHA256 string
+	CreatedAt      time.Time
+	VerifiedAt     time.Time
+	KeyMode        yorvaruntime.BackupKeyMode
 }
 
 type BackupManagement struct {
@@ -63,7 +63,7 @@ func (s *BackupManagement) ListBackups(ctx context.Context, runtimeID string) ([
 	seen := make(map[string]struct{}, len(backups))
 	views := make([]BackupView, 0, len(backups))
 	for _, backup := range backups {
-		view, err := validatedBackupView(backup, false)
+		view, err := validatedBackupView(backup)
 		if err != nil {
 			return nil, err
 		}
@@ -80,22 +80,6 @@ func (s *BackupManagement) InspectBackup(ctx context.Context, runtimeID, backupI
 	if !validManagementBackupID(backupID) {
 		return BackupView{}, ErrBackupNotFound
 	}
-	backups, err := s.ListBackups(ctx, runtimeID)
-	if err != nil {
-		return BackupView{}, err
-	}
-	for _, backup := range backups {
-		if backup.ID == backupID {
-			return backup, nil
-		}
-	}
-	return BackupView{}, ErrBackupNotFound
-}
-
-func (s *BackupManagement) VerifyBackup(ctx context.Context, runtimeID, backupID string) (BackupView, error) {
-	if !validManagementBackupID(backupID) {
-		return BackupView{}, ErrBackupNotFound
-	}
 	target, err := s.resolve(ctx, runtimeID)
 	if err != nil {
 		return BackupView{}, err
@@ -103,15 +87,14 @@ func (s *BackupManagement) VerifyBackup(ctx context.Context, runtimeID, backupID
 	if target.Bundle.BackupRead == nil {
 		return BackupView{}, ErrManagementCapabilityUnsupported
 	}
-
-	backup, err := target.Bundle.BackupRead.VerifyBackup(ctx, target.Installation, backupID)
+	backup, err := target.Bundle.BackupRead.GetBackup(ctx, target.Installation, backupID)
 	if err != nil {
 		return BackupView{}, managementBackupError(ctx, err)
 	}
-	if backup.ID != backupID || backup.State != yorvaruntime.BackupAvailable {
+	if backup.ID != backupID {
 		return BackupView{}, ErrManagementQueryFailed
 	}
-	return validatedBackupView(backup, true)
+	return validatedBackupView(backup)
 }
 
 // CreateBackup is an Operation-worker boundary only. Qualification is
@@ -135,7 +118,7 @@ func (s *BackupManagement) CreateBackup(ctx context.Context, runtimeID string, r
 	if backup.State != yorvaruntime.BackupAvailable {
 		return BackupView{}, ErrManagementQueryFailed
 	}
-	return validatedBackupView(backup, true)
+	return validatedBackupView(backup)
 }
 
 // DeleteBackup is an Operation-worker boundary only and has no HTTP mutation
@@ -168,26 +151,19 @@ func (s *BackupManagement) resolve(ctx context.Context, runtimeID string) (Runti
 	return target, nil
 }
 
-func validatedBackupView(backup yorvaruntime.Backup, verified bool) (BackupView, error) {
-	if err := backup.Validate(); err != nil || backup.SizeBytes > managementBackupMaxArtifactBytes {
+func validatedBackupView(backup yorvaruntime.Backup) (BackupView, error) {
+	if err := backup.Validate(); err != nil || !backup.State.Indexed() {
 		return BackupView{}, ErrManagementQueryFailed
-	}
-	view := BackupView{
-		ID: backup.ID, Scope: BackupScopeRuntime, State: backup.State, SizeBytes: backup.SizeBytes,
-	}
-	if backup.State != yorvaruntime.BackupAvailable {
-		return view, nil
 	}
 	if !validManagementBackupMetadata(backup.FormatVersion) || !validManagementBackupMetadata(backup.RuntimeVersion) {
 		return BackupView{}, ErrManagementQueryFailed
 	}
-	createdAt := backup.CreatedAt.UTC()
-	view.FormatVersion = backup.FormatVersion
-	view.RuntimeVersion = backup.RuntimeVersion
-	view.ChecksumSHA256 = backup.ChecksumSHA256
-	view.CreatedAt = &createdAt
-	view.ArtifactVerified = verified
-	return view, nil
+	return BackupView{
+		ID: backup.ID, Scope: BackupScopeRuntime, State: backup.State,
+		FormatVersion: backup.FormatVersion, RuntimeVersion: backup.RuntimeVersion,
+		SizeBytes: backup.SizeBytes, ChecksumSHA256: backup.ChecksumSHA256,
+		CreatedAt: backup.CreatedAt.UTC(), VerifiedAt: backup.VerifiedAt.UTC(), KeyMode: backup.KeyMode,
+	}, nil
 }
 
 func validManagementBackupID(backupID string) bool {
@@ -214,6 +190,8 @@ func managementBackupError(ctx context.Context, err error) error {
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return err
+	case errors.Is(err, yorvaruntime.ErrBackupNotFound):
+		return ErrBackupNotFound
 	case errors.Is(err, ErrBackupNotFound), errors.Is(err, ErrRuntimeNotSupported),
 		errors.Is(err, ErrManagementCapabilityUnsupported), errors.Is(err, ErrManagementQueryFailed):
 		return err

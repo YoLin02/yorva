@@ -37,8 +37,15 @@ type fakeRuntimeDiscovery struct {
 
 type managementRoutingInventory struct {
 	fakeInstanceInventory
-	target     app.ManagementTarget
-	instanceID string
+	target        app.ManagementTarget
+	instanceID    string
+	runtimeTarget app.RuntimeManagementTarget
+	runtimeID     string
+}
+
+func (f *managementRoutingInventory) ResolveRuntimeManagementTarget(_ context.Context, runtimeID string) (app.RuntimeManagementTarget, error) {
+	f.runtimeID = runtimeID
+	return f.runtimeTarget, nil
 }
 
 func (f *managementRoutingInventory) ResolveManagementTarget(_ context.Context, instanceID string) (app.ManagementTarget, error) {
@@ -77,6 +84,28 @@ func (f routingHealthInspector) InspectInstanceHealth(context.Context, yorvarunt
 
 type routingLogReader struct {
 	snapshot yorvaruntime.LogSnapshot
+}
+
+type routingUpgradePlanner struct {
+	plan         yorvaruntime.UpgradePlan
+	installation yorvaruntime.Installation
+}
+
+type routingBackupReader struct {
+	backup yorvaruntime.Backup
+}
+
+func (f routingBackupReader) ListBackups(context.Context, yorvaruntime.Installation) ([]yorvaruntime.Backup, error) {
+	return []yorvaruntime.Backup{f.backup}, nil
+}
+
+func (f routingBackupReader) GetBackup(context.Context, yorvaruntime.Installation, string) (yorvaruntime.Backup, error) {
+	return f.backup, nil
+}
+
+func (f *routingUpgradePlanner) PlanUpgrade(_ context.Context, installation yorvaruntime.Installation) (yorvaruntime.UpgradePlan, error) {
+	f.installation = installation
+	return f.plan, nil
 }
 
 func (f routingLogReader) ReadLogSnapshot(context.Context, yorvaruntime.Installation, string, yorvaruntime.LogCategory) (yorvaruntime.LogSnapshot, error) {
@@ -411,6 +440,83 @@ func TestPhase7InstanceLogRouteRejectsNonClosedQuery(t *testing.T) {
 			}
 			assertProtocolError(t, response, "INVALID_REQUEST")
 		})
+	}
+}
+
+func TestPhase7UpgradePlanRouteIsAuthenticatedGetOnly(t *testing.T) {
+	planner := &routingUpgradePlanner{plan: httpUpgradePlan()}
+	inventory := &managementRoutingInventory{runtimeTarget: app.RuntimeManagementTarget{
+		Installation:   yorvaruntime.Installation{RuntimeKind: "hermes", Path: `C:\managed\hermes.exe`, Version: "0.20.2", SupportState: yorvaruntime.DiscoverySupported},
+		InstallationID: "rtinst-1",
+		Bundle:         yorvaruntime.Bundle{Descriptor: yorvaruntime.Descriptor{Kind: "hermes"}, UpgradePlan: planner},
+	}}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
+	path := "/api/v1/runtimes/hermes/upgrade-plan"
+
+	unauthorized := httptest.NewRequest(http.MethodGet, path, nil)
+	unauthorizedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(unauthorizedResponse, unauthorized)
+	if unauthorizedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated status = %d", unauthorizedResponse.Code)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, path, nil)
+	request.Header.Set("Authorization", "Bearer "+testToken)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || inventory.runtimeID != "hermes" || planner.installation.RuntimeKind != "hermes" {
+		t.Fatalf("GET response = %d %s, runtime = %q, installation = %#v", response.Code, response.Body.String(), inventory.runtimeID, planner.installation)
+	}
+
+	post := httptest.NewRequest(http.MethodPost, path, nil)
+	post.Header.Set("Authorization", "Bearer "+testToken)
+	postResponse := httptest.NewRecorder()
+	handler.ServeHTTP(postResponse, post)
+	if postResponse.Code != http.StatusMethodNotAllowed || postResponse.Header().Get("Allow") != "GET, OPTIONS" {
+		t.Fatalf("POST = %d Allow %q", postResponse.Code, postResponse.Header().Get("Allow"))
+	}
+}
+
+func TestPhase7BackupIndexRoutesAreAuthenticatedGetOnly(t *testing.T) {
+	now := time.Date(2026, 8, 25, 8, 0, 0, 0, time.UTC)
+	reader := routingBackupReader{backup: yorvaruntime.Backup{
+		ID: "backup-safe", State: yorvaruntime.BackupChanged, FormatVersion: "yorva.hermes.runtime-backup.v1",
+		RuntimeVersion: "0.20.5", SizeBytes: 4096, ChecksumSHA256: strings.Repeat("a", 64),
+		CreatedAt: now, VerifiedAt: now.Add(time.Minute), KeyMode: yorvaruntime.BackupKeyDevice,
+	}}
+	inventory := &managementRoutingInventory{runtimeTarget: app.RuntimeManagementTarget{
+		Installation: yorvaruntime.Installation{RuntimeKind: "hermes", Path: `C:\managed\hermes.exe`, Version: "0.20.5", SupportState: yorvaruntime.DiscoverySupported},
+		Bundle:       yorvaruntime.Bundle{Descriptor: yorvaruntime.Descriptor{Kind: "hermes"}, BackupRead: reader},
+	}}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
+	for _, path := range []string{"/api/v1/runtimes/hermes/backups", "/api/v1/runtimes/hermes/backups/backup-safe"} {
+		unauthorized := httptest.NewRequest(http.MethodGet, path, nil)
+		unauthorizedResponse := httptest.NewRecorder()
+		handler.ServeHTTP(unauthorizedResponse, unauthorized)
+		if unauthorizedResponse.Code != http.StatusUnauthorized {
+			t.Fatalf("unauthenticated %s status = %d", path, unauthorizedResponse.Code)
+		}
+
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		request.Header.Set("Authorization", "Bearer "+testToken)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"backupId":"backup-safe"`) {
+			t.Fatalf("GET %s = %d %s", path, response.Code, response.Body.String())
+		}
+		for _, forbidden := range []string{"artifactPath", "keyRef", "passphrase", `C:\managed`} {
+			if strings.Contains(response.Body.String(), forbidden) {
+				t.Fatalf("GET %s exposed %q: %s", path, forbidden, response.Body.String())
+			}
+		}
+
+		post := httptest.NewRequest(http.MethodPost, path, nil)
+		post.Header.Set("Authorization", "Bearer "+testToken)
+		postResponse := httptest.NewRecorder()
+		handler.ServeHTTP(postResponse, post)
+		if postResponse.Code != http.StatusMethodNotAllowed || postResponse.Header().Get("Allow") != "GET, OPTIONS" {
+			t.Fatalf("POST %s = %d Allow %q", path, postResponse.Code, postResponse.Header().Get("Allow"))
+		}
 	}
 }
 

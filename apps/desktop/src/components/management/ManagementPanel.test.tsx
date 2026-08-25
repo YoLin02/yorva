@@ -44,6 +44,16 @@ function managementClient(overrides: Partial<DaemonClient> = {}) {
       id: "docs", presetId: "approved-docs", state: "CONFIGURED", readyAt: null, observedAt: "2026-08-25T10:00:00Z",
     }] }),
     listInstanceMCPPresets: vi.fn().mockResolvedValue({ items: [{ id: "approved-docs", displayName: "Approved Docs" }] }),
+    getRuntimeUpgradePlan: vi.fn().mockResolvedValue({
+      state: "UNKNOWN", currentVersion: "0.20.2",
+      candidate: { label: "Hermes 0.20.5 packaged snapshot", version: "0.20.5" },
+      managedStatus: "MANAGED", compatibility: "UNKNOWN",
+      protectionPointRequired: true, protectionPointReady: false,
+      blockedReasons: ["COMPATIBILITY_UNKNOWN", "PROTECTION_POINT_REQUIRED"],
+      observedAt: "2026-08-25T10:00:00Z",
+    }),
+    listRuntimeBackups: vi.fn().mockResolvedValue({ scope: "RUNTIME", items: [] }),
+    getRuntimeBackup: vi.fn(),
     ...overrides,
   } as unknown as DaemonClient;
 }
@@ -93,12 +103,47 @@ describe("ManagementPanel", () => {
     };
     renderPanel(client, unavailable);
 
-    expect(screen.getAllByText("This capability is unavailable for the selected Runtime version.")).toHaveLength(3);
+    expect(screen.getAllByText("This capability is unavailable for the selected Runtime version.")).toHaveLength(5);
     expect(client.getInstanceHealth).not.toHaveBeenCalled();
     expect(client.getInstanceLogSnapshot).not.toHaveBeenCalled();
     expect(client.listInstanceSkills).not.toHaveBeenCalled();
     expect(client.listInstanceMCPServers).not.toHaveBeenCalled();
+    expect(client.getRuntimeUpgradePlan).not.toHaveBeenCalled();
+    expect(client.listRuntimeBackups).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /install|remove|test/i })).not.toBeInTheDocument();
+  });
+
+  it("shows only safe last-observed Runtime backup metadata", async () => {
+    const client = managementClient({
+      listRuntimeBackups: vi.fn().mockResolvedValue({ scope: "RUNTIME", items: [{
+        backupId: "backup-safe", scope: "RUNTIME", state: "CHANGED", formatVersion: "yorva.hermes.runtime-backup.v1",
+        runtimeVersion: "0.20.5", sizeBytes: 4096, checksumSha256: "a".repeat(64),
+        createdAt: "2026-08-25T10:00:00Z", verifiedAt: "2026-08-25T10:01:00Z", keyMode: "DEVICE",
+      }] }),
+    });
+    renderPanel(client, { ...instance, capabilities: { ...instance.capabilities, backupRead: true } });
+
+    expect(await screen.findByText("backup-safe")).toBeInTheDocument();
+    expect(screen.getAllByText("Changed").length).toBeGreaterThan(0);
+    expect(screen.getByText("Device-managed key")).toBeInTheDocument();
+    expect(client.listRuntimeBackups).toHaveBeenCalledWith("hermes", expect.any(AbortSignal));
+    const visible = document.body.textContent ?? "";
+    for (const prohibited of ["artifactPath", "keyRef", "passphrase", "C:\\Backups"] ) expect(visible).not.toContain(prohibited);
+  });
+
+  it("shows an evidence-incomplete read-only Upgrade plan without mutation actions or internal identity", async () => {
+    const client = managementClient();
+    renderPanel(client, { ...instance, capabilities: { ...instance.capabilities, upgradePlan: true } });
+
+    expect(await screen.findByText("Hermes 0.20.5 packaged snapshot (0.20.5)")).toBeInTheDocument();
+    expect(screen.getByText("Exact current-to-candidate compatibility is not proven.")).toBeInTheDocument();
+    expect(screen.getByText("Required; no verified protection point")).toBeInTheDocument();
+    expect(client.getRuntimeUpgradePlan).toHaveBeenCalledWith("hermes", expect.any(AbortSignal));
+    expect(screen.queryByRole("button", { name: /upgrade|rollback/i })).not.toBeInTheDocument();
+    const visible = document.body.textContent ?? "";
+    for (const prohibited of ["a0ca7c1", "df4b651", "sha256", "C:\\", "https://", "executable"]) {
+      expect(visible.toLowerCase()).not.toContain(prohibited.toLowerCase());
+    }
   });
 
   it("offers a bounded retry for failed reads", async () => {

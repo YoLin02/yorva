@@ -3,21 +3,47 @@ package runtime
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"time"
 )
+
+var ErrBackupNotFound = errors.New("Runtime backup not found")
 
 type BackupState string
 
 const (
-	BackupCreating  BackupState = "CREATING"
-	BackupAvailable BackupState = "AVAILABLE"
-	BackupRestoring BackupState = "RESTORING"
-	BackupFailed    BackupState = "FAILED"
-	BackupDeleting  BackupState = "DELETING"
+	BackupCreating      BackupState = "CREATING"
+	BackupAvailable     BackupState = "AVAILABLE"
+	BackupRestoring     BackupState = "RESTORING"
+	BackupFailed        BackupState = "FAILED"
+	BackupDeleting      BackupState = "DELETING"
+	BackupMissing       BackupState = "MISSING"
+	BackupChanged       BackupState = "CHANGED"
+	BackupUndecryptable BackupState = "UNDECRYPTABLE"
+	BackupMalformed     BackupState = "MALFORMED"
+	BackupUnknown       BackupState = "UNKNOWN"
 )
 
 func (s BackupState) Valid() bool {
-	return s == BackupCreating || s == BackupAvailable || s == BackupRestoring || s == BackupFailed || s == BackupDeleting
+	return s == BackupCreating || s == BackupAvailable || s == BackupRestoring || s == BackupFailed || s == BackupDeleting || s.Indexed()
+}
+
+// Indexed reports whether state is one of the last-observed states persisted
+// in the Runtime-scoped backup index. It does not imply a fresh file check.
+func (s BackupState) Indexed() bool {
+	return s == BackupAvailable || s == BackupMissing || s == BackupChanged ||
+		s == BackupUndecryptable || s == BackupMalformed || s == BackupUnknown
+}
+
+type BackupKeyMode string
+
+const (
+	BackupKeyDevice     BackupKeyMode = "DEVICE"
+	BackupKeyPassphrase BackupKeyMode = "PASSPHRASE"
+)
+
+func (m BackupKeyMode) Valid() bool {
+	return m == BackupKeyDevice || m == BackupKeyPassphrase
 }
 
 type Backup struct {
@@ -28,6 +54,8 @@ type Backup struct {
 	SizeBytes      int64
 	ChecksumSHA256 string
 	CreatedAt      time.Time
+	VerifiedAt     time.Time
+	KeyMode        BackupKeyMode
 }
 
 func (b Backup) Validate() error {
@@ -37,10 +65,11 @@ func (b Backup) Validate() error {
 	if !b.State.Valid() || b.SizeBytes < 0 {
 		return ErrInvalidManagementContract
 	}
-	if b.State != BackupAvailable {
+	if !b.State.Indexed() {
 		return nil
 	}
-	if b.FormatVersion == "" || b.RuntimeVersion == "" || b.SizeBytes == 0 || b.CreatedAt.IsZero() || !validSHA256(b.ChecksumSHA256) {
+	if b.FormatVersion == "" || b.RuntimeVersion == "" || b.SizeBytes == 0 || b.CreatedAt.IsZero() ||
+		b.VerifiedAt.IsZero() || !b.KeyMode.Valid() || !validSHA256(b.ChecksumSHA256) {
 		return ErrInvalidManagementContract
 	}
 	return nil
@@ -92,7 +121,7 @@ func (r RestoreResult) Validate() error {
 
 type BackupReader interface {
 	ListBackups(context.Context, Installation) ([]Backup, error)
-	VerifyBackup(context.Context, Installation, string) (Backup, error)
+	GetBackup(context.Context, Installation, string) (Backup, error)
 }
 
 type BackupManager interface {

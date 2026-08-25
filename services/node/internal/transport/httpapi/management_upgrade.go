@@ -19,20 +19,20 @@ type ManagementUpgradePlanService interface {
 // archive/seal checks remain inside the adapter; filesystem paths, commands,
 // internal seals and protection-point identities are never transported.
 type ManagementUpgradePlanResponse struct {
-	State                     yorvaruntime.UpgradeAvailabilityState `json:"state"`
-	RollbackEligibility       yorvaruntime.RollbackEligibilityState `json:"rollbackEligibility"`
-	CurrentVersion            string                                `json:"currentVersion"`
-	TargetVersion             string                                `json:"targetVersion"`
-	Managed                   bool                                  `json:"managed"`
-	InventoryComplete         bool                                  `json:"inventoryComplete"`
-	ProtectionPointRequired   bool                                  `json:"protectionPointRequired"`
-	ProtectionPointReady      bool                                  `json:"protectionPointReady"`
-	PlanEvidenceComplete      bool                                  `json:"planEvidenceComplete"`
-	UpgradeMutationQualified  bool                                  `json:"upgradeMutationQualified"`
-	RollbackMutationQualified bool                                  `json:"rollbackMutationQualified"`
-	UpgradeExecutable         bool                                  `json:"upgradeExecutable"`
-	RollbackExecutable        bool                                  `json:"rollbackExecutable"`
-	ObservedAt                time.Time                             `json:"observedAt"`
+	State                   yorvaruntime.UpgradeAvailabilityState  `json:"state"`
+	CurrentVersion          string                                 `json:"currentVersion"`
+	Candidate               ManagementUpgradeCandidateResponse     `json:"candidate"`
+	ManagedStatus           string                                 `json:"managedStatus"`
+	Compatibility           yorvaruntime.UpgradeCompatibilityState `json:"compatibility"`
+	ProtectionPointRequired bool                                   `json:"protectionPointRequired"`
+	ProtectionPointReady    bool                                   `json:"protectionPointReady"`
+	BlockedReasons          []yorvaruntime.UpgradePlanReason       `json:"blockedReasons"`
+	ObservedAt              time.Time                              `json:"observedAt"`
+}
+
+type ManagementUpgradeCandidateResponse struct {
+	Label   string `json:"label"`
+	Version string `json:"version"`
 }
 
 func getRuntimeUpgradePlan(service ManagementUpgradePlanService) http.Handler {
@@ -53,21 +53,25 @@ func getRuntimeUpgradePlan(service ManagementUpgradePlanService) http.Handler {
 
 func newManagementUpgradePlanResponse(plan yorvaruntime.UpgradePlan) ManagementUpgradePlanResponse {
 	return ManagementUpgradePlanResponse{
-		State:                     plan.State,
-		RollbackEligibility:       plan.Rollback,
-		CurrentVersion:            plan.CurrentVersion,
-		TargetVersion:             plan.TargetVersion,
-		Managed:                   plan.Managed,
-		InventoryComplete:         plan.InventoryComplete,
-		ProtectionPointRequired:   plan.ProtectionPointRequired,
-		ProtectionPointReady:      plan.ProtectionPointReady,
-		PlanEvidenceComplete:      plan.PlanEvidenceComplete,
-		UpgradeMutationQualified:  plan.UpgradeMutationQualified,
-		RollbackMutationQualified: plan.RollbackMutationQualified,
-		UpgradeExecutable:         plan.UpgradeExecutable(),
-		RollbackExecutable:        plan.RollbackExecutable(),
-		ObservedAt:                plan.ObservedAt,
+		State:          plan.State,
+		CurrentVersion: plan.CurrentVersion,
+		Candidate: ManagementUpgradeCandidateResponse{
+			Label: plan.CandidateLabel, Version: plan.TargetVersion,
+		},
+		ManagedStatus:           publicManagedStatus(plan),
+		Compatibility:           plan.Compatibility,
+		ProtectionPointRequired: plan.ProtectionPointRequired,
+		ProtectionPointReady:    plan.ProtectionPointReady,
+		BlockedReasons:          append([]yorvaruntime.UpgradePlanReason(nil), plan.Reasons...),
+		ObservedAt:              plan.ObservedAt,
 	}
+}
+
+func publicManagedStatus(plan yorvaruntime.UpgradePlan) string {
+	if plan.Managed {
+		return "MANAGED"
+	}
+	return "UNKNOWN"
 }
 
 func writeManagementUpgradeUnsupported(w http.ResponseWriter) {

@@ -242,7 +242,9 @@ ADR-0007 classifies Hermes Profile model provider credentials as Runtime-native 
 
 ## 11. `backups`
 
-Stores backup metadata, not necessarily backup bytes.
+Stores the predecessor Instance-scoped backup metadata, not necessarily backup bytes.
+Phase 7 does not reinterpret, migrate into, or delete these rows because the accepted
+Hermes complete-backup scope is Runtime-wide.
 
 ```text
 id             TEXT PRIMARY KEY
@@ -257,6 +259,41 @@ created_at     ... NOT NULL
 ```
 
 Backup contents remain on local storage unless the user explicitly configures future remote storage.
+
+### 11.1 `runtime_backups`
+
+Phase 7 adds a separate YORVA-owned safe index for verified encrypted Runtime-scoped
+artifacts. It is intentionally separate from `backups`; a predecessor Instance row does
+not prove Runtime scope and remains unchanged.
+
+```text
+id                       TEXT PRIMARY KEY
+runtime_installation_id  TEXT NOT NULL REFERENCES runtime_installations(id)
+scope_type               TEXT NOT NULL  -- fixed RUNTIME
+format_version           TEXT NOT NULL
+runtime_version          TEXT NOT NULL
+artifact_path            TEXT NOT NULL  -- locally selected; never in ordinary read APIs
+size_bytes               INTEGER NOT NULL
+checksum_sha256          TEXT NOT NULL
+state                    TEXT NOT NULL  -- AVAILABLE | MISSING | CHANGED | UNDECRYPTABLE | MALFORMED | UNKNOWN
+key_mode                 TEXT NOT NULL  -- DEVICE | PASSPHRASE
+key_ref                  TEXT           -- non-secret OS-backed reference; NULL for passphrase mode
+created_at               ... NOT NULL
+verified_at              ... NOT NULL
+updated_at               ... NOT NULL
+```
+
+Constraint:
+
+```text
+UNIQUE(runtime_installation_id, artifact_path)
+```
+
+Only a fully verified final encrypted artifact enters this table as `AVAILABLE`.
+Reconciliation may update its observed state and verification timestamp, but does not
+change its artifact identity, checksum, format, Runtime version or key authority. A
+portable passphrase is never stored; `key_ref` contains only the non-secret reference
+for device-managed mode. Listing this index does not prove current Restore eligibility.
 
 ## 12. `app_settings`
 

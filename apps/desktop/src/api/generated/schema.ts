@@ -81,6 +81,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runtimes/{runtimeId}/upgrade-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the exact managed Runtime upgrade plan
+         * @description Returns a safe projection derived from the live active pointer, matching sealed generation, and the compiled packaged candidate. It never authorizes or starts Upgrade or Rollback mutation.
+         */
+        get: operations["getRuntimeUpgradePlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for the read-only Runtime upgrade plan */
+        options: operations["optionsRuntimeUpgradePlan"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/{runtimeId}/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        /**
+         * List last-observed Runtime backup index entries
+         * @description Reads only the safe YORVA index. It does not access, decrypt, hash, or mutate an artifact; AVAILABLE and verifiedAt describe the last successful controlled verification, not current Restore eligibility.
+         */
+        get: operations["listRuntimeBackups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Runtime backup inventory */
+        options: operations["optionsRuntimeBackups"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/{runtimeId}/backups/{backupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+                backupId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Read one last-observed Runtime backup index entry
+         * @description Returns no artifact path, destination reference, decryption key reference, passphrase, credential, or archive-member detail. The request performs no live artifact verification.
+         */
+        get: operations["getRuntimeBackup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for one Runtime backup index entry */
+        options: operations["optionsRuntimeBackup"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/runtimes/hermes/install": {
         parameters: {
             query?: never;
@@ -871,6 +941,48 @@ export interface components {
         InstanceCreateRequest: {
             name: string;
         };
+        ManagementUpgradeCandidate: {
+            label: string;
+            version: string;
+        };
+        ManagementUpgradePlan: {
+            /** @enum {string} */
+            state: "UP_TO_DATE" | "AVAILABLE" | "BLOCKED" | "UNKNOWN";
+            currentVersion: string;
+            candidate: components["schemas"]["ManagementUpgradeCandidate"];
+            /** @enum {string} */
+            managedStatus: "MANAGED" | "UNKNOWN";
+            /** @enum {string} */
+            compatibility: "NOT_REQUIRED" | "PROVEN" | "UNSAFE" | "UNKNOWN";
+            protectionPointRequired: boolean;
+            protectionPointReady: boolean;
+            blockedReasons: ("MANAGED_EVIDENCE_UNKNOWN" | "CURRENT_IDENTITY_UNKNOWN" | "INVENTORY_UNKNOWN" | "PROTECTION_POINT_REQUIRED" | "COMPATIBILITY_UNKNOWN" | "POSTCHECKS_UNQUALIFIED")[];
+            /** Format: date-time */
+            observedAt: string;
+        };
+        ManagementBackup: {
+            backupId: string;
+            /** @enum {string} */
+            scope: "RUNTIME";
+            /** @enum {string} */
+            state: "AVAILABLE" | "MISSING" | "CHANGED" | "UNDECRYPTABLE" | "MALFORMED" | "UNKNOWN";
+            formatVersion: string;
+            runtimeVersion: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            checksumSha256: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            verifiedAt: string;
+            /** @enum {string} */
+            keyMode: "DEVICE" | "PASSPHRASE";
+        };
+        ManagementBackupList: {
+            /** @enum {string} */
+            scope: "RUNTIME";
+            items: components["schemas"]["ManagementBackup"][];
+        };
         InstanceCapabilities: {
             instances: boolean;
             lifecycle: boolean;
@@ -1296,6 +1408,140 @@ export interface operations {
             header?: never;
             path: {
                 runtimeKind: "hermes";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getRuntimeUpgradePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current read-only upgrade plan, including explicit unknown or blocked evidence. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagementUpgradePlan"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsRuntimeUpgradePlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRuntimeBackups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Safe Runtime-scoped backup index snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagementBackupList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsRuntimeBackups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getRuntimeBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+                backupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Safe Runtime-scoped backup index entry. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagementBackup"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsRuntimeBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+                backupId: string;
             };
             cookie?: never;
         };

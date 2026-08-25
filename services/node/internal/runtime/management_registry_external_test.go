@@ -7,7 +7,7 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes"
 )
 
-func TestHermesManagementCapabilitiesRemainClosedWithoutQualifiedWiring(t *testing.T) {
+func TestHermesManagementCapabilitiesExposeOnlyQualifiedReadPlan(t *testing.T) {
 	registry := yorvaruntime.NewRegistry()
 	if err := hermes.Register(registry); err != nil {
 		t.Fatalf("Register() error = %v", err)
@@ -16,7 +16,7 @@ func TestHermesManagementCapabilitiesRemainClosedWithoutQualifiedWiring(t *testi
 	if !ok {
 		t.Fatal("Hermes bundle was not registered")
 	}
-	if got := bundle.ManagementCapabilities(); got != (yorvaruntime.ManagementCapabilities{}) {
-		t.Fatalf("unqualified Hermes management capabilities = %#v, want all false", got)
+	if got := bundle.ManagementCapabilities(); !got.UpgradePlan || got.Upgrade || got.Rollback {
+		t.Fatalf("Hermes Upgrade capability truth = %#v, want read plan only", got)
 	}
 }

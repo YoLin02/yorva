@@ -9,6 +9,7 @@ func TestUpgradePlanSeparatesPlanningEvidenceFromMutationQualification(t *testin
 	plan := UpgradePlan{
 		State: UpgradeAvailable, Rollback: RollbackEligible,
 		CurrentVersion: "0.20.2", TargetVersion: "0.20.5",
+		CandidateLabel: "Hermes 0.20.5 packaged snapshot", Compatibility: UpgradeCompatibilityProven,
 		Managed: true, InventoryComplete: true,
 		ProtectionPointRequired: true, ProtectionPointReady: true,
 		PlanEvidenceComplete: true,
@@ -35,6 +36,7 @@ func TestUpgradePlanRejectsQualificationWithoutCompleteEvidence(t *testing.T) {
 	base := UpgradePlan{
 		State: UpgradeBlocked, Rollback: RollbackIneligible,
 		CurrentVersion: "0.20.2", TargetVersion: "0.20.5",
+		CandidateLabel: "Hermes 0.20.5 packaged snapshot", Compatibility: UpgradeCompatibilityUnknown,
 		ObservedAt: time.Date(2026, 8, 25, 12, 0, 0, 0, time.UTC),
 	}
 	for name, mutate := range map[string]func(*UpgradePlan){
@@ -55,6 +57,7 @@ func TestUpgradePlanRejectsAvailableStateWithoutCompleteEvidence(t *testing.T) {
 	plan := UpgradePlan{
 		State: UpgradeAvailable, Rollback: RollbackEligible,
 		CurrentVersion: "0.20.2", TargetVersion: "0.20.5",
+		CandidateLabel: "Hermes 0.20.5 packaged snapshot", Compatibility: UpgradeCompatibilityProven,
 		Managed: true, InventoryComplete: true,
 		ObservedAt: time.Date(2026, 8, 25, 12, 0, 0, 0, time.UTC),
 	}
