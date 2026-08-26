@@ -74,6 +74,7 @@ const unavailableManagementCapabilities = {
   },
   mcpRead: false,
   mcpMutate: false,
+  mcpTest: false,
   backupRead: false,
   backupMutate: false,
   restore: false,

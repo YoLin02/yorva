@@ -28,6 +28,23 @@ func TestCandidateFinderPreservesPathOrderAndDeduplicates(t *testing.T) {
 	}
 }
 
+func TestCandidateFinderPrioritizesOfficialCandidatesBeforePath(t *testing.T) {
+	root := t.TempDir()
+	firstDir := filepath.Join(root, "path-first")
+	secondDir := filepath.Join(root, "path-second")
+	officialDir := filepath.Join(root, "official")
+	first := writeCandidate(t, firstDir)
+	second := writeCandidate(t, secondDir)
+	official := writeCandidate(t, officialDir)
+
+	finder := testCandidateFinder([]string{firstDir, secondDir}, []string{official})
+	got := finder.find()
+	want := []string{canonicalPath(t, official), canonicalPath(t, first), canonicalPath(t, second)}
+	if !slices.Equal(invocationPaths(got.commands), want) {
+		t.Fatalf("find() paths = %#v, want official candidate first: %#v", invocationPaths(got.commands), want)
+	}
+}
+
 func TestCandidateFinderIgnoresMissingDirectoriesAndNonFiles(t *testing.T) {
 	root := t.TempDir()
 	directoryCandidate := filepath.Join(root, executableNameForTest())

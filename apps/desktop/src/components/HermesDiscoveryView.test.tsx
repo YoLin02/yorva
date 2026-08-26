@@ -92,6 +92,21 @@ describe("HermesDiscoveryView", () => {
     expect(onOpenInstances).toHaveBeenCalledOnce();
   });
 
+  it("opens Runtime management from the supported engine card", () => {
+    const onOpenManagement = vi.fn();
+    render(
+      <HermesDiscoveryView
+        state={{ kind: "complete", discovery: discovery("SUPPORTED"), onRetry: vi.fn() }}
+        copy={copy}
+        locale="en-US"
+        instanceCount={1}
+        onOpenManagement={onOpenManagement}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Manage this Runtime" }));
+    expect(onOpenManagement).toHaveBeenCalledOnce();
+  });
+
   it("shows one compatibility state and omits the support range from the runtime card", () => {
     render(
       <HermesDiscoveryView
@@ -142,11 +157,23 @@ describe("HermesDiscoveryView", () => {
     expect(screen.getAllByText("Hermes 版本不受支持").length).toBeGreaterThan(0);
   });
 
-  it("maps warnings by stable code without rendering daemon message text", () => {
+  it("explains that a timed-out check is safe to retry", () => {
+	const chinese = messages["zh-CN"];
+	render(
+	  <HermesDiscoveryView
+		state={{ kind: "complete", discovery: discovery("TIMED_OUT"), onRetry: vi.fn() }}
+		copy={chinese}
+		locale="zh-CN"
+	  />,
+	);
+	expect(screen.getByText(/重新检测不会中断正在运行的实例/)).toBeInTheDocument();
+  });
+
+  it("keeps discovery warnings out of the runtime summary", () => {
     const result = discovery("BROKEN_EXECUTABLE");
     result.warnings = [{ code: "HERMES_CLI_LAUNCHER_MISSING", message: "raw daemon wording" }];
     render(<HermesDiscoveryView state={{ kind: "complete", discovery: result, onRetry: vi.fn() }} copy={copy} locale="en-US" />);
-    expect(screen.getByText("The Hermes installation does not contain a safe CLI launcher.")).toBeInTheDocument();
+    expect(screen.queryByText("The Hermes installation does not contain a safe CLI launcher.")).not.toBeInTheDocument();
     expect(screen.queryByText("raw daemon wording")).not.toBeInTheDocument();
   });
 });

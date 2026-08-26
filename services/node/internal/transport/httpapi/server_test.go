@@ -341,6 +341,7 @@ func TestPhase7ReadOnlyManagementRoutesAreAuthenticatedAndTargetExactInstance(t 
 		{path: "/api/v1/instances/inst-1/skills", bodyMarker: `"id":"skill-a"`},
 		{path: "/api/v1/instances/inst-1/skills/skill-a", bodyMarker: `"id":"skill-a"`},
 		{path: "/api/v1/instances/inst-1/mcp-servers", bodyMarker: `"id":"server-a"`},
+		{path: "/api/v1/instances/inst-1/mcp-bindings", bodyMarker: `"id":"server-a"`},
 		{path: "/api/v1/instances/inst-1/mcp-catalog", bodyMarker: `"id":"preset-a"`},
 	}
 	for _, test := range tests {
@@ -375,6 +376,7 @@ func TestPhase7ReadOnlyManagementRoutesKeepCapabilityFalseStable(t *testing.T) {
 		"/api/v1/instances/inst-1/skills",
 		"/api/v1/instances/inst-1/skills/skill-a",
 		"/api/v1/instances/inst-1/mcp-servers",
+		"/api/v1/instances/inst-1/mcp-bindings",
 		"/api/v1/instances/inst-1/mcp-catalog",
 	} {
 		t.Run(path, func(t *testing.T) {
@@ -399,6 +401,7 @@ func TestPhase7ManagementReadRoutesRejectUnspecifiedPost(t *testing.T) {
 		"/api/v1/instances/inst-1/skills":               "GET, OPTIONS",
 		"/api/v1/instances/inst-1/skills/skill-a":       "GET, DELETE, OPTIONS",
 		"/api/v1/instances/inst-1/mcp-servers":          "GET, OPTIONS",
+		"/api/v1/instances/inst-1/mcp-bindings":         "GET, OPTIONS",
 		"/api/v1/instances/inst-1/mcp-catalog":          "GET, OPTIONS",
 	} {
 		t.Run(path, func(t *testing.T) {

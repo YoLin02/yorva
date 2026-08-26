@@ -156,7 +156,7 @@ func TestInstanceCapabilitiesProjectRegistryManagementWiring(t *testing.T) {
 	inventory := &InstanceInventory{discovery: &RuntimeDiscovery{registry: registry}}
 	if got := inventory.capabilities(); got != (InstanceCapabilities{
 		Instances: true, HealthRead: true, LogsRead: true, SecurityAudit: true,
-		SkillRead: true, SkillMutate: true, MCPRead: true, MCPMutate: true,
+		SkillRead: true, SkillMutate: true, MCPRead: true, MCPMutate: true, MCPTest: true,
 		BackupRead: true, BackupMutate: true, Restore: true, UpgradePlan: true,
 		Upgrade: true, Rollback: true,
 	}) {
@@ -171,7 +171,7 @@ func TestInstanceCapabilitiesExposeHermesUpgradePlanReadOnly(t *testing.T) {
 	}
 	inventory := &InstanceInventory{discovery: &RuntimeDiscovery{registry: registry}}
 	got := inventory.capabilities()
-	if !got.Instances || !got.Lifecycle || !got.SkillMutate || !got.UpgradePlan || got.NativeSkills.NativeInstall.Supported || got.NativeSkills.NativeInstall.Reason != "deferred_upstream" {
+	if !got.Instances || !got.Lifecycle || !got.SkillMutate || !got.MCPRead || !got.MCPMutate || !got.MCPTest || !got.UpgradePlan || got.NativeSkills.NativeInstall.Supported || got.NativeSkills.NativeInstall.Reason != "deferred_upstream" {
 		t.Fatalf("actual Hermes capabilities = %#v, want managed projection with deferred native mutation", got)
 	}
 }

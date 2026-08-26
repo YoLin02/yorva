@@ -170,35 +170,35 @@ export function createDaemonClient(session: DaemonSession) {
         body: "{}",
       }),
     listInstanceMCPServers: (instanceId: string, signal?: AbortSignal) =>
-      request<MCPServerList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers`, {
+      request<MCPServerList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-bindings`, {
         signal: withDesktopTimeout(signal),
       }),
-    listInstanceMCPPresets: (instanceId: string, signal?: AbortSignal) =>
-      request<MCPPresetList>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-catalog`, {
+    listRuntimeMCPDefinitions: (runtimeId: string, signal?: AbortSignal) =>
+      request<MCPPresetList>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/mcp-definitions`, {
         signal: withDesktopTimeout(signal),
       }),
-    installInstanceMCPPreset: (instanceId: string, presetId: string, idempotencyKey: string, signal?: AbortSignal) =>
-      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers/${encodeURIComponent(presetId)}/install`, {
-        method: "POST", signal: withDesktopTimeout(signal),
-        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: "{}",
+    installInstanceMCPPreset: (instanceId: string, presetId: string, credential: string, enabledToolIds: string[], idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-bindings/${encodeURIComponent(presetId)}`, {
+        method: "PUT", signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ credential, enabledToolIds }),
       }),
     authenticateInstanceMCPServer: (instanceId: string, serverId: string, credential: string, idempotencyKey: string, signal?: AbortSignal) =>
-      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers/${encodeURIComponent(serverId)}/authenticate`, {
-        method: "POST", signal: withDesktopTimeout(signal),
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-bindings/${encodeURIComponent(serverId)}/credential`, {
+        method: "PUT", signal: withDesktopTimeout(signal),
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ credential }),
       }),
     testInstanceMCPServer: (instanceId: string, serverId: string, idempotencyKey: string, signal?: AbortSignal) =>
-      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers/${encodeURIComponent(serverId)}/test`, {
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-bindings/${encodeURIComponent(serverId)}/test`, {
         method: "POST", signal: withDesktopTimeout(signal),
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: "{}",
       }),
     configureInstanceMCPServer: (instanceId: string, serverId: string, enabledToolIds: string[], idempotencyKey: string, signal?: AbortSignal) =>
-      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers/${encodeURIComponent(serverId)}`, {
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-bindings/${encodeURIComponent(serverId)}`, {
         method: "PATCH", signal: withDesktopTimeout(signal),
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ enabledToolIds }),
       }),
     removeInstanceMCPServer: (instanceId: string, serverId: string, idempotencyKey: string, signal?: AbortSignal) =>
-      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-servers/${encodeURIComponent(serverId)}`, {
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/mcp-bindings/${encodeURIComponent(serverId)}`, {
         method: "DELETE", signal: withDesktopTimeout(signal),
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, body: "{}",
       }),

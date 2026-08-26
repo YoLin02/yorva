@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"net/url"
 	"time"
 )
 
@@ -23,6 +24,9 @@ func (s MCPState) Valid() bool {
 type MCPPreset struct {
 	ID                 string
 	DisplayName        string
+	Description        string
+	HomepageURL        string
+	DocumentationURL   string
 	AllowedToolIDs     []string
 	CredentialRequired bool
 }
@@ -34,15 +38,33 @@ func (p MCPPreset) Validate() error {
 	if err := validateBoundedText("MCP preset display name", p.DisplayName); err != nil {
 		return err
 	}
+	if p.Description != "" {
+		if err := validateBoundedText("MCP preset description", p.Description); err != nil {
+			return err
+		}
+	}
+	if !validMCPMetadataURL(p.HomepageURL) || !validMCPMetadataURL(p.DocumentationURL) {
+		return ErrInvalidManagementContract
+	}
 	return validateUniqueIDs("MCP tool id", p.AllowedToolIDs)
 }
 
+func validMCPMetadataURL(value string) bool {
+	if value == "" {
+		return true
+	}
+	parsed, err := url.Parse(value)
+	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.Fragment == ""
+}
+
 type MCPServer struct {
-	ID         string
-	PresetID   string
-	State      MCPState
-	ReadyAt    *time.Time
-	ObservedAt time.Time
+	ID             string
+	PresetID       string
+	Managed        bool
+	EnabledToolIDs []string
+	State          MCPState
+	ReadyAt        *time.Time
+	ObservedAt     time.Time
 }
 
 func (s MCPServer) Validate() error {
@@ -54,6 +76,9 @@ func (s MCPServer) Validate() error {
 	}
 	if !s.State.Valid() || s.ObservedAt.IsZero() {
 		return ErrInvalidManagementContract
+	}
+	if err := validateUniqueIDs("MCP tool id", s.EnabledToolIDs); err != nil {
+		return err
 	}
 	if s.State == MCPReady && (s.ReadyAt == nil || s.ReadyAt.IsZero()) {
 		return ErrInvalidManagementContract

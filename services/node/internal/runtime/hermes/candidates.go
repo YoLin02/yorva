@@ -99,12 +99,9 @@ func newCandidateFinder() candidateFinder {
 
 func (f candidateFinder) find() candidateSet {
 	ordered := make([]commandInvocation, 0, f.limit)
-	for _, directory := range filepath.SplitList(f.pathValue) {
-		if directory == "" || f.pathPrefixIgnored(directory) {
-			continue
-		}
-		ordered = append(ordered, directInvocation(filepath.Join(directory, f.executableName)))
-	}
+	// Prefer the installation layout YORVA owns and validates. PATH candidates
+	// are still inspected for ambiguity, but cannot crowd official launchers out
+	// of the bounded candidate set.
 	for _, path := range f.officialPaths {
 		ordered = append(ordered, directInvocation(path))
 	}
@@ -112,6 +109,12 @@ func (f candidateFinder) find() candidateSet {
 		if command, ok := f.officialPythonInvocation(root); ok {
 			ordered = append(ordered, command)
 		}
+	}
+	for _, directory := range filepath.SplitList(f.pathValue) {
+		if directory == "" || f.pathPrefixIgnored(directory) {
+			continue
+		}
+		ordered = append(ordered, directInvocation(filepath.Join(directory, f.executableName)))
 	}
 
 	result := candidateSet{

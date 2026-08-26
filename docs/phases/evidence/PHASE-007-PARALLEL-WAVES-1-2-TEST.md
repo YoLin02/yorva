@@ -209,9 +209,10 @@ duplicate-key pre-wiring gate is therefore **RESOLVED**.
   and mutation qualification cannot be lost.
 - MCP top-level and nested duplicate-key rejection is now verified. The reviewed
   registry still remains empty, as required while no descriptor is approved.
-- ADR-0013, ADR-0014 and ADR-0015 remain Proposed/Pending. Encryption, Restore mutation,
-  MCP presets/OAuth, Upgrade mutation and Rollback mutation must remain false until the
-  applicable Owner acceptance and later qualification evidence exist.
+- At the time of this snapshot, ADR-0013 and ADR-0015 remained Proposed/Pending.
+  Encryption, Restore mutation, Upgrade mutation and Rollback mutation remained false
+  pending applicable Owner acceptance and later qualification evidence. MCP presets/OAuth
+  remained governed by the approved P7-D3 boundary and provider-specific qualification.
 
 ## Files and state changed by this test
 

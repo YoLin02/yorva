@@ -34,6 +34,16 @@ func TestProjectLogSnapshotRedactsAndSanitizes(t *testing.T) {
 	}
 }
 
+func TestProjectLogSnapshotRedactsProseCredential(t *testing.T) {
+	got, err := ProjectLogSnapshot(LogAgent, []byte("Password is `123456`"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Lines) != 1 || got.Lines[0] != "Password=[REDACTED]" {
+		t.Fatalf("lines = %#v", got.Lines)
+	}
+}
+
 func TestProjectLogSnapshotBounds(t *testing.T) {
 	t.Run("line count", func(t *testing.T) {
 		got, err := ProjectLogSnapshot(LogAgent, []byte(strings.Repeat("line\n", MaxLogLines+20)))

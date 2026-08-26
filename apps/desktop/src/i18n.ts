@@ -67,6 +67,7 @@ type Messages = {
     lastChecked: string;
     managedInstances: string;
     viewInstances: string;
+    manageRuntime: string;
     unavailableValue: string;
     candidates: string;
     candidateCount: string;
@@ -319,6 +320,37 @@ type Messages = {
     close: string;
     title: string;
     description: string;
+    runtimeTitle: string;
+    runtimeDescription: string;
+    backToRuntime: string;
+    runtimeNavigation: string;
+    runtimeTabs: Record<"overview" | "instances" | "skills" | "mcp" | "maintenance" | "diagnostics" | "operations", string>;
+    runtimeSummaryInstances: string;
+    runtimeSummaryInstancesDetail: string;
+    runtimeSummaryResources: string;
+    runtimeSummaryResourcesDetail: string;
+    runtimeSummaryMaintenance: string;
+    runtimeSummaryMaintenanceDetail: string;
+    runtimeSummaryDiagnostics: string;
+    runtimeSummaryDiagnosticsDetail: string;
+    runtimeInstancesTitle: string;
+    runtimeInstancesDescription: string;
+    openDiagnostics: string;
+    diagnosticInstance: string;
+    diagnosticInstanceDescription: string;
+    assignmentInstances: string;
+    assignmentInstancesDescription: string;
+    configuringInstance: string;
+    configuringInstanceDescription: string;
+    appliedInstances: string;
+    currentState: string;
+    openDetailedConfiguration: string;
+    connectedChannelsDetail: string;
+    enabledBindingsDetail: string;
+    boundBindingsDetail: string;
+    instanceHealthDetail: string;
+    configureModel: string;
+    configureChannels: string;
     refresh: string;
     cancelOperation: string;
     retry: string;
@@ -327,6 +359,8 @@ type Messages = {
     unavailable: string;
     diagnosticsTitle: string;
     diagnosticsDescription: string;
+    securityTitle: string;
+    securityDescription: string;
     healthTitle: string;
     logsTitle: string;
     logCategory: string;
@@ -336,9 +370,21 @@ type Messages = {
     truncated: string;
     skillsTitle: string;
     skillsDescription: string;
+    skillBindingsTitle: string;
+    skillBindingsDescription: string;
     noSkills: string;
     inspect: string;
     hideDetails: string;
+    skillDescriptionFallback: string;
+    skillPreviewBack: string;
+    skillPreviewContent: string;
+    skillPreviewUnavailable: string;
+    skillToggleReadOnly: string;
+    managedSkillsGroup: string;
+    managedSkillsGroupDescription: string;
+    externalSkillsGroup: string;
+    externalSkillsGroupDescription: string;
+    noManagedSkills: string;
     source: string;
     version: string;
     updateAvailable: string;
@@ -346,6 +392,9 @@ type Messages = {
     skillCatalogTitle: string;
     noSkillSources: string;
     installSkill: string;
+    alreadyInstalled: string;
+    applyToInstances: string;
+    bindingManagedAtRuntime: string;
     updateSkill: string;
     enableSkill: string;
     disableSkill: string;
@@ -357,9 +406,33 @@ type Messages = {
     projection: string;
     mcpTitle: string;
     mcpDescription: string;
+    mcpDefinitionsTitle: string;
+    mcpDefinitionsDescription: string;
+    mcpBindingsTitle: string;
+    mcpBindingsDescription: string;
     noServers: string;
+    noServersTitle: string;
+    noServersDescription: string;
     catalogTitle: string;
     noPresets: string;
+    noPresetsDescription: string;
+    reviewedPreset: string;
+    mcpReadOnlyCapability: string;
+    addMCP: string;
+    addMCPDescription: string;
+    cancelAddMCP: string;
+    mcpPresetType: string;
+    mcpUniqueId: string;
+    mcpDisplayName: string;
+    mcpDefinitionDescription: string;
+    mcpHomepage: string;
+    mcpDocumentation: string;
+    mcpBindingInstances: string;
+    mcpBindingInstancesDescription: string;
+    mcpToolScope: string;
+    mcpConfigPreview: string;
+    mcpConfigPreviewDescription: string;
+    testAndAddMCP: string;
     installMCP: string;
     authenticateMCP: string;
     testMCP: string;
@@ -396,6 +469,8 @@ type Messages = {
     createBackup: string;
     backupCreating: string;
     backupCreateFailed: string;
+    backupRequiresStopped: string;
+    backupRuntimeNotStopped: string;
     deleteBackup: string;
     restoreBackup: string;
     restoreConfirm: string;
@@ -408,6 +483,9 @@ type Messages = {
     backupKey: string;
     backupKeyMode: Record<"DEVICE" | "PASSPHRASE", string>;
     backupState: Record<"AVAILABLE" | "MISSING" | "CHANGED" | "UNDECRYPTABLE" | "MALFORMED" | "UNKNOWN", string>;
+    operationsTitle: string;
+    operationsDescription: string;
+    noOperations: string;
     healthState: Record<"HEALTHY" | "DEGRADED" | "UNHEALTHY" | "UNKNOWN", string>;
     logCategories: Record<"RUNTIME" | "ERRORS" | "GATEWAY" | "MCP", string>;
     installationState: Record<"INSTALLED" | "NOT_INSTALLED" | "UNKNOWN", string>;
@@ -467,7 +545,7 @@ const english: Messages = {
   pages: {
     dashboard: {
       navigation: "Dashboard",
-      title: "Runtime Overview",
+      title: "Yorva Overview",
       description: "Monitor your local node and Hermes runtime status",
     },
     runtimes: {
@@ -543,6 +621,7 @@ const english: Messages = {
     lastChecked: "Last checked",
     managedInstances: "Managed instances",
     viewInstances: "View instances",
+    manageRuntime: "Manage this Runtime",
     unavailableValue: "—",
     candidates: "Hermes candidates",
     candidateCount: "Candidates found: {count}",
@@ -571,7 +650,7 @@ const english: Messages = {
       },
       TIMED_OUT: {
         title: "Hermes check timed out",
-        description: "Hermes did not report its version before the discovery deadline.",
+        description: "Hermes did not finish the safe version check in time. It may be busy or a launcher may be slow; retrying will not interrupt running instances.",
       },
       AMBIGUOUS: {
         title: "Multiple Hermes executables found",
@@ -870,15 +949,48 @@ const english: Messages = {
     open: "Management",
     close: "Close management",
     title: "Instance management",
-    description: "Read the qualified Skill and MCP state for this exact instance.",
+    description: "Instance-only status, configuration, bindings, health, and logs.",
+    runtimeTitle: "Hermes Runtime management",
+    runtimeDescription: "Manage this Runtime's instances, shared resources, maintenance, diagnostics, and operations in one place.",
+    backToRuntime: "Back to Runtime",
+    runtimeNavigation: "Runtime management sections",
+    runtimeTabs: { overview: "Overview", instances: "Instances", skills: "Skills", mcp: "MCP", maintenance: "Maintenance", diagnostics: "Diagnostics", operations: "Operations" },
+    runtimeSummaryInstances: "Active instances",
+    runtimeSummaryInstancesDetail: "{count} instances are registered under this Runtime.",
+    runtimeSummaryResources: "Shared resources",
+    runtimeSummaryResourcesDetail: "Skills and MCP definitions are managed here, then assigned to an instance.",
+    runtimeSummaryMaintenance: "Maintenance",
+    runtimeSummaryMaintenanceDetail: "Runtime-scoped upgrade, backup, and restore state.",
+    runtimeSummaryDiagnostics: "Diagnostics",
+    runtimeSummaryDiagnosticsDetail: "Exact-instance health remains separate from Runtime-wide claims.",
+    runtimeInstancesTitle: "Runtime instances",
+    runtimeInstancesDescription: "All Hermes Profiles controlled by this Runtime. Open diagnostics to inspect one instance's health and runtime logs.",
+    openDiagnostics: "Diagnostics & logs",
+    diagnosticInstance: "Switch instance",
+    diagnosticInstanceDescription: "Select an instance to view its current health and runtime logs.",
+    assignmentInstances: "Managed instances",
+    assignmentInstancesDescription: "Select the Hermes instances whose existing resources you want to view and manage. Multi-select provides a combined Runtime view.",
+    configuringInstance: "Configuring",
+    configuringInstanceDescription: "Select the Hermes instance whose Skills you want to view and manage.",
+    appliedInstances: "Applied instances",
+    currentState: "Current state",
+    openDetailedConfiguration: "Open detailed configuration to complete setup.",
+    connectedChannelsDetail: "{count} channel bindings are visible.",
+    enabledBindingsDetail: "Enabled Skill bindings for this instance.",
+    boundBindingsDetail: "Configured MCP bindings for this instance.",
+    instanceHealthDetail: "Qualified health for this exact instance.",
+    configureModel: "Configure model",
+    configureChannels: "Configure channels",
     refresh: "Refresh",
     cancelOperation: "Cancel operation",
     retry: "Retry",
-    loading: "Loading authoritative state…",
+    loading: "Loading…",
     requestFailed: "Yorva could not read this management state.",
     unavailable: "This capability is unavailable for the selected Runtime version.",
-    diagnosticsTitle: "Health and logs",
+    diagnosticsTitle: "Diagnostics & logs",
     diagnosticsDescription: "Normalized health and one fixed-category, bounded, redacted log snapshot.",
+    securityTitle: "Security",
+    securityDescription: "Security audit remains a typed Runtime operation and is shown only when qualified.",
     healthTitle: "Health",
     logsTitle: "Logs",
     logCategory: "Category",
@@ -887,10 +999,22 @@ const english: Messages = {
     partial: "Partial observation",
     truncated: "Snapshot truncated at the safe limit",
     skillsTitle: "Skills",
-    skillsDescription: "Installed, enabled, scan, and update state reported by the Runtime.",
+    skillsDescription: "Reads the existing Skills owned by each selected Hermes Profile. YORVA-managed Skills remain clearly identified.",
+    skillBindingsTitle: "Skill bindings",
+    skillBindingsDescription: "Skills enabled for this exact instance. Installation and maintenance belong to Runtime resources.",
     noSkills: "No Skills were reported for this instance.",
     inspect: "Inspect",
     hideDetails: "Hide details",
+    skillDescriptionFallback: "No description was provided by this Skill.",
+    skillPreviewBack: "Back to Skills",
+    skillPreviewContent: "Skill preview",
+    skillPreviewUnavailable: "This Skill does not provide preview content.",
+    skillToggleReadOnly: "This Skill is managed by Hermes or an external source and is read-only in YORVA.",
+    managedSkillsGroup: "YORVA-managed Skills",
+    managedSkillsGroupDescription: "Skills installed by YORVA can be enabled or disabled here.",
+    externalSkillsGroup: "Hermes and external Skills",
+    externalSkillsGroupDescription: "Runtime-owned Skills are grouped here and remain read-only in YORVA.",
+    noManagedSkills: "No YORVA-managed Skills are installed for this instance.",
     source: "Source",
     version: "Version",
     updateAvailable: "Update available",
@@ -898,6 +1022,9 @@ const english: Messages = {
     skillCatalogTitle: "Approved Skill catalog",
     noSkillSources: "No approved managed Skill sources are available.",
     installSkill: "Install",
+    alreadyInstalled: "Installed",
+    applyToInstances: "Apply",
+    bindingManagedAtRuntime: "Manage this binding from Runtime resources.",
     updateSkill: "Update",
     enableSkill: "Enable",
     disableSkill: "Disable",
@@ -908,10 +1035,34 @@ const english: Messages = {
     ownership: "Ownership",
     projection: "Projection",
     mcpTitle: "MCP servers",
-    mcpDescription: "Configured is not the same as Ready. Ready always includes observed test evidence.",
+    mcpDescription: "Reads configured MCP definitions from each selected Hermes Profile without returning URLs, commands, headers, environment values, or credentials.",
+    mcpDefinitionsTitle: "Runtime MCP definitions",
+    mcpDefinitionsDescription: "Reviewed definitions owned by the Runtime. Executable details remain fixed inside the Hermes adapter.",
+    mcpBindingsTitle: "MCP bindings",
+    mcpBindingsDescription: "MCP definitions bound to this exact instance. Definition management belongs to Runtime resources.",
     noServers: "No MCP servers were reported for this instance.",
+    noServersTitle: "No MCP configured",
+    noServersDescription: "The current instance has no MCP service binding.",
     catalogTitle: "Reviewed presets",
     noPresets: "No reviewed presets are available.",
+    noPresetsDescription: "YORVA will enable Add MCP only after a preset completes adapter and Runtime qualification.",
+    reviewedPreset: "Reviewed Preset",
+    mcpReadOnlyCapability: "This Runtime can read MCP configuration, but YORVA mutation is not supported yet.",
+    addMCP: "Add MCP",
+    addMCPDescription: "Create a binding from a reviewed Preset, test it, and accept it only after authoritative read-back.",
+    cancelAddMCP: "Cancel",
+    mcpPresetType: "MCP Preset type",
+    mcpUniqueId: "Unique identifier",
+    mcpDisplayName: "Display name",
+    mcpDefinitionDescription: "Description",
+    mcpHomepage: "Homepage",
+    mcpDocumentation: "Documentation",
+    mcpBindingInstances: "Bind Hermes instances",
+    mcpBindingInstancesDescription: "Select exact Profiles that should receive this reviewed definition.",
+    mcpToolScope: "Tool Scope",
+    mcpConfigPreview: "Redacted configuration preview",
+    mcpConfigPreviewDescription: "Transport and credentials are fixed by the Preset and cannot be edited.",
+    testAndAddMCP: "Test and add",
     installMCP: "Install",
     authenticateMCP: "Save credential",
     testMCP: "Test connection",
@@ -925,7 +1076,7 @@ const english: Messages = {
     observedAt: "Observed",
     neverReady: "No current Ready evidence",
     upgradeTitle: "Upgrade plan",
-    upgradeDescription: "Read-only evidence for the exact managed Runtime and packaged candidate. Upgrade and rollback remain unavailable.",
+    upgradeDescription: "Checks the exact managed Runtime, packaged candidate, compatibility, and protection-point evidence. Upgrade and rollback controls appear only when the plan proves they are safe.",
     currentVersion: "Current Runtime",
     candidate: "Packaged candidate",
     managedStatusLabel: "Managed status",
@@ -955,6 +1106,8 @@ const english: Messages = {
     createBackup: "Create encrypted backup",
     backupCreating: "Creating and verifying the encrypted backup…",
     backupCreateFailed: "The backup could not be started or completed.",
+    backupRequiresStopped: "Stop every Hermes instance before creating or restoring a Runtime backup.",
+    backupRuntimeNotStopped: "Backup was not created because at least one Hermes instance is still running. Stop all instances, then try again.",
     deleteBackup: "Delete backup",
     restoreBackup: "Restore",
     restoreConfirm: "Restore this backup? All Hermes instances must be stopped. Current Runtime data will be replaced after verification.",
@@ -967,6 +1120,9 @@ const english: Messages = {
     backupKey: "Key mode",
     backupKeyMode: { DEVICE: "Device-managed key", PASSPHRASE: "Portable passphrase" },
     backupState: { AVAILABLE: "Available when last verified", MISSING: "Missing", CHANGED: "Changed", UNDECRYPTABLE: "Cannot decrypt", MALFORMED: "Malformed", UNKNOWN: "Unknown" },
+    operationsTitle: "Runtime operations",
+    operationsDescription: "Recent durable operations for this Runtime installation.",
+    noOperations: "No Runtime operations were reported.",
     healthState: { HEALTHY: "Healthy", DEGRADED: "Degraded", UNHEALTHY: "Unhealthy", UNKNOWN: "Unknown" },
     logCategories: { RUNTIME: "Runtime", ERRORS: "Errors", GATEWAY: "Gateway", MCP: "MCP" },
     installationState: { INSTALLED: "Installed", NOT_INSTALLED: "Not installed", UNKNOWN: "Unknown" },
@@ -1029,7 +1185,7 @@ const simplifiedChinese: Messages = {
   pages: {
     dashboard: {
       navigation: "仪表盘",
-      title: "运行引擎总览",
+      title: "YORVA 总览",
       description: "查看本地节点与 Hermes 运行引擎状态",
     },
     runtimes: {
@@ -1105,6 +1261,7 @@ const simplifiedChinese: Messages = {
     lastChecked: "上次检测",
     managedInstances: "管理实例",
     viewInstances: "查看实例",
+    manageRuntime: "管理该引擎",
     unavailableValue: "—",
     candidates: "Hermes 候选项",
     candidateCount: "发现 {count} 个候选项",
@@ -1133,7 +1290,7 @@ const simplifiedChinese: Messages = {
       },
       TIMED_OUT: {
         title: "Hermes 检测超时",
-        description: "Hermes 未在检测时限内返回版本信息。",
+        description: "Hermes 未能在安全时限内完成版本检测，可能正在忙碌或某个启动器响应较慢；重新检测不会中断正在运行的实例。",
       },
       AMBIGUOUS: {
         title: "发现多个 Hermes 可执行文件",
@@ -1432,15 +1589,48 @@ const simplifiedChinese: Messages = {
     open: "管理",
     close: "关闭管理面板",
     title: "实例管理",
-    description: "读取当前这一实例已通过资格确认的 Skill 与 MCP 状态。",
+    description: "只展示当前实例的状态、配置、资源绑定、健康和日志。",
+    runtimeTitle: "Hermes Runtime 管理",
+    runtimeDescription: "统一管理此 Runtime 下的实例、共享资源、维护、诊断与操作。",
+    backToRuntime: "返回运行引擎",
+    runtimeNavigation: "Runtime 管理栏目",
+    runtimeTabs: { overview: "概览", instances: "实例", skills: "Skills", mcp: "MCP", maintenance: "维护", diagnostics: "诊断", operations: "操作" },
+    runtimeSummaryInstances: "可用实例",
+    runtimeSummaryInstancesDetail: "此 Runtime 共登记 {count} 个实例。",
+    runtimeSummaryResources: "共享资源",
+    runtimeSummaryResourcesDetail: "在这里统一管理 Skills 和 MCP 定义，再分配到具体实例。",
+    runtimeSummaryMaintenance: "维护",
+    runtimeSummaryMaintenanceDetail: "Runtime 级升级、备份与恢复状态。",
+    runtimeSummaryDiagnostics: "诊断",
+    runtimeSummaryDiagnosticsDetail: "实例健康保持精确作用域，不误报成 Runtime 全局健康。",
+    runtimeInstancesTitle: "Runtime 实例",
+    runtimeInstancesDescription: "此 Hermes Runtime 管理的全部实例；可直接进入某个实例查看健康状态和运行日志。",
+    openDiagnostics: "诊断日志",
+    diagnosticInstance: "切换实例",
+    diagnosticInstanceDescription: "选择实例，直接查看该实例当前的健康状态和运行日志。",
+    assignmentInstances: "管理实例",
+    assignmentInstancesDescription: "选择需要读取和管理的 Hermes 实例；多选时统一展示这些实例已有的资源。",
+    configuringInstance: "正在配置",
+    configuringInstanceDescription: "选择要查看和管理 Skills 的 Hermes 实例。",
+    appliedInstances: "已应用实例",
+    currentState: "当前状态",
+    openDetailedConfiguration: "进入详细配置完成设置。",
+    connectedChannelsDetail: "当前可见 {count} 个通道绑定。",
+    enabledBindingsDetail: "此实例已启用的 Skill 绑定。",
+    boundBindingsDetail: "此实例已配置的 MCP 绑定。",
+    instanceHealthDetail: "此精确实例的资格确认健康状态。",
+    configureModel: "配置模型",
+    configureChannels: "配置通道",
     refresh: "刷新",
     cancelOperation: "取消操作",
     retry: "重试",
-    loading: "正在读取权威状态…",
+    loading: "正在加载中…",
     requestFailed: "无法读取此管理状态。",
     unavailable: "当前 Runtime 版本不支持此项已验证能力。",
-    diagnosticsTitle: "健康与日志",
+    diagnosticsTitle: "诊断日志",
     diagnosticsDescription: "标准化健康状态，以及一个固定类别、有界且已脱敏的日志快照。",
+    securityTitle: "安全检查",
+    securityDescription: "安全审计属于显式 Runtime Operation，仅在资格通过时显示可用。",
     healthTitle: "健康状态",
     logsTitle: "日志",
     logCategory: "日志类别",
@@ -1449,10 +1639,22 @@ const simplifiedChinese: Messages = {
     partial: "当前结果不完整",
     truncated: "日志已在安全上限处截断",
     skillsTitle: "Skills",
-    skillsDescription: "由 Runtime 报告的安装、启用、扫描与更新状态。",
+    skillsDescription: "读取所选 Hermes Profile 中已经存在的 Skills；由 YORVA 安装的 Skill 会单独标识。",
+    skillBindingsTitle: "Skill 绑定",
+    skillBindingsDescription: "只展示此实例启用的 Skills；安装与维护统一放在 Runtime 扩展资源中。",
     noSkills: "此实例没有报告任何 Skill。",
     inspect: "查看详情",
     hideDetails: "收起详情",
+    skillDescriptionFallback: "此 Skill 没有提供描述。",
+    skillPreviewBack: "返回 Skills",
+    skillPreviewContent: "Skill 预览",
+    skillPreviewUnavailable: "此 Skill 没有可预览的正文。",
+    skillToggleReadOnly: "此 Skill 由 Hermes 或外部来源管理，在 YORVA 中为只读。",
+    managedSkillsGroup: "YORVA 管理的 Skills",
+    managedSkillsGroupDescription: "由 YORVA 安装的 Skills 可在此启用或停用。",
+    externalSkillsGroup: "Hermes 与外部 Skills",
+    externalSkillsGroupDescription: "由 Runtime 或外部来源管理的 Skills 集中折叠在此，在 YORVA 中保持只读。",
+    noManagedSkills: "此实例尚未安装由 YORVA 管理的 Skill。",
     source: "来源",
     version: "版本",
     updateAvailable: "有可用更新",
@@ -1460,6 +1662,9 @@ const simplifiedChinese: Messages = {
     skillCatalogTitle: "已批准 Skill 目录",
     noSkillSources: "当前没有可用的已批准受管 Skill 来源。",
     installSkill: "安装",
+    alreadyInstalled: "已安装",
+    applyToInstances: "应用",
+    bindingManagedAtRuntime: "请在 Runtime 扩展资源中管理此绑定。",
     updateSkill: "更新",
     enableSkill: "启用",
     disableSkill: "停用",
@@ -1470,10 +1675,34 @@ const simplifiedChinese: Messages = {
     ownership: "所有权",
     projection: "投影",
     mcpTitle: "MCP 服务器",
-    mcpDescription: "已配置不等于已就绪；已就绪必须带有明确时间的测试证据。",
+    mcpDescription: "读取所选 Hermes Profile 中已经配置的 MCP；不会向界面返回 URL、命令、请求头、环境值或凭据。",
+    mcpDefinitionsTitle: "Runtime MCP 定义",
+    mcpDefinitionsDescription: "由 Runtime 管理的已审核定义；可执行细节固定保留在 Hermes Adapter 内。",
+    mcpBindingsTitle: "MCP 绑定",
+    mcpBindingsDescription: "只展示此实例绑定的 MCP；定义管理统一放在 Runtime 扩展资源中。",
     noServers: "此实例没有报告任何 MCP 服务器。",
+    noServersTitle: "尚未配置 MCP",
+    noServersDescription: "当前实例暂未绑定 MCP 服务。",
     catalogTitle: "已审核预设",
     noPresets: "当前没有可用的已审核预设。",
+    noPresetsDescription: "Preset 完成 Adapter 与 Runtime 资格验证后，YORVA 才会开放新增 MCP。",
+    reviewedPreset: "已审核 Preset",
+    mcpReadOnlyCapability: "当前 Runtime 支持读取 MCP 配置，但尚未支持由 YORVA 修改。",
+    addMCP: "新增 MCP",
+    addMCPDescription: "从已审核 Preset 建立绑定；仅在测试与权威回读成功后完成添加。",
+    cancelAddMCP: "取消",
+    mcpPresetType: "MCP Preset 类型",
+    mcpUniqueId: "唯一标识",
+    mcpDisplayName: "显示名称",
+    mcpDefinitionDescription: "描述",
+    mcpHomepage: "主页",
+    mcpDocumentation: "文档链接",
+    mcpBindingInstances: "绑定 Hermes 实例",
+    mcpBindingInstancesDescription: "选择需要写入此审核定义的准确 Hermes Profile。",
+    mcpToolScope: "Tool Scope",
+    mcpConfigPreview: "只读脱敏配置预览",
+    mcpConfigPreviewDescription: "传输与凭据结构由 Preset 固定，不允许直接编辑。",
+    testAndAddMCP: "测试并添加",
     installMCP: "安装",
     authenticateMCP: "保存凭据",
     testMCP: "测试连接",
@@ -1487,7 +1716,7 @@ const simplifiedChinese: Messages = {
     observedAt: "状态时间",
     neverReady: "当前没有就绪证据",
     upgradeTitle: "升级计划",
-    upgradeDescription: "只读展示当前受管 Runtime 与内置候选版本的精确证据；升级与回滚仍不可用。",
+    upgradeDescription: "检查当前受管 Runtime、内置候选版本、兼容性与保护点证据；仅当计划证明操作安全时显示可执行入口。",
     currentVersion: "当前 Runtime",
     candidate: "内置候选版本",
     managedStatusLabel: "受管状态",
@@ -1517,6 +1746,8 @@ const simplifiedChinese: Messages = {
     createBackup: "创建加密备份",
     backupCreating: "正在创建并校验加密备份…",
     backupCreateFailed: "备份未能启动或完成。",
+    backupRequiresStopped: "创建或恢复 Runtime 备份前，请先停止全部 Hermes 实例。",
+    backupRuntimeNotStopped: "备份未创建：至少有一个 Hermes 实例仍在运行。请停止全部实例后重试。",
     deleteBackup: "删除备份",
     restoreBackup: "恢复",
     restoreConfirm: "确定恢复此备份吗？所有 Hermes 实例必须已停止；校验通过后，当前 Runtime 数据会被替换。",
@@ -1529,6 +1760,9 @@ const simplifiedChinese: Messages = {
     backupKey: "密钥模式",
     backupKeyMode: { DEVICE: "设备托管密钥", PASSPHRASE: "便携口令" },
     backupState: { AVAILABLE: "最近验证时可用", MISSING: "文件缺失", CHANGED: "文件已变化", UNDECRYPTABLE: "无法解密", MALFORMED: "格式损坏", UNKNOWN: "未知" },
+    operationsTitle: "Runtime 操作",
+    operationsDescription: "此 Runtime 安装最近的持久化操作记录。",
+    noOperations: "当前没有 Runtime 操作记录。",
     healthState: { HEALTHY: "健康", DEGRADED: "降级", UNHEALTHY: "不健康", UNKNOWN: "未知" },
     logCategories: { RUNTIME: "Runtime", ERRORS: "错误", GATEWAY: "网关", MCP: "MCP" },
     installationState: { INSTALLED: "已安装", NOT_INSTALLED: "未安装", UNKNOWN: "未知" },

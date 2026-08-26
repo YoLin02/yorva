@@ -153,13 +153,13 @@ func TestInstanceCapabilitiesResponseProjectsAllManagementFlags(t *testing.T) {
 	capabilities := app.InstanceCapabilities{
 		Instances: true, Lifecycle: true, HealthRead: true, LogsRead: true,
 		SecurityAudit: true, SkillRead: true, SkillMutate: true, MCPRead: true,
-		MCPMutate: true, BackupRead: true, BackupMutate: true, Restore: true,
+		MCPMutate: true, MCPTest: true, BackupRead: true, BackupMutate: true, Restore: true,
 		UpgradePlan: true, Upgrade: true, Rollback: true,
 	}
 	want := InstanceCapabilitiesResponse{
 		Instances: true, Lifecycle: true, HealthRead: true, LogsRead: true,
 		SecurityAudit: true, SkillRead: true, SkillMutate: true, MCPRead: true,
-		MCPMutate: true, BackupRead: true, BackupMutate: true, Restore: true,
+		MCPMutate: true, MCPTest: true, BackupRead: true, BackupMutate: true, Restore: true,
 		UpgradePlan: true, Upgrade: true, Rollback: true,
 	}
 	if got := newInstanceCapabilitiesResponse(capabilities); got != want {
@@ -174,8 +174,8 @@ func TestInstanceCapabilitiesResponseProjectsAllManagementFlags(t *testing.T) {
 	if err := json.Unmarshal(payload, &fields); err != nil {
 		t.Fatal(err)
 	}
-	if len(fields) != 16 {
-		t.Fatalf("capability JSON fields = %d, want 16: %s", len(fields), payload)
+	if len(fields) != 17 {
+		t.Fatalf("capability JSON fields = %d, want 17: %s", len(fields), payload)
 	}
 	for name, raw := range fields {
 		if name == "nativeSkills" {

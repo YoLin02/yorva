@@ -306,8 +306,8 @@ GET /api/v1/instances/{instanceId}/logs?category=RUNTIME|ERRORS|GATEWAY|MCP
 GET /api/v1/instances/{instanceId}/skill-sources
 GET /api/v1/instances/{instanceId}/skills
 GET /api/v1/instances/{instanceId}/skills/{skillId}
-GET /api/v1/instances/{instanceId}/mcp-servers
-GET /api/v1/instances/{instanceId}/mcp-catalog
+GET /api/v1/runtimes/{runtimeId}/mcp-definitions
+GET /api/v1/instances/{instanceId}/mcp-bindings
 ```
 
 These resources are authenticated, bounded safe projections. Health contains only
@@ -352,6 +352,24 @@ from the six `nativeSkills` fields: native inventory, install, update, remove,
 enable/disable and Profile binding. On exact Hermes `0.20.5`, unavailable native
 mutation/binding fields remain false with `deferred_upstream`; they are never inferred
 true from the YORVA-managed lifecycle.
+
+MCP definitions and Instance bindings use separate resources. Definitions expose only
+reviewed Preset metadata. Binding mutations accept only a reviewed ID, an optional
+request-scoped credential and an allowlisted tool subset:
+
+```text
+PUT    /api/v1/instances/{instanceId}/mcp-bindings/{serverId}
+PUT    /api/v1/instances/{instanceId}/mcp-bindings/{serverId}/credential
+POST   /api/v1/instances/{instanceId}/mcp-bindings/{serverId}/test
+PATCH  /api/v1/instances/{instanceId}/mcp-bindings/{serverId}
+DELETE /api/v1/instances/{instanceId}/mcp-bindings/{serverId}
+```
+
+The create Operation succeeds only after exact Profile write, credential/tool-scope
+application, a bounded MCP handshake and authoritative Profile readback all succeed.
+Only bindings recorded in YORVA's ownership index after that sequence are mutable;
+all pre-existing Hermes definitions remain `EXTERNAL` and read-only. The predecessor
+`mcp-servers` and `mcp-catalog` routes remain compatibility aliases during Phase 7.
 
 ### Read-only managed Upgrade plan
 

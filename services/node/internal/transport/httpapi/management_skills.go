@@ -27,6 +27,8 @@ type ManagementSkillResponse struct {
 	ID                string                              `json:"id"`
 	SourceID          string                              `json:"sourceId,omitempty"`
 	Version           string                              `json:"version,omitempty"`
+	Description       string                              `json:"description,omitempty"`
+	Preview           string                              `json:"preview,omitempty"`
 	Ownership         yorvaruntime.SkillOwnership         `json:"ownership"`
 	ProjectionState   yorvaruntime.SkillProjectionState   `json:"projectionState"`
 	InstallationState yorvaruntime.SkillInstallationState `json:"installationState"`
@@ -111,6 +113,8 @@ func newManagementSkillResponse(item yorvaruntime.Skill) ManagementSkillResponse
 		ID:                item.ID,
 		SourceID:          item.SourceID,
 		Version:           item.Version,
+		Description:       item.Description,
+		Preview:           item.Preview,
 		Ownership:         item.Ownership,
 		ProjectionState:   item.ProjectionState,
 		InstallationState: item.InstallationState,

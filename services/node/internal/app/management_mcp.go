@@ -17,16 +17,21 @@ const managementMCPCollectionLimit = 256
 var ErrMCPMutationConflict = errors.New("another MCP or Instance mutation is active")
 
 type MCPServerView struct {
-	ID         string
-	PresetID   string
-	State      yorvaruntime.MCPState
-	ReadyAt    *time.Time
-	ObservedAt time.Time
+	ID             string
+	PresetID       string
+	Ownership      string
+	EnabledToolIDs []string
+	State          yorvaruntime.MCPState
+	ReadyAt        *time.Time
+	ObservedAt     time.Time
 }
 
 type MCPPresetView struct {
 	ID                 string
 	DisplayName        string
+	Description        string
+	HomepageURL        string
+	DocumentationURL   string
 	AllowedToolIDs     []string
 	CredentialRequired bool
 }
@@ -44,17 +49,20 @@ type MCPTestView struct {
 // MCPManagement owns Runtime-neutral validation for the closed MCP read and
 // test boundaries. The Runtime adapter remains authoritative for live state.
 type MCPManagement struct {
-	targets ManagementTargetResolver
-	db      *sqlite.Database
-	events  *events.Broker
-	now     func() time.Time
-	newID   func() (string, error)
-	mu      sync.Mutex
-	cancels map[string]context.CancelFunc
+	targets        ManagementTargetResolver
+	runtimeTargets RuntimeManagementTargetResolver
+	db             *sqlite.Database
+	events         *events.Broker
+	now            func() time.Time
+	newID          func() (string, error)
+	mu             sync.Mutex
+	cancels        map[string]context.CancelFunc
 }
 
 func NewMCPManagement(targets ManagementTargetResolver) *MCPManagement {
-	return &MCPManagement{targets: targets, now: time.Now, newID: newOperationID, cancels: make(map[string]context.CancelFunc)}
+	service := &MCPManagement{targets: targets, now: time.Now, newID: newOperationID, cancels: make(map[string]context.CancelFunc)}
+	service.runtimeTargets, _ = targets.(RuntimeManagementTargetResolver)
+	return service
 }
 
 func (s *InstanceInventory) NewMCPManagement() (*MCPManagement, error) {
@@ -86,6 +94,16 @@ func (s *MCPManagement) ListMCPServers(ctx context.Context, instanceID string) (
 		return nil, ErrManagementQueryFailed
 	}
 
+	managed := make(map[string]string)
+	if s.db != nil {
+		bindings, bindingErr := s.db.ListManagedMCPBindings(ctx, instanceID)
+		if bindingErr != nil {
+			return nil, managementMCPError(ctx, bindingErr)
+		}
+		for _, binding := range bindings {
+			managed[binding.ServerID] = binding.PresetID
+		}
+	}
 	seen := make(map[string]struct{}, len(servers))
 	views := make([]MCPServerView, 0, len(servers))
 	for _, server := range servers {
@@ -101,15 +119,25 @@ func (s *MCPManagement) ListMCPServers(ctx context.Context, instanceID string) (
 		if !valid {
 			return nil, ErrManagementQueryFailed
 		}
+		owned := server.Managed && managed[server.ID] == server.PresetID
 		views = append(views, MCPServerView{
-			ID:         server.ID,
-			PresetID:   server.PresetID,
-			State:      server.State,
-			ReadyAt:    readyAt,
-			ObservedAt: server.ObservedAt.UTC(),
+			ID:             server.ID,
+			PresetID:       server.PresetID,
+			Ownership:      mcpOwnership(owned),
+			EnabledToolIDs: append([]string(nil), server.EnabledToolIDs...),
+			State:          server.State,
+			ReadyAt:        readyAt,
+			ObservedAt:     server.ObservedAt.UTC(),
 		})
 	}
 	return views, nil
+}
+
+func mcpOwnership(managed bool) string {
+	if managed {
+		return "YORVA_MANAGED"
+	}
+	return "EXTERNAL"
 }
 
 func (s *MCPManagement) ListMCPPresets(ctx context.Context, instanceID string) ([]MCPPresetView, error) {
@@ -125,10 +153,33 @@ func (s *MCPManagement) ListMCPPresets(ctx context.Context, instanceID string) (
 	if err != nil {
 		return nil, managementMCPError(ctx, err)
 	}
+	return validatedMCPPresetViews(presets)
+}
+
+// ListRuntimeMCPDefinitions returns the reviewed, Runtime-owned definition
+// catalog. Instance bindings are deliberately read and mutated separately.
+func (s *MCPManagement) ListRuntimeMCPDefinitions(ctx context.Context, runtimeID string) ([]MCPPresetView, error) {
+	if s == nil || s.runtimeTargets == nil {
+		return nil, ErrManagementCapabilityUnsupported
+	}
+	target, err := s.runtimeTargets.ResolveRuntimeManagementTarget(ctx, runtimeID)
+	if err != nil {
+		return nil, err
+	}
+	if target.Bundle.MCPRead == nil {
+		return nil, ErrManagementCapabilityUnsupported
+	}
+	presets, err := target.Bundle.MCPRead.ListMCPPresets(ctx, target.Installation, "")
+	if err != nil {
+		return nil, managementMCPError(ctx, err)
+	}
+	return validatedMCPPresetViews(presets)
+}
+
+func validatedMCPPresetViews(presets []yorvaruntime.MCPPreset) ([]MCPPresetView, error) {
 	if len(presets) > managementMCPCollectionLimit {
 		return nil, ErrManagementQueryFailed
 	}
-
 	seen := make(map[string]struct{}, len(presets))
 	views := make([]MCPPresetView, 0, len(presets))
 	for _, preset := range presets {
@@ -139,7 +190,11 @@ func (s *MCPManagement) ListMCPPresets(ctx context.Context, instanceID string) (
 			return nil, ErrManagementQueryFailed
 		}
 		seen[preset.ID] = struct{}{}
-		views = append(views, MCPPresetView{ID: preset.ID, DisplayName: preset.DisplayName, AllowedToolIDs: append([]string(nil), preset.AllowedToolIDs...), CredentialRequired: preset.CredentialRequired})
+		views = append(views, MCPPresetView{
+			ID: preset.ID, DisplayName: preset.DisplayName, Description: preset.Description,
+			HomepageURL: preset.HomepageURL, DocumentationURL: preset.DocumentationURL,
+			AllowedToolIDs: append([]string(nil), preset.AllowedToolIDs...), CredentialRequired: preset.CredentialRequired,
+		})
 	}
 	return views, nil
 }
@@ -196,11 +251,25 @@ type mcpMutationInput struct {
 	toolIDs    []string
 }
 
-func (s *MCPManagement) StartInstall(ctx context.Context, instanceID, presetID, key string) (InstallStartResult, error) {
+func (s *MCPManagement) StartInstall(ctx context.Context, instanceID, presetID string, credential []byte, toolIDs []string, key string) (InstallStartResult, error) {
 	if err := (yorvaruntime.MCPInstallRequest{PresetID: presetID}).Validate(); err != nil {
 		return InstallStartResult{}, err
 	}
-	return s.start(ctx, instanceID, key, mcpMutationInput{action: mcpMutationInstall, presetID: presetID})
+	if len(credential) > 0 {
+		if err := (yorvaruntime.MCPAuthenticateRequest{ServerID: presetID, Credential: credential}).Validate(); err != nil {
+			return InstallStartResult{}, err
+		}
+	}
+	if err := (yorvaruntime.MCPConfigureRequest{ServerID: presetID, EnabledToolIDs: toolIDs}).Validate(); err != nil {
+		return InstallStartResult{}, err
+	}
+	if len(toolIDs) == 0 {
+		return InstallStartResult{}, yorvaruntime.ErrInvalidManagementContract
+	}
+	return s.start(ctx, instanceID, key, mcpMutationInput{
+		action: mcpMutationInstall, presetID: presetID,
+		credential: append([]byte(nil), credential...), toolIDs: append([]string(nil), toolIDs...),
+	})
 }
 
 func (s *MCPManagement) StartAuthenticate(ctx context.Context, instanceID, serverID string, credential []byte, key string) (InstallStartResult, error) {
@@ -237,6 +306,17 @@ func (s *MCPManagement) start(ctx context.Context, instanceID, key string, input
 	if s == nil || s.db == nil {
 		clear(input.credential)
 		return InstallStartResult{}, ErrManagementCapabilityUnsupported
+	}
+	if input.action != mcpMutationInstall {
+		managed, managedErr := s.managedBinding(ctx, instanceID, input.serverID)
+		if managedErr != nil {
+			clear(input.credential)
+			return InstallStartResult{}, managementMCPError(ctx, managedErr)
+		}
+		if !managed {
+			clear(input.credential)
+			return InstallStartResult{}, ErrManagementCapabilityUnsupported
+		}
 	}
 	if err := ValidateIdempotencyKey(key); err != nil {
 		clear(input.credential)
@@ -329,6 +409,50 @@ func (s *MCPManagement) runMutation(op operation.Operation, target ManagementTar
 	case mcpMutationInstall:
 		server, err := target.Bundle.MCPMutate.InstallMCPPreset(ctx, target.Installation, target.NativeID, yorvaruntime.MCPInstallRequest{PresetID: input.presetID}, nil)
 		mutationErr = validateMCPServerMutation(server, err, "", input.presetID)
+		if mutationErr == nil && len(input.credential) > 0 {
+			server, err = target.Bundle.MCPMutate.AuthenticateMCP(ctx, target.Installation, target.NativeID, yorvaruntime.MCPAuthenticateRequest{ServerID: input.presetID, Credential: input.credential}, nil)
+			mutationErr = validateMCPServerMutation(server, err, input.presetID, input.presetID)
+		}
+		if mutationErr == nil && len(input.toolIDs) > 0 {
+			server, err = target.Bundle.MCPMutate.ConfigureMCP(ctx, target.Installation, target.NativeID, yorvaruntime.MCPConfigureRequest{ServerID: input.presetID, EnabledToolIDs: input.toolIDs}, nil)
+			mutationErr = validateMCPServerMutation(server, err, input.presetID, input.presetID)
+		}
+		if mutationErr == nil {
+			testedFrom := s.now().UTC()
+			result, testErr := target.Bundle.MCPMutate.TestMCP(ctx, target.Installation, target.NativeID, input.presetID, nil)
+			testedThrough := s.now().UTC()
+			if testErr != nil || result.Validate() != nil || result.ServerID != input.presetID || result.State != yorvaruntime.MCPReady ||
+				result.ReadyAt == nil || !result.ReadyAt.Equal(result.TestedAt) || result.TestedAt.Before(testedFrom) || result.TestedAt.After(testedThrough) {
+				mutationErr = ErrManagementQueryFailed
+			}
+		}
+		if mutationErr == nil {
+			if target.Bundle.MCPRead == nil {
+				mutationErr = ErrManagementQueryFailed
+			}
+			servers, readErr := []yorvaruntime.MCPServer(nil), error(nil)
+			if mutationErr == nil {
+				servers, readErr = target.Bundle.MCPRead.ListMCPServers(ctx, target.Installation, target.NativeID)
+			}
+			found := false
+			for _, observed := range servers {
+				found = found || observed.ID == input.presetID && observed.PresetID == input.presetID && observed.State == yorvaruntime.MCPReady && observed.ReadyAt != nil
+			}
+			if readErr != nil || !found {
+				mutationErr = ErrManagementQueryFailed
+			}
+		}
+		if mutationErr == nil {
+			now := s.now().UTC()
+			mutationErr = s.db.UpsertManagedMCPBinding(ctx, sqlite.ManagedMCPBinding{
+				InstanceID: op.TargetID, ServerID: input.presetID, PresetID: input.presetID, CreatedAt: now, UpdatedAt: now,
+			})
+		}
+		if mutationErr != nil {
+			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			_, _ = target.Bundle.MCPMutate.RemoveMCP(cleanupCtx, target.Installation, target.NativeID, input.presetID, nil)
+			cleanupCancel()
+		}
 	case mcpMutationAuthenticate:
 		server, err := target.Bundle.MCPMutate.AuthenticateMCP(ctx, target.Installation, target.NativeID, yorvaruntime.MCPAuthenticateRequest{ServerID: input.serverID, Credential: input.credential}, nil)
 		mutationErr = validateMCPServerMutation(server, err, input.serverID, "")
@@ -346,6 +470,9 @@ func (s *MCPManagement) runMutation(op operation.Operation, target ManagementTar
 	case mcpMutationRemove:
 		server, err := target.Bundle.MCPMutate.RemoveMCP(ctx, target.Installation, target.NativeID, input.serverID, nil)
 		mutationErr = validateMCPServerMutation(server, err, input.serverID, "")
+		if mutationErr == nil {
+			mutationErr = s.db.DeleteManagedMCPBinding(ctx, op.TargetID, input.serverID)
+		}
 	}
 	completed := s.now().UTC()
 	final := running
@@ -356,6 +483,22 @@ func (s *MCPManagement) runMutation(op operation.Operation, target ManagementTar
 		final.Status = operation.StatusSucceeded
 	}
 	_ = s.persistOperation(context.Background(), running, final)
+}
+
+func (s *MCPManagement) managedBinding(ctx context.Context, instanceID, serverID string) (bool, error) {
+	if s == nil || s.db == nil {
+		return false, nil
+	}
+	items, err := s.db.ListManagedMCPBindings(ctx, instanceID)
+	if err != nil {
+		return false, err
+	}
+	for _, item := range items {
+		if item.ServerID == serverID && item.PresetID == serverID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *MCPManagement) CancelMCPOperation(ctx context.Context, operationID string) (operation.Operation, error) {

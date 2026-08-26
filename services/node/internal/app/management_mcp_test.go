@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/YoLin02/yorva/services/node/internal/domain/node"
 	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
@@ -15,6 +16,15 @@ type mcpTargetResolverFake struct {
 	target ManagementTarget
 	err    error
 	calls  int
+}
+
+type mcpRuntimeTargetResolverFake struct {
+	mcpTargetResolverFake
+	runtimeTarget RuntimeManagementTarget
+}
+
+func (f *mcpRuntimeTargetResolverFake) ResolveRuntimeManagementTarget(context.Context, string) (RuntimeManagementTarget, error) {
+	return f.runtimeTarget, nil
 }
 
 func (f *mcpTargetResolverFake) ResolveManagementTarget(context.Context, string) (ManagementTarget, error) {
@@ -41,6 +51,46 @@ type mcpManagerFake struct {
 	err     error
 	calls   int
 	started chan struct{}
+}
+
+type mcpLifecycleFake struct {
+	sequence []string
+	readyAt  time.Time
+}
+
+func (f *mcpLifecycleFake) ListMCPServers(context.Context, yorvaruntime.Installation, string) ([]yorvaruntime.MCPServer, error) {
+	f.sequence = append(f.sequence, "readback")
+	return []yorvaruntime.MCPServer{{ID: "preset-a", PresetID: "preset-a", Managed: true, State: yorvaruntime.MCPReady, ReadyAt: &f.readyAt, ObservedAt: f.readyAt}}, nil
+}
+
+func (*mcpLifecycleFake) ListMCPPresets(context.Context, yorvaruntime.Installation, string) ([]yorvaruntime.MCPPreset, error) {
+	return []yorvaruntime.MCPPreset{{ID: "preset-a", DisplayName: "Preset A", AllowedToolIDs: []string{"tool-a"}, CredentialRequired: true}}, nil
+}
+
+func (f *mcpLifecycleFake) InstallMCPPreset(context.Context, yorvaruntime.Installation, string, yorvaruntime.MCPInstallRequest, yorvaruntime.ProgressSink) (yorvaruntime.MCPServer, error) {
+	f.sequence = append(f.sequence, "install")
+	return yorvaruntime.MCPServer{ID: "preset-a", PresetID: "preset-a", State: yorvaruntime.MCPAuthRequired, ObservedAt: time.Now().UTC()}, nil
+}
+
+func (f *mcpLifecycleFake) AuthenticateMCP(context.Context, yorvaruntime.Installation, string, yorvaruntime.MCPAuthenticateRequest, yorvaruntime.ProgressSink) (yorvaruntime.MCPServer, error) {
+	f.sequence = append(f.sequence, "credential")
+	return yorvaruntime.MCPServer{ID: "preset-a", PresetID: "preset-a", State: yorvaruntime.MCPConfigured, ObservedAt: time.Now().UTC()}, nil
+}
+
+func (f *mcpLifecycleFake) ConfigureMCP(context.Context, yorvaruntime.Installation, string, yorvaruntime.MCPConfigureRequest, yorvaruntime.ProgressSink) (yorvaruntime.MCPServer, error) {
+	f.sequence = append(f.sequence, "tools")
+	return yorvaruntime.MCPServer{ID: "preset-a", PresetID: "preset-a", State: yorvaruntime.MCPConfigured, ObservedAt: time.Now().UTC()}, nil
+}
+
+func (f *mcpLifecycleFake) TestMCP(context.Context, yorvaruntime.Installation, string, string, yorvaruntime.ProgressSink) (yorvaruntime.MCPTestResult, error) {
+	f.sequence = append(f.sequence, "test")
+	f.readyAt = time.Now().UTC()
+	return yorvaruntime.MCPTestResult{ServerID: "preset-a", State: yorvaruntime.MCPReady, ToolIDs: []string{"tool-a"}, ReadyAt: &f.readyAt, TestedAt: f.readyAt}, nil
+}
+
+func (f *mcpLifecycleFake) RemoveMCP(context.Context, yorvaruntime.Installation, string, string, yorvaruntime.ProgressSink) (yorvaruntime.MCPServer, error) {
+	f.sequence = append(f.sequence, "remove")
+	return yorvaruntime.MCPServer{ID: "preset-a", PresetID: "preset-a", State: yorvaruntime.MCPNotConfigured, ObservedAt: time.Now().UTC()}, nil
 }
 
 func (*mcpManagerFake) InstallMCPPreset(context.Context, yorvaruntime.Installation, string, yorvaruntime.MCPInstallRequest, yorvaruntime.ProgressSink) (yorvaruntime.MCPServer, error) {
@@ -99,6 +149,22 @@ func TestMCPManagementListsValidatedConfiguredAndReadyState(t *testing.T) {
 	}
 	if len(presets) != 1 || presets[0].ID != "preset-a" || presets[0].DisplayName != "Approved A" || len(presets[0].AllowedToolIDs) != 0 || presets[0].CredentialRequired {
 		t.Fatalf("preset projection = %#v", presets)
+	}
+}
+
+func TestMCPManagementListsDefinitionsAtRuntimeScope(t *testing.T) {
+	reader := &mcpReaderFake{presets: []yorvaruntime.MCPPreset{{ID: "preset-a", DisplayName: "Approved A", AllowedToolIDs: []string{"tool-a"}}}}
+	resolver := &mcpRuntimeTargetResolverFake{
+		mcpTargetResolverFake: mcpTargetResolverFake{target: testMCPManagementTarget(reader, nil)},
+		runtimeTarget: RuntimeManagementTarget{
+			Installation: yorvaruntime.Installation{RuntimeKind: "hermes", Path: "fixed", Version: "0.20.5", SupportState: yorvaruntime.DiscoverySupported},
+			Bundle:       yorvaruntime.Bundle{MCPRead: reader},
+		},
+	}
+	service := NewMCPManagement(resolver)
+	items, err := service.ListRuntimeMCPDefinitions(context.Background(), "hermes")
+	if err != nil || len(items) != 1 || items[0].ID != "preset-a" {
+		t.Fatalf("runtime definitions = %#v, %v", items, err)
 	}
 }
 
@@ -243,10 +309,15 @@ func TestMCPManagementCancelsRunningOperation(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
+	instanceID := seedMCPManagedTestInstance(t, db)
+	now := time.Now().UTC()
+	if err := db.UpsertManagedMCPBinding(context.Background(), sqlite.ManagedMCPBinding{InstanceID: instanceID, ServerID: "server-a", PresetID: "server-a", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
 	manager := &mcpManagerFake{started: make(chan struct{})}
 	service := NewMCPManagement(&mcpTargetResolverFake{target: testMCPManagementTarget(nil, manager)})
 	service.db = db
-	started, err := service.StartTest(context.Background(), "inst-1", "server-a", "mcp-cancel-key")
+	started, err := service.StartTest(context.Background(), instanceID, "server-a", "mcp-cancel-key")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,6 +335,76 @@ func TestMCPManagementCancelsRunningOperation(t *testing.T) {
 	if err != nil || stored.Status != operation.StatusCancelled {
 		t.Fatalf("stored operation = %#v, %v", stored, err)
 	}
+}
+
+func TestMCPInstallOperationRequiresCredentialTestAndAuthoritativeReadback(t *testing.T) {
+	db, err := sqlite.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	instanceID := seedMCPManagedTestInstance(t, db)
+	adapter := &mcpLifecycleFake{}
+	service := NewMCPManagement(&mcpTargetResolverFake{target: testMCPManagementTarget(adapter, adapter)})
+	service.db = db
+	started, err := service.StartInstall(context.Background(), instanceID, "preset-a", []byte("test-token"), []string{"tool-a"}, "mcp-complete-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		stored, readErr := db.GetOperation(context.Background(), started.Operation.ID)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if operation.IsTerminal(stored.Status) {
+			if stored.Status != operation.StatusSucceeded {
+				t.Fatalf("operation = %#v", stored)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("MCP lifecycle operation did not complete")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	want := []string{"install", "credential", "tools", "test", "readback"}
+	if len(adapter.sequence) != len(want) {
+		t.Fatalf("sequence = %#v", adapter.sequence)
+	}
+	for index := range want {
+		if adapter.sequence[index] != want[index] {
+			t.Fatalf("sequence = %#v, want %#v", adapter.sequence, want)
+		}
+	}
+	servers, err := service.ListMCPServers(context.Background(), instanceID)
+	if err != nil || len(servers) != 1 || servers[0].Ownership != "YORVA_MANAGED" {
+		t.Fatalf("managed readback = %#v, %v", servers, err)
+	}
+}
+
+func seedMCPManagedTestInstance(t *testing.T, db *sqlite.Database) string {
+	t.Helper()
+	ctx := context.Background()
+	now := time.Now().UTC()
+	localNode, err := db.LoadOrCreateNode(ctx, node.LocalMetadata{Name: "MCP test", Hostname: "localhost", Platform: "windows", Architecture: "amd64", NodeVersion: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpsertAcceptedInstallation(ctx, sqlite.AcceptedInstallation{
+		ID: "rtinst-mcp", NodeID: localNode.ID, RuntimeKind: "hermes", InstallPath: t.TempDir(), Version: "0.20.5",
+		SupportState: yorvaruntime.DiscoverySupported, Status: "ACCEPTED", LastDetectedAt: now, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ApplyInstanceSnapshot(ctx, "rtinst-mcp", []sqlite.InstanceSnapshotEntry{{NativeID: "profile-a", Default: true}}, now); err != nil {
+		t.Fatal(err)
+	}
+	items, err := db.ListInstances(ctx, "rtinst-mcp")
+	if err != nil || len(items) != 1 {
+		t.Fatalf("seed MCP instance = %#v, %v", items, err)
+	}
+	return items[0].ID
 }
 
 func testMCPManagementTarget(reader yorvaruntime.MCPReader, manager yorvaruntime.MCPManager) ManagementTarget {

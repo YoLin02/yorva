@@ -11,7 +11,7 @@
 > 英文执行镜像：`docs/phases/PHASE-007-hermes-runtime-management-completeness.md`
 > Owner 授权：2026-08-24，批准 P7-D1–D8 推荐方向及 B0–B10 实现顺序
 > 实现授权：**Owner 于 2026-08-25 批准依赖驱动的并行 B-stage；共享合同先行，互不依赖的 Hermes adapter、测试与 UX lane 可并行，危险 mutation 必须等待对应 ADR/资格条件**
-> ADR 授权：**Owner 于 2026-08-25 正式接受 ADR-0013、ADR-0014、ADR-0015；允许按其边界实现，但每项 product capability 仍须通过精确版本资格和破坏性流程证据后才能置为 true。**
+> ADR 授权：**Owner 于 2026-08-25 正式接受 ADR-0013、ADR-0015；MCP 按已批准的 P7-D3 类型化 Preset 边界和生命周期资格证据实施。每项 product capability 仍须通过精确版本资格和破坏性流程证据后才能置为 true。**
 > ADR 授权补充：**Owner 于 2026-08-25 接受 ADR-0016；exact Profile 的 `API_SERVER_KEY` 是 Hermes-native 唯一权威，仅允许 loopback、禁止重定向地读取 `/health/detailed` 与 `/v1/skills`。真实 Health/SkillRead capability 仍须在聚焦资格与接线通过后才能置为 true。**
 > B4 架构补充：**Owner 于 2026-08-25 接受 ADR-0018。Hermes Native Skills mutation 的不可靠部分保持 `deferred_upstream`；YORVA 通过自己的 managed store 与 exact Profile copy projection 提供 Skills 生命周期。**
 
@@ -306,6 +306,24 @@ Hermes adapter 拥有：
 按真实调用者添加小型 feature contracts。不得先建立一个包含全部 Hermes 命令的
 `HermesManager`，也不得建立动态插件框架。
 
+Desktop 信息架构以 Runtime 为管理中心：Runtime 页面统一承载实例清单、Skills/MCP
+共享资源与多实例分配、Upgrade、Backup/Restore、诊断和 Operation；Instance 页面只
+展示生命周期、模型、Channel、Skill/MCP 绑定及该实例的健康与日志。此重组复用既有
+Runtime/Instance API，不改变 capability、credential authority 或资格确认边界，也不把
+Instance health 误表述为 Runtime-wide health。
+
+Runtime 管理 UI 将 Skills 与 MCP 拆为两个独立页面。Skills 页面只保留一个准确的
+“正在配置”实例选择器，不再并列显示语义重复的“目标实例/应用到实例”。
+Skills inventory 和 MCP definition inventory 读取准确 Hermes Profile 已有状态；Profile
+配置兼容读仅在 Hermes adapter 内发生，MCP 投影只返回名称与标准化配置状态，禁止把
+URL、command、args、header、environment value 或 credential 返回 Desktop/API。
+Runtime 资源页采用扁平设置页样式：资源行不叠加装饰性卡片外框，以紧凑分隔线和明确
+所有权分组组织内容。YORVA 管理的 Skills 保持直接可见和可管理；Hermes、Runtime 或
+外部管理的 Skills 独立分组并默认折叠，在原生 mutation 另行资格通过前保持只读。
+诊断不占用 Runtime 顶部导航栏；从实例列表的“诊断日志”入口进入，并可在诊断页直接
+切换实例。诊断页展示准确 Profile 的部分健康快照和固定类别、定长、脱敏的本地运行日志；
+存在已认证 loopback health API 时，以该实时健康结果替代 Profile 的部分健康快照。
+
 概念边界：
 
 ```go
@@ -412,12 +430,13 @@ POST   /api/v1/instances/{instanceId}/skills/{skillId}/update
 PATCH  /api/v1/instances/{instanceId}/skills/{skillId}
 DELETE /api/v1/instances/{instanceId}/skills/{skillId}
 
-GET    /api/v1/instances/{instanceId}/mcp-servers
-GET    /api/v1/instances/{instanceId}/mcp-catalog
-POST   /api/v1/instances/{instanceId}/mcp-servers/{presetId}/install
-POST   /api/v1/instances/{instanceId}/mcp-servers/{serverId}/test
-PATCH  /api/v1/instances/{instanceId}/mcp-servers/{serverId}
-DELETE /api/v1/instances/{instanceId}/mcp-servers/{serverId}
+GET    /api/v1/runtimes/{runtimeId}/mcp-definitions
+GET    /api/v1/instances/{instanceId}/mcp-bindings
+PUT    /api/v1/instances/{instanceId}/mcp-bindings/{serverId}
+PUT    /api/v1/instances/{instanceId}/mcp-bindings/{serverId}/credential
+POST   /api/v1/instances/{instanceId}/mcp-bindings/{serverId}/test
+PATCH  /api/v1/instances/{instanceId}/mcp-bindings/{serverId}
+DELETE /api/v1/instances/{instanceId}/mcp-bindings/{serverId}
 
 GET  /api/v1/runtimes/{runtimeId}/backups
 POST /api/v1/runtimes/{runtimeId}/backups

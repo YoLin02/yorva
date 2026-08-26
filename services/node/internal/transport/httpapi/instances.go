@@ -41,6 +41,7 @@ type InstanceCapabilitiesResponse struct {
 	NativeSkills  NativeSkillCapabilitiesResponse `json:"nativeSkills"`
 	MCPRead       bool                            `json:"mcpRead"`
 	MCPMutate     bool                            `json:"mcpMutate"`
+	MCPTest       bool                            `json:"mcpTest"`
 	BackupRead    bool                            `json:"backupRead"`
 	BackupMutate  bool                            `json:"backupMutate"`
 	Restore       bool                            `json:"restore"`
@@ -266,6 +267,7 @@ func newInstanceCapabilitiesResponse(capabilities app.InstanceCapabilities) Inst
 		NativeSkills:  newNativeSkillCapabilitiesResponse(capabilities.NativeSkills),
 		MCPRead:       capabilities.MCPRead,
 		MCPMutate:     capabilities.MCPMutate,
+		MCPTest:       capabilities.MCPTest,
 		BackupRead:    capabilities.BackupRead,
 		BackupMutate:  capabilities.BackupMutate,
 		Restore:       capabilities.Restore,

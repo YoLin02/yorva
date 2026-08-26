@@ -6,9 +6,9 @@
 
 ## Result
 
-No HTTPS MCP preset is qualified for the product registry yet. ADR-0014 permits a
-closed, reviewed descriptor; it does not make a provider qualified. The current
-zero-entry registry is therefore the correct product truth. The Owner selected GitHub
+No HTTPS MCP preset is qualified for the product registry yet. P7-D3 permits a closed,
+reviewed descriptor; it does not make a provider qualified. The current zero-entry
+registry is therefore the correct product truth. The Owner selected GitHub
 repos read-only as the sole first candidate on 2026-08-25; that decision authorized
 qualification only.
 
@@ -119,6 +119,20 @@ The one manual live entry point is intentionally skipped unless a request-lifeti
 `YORVA_GITHUB_MCP_QUALIFICATION_TOKEN` environment value is supplied. Its output is
 limited to stable status, tool count and pinned source revision. No live token was
 available for this evidence, so it was not run and no live response is recorded.
+
+### Qualification-only Profile lifecycle fixture
+
+Phase 7 now also contains one compile-time `yorva-mcp-test` descriptor available only
+through the qualification registry. It is not present in the product registry. A TLS
+fixture exercises the real Hermes Profile adapter lifecycle: atomic `config.yaml`
+write, exact-Profile static credential write/read/delete, fixed handshake, tool-scope
+verification, authoritative READY readback, binding to a second Profile, deletion and
+authoritative absence readback. A tagged cross-layer gate also exercises the authenticated
+local HTTP routes, real SQLite binding repository and application Operations. The emitted Profile configuration is
+asserted to contain no credential plaintext, `command`, `args` or `env` fields. See
+`PHASE-007-B5-MCP-TEST-SERVER.md` for the fixture protocol and gate command. This closes
+the local application/adapter lifecycle harness but does not qualify a production
+endpoint.
 
 ### Remaining gate — NO-GO
 

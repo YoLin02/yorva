@@ -115,6 +115,7 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/upgrade", requireBearer(token, startRuntimeUpgrade(managementUpgrade, false)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/rollback", requireBearer(token, startRuntimeUpgrade(managementUpgrade, true)))
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/backups", requireBearer(token, listRuntimeBackups(managementBackups)))
+	mux.Handle("GET /api/v1/runtimes/{runtimeId}/mcp-definitions", requireBearer(token, listRuntimeMCPDefinitions(mcp)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/backups", requireBearer(token, startRuntimeBackup(managementBackups)))
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/backups/{backupId}", requireBearer(token, getRuntimeBackup(managementBackups)))
 	mux.Handle("DELETE /api/v1/backups/{backupId}", requireBearer(token, startDeleteBackup(managementBackups)))
@@ -156,6 +157,14 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("POST /api/v1/instances/{instanceId}/mcp-servers/{serverId}/test", requireBearer(token, startMCPMutation(mcp, mcpTest)))
 	mux.Handle("PATCH /api/v1/instances/{instanceId}/mcp-servers/{serverId}", requireBearer(token, startMCPMutation(mcp, mcpConfigure)))
 	mux.Handle("DELETE /api/v1/instances/{instanceId}/mcp-servers/{serverId}", requireBearer(token, startMCPMutation(mcp, mcpRemove)))
+	// MCP definitions are Runtime-owned; these preferred routes expose only
+	// instance binding mutations. Legacy mcp-servers routes remain compatible.
+	mux.Handle("GET /api/v1/instances/{instanceId}/mcp-bindings", requireBearer(token, listMCPServers(mcp)))
+	mux.Handle("PUT /api/v1/instances/{instanceId}/mcp-bindings/{presetId}", requireBearer(token, startMCPMutation(mcp, mcpInstall)))
+	mux.Handle("PUT /api/v1/instances/{instanceId}/mcp-bindings/{serverId}/credential", requireBearer(token, startMCPMutation(mcp, mcpAuthenticate)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/mcp-bindings/{serverId}/test", requireBearer(token, startMCPMutation(mcp, mcpTest)))
+	mux.Handle("PATCH /api/v1/instances/{instanceId}/mcp-bindings/{serverId}", requireBearer(token, startMCPMutation(mcp, mcpConfigure)))
+	mux.Handle("DELETE /api/v1/instances/{instanceId}/mcp-bindings/{serverId}", requireBearer(token, startMCPMutation(mcp, mcpRemove)))
 	mux.Handle("GET /api/v1/operations/{operationId}", requireBearer(token, getOperation(installs)))
 	mux.Handle("GET /api/v1/operations/{operationId}/channel-qr", requireBearer(token, getChannelQR(channels)))
 	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
@@ -275,6 +284,12 @@ func allowedMethods(path string) (string, bool) {
 		}
 		return "GET, OPTIONS", true
 	}
+	if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, "/mcp-definitions") {
+		kind := strings.TrimSuffix(strings.TrimPrefix(path, prefix), "/mcp-definitions")
+		if kind != "" && !strings.Contains(kind, "/") {
+			return "GET, OPTIONS", true
+		}
+	}
 	switch instancePathKind(path) {
 	case "list":
 		return "GET, POST, OPTIONS", true
@@ -304,7 +319,7 @@ func allowedMethods(path string) (string, bool) {
 		return "POST, OPTIONS", true
 	}
 	switch managementReadPathKind(path) {
-	case "health", "logs", "skills", "skill-sources", "mcp-servers", "mcp-catalog":
+	case "health", "logs", "skills", "skill-sources", "mcp-servers", "mcp-catalog", "mcp-bindings":
 		return "GET, OPTIONS", true
 	case "skill":
 		return "GET, DELETE, OPTIONS", true
@@ -313,6 +328,12 @@ func allowedMethods(path string) (string, bool) {
 	case "mcp-server":
 		return "PATCH, DELETE, OPTIONS", true
 	case "mcp-mutation":
+		return "POST, OPTIONS", true
+	case "mcp-binding":
+		return "PUT, PATCH, DELETE, OPTIONS", true
+	case "mcp-binding-credential":
+		return "PUT, OPTIONS", true
+	case "mcp-binding-test":
 		return "POST, OPTIONS", true
 	}
 	return "", false
@@ -360,6 +381,14 @@ func managementReadPathKind(path string) string {
 		return "mcp-servers"
 	case len(parts) == 2 && parts[1] == "mcp-catalog":
 		return "mcp-catalog"
+	case len(parts) == 2 && parts[1] == "mcp-bindings":
+		return "mcp-bindings"
+	case len(parts) == 3 && parts[1] == "mcp-bindings" && parts[2] != "":
+		return "mcp-binding"
+	case len(parts) == 4 && parts[1] == "mcp-bindings" && parts[2] != "" && parts[3] == "credential":
+		return "mcp-binding-credential"
+	case len(parts) == 4 && parts[1] == "mcp-bindings" && parts[2] != "" && parts[3] == "test":
+		return "mcp-binding-test"
 	case len(parts) == 3 && parts[1] == "mcp-servers" && parts[2] != "":
 		return "mcp-server"
 	case len(parts) == 4 && parts[1] == "mcp-servers" && parts[2] != "" &&

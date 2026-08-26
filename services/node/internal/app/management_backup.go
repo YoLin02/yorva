@@ -383,11 +383,18 @@ func (s *BackupManagement) runCreateBackup(op operation.Operation, target Runtim
 	final := running
 	final.Stage, final.CompletedAt, final.UpdatedAt = operation.StageBackupReconcile, &completed, completed
 	if err != nil {
-		final.Status, final.ErrorCode, final.Retryable = operation.StatusFailed, yorvaruntime.ErrorBackupCreateFailed, true
+		final.Status, final.ErrorCode, final.Retryable = operation.StatusFailed, backupCreateOperationError(err), true
 	} else {
 		final.Status = operation.StatusSucceeded
 	}
 	_ = s.persistOperation(context.Background(), running, final)
+}
+
+func backupCreateOperationError(err error) yorvaruntime.ErrorCode {
+	if errors.Is(err, yorvaruntime.ErrBackupRuntimeNotStopped) {
+		return yorvaruntime.ErrorBackupRuntimeNotStopped
+	}
+	return yorvaruntime.ErrorBackupCreateFailed
 }
 
 func (s *BackupManagement) CancelBackupOperation(ctx context.Context, operationID string) (operation.Operation, error) {

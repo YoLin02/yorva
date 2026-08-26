@@ -255,6 +255,12 @@ type RuntimeBundle struct {
 
 Unsupported features are nil/absent and reflected in capability metadata.
 
+Phase 7 reports MCP capability facets independently: `MCPRead`, `MCPMutate` and
+`MCPTest`. Hermes Profile inventory may keep `MCPRead=true` while the reviewed product
+registry is empty; in that state both mutation and test remain false. A qualified
+adapter binding enables mutation and test together because the mutation contract owns
+write, delete, bounded connection test and authoritative readback.
+
 Do not use runtime type assertions throughout application code; centralize capability lookup in the runtime registry.
 
 ## 8. Capability normalization

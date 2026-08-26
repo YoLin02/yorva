@@ -35,6 +35,7 @@ export function RuntimePage({
   onRetryInstall,
   instanceCount,
   onOpenInstances,
+  onOpenManagement,
 }: {
   discoveryState: HermesDiscoveryViewState;
   discoveryReady: boolean;
@@ -65,6 +66,7 @@ export function RuntimePage({
   onRetryInstall: () => void;
   instanceCount: number | null;
   onOpenInstances: () => void;
+  onOpenManagement?: () => void;
 }) {
   const prerequisiteMissing = prerequisites !== null && (
     prerequisites.node.state !== "READY"
@@ -92,6 +94,7 @@ export function RuntimePage({
         locale={locale}
         instanceCount={instanceCount}
         onOpenInstances={onOpenInstances}
+        onOpenManagement={onOpenManagement}
       />
       {showPrerequisites && (
         <HermesPrerequisitePanel

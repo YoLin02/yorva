@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -471,7 +470,7 @@ func ensureAllHermesProfilesStopped(ctx context.Context, installation yorvarunti
 	for _, profile := range profiles {
 		status, err := lifecycle.Status(ctx, yorvaruntime.LifecycleInstallation{Executable: installation.Path, Version: installation.Version}, profile.NativeID)
 		if err != nil || status.State != yorvaruntime.LifecycleStopped {
-			return fmt.Errorf("Hermes Runtime must be stopped before backup")
+			return yorvaruntime.ErrBackupRuntimeNotStopped
 		}
 	}
 	return nil

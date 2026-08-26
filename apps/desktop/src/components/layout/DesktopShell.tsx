@@ -8,6 +8,7 @@ type DesktopShellProps = {
   locale: Locale;
   onNavigate: (page: PageId) => void;
   onLocaleChange: (locale: Locale) => void;
+  hidePageHeader?: boolean;
   children: ReactNode;
 };
 
@@ -17,6 +18,7 @@ export function DesktopShell({
   locale,
   onNavigate,
   onLocaleChange,
+  hidePageHeader = false,
   children,
 }: DesktopShellProps) {
   const page = copy.pages[activePage];
@@ -31,9 +33,9 @@ export function DesktopShell({
         onLocaleChange={onLocaleChange}
       />
       <main className="page">
-        <header className="page-header">
+        {!hidePageHeader ? <header className="page-header">
           <h1 className="page-title">{page.title}</h1>
-        </header>
+        </header> : null}
         {children}
       </main>
     </div>

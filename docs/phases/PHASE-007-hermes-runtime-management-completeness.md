@@ -11,8 +11,8 @@
 > `docs/phases/PHASE-007-hermes-runtime-management-completeness.zh-CN.md`
 > Qualified development target: stable `>=0.20.2 <0.21.0`; B1 reference snapshot
 > Hermes `0.20.5` / `a0ca7c19204e514f9590ce3b812e029b315ab9e9`
-> Authorization: P7-D1–D8 and B0–B10 approved 2026-08-24. ADR-0013,
-> ADR-0014 and ADR-0015 accepted by the Owner on 2026-08-25. Exact-version
+> Authorization: P7-D1–D8 and B0–B10 approved 2026-08-24. ADR-0013 and
+> ADR-0015 accepted by the Owner on 2026-08-25. Exact-version
 > qualification remains required before each product capability becomes true.
 
 This file is the execution mirror of the Chinese Owner-review Spec. The Chinese Spec
@@ -70,10 +70,10 @@ closed path.
 | P7-D7 | P7 keeps one authenticated `LOCAL_DESKTOP` actor with typed actions. Principal/Grant/RBAC remains P9/P10 scope. |
 | P7-D8 | Stable `0.20.x` may be detected, but each P7 feature reports capability only after exact-version surface qualification. Unknown contracts fail closed. |
 
-ADR-0013 (encrypted Runtime backup/Restore), ADR-0014 (closed MCP descriptor and
-credential authority) and ADR-0015 (managed generation Upgrade/Rollback) were accepted
-by the Owner on 2026-08-25. Acceptance authorizes implementation of their boundaries;
-it does not replace lane-specific qualification and destructive-flow evidence.
+ADR-0013 (encrypted Runtime backup/Restore) and ADR-0015 (managed generation
+Upgrade/Rollback) were accepted by the Owner on 2026-08-25. MCP remains governed by
+the accepted P7-D3 typed preset boundary and its lifecycle qualification evidence.
+Acceptance does not replace lane-specific qualification and destructive-flow evidence.
 
 ADR-0016 was accepted by the Owner on 2026-08-25. It authorizes the exact-Profile
 Hermes-native `API_SERVER_KEY` boundary for authenticated, loopback-only,
@@ -218,6 +218,31 @@ parsers, Runtime-native configuration/credentials/paths and authoritative postco
 
 Add small feature contracts only after B1 proves real callers. Do not create a giant
 `HermesManager`, dynamic plugin framework or generic command abstraction.
+
+Desktop information architecture is Runtime-centric. The Runtime page owns the Instance
+inventory, shared Skills/MCP resources and multi-Instance assignment, Upgrade,
+Backup/Restore, diagnostics and Operations. The Instance surface is limited to lifecycle,
+model, Channels, Skill/MCP bindings and exact-Instance health/logs. This reuses the
+existing Runtime/Instance APIs and does not change capability, credential authority or
+qualification boundaries, or relabel Instance health as Runtime-wide health.
+
+The Runtime management UI separates Skills and MCP into distinct pages. The Skills page
+uses one exact "Configuring" Instance selector instead of duplicate target/assignment
+selectors. Skill inventory and MCP
+definition inventory read the exact existing Hermes Profile state. The compatibility
+read remains inside the Hermes adapter, and the MCP projection returns only names and
+normalized configuration state—never URL, command, args, headers, environment values,
+or credentials to Desktop/API.
+Runtime resource pages use a flat settings-style layout: no nested decorative card
+frames around resource rows, compact separators, and explicit ownership grouping.
+YORVA-managed Skills remain visible and manageable; Hermes/runtime/external Skills are
+grouped separately, collapsed by default, and remain read-only unless a native mutation
+surface is separately qualified.
+Diagnostics does not occupy a Runtime top-level navigation tab. It opens from each
+Instance row and allows direct Instance switching within the diagnostics view. The view
+projects the exact Profile's partial health snapshot and fixed-category, bounded,
+redacted local runtime logs; an authenticated loopback health result replaces the
+partial Profile health observation when available.
 
 ## 8. Protocol rules
 

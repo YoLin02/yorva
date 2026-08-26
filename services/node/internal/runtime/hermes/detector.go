@@ -64,26 +64,56 @@ func (d *Detector) Detect(ctx context.Context) (yorvaruntime.Discovery, error) {
 		})
 	}
 
-	for _, command := range found.commands {
-		if err := discoveryCtx.Err(); err != nil {
-			if errors.Is(ctx.Err(), context.Canceled) {
-				return yorvaruntime.Discovery{}, ctx.Err()
-			}
-			break
+	candidates, err := d.inspectCandidates(discoveryCtx, found.commands)
+	if err != nil {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return yorvaruntime.Discovery{}, ctx.Err()
 		}
-		candidate, err := d.inspect(discoveryCtx, command)
-		if err != nil {
-			if errors.Is(ctx.Err(), context.Canceled) {
-				return yorvaruntime.Discovery{}, ctx.Err()
-			}
-			if errors.Is(err, context.Canceled) {
-				return yorvaruntime.Discovery{}, err
-			}
-		}
-		result.Candidates = append(result.Candidates, candidate)
+		return yorvaruntime.Discovery{}, err
 	}
+	result.Candidates = append(result.Candidates, candidates...)
 
 	return aggregateDiscovery(result, d.finder.installationRoots), nil
+}
+
+type candidateInspection struct {
+	index     int
+	candidate yorvaruntime.Candidate
+	err       error
+}
+
+// Candidate discovery is bounded to eight fixed --version invocations. Probe
+// them together so one stale PATH launcher cannot consume the entire
+// application deadline before an official launcher is inspected. Results stay
+// in finder order so selection and diagnostics remain deterministic.
+func (d *Detector) inspectCandidates(
+	ctx context.Context,
+	commands []commandInvocation,
+) ([]yorvaruntime.Candidate, error) {
+	inspections := make(chan candidateInspection, len(commands))
+	for index, command := range commands {
+		go func() {
+			candidate, err := d.inspect(ctx, command)
+			inspections <- candidateInspection{index: index, candidate: candidate, err: err}
+		}()
+	}
+
+	ordered := make([]yorvaruntime.Candidate, len(commands))
+	var cancellation error
+	for range commands {
+		inspection := <-inspections
+		ordered[inspection.index] = inspection.candidate
+		if errors.Is(inspection.err, context.Canceled) && cancellation == nil {
+			cancellation = inspection.err
+		}
+	}
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return nil, ctx.Err()
+	}
+	if cancellation != nil {
+		return nil, cancellation
+	}
+	return ordered, nil
 }
 
 func (d *Detector) inspect(ctx context.Context, invocation commandInvocation) (yorvaruntime.Candidate, error) {

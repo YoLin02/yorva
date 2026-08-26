@@ -78,6 +78,8 @@ type Skill struct {
 	ID                string
 	SourceID          string
 	Version           string
+	Description       string
+	Preview           string
 	Ownership         SkillOwnership
 	ProjectionState   SkillProjectionState
 	InstallationState SkillInstallationState
@@ -96,6 +98,12 @@ func (s Skill) Validate() error {
 		}
 	}
 	if err := validateBoundedText("skill version", s.Version); err != nil {
+		return err
+	}
+	if err := validateBoundedText("skill description", s.Description); err != nil {
+		return err
+	}
+	if err := validateBoundedText("skill preview", s.Preview); err != nil {
 		return err
 	}
 	// Empty ownership/projection values remain accepted for native Runtime

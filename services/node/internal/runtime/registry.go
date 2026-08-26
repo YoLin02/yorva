@@ -84,6 +84,7 @@ type ManagementCapabilities struct {
 	SkillMutate   bool
 	MCPRead       bool
 	MCPMutate     bool
+	MCPTest       bool
 	BackupRead    bool
 	BackupMutate  bool
 	Restore       bool
@@ -104,6 +105,7 @@ func (b Bundle) ManagementCapabilities() ManagementCapabilities {
 		SkillMutate:   b.SkillProjection != nil,
 		MCPRead:       b.MCPRead != nil,
 		MCPMutate:     b.MCPMutate != nil,
+		MCPTest:       b.MCPMutate != nil,
 		BackupRead:    b.BackupRead != nil,
 		BackupMutate:  b.BackupMutate != nil,
 		Restore:       b.Restore != nil,

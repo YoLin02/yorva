@@ -123,6 +123,7 @@ const (
 	ErrorMCPTestFailed                ErrorCode = "MCP_TEST_FAILED"
 	ErrorBackupDestinationInvalid     ErrorCode = "BACKUP_DESTINATION_INVALID"
 	ErrorBackupMutationConflict       ErrorCode = "BACKUP_MUTATION_CONFLICT"
+	ErrorBackupRuntimeNotStopped      ErrorCode = "BACKUP_SOURCE_RUNTIME_NOT_STOPPED"
 	ErrorBackupCreateFailed           ErrorCode = "BACKUP_CREATE_FAILED"
 	ErrorBackupDeleteFailed           ErrorCode = "BACKUP_DELETE_FAILED"
 	ErrorBackupRestoreFailed          ErrorCode = "BACKUP_RESTORE_FAILED"

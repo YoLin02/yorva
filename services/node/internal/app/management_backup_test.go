@@ -176,6 +176,15 @@ func TestBackupManagementNormalizesErrorsAndCancellation(t *testing.T) {
 	}
 }
 
+func TestBackupCreateOperationErrorPreservesStoppedPrecondition(t *testing.T) {
+	if got := backupCreateOperationError(fmt.Errorf("adapter context: %w", yorvaruntime.ErrBackupRuntimeNotStopped)); got != yorvaruntime.ErrorBackupRuntimeNotStopped {
+		t.Fatalf("backupCreateOperationError() = %q", got)
+	}
+	if got := backupCreateOperationError(errors.New("private adapter detail")); got != yorvaruntime.ErrorBackupCreateFailed {
+		t.Fatalf("generic backupCreateOperationError() = %q", got)
+	}
+}
+
 func TestBackupCreateDeleteWorkersUseOnlyQualifiedBundleWiring(t *testing.T) {
 	validRequest := yorvaruntime.BackupCreateRequest{
 		DestinationRef:        strings.Repeat("a", 43),

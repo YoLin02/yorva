@@ -2,6 +2,7 @@ import type { LucideProps } from "lucide-react";
 import hermesIcon from "../../assets/hermes-icon.png";
 import yorvaIcon from "../../assets/yorva-icon.png";
 import {
+  Activity,
   AlertTriangle,
   Box,
   Check,
@@ -41,6 +42,10 @@ function glyph(Icon: typeof Home, defaultSize: number, props: LucideProps) {
 
 export function IconHome(props: LucideProps) {
   return glyph(Home, 16, props);
+}
+
+export function IconActivity(props: LucideProps) {
+  return glyph(Activity, 15, props);
 }
 
 export function IconBox(props: LucideProps) {

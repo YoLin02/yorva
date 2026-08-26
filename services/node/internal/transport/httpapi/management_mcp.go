@@ -19,9 +19,14 @@ type ManagementMCPReadService interface {
 	ListMCPPresets(context.Context, string) ([]app.MCPPresetView, error)
 }
 
+type RuntimeMCPDefinitionService interface {
+	ListRuntimeMCPDefinitions(context.Context, string) ([]app.MCPPresetView, error)
+}
+
 type ManagementMCPService interface {
 	ManagementMCPReadService
-	StartInstall(context.Context, string, string, string) (app.InstallStartResult, error)
+	RuntimeMCPDefinitionService
+	StartInstall(context.Context, string, string, []byte, []string, string) (app.InstallStartResult, error)
 	StartAuthenticate(context.Context, string, string, []byte, string) (app.InstallStartResult, error)
 	StartTest(context.Context, string, string, string) (app.InstallStartResult, error)
 	StartConfigure(context.Context, string, string, []string, string) (app.InstallStartResult, error)
@@ -30,11 +35,13 @@ type ManagementMCPService interface {
 }
 
 type ManagementMCPServerResponse struct {
-	ID         string                `json:"id"`
-	PresetID   string                `json:"presetId"`
-	State      yorvaruntime.MCPState `json:"state"`
-	ReadyAt    *time.Time            `json:"readyAt"`
-	ObservedAt time.Time             `json:"observedAt"`
+	ID             string                `json:"id"`
+	PresetID       string                `json:"presetId"`
+	Ownership      string                `json:"ownership"`
+	EnabledToolIDs []string              `json:"enabledToolIds"`
+	State          yorvaruntime.MCPState `json:"state"`
+	ReadyAt        *time.Time            `json:"readyAt"`
+	ObservedAt     time.Time             `json:"observedAt"`
 }
 
 type ManagementMCPServerListResponse struct {
@@ -44,6 +51,9 @@ type ManagementMCPServerListResponse struct {
 type ManagementMCPPresetResponse struct {
 	ID                 string   `json:"id"`
 	DisplayName        string   `json:"displayName"`
+	Description        string   `json:"description"`
+	HomepageURL        string   `json:"homepageUrl"`
+	DocumentationURL   string   `json:"documentationUrl"`
 	AllowedToolIDs     []string `json:"allowedToolIds"`
 	CredentialRequired bool     `json:"credentialRequired"`
 }
@@ -66,12 +76,18 @@ func listMCPServers(service ManagementMCPReadService) http.Handler {
 
 		items := make([]ManagementMCPServerResponse, 0, len(servers))
 		for _, server := range servers {
+			enabledToolIDs := server.EnabledToolIDs
+			if enabledToolIDs == nil {
+				enabledToolIDs = []string{}
+			}
 			items = append(items, ManagementMCPServerResponse{
-				ID:         server.ID,
-				PresetID:   server.PresetID,
-				State:      server.State,
-				ReadyAt:    copyMCPTime(server.ReadyAt),
-				ObservedAt: server.ObservedAt.UTC(),
+				ID:             server.ID,
+				PresetID:       server.PresetID,
+				Ownership:      server.Ownership,
+				EnabledToolIDs: enabledToolIDs,
+				State:          server.State,
+				ReadyAt:        copyMCPTime(server.ReadyAt),
+				ObservedAt:     server.ObservedAt.UTC(),
 			})
 		}
 		writeMCPManagementJSON(w, ManagementMCPServerListResponse{Items: items})
@@ -90,16 +106,39 @@ func listMCPPresets(service ManagementMCPReadService) http.Handler {
 			return
 		}
 
-		items := make([]ManagementMCPPresetResponse, 0, len(presets))
-		for _, preset := range presets {
-			allowedToolIDs := preset.AllowedToolIDs
-			if allowedToolIDs == nil {
-				allowedToolIDs = []string{}
-			}
-			items = append(items, ManagementMCPPresetResponse{ID: preset.ID, DisplayName: preset.DisplayName, AllowedToolIDs: allowedToolIDs, CredentialRequired: preset.CredentialRequired})
-		}
-		writeMCPManagementJSON(w, ManagementMCPPresetListResponse{Items: items})
+		writeMCPPresetViews(w, presets)
 	})
+}
+
+func listRuntimeMCPDefinitions(service RuntimeMCPDefinitionService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if service == nil {
+			writeMCPManagementError(w, r, app.ErrManagementCapabilityUnsupported)
+			return
+		}
+		presets, err := service.ListRuntimeMCPDefinitions(r.Context(), r.PathValue("runtimeId"))
+		if err != nil {
+			writeMCPManagementError(w, r, err)
+			return
+		}
+		writeMCPPresetViews(w, presets)
+	})
+}
+
+func writeMCPPresetViews(w http.ResponseWriter, presets []app.MCPPresetView) {
+	items := make([]ManagementMCPPresetResponse, 0, len(presets))
+	for _, preset := range presets {
+		allowedToolIDs := preset.AllowedToolIDs
+		if allowedToolIDs == nil {
+			allowedToolIDs = []string{}
+		}
+		items = append(items, ManagementMCPPresetResponse{
+			ID: preset.ID, DisplayName: preset.DisplayName, Description: preset.Description,
+			HomepageURL: preset.HomepageURL, DocumentationURL: preset.DocumentationURL,
+			AllowedToolIDs: allowedToolIDs, CredentialRequired: preset.CredentialRequired,
+		})
+	}
+	writeMCPManagementJSON(w, ManagementMCPPresetListResponse{Items: items})
 }
 
 type mcpMutationKind string
@@ -130,10 +169,13 @@ func startMCPMutation(service ManagementMCPService, kind mcpMutationKind) http.H
 		)
 		switch kind {
 		case mcpInstall:
-			err = decodeClosedEmptyObject(r)
+			var credential []byte
+			var toolIDs []string
+			credential, toolIDs, err = decodeMCPInstall(r, r.PathValue("presetId"))
 			if err == nil {
-				result, err = service.StartInstall(r.Context(), instanceID, r.PathValue("presetId"), key)
+				result, err = service.StartInstall(r.Context(), instanceID, r.PathValue("presetId"), credential, toolIDs, key)
 			}
+			clear(credential)
 		case mcpAuthenticate:
 			var credential []byte
 			credential, err = decodeMCPAuthentication(r)
@@ -170,6 +212,32 @@ func startMCPMutation(service ManagementMCPService, kind mcpMutationKind) http.H
 		w.WriteHeader(http.StatusAccepted)
 		_ = json.NewEncoder(w).Encode(newOperationResponse(result.Operation))
 	})
+}
+
+func decodeMCPInstall(r *http.Request, presetID string) ([]byte, []string, error) {
+	var body struct {
+		Credential     string   `json:"credential"`
+		EnabledToolIDs []string `json:"enabledToolIds"`
+	}
+	if err := decodeClosedMCPBody(r, &body); err != nil {
+		return nil, nil, err
+	}
+	credential := []byte(body.Credential)
+	if len(credential) > 0 {
+		if err := (yorvaruntime.MCPAuthenticateRequest{ServerID: presetID, Credential: credential}).Validate(); err != nil {
+			clear(credential)
+			return nil, nil, err
+		}
+	}
+	if err := (yorvaruntime.MCPConfigureRequest{ServerID: presetID, EnabledToolIDs: body.EnabledToolIDs}).Validate(); err != nil {
+		clear(credential)
+		return nil, nil, err
+	}
+	if len(body.EnabledToolIDs) == 0 {
+		clear(credential)
+		return nil, nil, yorvaruntime.ErrInvalidManagementContract
+	}
+	return credential, append([]string(nil), body.EnabledToolIDs...), nil
 }
 
 func decodeMCPAuthentication(r *http.Request) ([]byte, error) {

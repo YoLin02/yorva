@@ -57,13 +57,13 @@ describe("daemon client management reads", () => {
     await client.listInstanceSkills("instance/a b");
     await client.inspectInstanceSkill("instance/a b", "skill/id?#");
     await client.listInstanceMCPServers("instance/a b");
-    await client.listInstanceMCPPresets("instance/a b");
+    await client.listRuntimeMCPDefinitions("hermes");
 
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/skills",
       "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/skills/skill%2Fid%3F%23",
-      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/mcp-servers",
-      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/mcp-catalog",
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/mcp-bindings",
+      "http://127.0.0.1:49152/api/v1/runtimes/hermes/mcp-definitions",
     ]);
     for (const [, init] of fetchMock.mock.calls as [string, RequestInit][]) {
       expect(init.method ?? "GET").toBe("GET");

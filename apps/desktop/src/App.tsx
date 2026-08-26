@@ -19,11 +19,13 @@ import {
 import { DashboardPage } from "./pages/DashboardPage";
 import { InstancesPage } from "./pages/InstancesPage";
 import { RuntimePage } from "./pages/RuntimePage";
+import { RuntimeManagementPage } from "./pages/RuntimeManagementPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 export function App() {
   const queryClient = useQueryClient();
   const [activePage, setActivePage] = useState<PageId>("dashboard");
+  const [runtimeManagementOpen, setRuntimeManagementOpen] = useState(false);
   const [locale, setLocale] = useState<Locale>(loadLocale);
   const [discoveryCancelled, setDiscoveryCancelled] = useState(false);
   const [confirmInstall, setConfirmInstall] = useState(false);
@@ -466,7 +468,15 @@ export function App() {
     const installBlocking = Boolean(installOperation && (installOperation.status === "PENDING" || installOperation.status === "RUNNING"));
     const prereqBlocking = Boolean(prereqOperation && (prereqOperation.status === "PENDING" || prereqOperation.status === "RUNNING"));
     const showInstallPanel = notInstalled || followedInstallId !== null || installRequestError !== null;
-    content = (
+    content = runtimeManagementOpen && client && instancesQuery.data && instancesQuery.data.instances.length > 0 ? (
+      <RuntimeManagementPage
+        client={client}
+        inventory={instancesQuery.data}
+        copy={copy}
+        locale={locale}
+        onBack={() => setRuntimeManagementOpen(false)}
+      />
+    ) : (
       <RuntimePage
         discoveryState={discoveryState}
         discoveryReady={discoveryQuery.isSuccess}
@@ -501,6 +511,7 @@ export function App() {
         onRetryInstall={retryInstall}
         instanceCount={instancesQuery.data?.instances.length ?? null}
         onOpenInstances={() => setActivePage("instances")}
+        onOpenManagement={instancesQuery.data?.instances.length ? () => setRuntimeManagementOpen(true) : undefined}
       />
     );
   } else if (activePage === "instances") {
@@ -568,8 +579,12 @@ export function App() {
       activePage={activePage}
       copy={copy}
       locale={locale}
-      onNavigate={setActivePage}
+      onNavigate={(page) => {
+        if (page !== "runtimes") setRuntimeManagementOpen(false);
+        setActivePage(page);
+      }}
       onLocaleChange={changeLocale}
+      hidePageHeader={activePage === "runtimes" && runtimeManagementOpen}
     >
       {content}
     </DesktopShell>

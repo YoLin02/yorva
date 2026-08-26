@@ -18,12 +18,14 @@ export function HermesDiscoveryView({
   locale,
   instanceCount,
   onOpenInstances,
+  onOpenManagement,
 }: {
   state: HermesDiscoveryViewState;
   copy: AppMessages;
   locale: Locale;
   instanceCount?: number | null;
   onOpenInstances?: () => void;
+  onOpenManagement?: () => void;
 }) {
   if (state.kind === "checking") {
     return (
@@ -107,9 +109,10 @@ export function HermesDiscoveryView({
               <span className="runtime-field-label">{copy.hermes.managedInstances}</span>
               <strong>{instanceCount}</strong>
             </div>
-            {onOpenInstances ? (
-              <Button variant="ghost" onClick={onOpenInstances}>{copy.hermes.viewInstances} →</Button>
-            ) : null}
+            <div className="runtime-instance-actions">
+              {isSupported && onOpenManagement ? <Button variant="primary" onClick={onOpenManagement}>{copy.hermes.manageRuntime}</Button> : null}
+              {onOpenInstances ? <Button variant="ghost" onClick={onOpenInstances}>{copy.hermes.viewInstances} →</Button> : null}
+            </div>
           </div>
         ) : null}
       </div>
@@ -121,20 +124,6 @@ export function HermesDiscoveryView({
             <p>{copy.hermes.candidateCount.replace("{count}", String(discovery.candidates.length))}</p>
             <ul className="plain-list">
               {discovery.candidates.map((item) => <li key={item.path}>{item.path}</li>)}
-            </ul>
-          </div>
-        </section>
-      ) : null}
-      {discovery.warnings.length > 0 ? (
-        <section className="notice notice-warn runtime-wide-notice" aria-labelledby="warning-title">
-          <div>
-            <h3 id="warning-title">{copy.hermes.warnings}</h3>
-            <ul className="plain-list">
-              {discovery.warnings.map((warning) => (
-                <li key={`${warning.code}:${warning.message}`}>
-                  {copy.hermes.warningMessages[warning.code] ?? copy.hermes.unknownWarning}
-                </li>
-              ))}
             </ul>
           </div>
         </section>

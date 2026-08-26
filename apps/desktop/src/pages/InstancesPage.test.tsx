@@ -19,6 +19,7 @@ const unavailableManagementCapabilities = {
   },
   mcpRead: false,
   mcpMutate: false,
+  mcpTest: false,
   backupRead: false,
   backupMutate: false,
   restore: false,
@@ -385,7 +386,7 @@ describe("InstancesPage", () => {
       listInstanceSkills: vi.fn(),
       inspectInstanceSkill: vi.fn(),
       listInstanceMCPServers: vi.fn(),
-      listInstanceMCPPresets: vi.fn(),
+      listRuntimeMCPDefinitions: vi.fn(),
     } as unknown as DaemonClient;
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -404,7 +405,7 @@ describe("InstancesPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "More actions" })[1]);
     fireEvent.click(screen.getByRole("menuitem", { name: "Management" }));
     expect(screen.getByRole("dialog", { name: "Instance management: coder" })).toBeInTheDocument();
-    expect(screen.getAllByText(messages["en-US"].management.unavailable)).toHaveLength(5);
+    expect(screen.getAllByText(messages["en-US"].management.unavailable)).toHaveLength(3);
     expect(client.listInstanceSkills).not.toHaveBeenCalled();
     expect(client.listInstanceMCPServers).not.toHaveBeenCalled();
   });

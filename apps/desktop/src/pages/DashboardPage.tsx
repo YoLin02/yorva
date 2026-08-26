@@ -27,9 +27,11 @@ export function DashboardPage({
 
   return (
     <div className="dashboard">
-      <div className="card-grid-2">
+      <div className="dashboard-status-grid">
         <LocalNodeCard eventStatus={nodeState.eventStatus} copy={copy} />
         <HermesStatusCard state={discoveryState} copy={copy} onOpenRuntimes={onOpenRuntimes} />
+      </div>
+      <div className="dashboard-detail-grid">
         <NodeInfoCard
           node={nodeState.node}
           eventStatus={nodeState.eventStatus}

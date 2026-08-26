@@ -640,6 +640,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runtimes/{runtimeId}/mcp-definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        /** List reviewed Runtime-owned MCP definitions */
+        get: operations["listRuntimeMCPDefinitions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/mcp-bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        /** List authoritative MCP bindings for one Instance */
+        get: operations["listInstanceMCPBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/mcp-bindings/{serverId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Write, test, and authoritatively reconcile one reviewed MCP binding */
+        put: operations["testAndCreateInstanceMCPBinding"];
+        post?: never;
+        /** Remove one YORVA-managed MCP binding and reconcile its absence */
+        delete: operations["removeInstanceMCPBinding"];
+        options?: never;
+        head?: never;
+        /** Update the reviewed tool scope for one YORVA-managed binding */
+        patch: operations["configureInstanceMCPBinding"];
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/mcp-bindings/{serverId}/credential": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace the request-scoped credential for one reviewed binding */
+        put: operations["updateInstanceMCPBindingCredential"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/mcp-bindings/{serverId}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a bounded authoritative test for one YORVA-managed binding */
+        post: operations["testInstanceMCPBinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}/mcp-servers": {
         parameters: {
             query?: never;
@@ -1268,6 +1368,7 @@ export interface components {
             nativeSkills: components["schemas"]["NativeSkillCapabilities"];
             mcpRead: boolean;
             mcpMutate: boolean;
+            mcpTest: boolean;
             backupRead: boolean;
             backupMutate: boolean;
             restore: boolean;
@@ -1351,6 +1452,9 @@ export interface components {
             id: string;
             sourceId?: string;
             version?: string;
+            description?: string;
+            /** @description Sanitized bounded SKILL.md preview returned by the inspect endpoint. */
+            preview?: string;
             /** @enum {string} */
             ownership: "YORVA_MANAGED" | "EXTERNAL" | "RUNTIME_BUNDLED" | "UNKNOWN";
             /** @enum {string} */
@@ -1382,6 +1486,9 @@ export interface components {
             id: string;
             presetId: string;
             /** @enum {string} */
+            ownership: "YORVA_MANAGED" | "EXTERNAL";
+            enabledToolIds: string[];
+            /** @enum {string} */
             state: "NOT_CONFIGURED" | "CONFIGURED" | "AUTH_REQUIRED" | "READY" | "FAILED" | "UNKNOWN";
             readyAt: string | null;
             /** Format: date-time */
@@ -1393,6 +1500,9 @@ export interface components {
         MCPPreset: {
             id: string;
             displayName: string;
+            description: string;
+            homepageUrl: string;
+            documentationUrl: string;
             allowedToolIds: string[];
             credentialRequired: boolean;
         };
@@ -1401,6 +1511,10 @@ export interface components {
         };
         MCPAuthenticationRequest: {
             credential: string;
+        };
+        MCPInstallRequest: {
+            credential?: string;
+            enabledToolIds: string[];
         };
         MCPConfigureRequest: {
             enabledToolIds: string[];
@@ -3107,6 +3221,235 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listRuntimeMCPDefinitions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: "hermes";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Safe reviewed definition metadata without executable, arguments, environment, headers, paths, endpoints, or secrets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPPresetList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listInstanceMCPBindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Safe authoritative binding state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MCPServerList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    testAndCreateInstanceMCPBinding: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MCPInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description Test-and-create MCP Operation accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    removeInstanceMCPBinding: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description MCP binding removal accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    configureInstanceMCPBinding: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MCPConfigureRequest"];
+            };
+        };
+        responses: {
+            /** @description MCP binding configuration accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    updateInstanceMCPBindingCredential: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MCPAuthenticationRequest"];
+            };
+        };
+        responses: {
+            /** @description MCP credential update accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    testInstanceMCPBinding: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                serverId: components["parameters"]["MCPServerId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClosedEmptyObject"];
+            };
+        };
+        responses: {
+            /** @description MCP binding test accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
     listInstanceMCPServers: {
         parameters: {
             query?: never;
@@ -3209,7 +3552,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ClosedEmptyObject"];
+                "application/json": components["schemas"]["MCPInstallRequest"];
             };
         };
         responses: {

@@ -84,7 +84,11 @@ func httpSkill(id string) yorvaruntime.Skill {
 }
 
 func TestManagementSkillsHTTPListAndInspectClosedResponses(t *testing.T) {
-	service := &fakeManagementSkillsService{listed: []yorvaruntime.Skill{httpSkill("writer")}, inspected: httpSkill("writer")}
+	listed := httpSkill("writer")
+	listed.Description = "Draft and refine documents."
+	inspected := listed
+	inspected.Preview = "# Writer\n\nSafe preview."
+	service := &fakeManagementSkillsService{listed: []yorvaruntime.Skill{listed}, inspected: inspected}
 	listRequest := httptest.NewRequest(http.MethodGet, "/api/v1/instances/inst_1/skills", nil)
 	listRequest.SetPathValue("instanceId", "inst_1")
 	listResponse := httptest.NewRecorder()
@@ -109,7 +113,7 @@ func TestManagementSkillsHTTPListAndInspectClosedResponses(t *testing.T) {
 	if err := json.Unmarshal(inspectResponse.Body.Bytes(), &inspectBody); err != nil {
 		t.Fatal(err)
 	}
-	wantFields := []string{"id", "sourceId", "version", "ownership", "projectionState", "installationState", "enabledState", "scanState", "updateAvailable"}
+	wantFields := []string{"id", "sourceId", "version", "description", "preview", "ownership", "projectionState", "installationState", "enabledState", "scanState", "updateAvailable"}
 	if len(inspectBody) != len(wantFields) {
 		t.Fatalf("inspect fields = %v", inspectBody)
 	}

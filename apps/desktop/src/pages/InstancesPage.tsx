@@ -272,6 +272,14 @@ export function InstancesPage({
                   copy={copy}
                   locale={locale}
                   onClose={() => setManagementInstanceId(null)}
+                  onOpenModels={() => {
+                    setManagementInstanceId(null);
+                    setModelInstanceId(managementInstance.instanceId);
+                  }}
+                  onOpenChannels={() => {
+                    setManagementInstanceId(null);
+                    setChannelInstanceId(managementInstance.instanceId);
+                  }}
                 />
               </div>
             </div>

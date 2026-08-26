@@ -100,6 +100,18 @@ describe("App Desktop navigation and locale", () => {
     expect(await screen.findByText("default")).toBeInTheDocument();
   });
 
+  it("opens Runtime management as a separate page and returns to the engine", async () => {
+    renderApp();
+    await screen.findByText("DESKTOP-TEST");
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
+    const manage = await screen.findByRole("button", { name: "Manage this Runtime" });
+    fireEvent.click(manage);
+    expect(await screen.findByRole("heading", { name: "Hermes Runtime management" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Manage this Runtime" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Back to Runtime/ }));
+    expect(await screen.findByRole("button", { name: "Manage this Runtime" })).toBeInTheDocument();
+  });
+
   it("switches language immediately and persists the selection", async () => {
     const first = renderApp();
     await screen.findByText("DESKTOP-TEST");

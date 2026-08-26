@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-var ErrBackupNotFound = errors.New("Runtime backup not found")
+var (
+	ErrBackupNotFound          = errors.New("Runtime backup not found")
+	ErrBackupRuntimeNotStopped = errors.New("Runtime must be stopped before backup")
+)
 
 var backupDestinationRefPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
 

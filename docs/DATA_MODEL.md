@@ -333,6 +333,24 @@ change its artifact identity, checksum, format, Runtime version or key authority
 portable passphrase is never stored; `key_ref` contains only the non-secret reference
 for device-managed mode. Listing this index does not prove current Restore eligibility.
 
+### 11.2 `managed_mcp_bindings`
+
+YORVA records only ownership of bindings that completed reviewed write, connection
+test and authoritative readback. Hermes `config.yaml` remains authoritative for live
+configuration and state.
+
+```text
+instance_id  TEXT NOT NULL REFERENCES instances(id) ON DELETE CASCADE
+server_id    TEXT NOT NULL
+preset_id    TEXT NOT NULL
+created_at   ... NOT NULL
+updated_at   ... NOT NULL
+PRIMARY KEY (instance_id, server_id)
+```
+
+This table stores no endpoint, command, arguments, headers, environment or credential.
+A matching external Hermes definition without this ownership row is read-only.
+
 ## 12. `app_settings`
 
 Small non-secret daemon settings.

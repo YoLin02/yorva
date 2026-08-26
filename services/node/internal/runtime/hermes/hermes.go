@@ -23,6 +23,11 @@ type ManagementBindings struct {
 }
 
 func RegisterConfigured(registry *yorvaruntime.Registry, bindings ManagementBindings) error {
+	if bindings.MCPRead == nil {
+		manager := NewProfileMCPManager()
+		bindings.MCPRead = manager
+		bindings.MCPMutate = manager
+	}
 	return registry.Register(Kind, yorvaruntime.Bundle{
 		Descriptor: yorvaruntime.Descriptor{
 			Kind:        Kind,
@@ -50,6 +55,6 @@ func RegisterConfigured(registry *yorvaruntime.Registry, bindings ManagementBind
 			NativeEnableDisable:  yorvaruntime.NativeSkillCapability{Supported: false, Reason: "deferred_upstream"},
 			NativeProfileBinding: yorvaruntime.NativeSkillCapability{Supported: false, Reason: "deferred_upstream"},
 		},
-		InstanceManagement: NewAPIManagementReader(),
+		InstanceManagement: newManagementResolverWithMCP(bindings.MCPRead),
 	})
 }

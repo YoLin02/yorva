@@ -57,6 +57,7 @@ type InstanceCapabilities struct {
 	NativeSkills  yorvaruntime.NativeSkillCapabilities `json:"nativeSkills"`
 	MCPRead       bool                                 `json:"mcpRead"`
 	MCPMutate     bool                                 `json:"mcpMutate"`
+	MCPTest       bool                                 `json:"mcpTest"`
 	BackupRead    bool                                 `json:"backupRead"`
 	BackupMutate  bool                                 `json:"backupMutate"`
 	Restore       bool                                 `json:"restore"`
@@ -332,6 +333,7 @@ func instanceCapabilities(management yorvaruntime.ManagementCapabilities, lifecy
 	capabilities.SkillMutate = management.SkillMutate
 	capabilities.MCPRead = management.MCPRead
 	capabilities.MCPMutate = management.MCPMutate
+	capabilities.MCPTest = management.MCPTest
 	capabilities.BackupRead = management.BackupRead
 	capabilities.BackupMutate = management.BackupMutate
 	capabilities.Restore = management.Restore
@@ -349,6 +351,7 @@ func unionInstanceCapabilities(left, right InstanceCapabilities) InstanceCapabil
 		SkillRead:     left.SkillRead || right.SkillRead, SkillMutate: left.SkillMutate || right.SkillMutate,
 		NativeSkills: unionNativeSkillCapabilities(left.NativeSkills, right.NativeSkills),
 		MCPRead:      left.MCPRead || right.MCPRead, MCPMutate: left.MCPMutate || right.MCPMutate,
+		MCPTest:    left.MCPTest || right.MCPTest,
 		BackupRead: left.BackupRead || right.BackupRead, BackupMutate: left.BackupMutate || right.BackupMutate,
 		Restore: left.Restore || right.Restore, UpgradePlan: left.UpgradePlan || right.UpgradePlan,
 		Upgrade: left.Upgrade || right.Upgrade, Rollback: left.Rollback || right.Rollback,

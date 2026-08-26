@@ -223,6 +223,61 @@ func TestDetectorPropagatesCallerCancellation(t *testing.T) {
 	}
 }
 
+func TestDetectorInspectsCandidatesConcurrentlyAndPreservesFinderOrder(t *testing.T) {
+	first := canonicalPath(t, createCandidateFile(t))
+	second := canonicalPath(t, createCandidateFile(t))
+	started := make(chan string, 2)
+	release := make(chan struct{})
+	detector := &Detector{
+		finder: candidateFinder{
+			officialPaths:  []string{first, second},
+			executableName: executableNameForTest(),
+			limit:          maxCandidates,
+		},
+		run: func(_ context.Context, command commandInvocation) commandResult {
+			started <- command.path
+			<-release
+			if command.path == first {
+				return commandResult{stdout: "Hermes Agent v0.20.2\n", exitCode: 0}
+			}
+			return commandResult{exitCode: 2, err: errors.New("process failed")}
+		},
+		now:            time.Now,
+		overallTimeout: time.Second,
+	}
+
+	result := make(chan yorvaruntime.Discovery, 1)
+	errResult := make(chan error, 1)
+	go func() {
+		got, err := detector.Detect(context.Background())
+		result <- got
+		errResult <- err
+	}()
+
+	seen := make(map[string]bool, 2)
+	for range 2 {
+		select {
+		case path := <-started:
+			seen[path] = true
+		case <-time.After(time.Second):
+			close(release)
+			t.Fatal("Detect() did not start all candidate probes concurrently")
+		}
+	}
+	close(release)
+
+	if !seen[first] || !seen[second] {
+		t.Fatalf("started candidates = %#v, want both finder candidates", seen)
+	}
+	if err := <-errResult; err != nil {
+		t.Fatalf("Detect() error = %v", err)
+	}
+	got := <-result
+	if len(got.Candidates) != 2 || got.Candidates[0].Path != first || got.Candidates[1].Path != second {
+		t.Fatalf("Detect() candidates = %#v, want finder order [%q, %q]", got.Candidates, first, second)
+	}
+}
+
 func detectorWithResults(t *testing.T, results []commandResult) *Detector {
 	t.Helper()
 	paths := make([]string, 0, len(results))

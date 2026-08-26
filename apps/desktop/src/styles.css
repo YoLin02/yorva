@@ -489,7 +489,31 @@ p {
 .dashboard {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+}
+
+.dashboard-status-grid,
+.dashboard-detail-grid {
+  display: grid;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dashboard-status-grid {
+  grid-template-columns: minmax(250px, 0.75fr) minmax(0, 1.25fr);
+}
+
+.dashboard-detail-grid {
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+}
+
+.dashboard .status-strip,
+.dashboard .detail-card {
+  padding: 18px 20px;
+}
+
+.dashboard .status-strip {
+  min-height: 92px;
 }
 
 .page-stack,
@@ -1726,6 +1750,285 @@ p {
   padding: 22px 24px 24px;
 }
 
+.runtime-management-panel {
+  gap: 20px;
+  padding: 0 0 24px;
+  background: transparent;
+}
+
+.runtime-management-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.runtime-management-page-toolbar {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 8px;
+}
+
+.runtime-management-page-toolbar .button {
+  padding-left: 0;
+  color: #64748b;
+}
+
+.runtime-management-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 42px;
+  border-bottom: 1px solid #e2e8f0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.runtime-management-tabs::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.runtime-management-tabs button {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 64px;
+  padding: 0 14px 12px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.runtime-management-tabs button:hover {
+  color: var(--yorva-accent-deep);
+}
+
+.runtime-management-tabs button.is-active {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.runtime-management-tabs button.is-active::after {
+  position: absolute;
+  right: 8px;
+  bottom: -1px;
+  left: 8px;
+  height: 2px;
+  background: var(--yorva-brand);
+  content: "";
+}
+
+.runtime-management-panel > .management-section {
+  border-color: #dbe3ec;
+  background: #fff;
+}
+
+.runtime-overview-grid,
+.instance-management-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.runtime-summary-card {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 104px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.runtime-summary-card > span,
+.runtime-summary-card p {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.runtime-summary-card strong {
+  color: var(--yorva-heading);
+  font-size: 18px;
+}
+
+.runtime-summary-card p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.runtime-instance-list {
+  display: grid;
+  gap: 8px;
+}
+
+.runtime-instance-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #fff;
+  color: #475569;
+}
+
+.runtime-instance-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.runtime-instance-row-main > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.runtime-instance-row:hover,
+.runtime-instance-row.is-selected {
+  border-color: #f1a088;
+  background: #fff8f5;
+}
+
+.runtime-instance-diagnostics {
+  white-space: nowrap;
+}
+
+.diagnostic-instance-switcher {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.diagnostic-instance-switcher > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.diagnostic-instance-switcher strong {
+  color: var(--yorva-heading);
+  font-size: 13px;
+}
+
+.diagnostic-instance-switcher small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.diagnostic-instance-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.diagnostic-instance-options button {
+  min-height: 32px;
+  padding: 5px 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.diagnostic-instance-options button:hover,
+.diagnostic-instance-options button.is-active {
+  border-color: #f1a088;
+  background: #fff5f1;
+  color: var(--yorva-accent-deep);
+}
+
+.runtime-assignment-selector {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 16px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.runtime-assignment-selector legend {
+  padding: 0 5px;
+  color: var(--yorva-heading);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.runtime-assignment-selector p {
+  margin: 0;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.runtime-assignment-selector > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.runtime-assignment-selector label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #475569;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.instance-management-overview {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.instance-management-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.instance-management-status .management-header-actions {
+  margin-left: auto;
+}
+
+.instance-detail-actions {
+  justify-content: flex-end;
+}
+
 .management-panel-header,
 .management-header-actions,
 .management-section-heading,
@@ -1793,9 +2096,696 @@ p {
   gap: 8px;
 }
 
-.management-diagnostics-grid {
+.runtime-skill-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  min-height: 68px;
+  padding: 11px 16px;
+  border: 0;
+  border-bottom: 1px solid #edf1f5;
+  border-radius: 0;
+  background: transparent;
+}
+
+.runtime-skill-row:hover {
+  background: #eef2f6;
+}
+
+.runtime-skill-row:last-child {
+  border-bottom: 0;
+}
+
+.runtime-skills-section {
+  width: min(100%, 760px);
+  gap: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.runtime-management-panel > .management-section.runtime-skills-section {
+  background: var(--yorva-bg);
+}
+
+.runtime-mcp-section {
+  width: min(100%, 820px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.runtime-management-panel > .management-section.runtime-mcp-section {
+  background: var(--yorva-bg);
+}
+
+.runtime-mcp-page {
+  display: grid;
+  gap: 20px;
+}
+
+.runtime-mcp-group,
+.runtime-mcp-composer {
+  overflow: hidden;
+  border: 1px solid #d7dee8;
+  border-radius: 10px;
+  background: var(--yorva-surface);
+}
+
+.runtime-mcp-group-heading,
+.runtime-mcp-composer > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+}
+
+.runtime-mcp-group-heading h3,
+.runtime-mcp-group-heading p,
+.runtime-mcp-composer h3,
+.runtime-mcp-composer p {
+  margin: 0;
+}
+
+.runtime-mcp-group-heading h3,
+.runtime-mcp-composer h3 {
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.runtime-mcp-group-heading p,
+.runtime-mcp-composer p {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.runtime-mcp-capability-note {
+  margin: 0;
+  padding: 10px 16px;
+  border-top: 1px solid #e5eaf0;
+  background: #fff8f4;
+  color: #9a3412;
+  font-size: 12px;
+}
+
+.runtime-mcp-empty {
+  display: grid;
+  gap: 4px;
+  padding: 18px 16px;
+  border-top: 1px solid #e5eaf0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.runtime-mcp-empty strong {
+  color: #334155;
+  font-size: 13px;
+}
+
+.runtime-mcp-definition-list {
+  border-top: 1px solid #e5eaf0;
+}
+
+.runtime-mcp-definition-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.runtime-mcp-definition-row:last-child {
+  border-bottom: 0;
+}
+
+.runtime-mcp-definition-row > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.runtime-mcp-definition-row strong {
+  color: #1e293b;
+  font-size: 13px;
+}
+
+.runtime-mcp-definition-row code,
+.runtime-mcp-definition-row p {
+  margin: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-mcp-composer {
+  display: grid;
+  gap: 0;
+}
+
+.runtime-mcp-composer > header {
+  border-bottom: 1px solid #e5eaf0;
+}
+
+.runtime-mcp-composer > header > button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #64748b;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.runtime-mcp-composer > header > button:hover {
+  background: #eef2f6;
+}
+
+.runtime-mcp-preset-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 16px 4px;
+}
+
+.runtime-mcp-preset-types button {
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.runtime-mcp-preset-types button.is-selected {
+  border-color: var(--yorva-brand);
+  background: var(--yorva-brand);
+  color: #fff;
+}
+
+.runtime-mcp-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  padding: 14px 16px;
+}
+
+.runtime-mcp-fields label,
+.runtime-mcp-secret {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.runtime-mcp-field-wide {
+  grid-column: 1 / -1;
+}
+
+.runtime-mcp-fields input,
+.runtime-mcp-fields textarea,
+.runtime-mcp-secret input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  color: #475569;
+  font: 12px/1.4 var(--yorva-mono);
+  resize: vertical;
+}
+
+.runtime-mcp-secret,
+.runtime-mcp-tools,
+.runtime-mcp-preview {
+  margin: 0 16px 14px;
+}
+
+.runtime-mcp-bindings-field {
+  margin: 0 16px 14px;
+}
+
+.runtime-mcp-tools {
+  padding: 12px 14px;
+  border: 1px solid #d7dee8;
+  border-radius: 9px;
+}
+
+.runtime-mcp-tools legend {
+  padding: 0 5px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.runtime-mcp-tools > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.runtime-mcp-tools label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.runtime-mcp-preview {
+  overflow: hidden;
+  border: 1px solid #d7dee8;
+  border-radius: 9px;
+}
+
+.runtime-mcp-preview > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5eaf0;
+  color: #334155;
+  font-size: 12px;
+}
+
+.runtime-mcp-preview > div span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.runtime-mcp-preview pre {
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  background: #f8fafc;
+  color: #475569;
+  font: 11px/1.55 var(--yorva-mono);
+}
+
+.runtime-mcp-composer > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #e5eaf0;
+}
+
+.runtime-mcp-group > .runtime-assignment-selector {
+  margin: 0 16px 14px;
+}
+
+.runtime-skill-groups {
+  display: grid;
+  gap: 20px;
+}
+
+.runtime-skill-group {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #d7dee8;
+  border-radius: 10px;
+  background: var(--yorva-surface);
+}
+
+.runtime-skill-group > header,
+.runtime-skill-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 64px;
+  padding: 11px 16px;
+  border: 0;
+}
+
+.runtime-skill-group > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.runtime-skill-group > summary:hover {
+  background: #eef2f6;
+}
+
+.runtime-skill-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.runtime-skill-group h4,
+.runtime-skill-group p {
+  margin: 0;
+}
+
+.runtime-skill-group > header > div,
+.runtime-skill-group > summary > div {
+  min-width: 0;
+}
+
+.runtime-skill-group h4 {
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.runtime-skill-group header p,
+.runtime-skill-group summary p {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.runtime-skill-group-count,
+.runtime-skill-group-summary-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.runtime-skill-group-count {
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid #d7dee8;
+  border-radius: 999px;
+  background: #e8edf3;
+  color: #526174;
+  font-weight: 600;
+}
+
+.runtime-skill-group-summary-meta {
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.runtime-skill-group-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid #d7dee8;
+  border-radius: 7px;
+  background: #edf1f5;
+  color: #64748b;
+  transform-origin: center;
+}
+
+.runtime-skill-group-chevron svg {
+  width: 14px;
+  height: 14px;
+}
+
+.runtime-skill-group-external[open] .runtime-skill-group-chevron {
+  transform: rotate(180deg);
+}
+
+.runtime-skill-group > .management-empty {
+  margin: 0;
+  padding: 14px 16px;
+  border-top: 1px solid #dfe5ec;
+  color: #94a3b8;
+}
+
+.runtime-skill-group-list {
+  border-top: 1px solid #dfe5ec;
+}
+
+.runtime-skill-instance-selector {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  align-items: center;
+  gap: 24px;
+  width: min(100%, 760px);
+  min-height: 72px;
+  padding: 12px 16px;
+  border: 1px solid #d7dee8;
+  border-radius: 10px;
+  background: var(--yorva-surface);
+  color: #64748b;
+  font-size: 13px;
+}
+
+.runtime-skill-instance-selector select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid #cfd9e5;
+  border-radius: 8px;
+  padding: 0 36px 0 11px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+}
+
+.runtime-skill-instance-selector select:focus {
+  border-color: var(--yorva-brand);
+  outline: 3px solid rgb(217 54 0 / 10%);
+}
+
+.runtime-skill-instance-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.runtime-skill-instance-copy strong {
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.runtime-skill-instance-copy > span {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.runtime-skill-row-main {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.runtime-skill-row-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.runtime-skill-row-main code {
+  color: #1e293b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.runtime-skill-row-description,
+.runtime-skill-row-assignment {
+  min-width: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-skill-row-assignment {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.runtime-skill-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.runtime-skill-row-actions .button {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.runtime-skill-switch {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 22px;
+}
+
+.runtime-skill-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.runtime-skill-switch span {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.runtime-skill-switch span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 24%);
+  content: "";
+  transition: transform 120ms ease;
+}
+
+.runtime-skill-switch input:checked + span {
+  background: var(--yorva-brand);
+}
+
+.runtime-skill-switch input:checked + span::after {
+  transform: translateX(16px);
+}
+
+.runtime-skill-switch input:focus-visible + span {
+  outline: 2px solid rgb(231 58 0 / 28%);
+  outline-offset: 2px;
+}
+
+.runtime-skill-switch input:disabled + span {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.runtime-skills-section > .management-catalog {
+  padding: 16px 2px 0;
+  border: 0;
+  border-top: 1px solid #dfe5ec;
+  border-radius: 0;
+  background: transparent;
+}
+
+.skill-preview-page {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #dbe3ec;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.skill-preview-back {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.skill-preview-back:hover {
+  color: var(--yorva-accent-deep);
+}
+
+.skill-preview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.skill-preview-heading h3,
+.skill-preview-content h4 {
+  margin: 0;
+  color: var(--yorva-heading);
+}
+
+.skill-preview-heading h3 {
+  font: 600 18px/1.3 var(--yorva-mono);
+}
+
+.skill-preview-heading p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.skill-preview-meta {
+  padding-top: 12px;
+}
+
+.skill-preview-content {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #eef2f6;
+}
+
+.skill-preview-content > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.skill-preview-content h4 {
+  font-size: 13px;
+}
+
+.skill-preview-content span {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.skill-preview-content pre {
+  max-height: 440px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  font: 12px/1.65 var(--yorva-mono);
+}
+
+.management-diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
 }
 
@@ -2434,9 +3424,9 @@ p {
 
 .runtime-overview-card {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
-  gap: 0 28px;
-  padding: 26px 28px;
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+  gap: 0 20px;
+  padding: 24px;
   border-radius: 16px;
 }
 
@@ -2444,7 +3434,7 @@ p {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding-right: 28px;
+  padding-right: 20px;
   border-right: 1px solid #eef2f6;
 }
 
@@ -2605,6 +3595,17 @@ p {
 
 .runtime-instance-summary .button {
   color: var(--yorva-accent-deep);
+}
+
+.runtime-instance-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.runtime-instance-summary .runtime-instance-actions .button-primary {
+  color: #fff;
 }
 
 .settings-page {
@@ -3296,22 +4297,6 @@ p {
     padding-top: 8px;
   }
 
-  .runtime-overview-card {
-    grid-template-columns: 1fr;
-    gap: 22px;
-  }
-
-  .runtime-overview-primary {
-    padding: 0 0 22px;
-    border-right: 0;
-    border-bottom: 1px solid #eef2f6;
-  }
-
-  .runtime-wide-notice {
-    grid-column: 1;
-    margin-top: 0;
-  }
-
   .runtime-state-card {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
@@ -3375,6 +4360,37 @@ p {
 
   .management-diagnostics-grid {
     grid-template-columns: 1fr;
+  }
+
+  .runtime-mcp-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .runtime-mcp-field-wide {
+    grid-column: auto;
+  }
+
+  .runtime-mcp-group-heading,
+  .runtime-mcp-definition-row {
+    align-items: flex-start;
+  }
+
+  .runtime-skill-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .runtime-skill-instance-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .runtime-skill-row-actions {
+    justify-content: flex-end;
+  }
+
+  .skill-preview-heading,
+  .skill-preview-content > div {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .runtime-overview-card,
