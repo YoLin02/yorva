@@ -71,6 +71,9 @@ jobs:
           components: rustfmt, clippy
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:sidecar
+      - name: Exercise disposable encrypted Restore lifecycle
+        run: go test ./internal/runtime/hermes -run TestRuntimeBackupManagerDisposableRestoreLifecycle -count=1 -v
+        working-directory: services/node
       - run: pwsh -NoProfile -File scripts/windows-lifecycle-smoke.ps1
       - run: pwsh -NoProfile -File scripts/inspect-yorva-msi.tests.ps1
       - run: cargo fmt --check

@@ -74,6 +74,108 @@ func TestRuntimeBackupManagerCreateAndRestoreRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRuntimeBackupManagerDisposableRestoreLifecycle(t *testing.T) {
+	t.Run("encrypted restore succeeds and reads back before cleanup", func(t *testing.T) {
+		manager, installation, index, runtimeRoot, localAppData := newDisposableRestoreFixture(t)
+		stoppedChecks := 0
+		manager.ensureStopped = func(context.Context, yorvaruntime.Installation) error {
+			stoppedChecks++
+			return nil
+		}
+		postcheckCalls := 0
+		manager.postcheck = func(context.Context, yorvaruntime.Installation) error {
+			postcheckCalls++
+			assertRestoreTestState(t, runtimeRoot, "before-backup")
+			return nil
+		}
+
+		created := createDisposableRestoreBackup(t, manager, installation)
+		artifactBytes, err := os.ReadFile(index.entry.ArtifactPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(artifactBytes), "before-backup") {
+			t.Fatal("encrypted artifact contains the plaintext state marker")
+		}
+		writeRestoreTestTree(t, runtimeRoot, "after-backup")
+
+		restored, err := manager.RestoreBackup(context.Background(), installation, yorvaruntime.BackupRestoreRequest{BackupID: created.ID}, nil)
+		if err != nil || restored.State != yorvaruntime.RestoreSucceeded {
+			t.Fatalf("RestoreBackup() = %#v, %v", restored, err)
+		}
+		assertRestoreTestState(t, runtimeRoot, "before-backup")
+		assertNoRestoreTransactions(t, localAppData)
+		if stoppedChecks != 2 || postcheckCalls != 1 {
+			t.Fatalf("precondition checks = %d, postchecks = %d", stoppedChecks, postcheckCalls)
+		}
+
+		artifactPath := index.entry.ArtifactPath
+		if err := manager.DeleteBackup(context.Background(), installation, created.ID, nil); err != nil {
+			t.Fatalf("DeleteBackup() error = %v", err)
+		}
+		if index.present {
+			t.Fatal("deleted backup remains in authoritative index")
+		}
+		if _, err := os.Lstat(artifactPath); !os.IsNotExist(err) {
+			t.Fatalf("deleted backup artifact remains: %v", err)
+		}
+	})
+
+	t.Run("failed postcheck rolls back the previous tree", func(t *testing.T) {
+		manager, installation, _, runtimeRoot, localAppData := newDisposableRestoreFixture(t)
+		created := createDisposableRestoreBackup(t, manager, installation)
+		writeRestoreTestTree(t, runtimeRoot, "after-backup")
+		postcheckSawCandidate := false
+		manager.postcheck = func(context.Context, yorvaruntime.Installation) error {
+			assertRestoreTestState(t, runtimeRoot, "before-backup")
+			postcheckSawCandidate = true
+			return errors.New("forced disposable postcheck failure")
+		}
+
+		restored, err := manager.RestoreBackup(context.Background(), installation, yorvaruntime.BackupRestoreRequest{BackupID: created.ID}, nil)
+		if err == nil || restored.State != yorvaruntime.RestoreRolledBack {
+			t.Fatalf("RestoreBackup() = %#v, %v", restored, err)
+		}
+		if !postcheckSawCandidate {
+			t.Fatal("restore candidate was not authoritatively checked")
+		}
+		assertRestoreTestState(t, runtimeRoot, "after-backup")
+		assertNoRestoreTransactions(t, localAppData)
+	})
+
+	t.Run("tampered artifact is rejected before runtime mutation", func(t *testing.T) {
+		manager, installation, index, runtimeRoot, localAppData := newDisposableRestoreFixture(t)
+		created := createDisposableRestoreBackup(t, manager, installation)
+		writeRestoreTestTree(t, runtimeRoot, "after-backup")
+		artifact, err := os.OpenFile(index.entry.ArtifactPath, os.O_APPEND|os.O_WRONLY, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := artifact.Write([]byte("tampered")); err != nil {
+			_ = artifact.Close()
+			t.Fatal(err)
+		}
+		if err := artifact.Close(); err != nil {
+			t.Fatal(err)
+		}
+		postcheckCalled := false
+		manager.postcheck = func(context.Context, yorvaruntime.Installation) error {
+			postcheckCalled = true
+			return nil
+		}
+
+		restored, err := manager.RestoreBackup(context.Background(), installation, yorvaruntime.BackupRestoreRequest{BackupID: created.ID}, nil)
+		if err == nil || restored.State == yorvaruntime.RestoreSucceeded {
+			t.Fatalf("tampered RestoreBackup() = %#v, %v", restored, err)
+		}
+		if postcheckCalled {
+			t.Fatal("tampered artifact reached the postcheck")
+		}
+		assertRestoreTestState(t, runtimeRoot, "after-backup")
+		assertNoRestoreTransactions(t, localAppData)
+	})
+}
+
 func TestRuntimeBackupManagerRemovesPublishedArtifactWhenIndexInsertFails(t *testing.T) {
 	localAppData := t.TempDir()
 	t.Setenv("LOCALAPPDATA", localAppData)
@@ -187,5 +289,91 @@ func writeRestoreTestTree(t *testing.T, root, contents string) {
 	}
 	if err := os.WriteFile(filepath.Join(root, "state.txt"), []byte(contents), 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+type disposableRestoreIndex struct {
+	entry   BackupIndexEntry
+	present bool
+}
+
+func newDisposableRestoreFixture(t *testing.T) (*RuntimeBackupManager, yorvaruntime.Installation, *disposableRestoreIndex, string, string) {
+	t.Helper()
+	localAppData := t.TempDir()
+	t.Setenv("LOCALAPPDATA", localAppData)
+	runtimeRoot := filepath.Join(localAppData, "hermes")
+	writeRestoreTestTree(t, runtimeRoot, "before-backup")
+	_, identity, err := backupmanagement.GenerateX25519Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := &disposableRestoreIndex{}
+	manager := NewRuntimeBackupManager(
+		nil,
+		t.TempDir(),
+		func(_ context.Context, reference string, use func([]byte) error) error {
+			if reference != backupDeviceKeyReference {
+				t.Fatalf("key reference = %q", reference)
+			}
+			return use(identity)
+		},
+		func(_ context.Context, entry BackupIndexEntry) error {
+			index.entry, index.present = entry, true
+			return nil
+		},
+		func(_ context.Context, backupID string) (BackupIndexEntry, error) {
+			if !index.present || index.entry.ID != backupID {
+				return BackupIndexEntry{}, errors.New("backup not found")
+			}
+			return index.entry, nil
+		},
+		func(_ context.Context, backupID string) error {
+			if !index.present || index.entry.ID != backupID {
+				return errors.New("backup not found")
+			}
+			index.present = false
+			return nil
+		},
+	)
+	manager.ensureStopped = func(context.Context, yorvaruntime.Installation) error { return nil }
+	manager.postcheck = func(context.Context, yorvaruntime.Installation) error { return nil }
+	installation := yorvaruntime.Installation{
+		RuntimeKind:  Kind,
+		Path:         filepath.Join(t.TempDir(), "hermes.exe"),
+		Version:      backupmanagement.QualifiedSnapshotRuntimeVersion,
+		SupportState: yorvaruntime.DiscoverySupported,
+	}
+	return manager, installation, index, runtimeRoot, localAppData
+}
+
+func createDisposableRestoreBackup(t *testing.T, manager *RuntimeBackupManager, installation yorvaruntime.Installation) yorvaruntime.Backup {
+	t.Helper()
+	created, err := manager.CreateBackup(context.Background(), installation, yorvaruntime.BackupCreateRequest{
+		OperationID: "op_disposable_restore", RuntimeInstallationID: "rtinst_disposable_restore",
+	}, nil)
+	if err != nil || created.State != yorvaruntime.BackupAvailable {
+		t.Fatalf("CreateBackup() = %#v, %v", created, err)
+	}
+	return created
+}
+
+func assertRestoreTestState(t *testing.T, runtimeRoot, want string) {
+	t.Helper()
+	contents, err := os.ReadFile(filepath.Join(runtimeRoot, "state.txt"))
+	if err != nil || string(contents) != want {
+		t.Fatalf("runtime state = %q, %v; want %q", contents, err, want)
+	}
+}
+
+func assertNoRestoreTransactions(t *testing.T, localAppData string) {
+	t.Helper()
+	entries, err := os.ReadDir(localAppData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".yorva-restore-txn-") {
+			t.Fatalf("Restore transaction was not cleaned up: %s", entry.Name())
+		}
 	}
 }
