@@ -1,6 +1,6 @@
 # YORVA Phase 7 — Hermes Runtime Management Completeness
 
-> Status: **FAILED — 2026-08-27 FREEZE AUDIT BLOCKERS; RETURNED TO P7R REMEDIATION**
+> Status: **PASS — 2026-08-27 RE-AUDIT; AWAITING BASELINE FREEZE**
 > Phase: 7
 > Owner: Repository Owner
 > Plan date: 2026-08-24
@@ -566,3 +566,9 @@ capabilities false. ADR-0015 remains the safety contract for future implementati
 The revised freeze blockers are the disposable Restore lifecycle and exact-candidate
 CI/race evidence. The original failed audit remains preserved; a re-audit must determine
 the final Gate after both remaining items are complete.
+
+The disposable Restore and exact-candidate CI evidence is now preserved at
+`docs/phases/evidence/PHASE-007-DISPOSABLE-RESTORE-AND-CI.md`. Re-audit
+`docs/phases/audits/AUDIT-007R1-hermes-runtime-management-completeness.md` records
+**PASS**. Phase 7 is not yet FROZEN; merge, final-main CI and baseline/tag governance are
+separate next actions.

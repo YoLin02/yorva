@@ -1,6 +1,6 @@
 # YORVA Phase 7 — Hermes Runtime 日常管理完善
 
-> 状态：**FAILED — 2026-08-27 冻结审计发现阻断项，返回 P7R 修复**
+> 状态：**PASS — 2026-08-27 重审通过，等待基线冻结**
 > 阶段：Phase 7
 > Owner：Repository Owner
 > 计划日期：2026-08-24
@@ -909,3 +909,8 @@ false；ADR-0015 仍是未来实现必须遵守的安全合同。
 
 修订后的冻结阻断项只剩 disposable Restore 完整生命周期和精确候选的 CI/race 证据。
 原始失败审计继续保留，不把延期伪装成实现通过；完成剩余两项后必须另行重审 Gate。
+
+disposable Restore 与精确候选 CI 证据现已记录于
+`docs/phases/evidence/PHASE-007-DISPOSABLE-RESTORE-AND-CI.md`；重审
+`docs/phases/audits/AUDIT-007R1-hermes-runtime-management-completeness.md` 结论为
+**PASS**。Phase 7 尚未标记 FROZEN；合并、final-main CI 与 baseline/tag 仍是后续独立动作。

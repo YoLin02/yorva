@@ -313,7 +313,7 @@ hashed. No source, executable, resource or packaging input changed after that ac
 
 ## Phase 7 — Runtime management completeness
 
-Status: **FAILED — 2026-08-27 FREEZE AUDIT BLOCKERS; P7R REMEDIATION REQUIRED**
+Status: **PASS — 2026-08-27 RE-AUDIT; AWAITING BASELINE FREEZE**
 Specs: `docs/phases/PHASE-007-hermes-runtime-management-completeness.zh-CN.md` (Owner review) and `docs/phases/PHASE-007-hermes-runtime-management-completeness.md` (execution mirror)
 Baseline: `phase-0065-developer-led-demo-baseline` → `5f68e48f17e7e342e1781b37613b19d4bd1f060b`
 Branch: `codex/phase7-hermes-runtime-management`
@@ -324,7 +324,9 @@ selection does not enable the registry entry before authenticated Windows eviden
 Owner amendment 007A1 **APPROVED** 2026-08-27: executable managed Hermes
 Upgrade/Rollback is deferred from the Phase 7 freeze scope. The read-only plan remains
 truthful and production mutation capability remains false. Restore and exact-candidate CI
-evidence remain the active freeze blockers.
+evidence remained the active freeze blockers until both subsequently passed for product SHA
+`e21e8618f6fcda34eba31707500c29bde75893b5`; `AUDIT-007R1` records PASS. Merge,
+final-main CI and the formal baseline/tag remain pending, so Phase 7 is not yet FROZEN.
 Current execution: B1 evidence is preserved as a per-surface risk map; B2 shared contracts
 and independent B3–B8 lanes proceed in parallel where no real prerequisite exists.
 Focused lane tests precede one integrated B10 independent audit.
