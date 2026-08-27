@@ -784,3 +784,16 @@ P7R-B0 对当前实现的核验结果：
 
 P7R-B0 Gate：只有上述事实与公开合同一致、禁止的自定义 MCP surface 未进入提交，且
 focused checks 通过后才标记 PASS。
+
+P7R-B1 已按以下边界完成 Runtime/Instance 页面收口：
+
+- Runtime Workspace 导航为 Overview、Instances、Models、Skills、MCP、Maintenance 与
+  Operations。Diagnostics 仍按产品要求隐藏在 tab 外，只从精确 Instance 行进入。
+- Models 已进入 Runtime Workspace，提供明确的 Instance 选择器，并复用现有 Hermes
+  Profile 权威模型配置链路。共享 Provider Connection、Model Profile 与 Runtime Default
+  仍属于 B2/B3，不使用假数据冒充。
+- Instance 管理只保留精确实例的生命周期、模型与 Channel 入口、Skill/MCP Binding、健康
+  和日志；Runtime Upgrade、Backup 与 Restore 继续只属于 Runtime。
+
+P7R-B1 Gate 要求 focused Desktop tests、TypeScript typecheck、lint 与非 MSI Desktop build
+通过后自动提交。

@@ -6,12 +6,13 @@ import type { Channel, Instance, Lifecycle, MCPPreset, MCPServer, ManagementBack
 import { formatDateTime } from "../../formatDateTime";
 import type { AppMessages, Locale } from "../../i18n";
 import type { BadgeTone } from "../../types/ui";
+import { ModelConfigurationPanel } from "../models/ModelConfigurationPanel";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { IconActivity, IconArchiveRestore, IconChevronDown, IconClose, IconFileArchive, IconFolderInput, IconPlus, IconRefresh, IconSearch } from "../ui/icons";
 
 type ManagementScope = "instance" | "runtime";
-type RuntimeManagementTab = "overview" | "instances" | "skills" | "mcp" | "maintenance" | "diagnostics" | "operations";
+type RuntimeManagementTab = "overview" | "instances" | "models" | "skills" | "mcp" | "maintenance" | "diagnostics" | "operations";
 
 export function ManagementPanel({ client, instance, instances = [instance], runtimeCapabilities, scope = "instance", copy, locale, onClose, onOpenModels, onOpenChannels }: {
   client: DaemonClient;
@@ -335,6 +336,10 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
     if (runtimeMode && runtimeTab === "maintenance" && upgradePlanRead) void upgradePlanQuery.refetch();
     if (runtimeMode && runtimeTab === "maintenance" && backupRead) void backupsQuery.refetch();
     if (runtimeMode && runtimeTab === "operations") void runtimeOperationsQuery.refetch();
+    if (runtimeMode && runtimeTab === "models") {
+      void queryClient.invalidateQueries({ queryKey: ["model-configuration", targetInstance.instanceId] });
+      void queryClient.invalidateQueries({ queryKey: ["model-credential", targetInstance.instanceId] });
+    }
     if (!runtimeMode) {
       if (capabilities.lifecycle) void lifecycleQuery.refetch();
       if (onOpenModels) void modelQuery.refetch();
@@ -481,7 +486,7 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
 
       {runtimeMode ? (
         <nav className="runtime-management-tabs" aria-label={copy.management.runtimeNavigation}>
-          {(["overview", "instances", "skills", "mcp", "maintenance", "operations"] as RuntimeManagementTab[]).map((tab) => (
+          {(["overview", "instances", "models", "skills", "mcp", "maintenance", "operations"] as RuntimeManagementTab[]).map((tab) => (
             <button key={tab} type="button" className={runtimeTab === tab ? "is-active" : undefined} aria-current={runtimeTab === tab ? "page" : undefined} onClick={() => { setRuntimeTab(tab); setSelectedSkillId(null); }}>
               {copy.management.runtimeTabs[tab]}
             </button>
@@ -528,10 +533,26 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
         <DiagnosticInstanceSwitcher instances={instances} value={targetInstance.instanceId} copy={copy} onChange={selectTargetInstance} />
       ) : null}
 
+      {runtimeMode && runtimeTab === "models" ? (
+        <div className="runtime-model-workspace">
+          <RuntimeInstanceSelector
+            instances={instances}
+            value={targetInstance.instanceId}
+            label={copy.management.configuringInstance}
+            description={copy.management.modelConfiguringInstanceDescription}
+            copy={copy}
+            onChange={selectTargetInstance}
+          />
+          <ModelConfigurationPanel client={client} instance={targetInstance} copy={copy} locale={locale} embedded />
+        </div>
+      ) : null}
+
       {runtimeMode && runtimeTab === "skills" && selectedSkillId === null ? (
-        <RuntimeSkillInstanceSelector
+        <RuntimeInstanceSelector
           instances={instances}
           value={targetInstance.instanceId}
+          label={copy.management.configuringInstance}
+          description={copy.management.configuringInstanceDescription}
           copy={copy}
           onChange={(instanceId) => {
             setAssignmentInstanceIds([instanceId]);
@@ -846,11 +867,11 @@ function InstanceAssignmentSelector({ instances, selected, copy, onToggle }: { i
   );
 }
 
-function RuntimeSkillInstanceSelector({ instances, value, copy, onChange }: { instances: Instance[]; value: string; copy: AppMessages; onChange: (instanceId: string) => void }) {
+function RuntimeInstanceSelector({ instances, value, label, description, copy, onChange }: { instances: Instance[]; value: string; label: string; description: string; copy: AppMessages; onChange: (instanceId: string) => void }) {
   return (
     <label className="runtime-skill-instance-selector">
-      <span className="runtime-skill-instance-copy"><strong>{copy.management.configuringInstance}</strong><span>{copy.management.configuringInstanceDescription}</span></span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={copy.management.configuringInstance}>
+      <span className="runtime-skill-instance-copy"><strong>{label}</strong><span>{description}</span></span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={label}>
         {instances.filter((item) => item.availability === "AVAILABLE").map((item) => (
           <option key={item.instanceId} value={item.instanceId}>{item.name}{item.default ? ` (${copy.instances.defaultLabel})` : ""}</option>
         ))}

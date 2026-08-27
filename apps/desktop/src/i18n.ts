@@ -324,7 +324,7 @@ type Messages = {
     runtimeDescription: string;
     backToRuntime: string;
     runtimeNavigation: string;
-    runtimeTabs: Record<"overview" | "instances" | "skills" | "mcp" | "maintenance" | "diagnostics" | "operations", string>;
+    runtimeTabs: Record<"overview" | "instances" | "models" | "skills" | "mcp" | "maintenance" | "diagnostics" | "operations", string>;
     runtimeSummaryInstances: string;
     runtimeSummaryInstancesDetail: string;
     runtimeSummaryResources: string;
@@ -342,6 +342,7 @@ type Messages = {
     assignmentInstancesDescription: string;
     configuringInstance: string;
     configuringInstanceDescription: string;
+    modelConfiguringInstanceDescription: string;
     appliedInstances: string;
     currentState: string;
     openDetailedConfiguration: string;
@@ -976,7 +977,7 @@ const english: Messages = {
     runtimeDescription: "Manage this Runtime's instances, shared resources, maintenance, diagnostics, and operations in one place.",
     backToRuntime: "Back to Runtime",
     runtimeNavigation: "Runtime management sections",
-    runtimeTabs: { overview: "Overview", instances: "Instances", skills: "Skills", mcp: "MCP", maintenance: "Maintenance", diagnostics: "Diagnostics", operations: "Operations" },
+    runtimeTabs: { overview: "Overview", instances: "Instances", models: "Models", skills: "Skills", mcp: "MCP", maintenance: "Maintenance", diagnostics: "Diagnostics", operations: "Operations" },
     runtimeSummaryInstances: "Active instances",
     runtimeSummaryInstancesDetail: "{count} instances are registered under this Runtime.",
     runtimeSummaryResources: "Shared resources",
@@ -994,6 +995,7 @@ const english: Messages = {
     assignmentInstancesDescription: "Select the Hermes instances whose existing resources you want to view and manage. Multi-select provides a combined Runtime view.",
     configuringInstance: "Configuring",
     configuringInstanceDescription: "Select the Hermes instance whose Skills you want to view and manage.",
+    modelConfiguringInstanceDescription: "Select the Hermes instance whose model binding you want to configure.",
     appliedInstances: "Applied instances",
     currentState: "Current state",
     openDetailedConfiguration: "Open detailed configuration to complete setup.",
@@ -1638,7 +1640,7 @@ const simplifiedChinese: Messages = {
     runtimeDescription: "统一管理此 Runtime 下的实例、共享资源、维护、诊断与操作。",
     backToRuntime: "返回运行引擎",
     runtimeNavigation: "Runtime 管理栏目",
-    runtimeTabs: { overview: "概览", instances: "实例", skills: "Skills", mcp: "MCP", maintenance: "维护", diagnostics: "诊断", operations: "操作" },
+    runtimeTabs: { overview: "概览", instances: "实例", models: "模型", skills: "Skills", mcp: "MCP", maintenance: "维护", diagnostics: "诊断", operations: "操作" },
     runtimeSummaryInstances: "可用实例",
     runtimeSummaryInstancesDetail: "此 Runtime 共登记 {count} 个实例。",
     runtimeSummaryResources: "共享资源",
@@ -1656,6 +1658,7 @@ const simplifiedChinese: Messages = {
     assignmentInstancesDescription: "选择需要读取和管理的 Hermes 实例；多选时统一展示这些实例已有的资源。",
     configuringInstance: "正在配置",
     configuringInstanceDescription: "选择要查看和管理 Skills 的 Hermes 实例。",
+    modelConfiguringInstanceDescription: "选择要配置模型绑定的 Hermes 实例。",
     appliedInstances: "已应用实例",
     currentState: "当前状态",
     openDetailedConfiguration: "进入详细配置完成设置。",

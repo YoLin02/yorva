@@ -444,3 +444,18 @@ P7R-B0 observed the following implementation state:
 
 The P7R-B0 Gate passes only when these facts match the public contract, the prohibited
 custom MCP surface is absent from the commit and focused checks pass.
+
+P7R-B1 Runtime/Instance scope closure is implemented as follows:
+
+- Runtime Workspace navigation is Overview, Instances, Models, Skills, MCP,
+  Maintenance and Operations. Diagnostics remains intentionally hidden from the tab
+  strip and is opened from an exact Instance row.
+- Models now has a Runtime Workspace entry with an explicit Instance selector and reuses
+  the existing authoritative Hermes Profile model configuration flow. Shared Provider
+  Connections, Model Profiles and Runtime defaults remain B2/B3 work and are not faked.
+- Instance management retains only exact-Instance lifecycle, model and channel entry
+  points, Skill/MCP bindings, health and logs. Runtime upgrade, backup and restore remain
+  Runtime-only.
+
+The P7R-B1 Gate requires focused Desktop tests, TypeScript typecheck, lint and a non-MSI
+Desktop build before its automatic commit.

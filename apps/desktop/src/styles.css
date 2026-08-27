@@ -492,6 +492,19 @@ p {
   gap: 16px;
 }
 
+.runtime-model-workspace {
+  display: grid;
+  width: min(100%, 820px);
+  gap: 16px;
+}
+
+.model-panel.model-panel-embedded {
+  margin: 0;
+  border-color: #dbe3ec;
+  background: #fff;
+  box-shadow: none;
+}
+
 .dashboard-status-grid,
 .dashboard-detail-grid {
   display: grid;

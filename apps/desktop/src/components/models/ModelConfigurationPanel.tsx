@@ -15,10 +15,11 @@ type ModelConfigurationPanelProps = {
   instance: Instance;
   copy: AppMessages;
   locale: Locale;
-  onClose: () => void;
+  onClose?: () => void;
+  embedded?: boolean;
 };
 
-export function ModelConfigurationPanel({ client, instance, copy, locale, onClose }: ModelConfigurationPanelProps) {
+export function ModelConfigurationPanel({ client, instance, copy, locale, onClose, embedded = false }: ModelConfigurationPanelProps) {
   const queryClient = useQueryClient();
   const [providerPresetId, setProviderPresetId] = useState("");
   const [modelId, setModelId] = useState("");
@@ -222,15 +223,15 @@ export function ModelConfigurationPanel({ client, instance, copy, locale, onClos
   };
 
   return (
-    <Card className="model-panel" aria-label={`${copy.models.title}: ${instance.name}`}>
+    <Card className={embedded ? "model-panel model-panel-embedded" : "model-panel"} aria-label={`${copy.models.title}: ${instance.name}`}>
       <div className="panel-heading panel-heading-split">
         <div>
           <h3>{copy.models.title}</h3>
           <p className="panel-copy">{copy.models.description}</p>
         </div>
-        <Button className="model-modal-close" variant="ghost" onClick={onClose} aria-label={copy.models.close}>
+        {onClose ? <Button className="model-modal-close" variant="ghost" onClick={onClose} aria-label={copy.models.close}>
           <IconClose />
-        </Button>
+        </Button> : null}
       </div>
       {!available ? <p role="status" className="notice notice-warn">{copy.models.unavailable}</p> : null}
       {unsupported ? <p role="status" className="notice notice-warn">{copy.models.unsupported}</p> : null}

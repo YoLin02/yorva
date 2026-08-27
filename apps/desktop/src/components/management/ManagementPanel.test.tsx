@@ -70,6 +70,15 @@ function managementClient(overrides: Partial<DaemonClient> = {}) {
       observedAt: "2026-08-25T10:00:00Z",
     }),
     listRuntimeBackups: vi.fn().mockResolvedValue({ scope: "RUNTIME", items: [] }),
+    listModelProviderPresets: vi.fn().mockResolvedValue({ items: [{
+      id: "qwen", displayName: "Qwen", region: "CHINA", recommendedModels: ["qwen-plus"], helpText: "Reviewed Qwen configuration.",
+    }] }),
+    getModelConfiguration: vi.fn().mockResolvedValue({
+      providerPresetId: "qwen", modelId: "qwen-plus", selectedModelIds: ["qwen-plus"], state: "CONFIGURED",
+      credentialConfigured: true, observedAt: "2026-08-25T10:00:00Z", validation: { state: "PASSED", errorCode: null, completedAt: "2026-08-25T10:00:00Z" },
+    }),
+    getModelCredential: vi.fn().mockResolvedValue({ providerPresetId: "qwen", configured: true, observedAt: "2026-08-25T10:00:00Z" }),
+    listOperations: vi.fn().mockResolvedValue({ operations: [] }),
     listInstanceSkillSources: vi.fn().mockResolvedValue({ items: [] }),
     installManagedSkill: vi.fn(),
     importManagedSkill: vi.fn(),
@@ -263,6 +272,28 @@ describe("ManagementPanel", () => {
     await waitFor(() => expect(client.getInstanceLogSnapshot).toHaveBeenCalledWith("inst-review", "ERRORS", expect.any(AbortSignal)));
     fireEvent.click(screen.getByRole("button", { name: "coder", pressed: false }));
     await waitFor(() => expect(client.getInstanceHealth).toHaveBeenCalledWith("inst-coder", expect.any(AbortSignal)));
+  });
+
+  it("exposes model binding in the Runtime workspace and switches the authoritative instance", async () => {
+    const second: Instance = { ...instance, instanceId: "inst-review", name: "review" };
+    const client = managementClient({
+      getModelConfiguration: vi.fn().mockImplementation((instanceId: string) => Promise.resolve({
+        providerPresetId: "qwen", modelId: instanceId === "inst-review" ? "qwen-max" : "qwen-plus",
+        selectedModelIds: [instanceId === "inst-review" ? "qwen-max" : "qwen-plus"], state: "CONFIGURED",
+        credentialConfigured: true, observedAt: "2026-08-25T10:00:00Z", validation: { state: "PASSED", errorCode: null, completedAt: "2026-08-25T10:00:00Z" },
+      })),
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    render(<QueryClientProvider client={queryClient}><ManagementPanel client={client} instance={instance} instances={[instance, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
+
+    const navigation = screen.getByRole("navigation", { name: "Runtime management sections" });
+    fireEvent.click(within(navigation).getByRole("button", { name: "Models" }));
+    expect(await screen.findByRole("region", { name: "Add model Provider: coder" })).toBeInTheDocument();
+    await waitFor(() => expect(client.getModelConfiguration).toHaveBeenCalledWith("inst-coder", expect.any(AbortSignal)));
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Configuring" }), { target: { value: "inst-review" } });
+    expect(await screen.findByRole("region", { name: "Add model Provider: review" })).toBeInTheDocument();
+    await waitFor(() => expect(client.getModelConfiguration).toHaveBeenCalledWith("inst-review", expect.any(AbortSignal)));
   });
 
   it("does not issue reads or present fake actions when capabilities are false", () => {
