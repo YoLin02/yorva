@@ -834,3 +834,20 @@ P7R-B5 在不保留未来自定义执行面的前提下收口受限 MCP MVP：
 
 B5 Gate 要求 application/Runtime/HTTP 聚焦测试、带 tag 的生产 MCP 生命周期资格测试、
 Go vet、API drift、Desktop tests、typecheck/lint 与非 MSI build 通过后自动提交。
+
+P7R-B6 收口当前实际适用的 Runtime 维护 MVP：
+
+- Windows 上的加密 Runtime Backup create/read/restore/delete 保持真实接线，默认保存到
+  `<YORVA 应用数据>/backups`；Desktop 与 HTTP 请求均不携带目标路径；
+- 设备密钥继续由 OS-backed SecretStore 保存，只有加密发布、checksum 与权威校验全部
+  成功后才写入备份索引；
+- 本机产品日志已记录 2026-08-27 的一次真实备份创建成功，对应加密文件存在于默认应用
+  数据备份目录；
+- 当受支持的外部/开发 Hermes 版本已与内置候选一致时，只读计划现在准确显示
+  `UP_TO_DATE`，不再错误展示与本次无版本变更无关的受管升级证据缺口；
+- 版本一致绝不授予 Upgrade/Rollback mutation。当前没有更新的内置候选，因此没有可执行
+  的版本迁移；较旧的受管版本仍必须满足保护点、兼容性和 post-check 完整证据。
+
+B6 Gate 要求 Backup/Restore 与 Upgrade planner/application/HTTP tests、完整 Go tests/vet、
+Desktop 维护测试、typecheck/lint 与非 MSI build 通过后自动提交。针对 Owner 真实 Hermes
+数据的破坏性 Restore 仍留给 B7 明确手动 smoke，不在自动测试中执行。

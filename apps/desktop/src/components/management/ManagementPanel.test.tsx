@@ -399,6 +399,25 @@ describe("ManagementPanel", () => {
     }
   });
 
+  it("shows a matching external Runtime version as up to date without mutation actions", async () => {
+    const client = managementClient({
+      getRuntimeUpgradePlan: vi.fn().mockResolvedValue({
+        state: "UP_TO_DATE", currentVersion: "0.20.5",
+        candidate: { label: "Hermes 0.20.5 packaged snapshot", version: "0.20.5" },
+        managedStatus: "UNKNOWN", compatibility: "NOT_REQUIRED",
+        protectionPointRequired: false, protectionPointReady: false, blockedReasons: [],
+        observedAt: "2026-08-27T10:00:00Z",
+      }),
+    });
+    renderPanel(client, { ...instance, capabilities: { ...instance.capabilities, upgradePlan: true } }, "runtime");
+
+    fireEvent.click(screen.getByRole("button", { name: "Maintenance" }));
+    expect(await screen.findByText("Up to date")).toBeInTheDocument();
+    expect(screen.getAllByText("Not required")).toHaveLength(2);
+    expect(screen.queryByText("Evidence still required")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /upgrade|rollback/i })).not.toBeInTheDocument();
+  });
+
   it("keeps Runtime maintenance out of the Instance panel", () => {
     const client = managementClient();
     renderPanel(client, { ...instance, capabilities: { ...instance.capabilities, backupRead: true, upgradePlan: true } });

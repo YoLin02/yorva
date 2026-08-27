@@ -29,11 +29,27 @@ func (p *UpgradePlanner) PlanUpgrade(ctx context.Context, installation yorvarunt
 	if err := ctx.Err(); err != nil {
 		return yorvaruntime.UpgradePlan{}, err
 	}
+	if installation.RuntimeKind != Kind || installation.Path == "" || installation.Version == "" || installation.SupportState != yorvaruntime.DiscoverySupported {
+		return yorvaruntime.UpgradePlan{}, yorvaruntime.ErrInvalidManagementContract
+	}
 	observedAt := time.Now().UTC()
 	if p != nil && p.now != nil {
 		observedAt = p.now().UTC()
 	}
 	target := packagedUpgradeTarget()
+	active, managed := observeManagedActive(ctx, installation)
+	// Version status is useful even for an externally managed or development
+	// installation. Matching the packaged version proves that there is no
+	// version transition to perform; it does not grant Upgrade/Rollback mutation
+	// authority or claim that the current files equal YORVA's sealed snapshot.
+	if installation.Version == target.Version {
+		return yorvaruntime.UpgradePlan{
+			State: yorvaruntime.UpgradeUpToDate, Rollback: yorvaruntime.RollbackUnknown,
+			CurrentVersion: installation.Version, TargetVersion: target.Version,
+			CandidateLabel: upgradeCandidateLabel, Compatibility: yorvaruntime.UpgradeCompatibilityNotRequired,
+			Managed: managed, ObservedAt: observedAt,
+		}, nil
+	}
 	input := upgrademanagement.UpgradePlanInput{
 		Managed:         upgrademanagement.ManagedUnknown,
 		Target:          upgrademanagement.TargetObservation{State: upgrademanagement.EvidenceVerified, Compiled: target, Observed: target},
@@ -43,7 +59,7 @@ func (p *UpgradePlanner) PlanUpgrade(ctx context.Context, installation yorvarunt
 		PostcheckPolicy: upgrademanagement.PostcheckQualification{State: upgrademanagement.EvidenceUnknown},
 	}
 
-	record, ok := observeManagedActive(ctx, installation)
+	record, ok := active, managed
 	if ok {
 		input.Managed = upgrademanagement.ManagedProven
 		input.Active = upgrademanagement.ActivePointerObservation{

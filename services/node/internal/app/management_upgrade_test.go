@@ -106,6 +106,23 @@ func TestManagementUpgradePlanUsesExactRuntimeTarget(t *testing.T) {
 	}
 }
 
+func TestManagementUpgradeAcceptsReadOnlyUpToDateExternalPlan(t *testing.T) {
+	plan := yorvaruntime.UpgradePlan{
+		State: yorvaruntime.UpgradeUpToDate, Rollback: yorvaruntime.RollbackUnknown,
+		CurrentVersion: "0.20.2", TargetVersion: "0.20.2", CandidateLabel: "Hermes packaged snapshot",
+		Compatibility: yorvaruntime.UpgradeCompatibilityNotRequired,
+		ObservedAt:    time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC),
+	}
+	adapter := &fakeManagedUpgradeAdapter{plan: plan}
+	target := upgradeTarget(adapter)
+	target.Installation.Version = "0.20.2"
+	service := NewManagementUpgrade(&fakeRuntimeManagementTargetResolver{target: target})
+	got, err := service.PlanUpgrade(context.Background(), "hermes")
+	if err != nil || got.State != yorvaruntime.UpgradeUpToDate || got.Managed || got.UpgradeExecutable() || got.RollbackExecutable() {
+		t.Fatalf("PlanUpgrade() = %#v, %v", got, err)
+	}
+}
+
 func TestManagementUpgradePlanFailsClosedOnInvalidEvidence(t *testing.T) {
 	tests := []struct {
 		name   string

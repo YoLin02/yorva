@@ -311,7 +311,8 @@ func validManagedUpgradePlan(plan yorvaruntime.UpgradePlan, installation yorvaru
 		}
 	case yorvaruntime.UpgradeUpToDate:
 		if plan.PlanEvidenceComplete || plan.UpgradeMutationQualified || plan.RollbackMutationQualified ||
-			!plan.Managed || plan.CurrentVersion == "" || plan.TargetVersion == "" || plan.CurrentVersion != plan.TargetVersion {
+			plan.CurrentVersion == "" || plan.TargetVersion == "" || plan.CurrentVersion != plan.TargetVersion ||
+			plan.Compatibility != yorvaruntime.UpgradeCompatibilityNotRequired || len(plan.Reasons) != 0 {
 			return false
 		}
 	case yorvaruntime.UpgradeBlocked, yorvaruntime.UpgradeUnknown:

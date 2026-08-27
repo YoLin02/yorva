@@ -60,6 +60,25 @@ func TestUpgradePlannerTreatsExactActivePackagedSnapshotAsUpToDate(t *testing.T)
 	}
 }
 
+func TestUpgradePlannerReportsSupportedExternalMatchingVersionAsUpToDateWithoutMutationAuthority(t *testing.T) {
+	installation := yorvaruntime.Installation{
+		RuntimeKind: Kind, Path: filepath.Join(t.TempDir(), "hermes.exe"),
+		Version: officialPackageVersion, SupportState: yorvaruntime.DiscoverySupported,
+	}
+	plan, err := NewUpgradePlanner().PlanUpgrade(context.Background(), installation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if plan.State != yorvaruntime.UpgradeUpToDate || plan.Managed || plan.CurrentVersion != officialPackageVersion ||
+		plan.TargetVersion != officialPackageVersion || plan.Compatibility != yorvaruntime.UpgradeCompatibilityNotRequired ||
+		len(plan.Reasons) != 0 || plan.PlanEvidenceComplete || plan.UpgradeExecutable() || plan.RollbackExecutable() {
+		t.Fatalf("external up-to-date plan = %#v", plan)
+	}
+}
+
 func TestUpgradePlannerDoesNotTrustVersionWithoutMatchingLiveSeal(t *testing.T) {
 	installation := materializeUpgradeActive(t, "0.20.2", "df4b65147d7ddd74dd449f9067aabbca5aef0ec7")
 	if err := os.WriteFile(installation.Path, []byte("mutated"), 0o600); err != nil {

@@ -497,3 +497,23 @@ P7R-B5 closes the restricted MCP MVP without retaining a future custom execution
 The B5 Gate requires focused application/Runtime/HTTP tests, the tagged production MCP
 lifecycle qualification, Go vet, API drift checks, Desktop tests, typecheck/lint and a
 non-MSI build before automatic commit.
+
+P7R-B6 closes the currently applicable Runtime maintenance MVP:
+
+- encrypted Runtime Backup create/read/restore/delete remains wired on Windows and defaults
+  to `<YORVA app data>/backups`; the Desktop and HTTP request contain no destination path;
+- the device key remains OS-backed and a backup is indexed only after encrypted publication,
+  checksum and authoritative verification succeed;
+- the local product log recorded a successful real backup creation on 2026-08-27 and the
+  corresponding encrypted artifact exists under the default application-data backup folder;
+- when a supported external/development Hermes reports the same version as the packaged
+  candidate, the read-only plan now truthfully reports `UP_TO_DATE` instead of unrelated
+  managed-upgrade evidence gaps;
+- matching-version status never grants Upgrade/Rollback mutation authority. With no newer
+  packaged candidate there is no version transition to execute; older managed versions
+  continue to require complete protection, compatibility and post-check evidence.
+
+The B6 Gate requires Backup/Restore and Upgrade planner/application/HTTP tests, full Go
+tests/vet, Desktop maintenance tests, typecheck/lint and a non-MSI build before automatic
+commit. Destructive Restore against the Owner's live Hermes data remains an explicit B7
+manual smoke action rather than an automatic test.
