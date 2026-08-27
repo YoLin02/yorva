@@ -851,3 +851,17 @@ P7R-B6 收口当前实际适用的 Runtime 维护 MVP：
 B6 Gate 要求 Backup/Restore 与 Upgrade planner/application/HTTP tests、完整 Go tests/vet、
 Desktop 维护测试、typecheck/lint 与非 MSI build 通过后自动提交。针对 Owner 真实 Hermes
 数据的破坏性 Restore 仍留给 B7 明确手动 smoke，不在自动测试中执行。
+
+P7R-B7 的自动化集成与交接检查已完成：
+
+- 当前分支的完整 Go test/vet、API lint/generate drift、Desktop tests、TypeScript
+  typecheck、lint 与非 MSI Vite build 均已通过；
+- 带 tag 的 MCP 资格测试覆盖审核 Preset 从 Hermes Profile 写入、连接测试、权威回读、
+  Binding 更新到删除的完整生命周期；
+- 已从 P7 linked worktree 启动当前非 MSI Desktop 及其内置 `yorvad`，供 Owner 手动查看；
+- 聚焦累计 diff 审查确认未开放调用者控制的 MCP command、args、environment、headers、
+  executable/path 或任意 JSON mutation surface；
+- 未对 Owner 真实 Hermes 数据执行破坏性 Restore，也未 push、merge、tag 或 freeze。
+
+以上只表示 B7 自动化交接完成。Phase 7 仍保持进行中，等待 Owner 手动验收，以及后续明确
+授权的真实数据 Restore smoke 或 freeze 操作。

@@ -6,4 +6,3 @@ CREATE TABLE managed_mcp_bindings (
     updated_at TEXT NOT NULL,
     PRIMARY KEY (instance_id, server_id)
 );
-

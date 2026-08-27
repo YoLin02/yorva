@@ -517,3 +517,19 @@ The B6 Gate requires Backup/Restore and Upgrade planner/application/HTTP tests, 
 tests/vet, Desktop maintenance tests, typecheck/lint and a non-MSI build before automatic
 commit. Destructive Restore against the Owner's live Hermes data remains an explicit B7
 manual smoke action rather than an automatic test.
+
+P7R-B7 automated integration and handoff checks are complete:
+
+- the full Go test and vet suites, API lint/generation drift check, Desktop test suite,
+  TypeScript typecheck, lint and non-MSI Vite build passed on the current branch;
+- the tagged MCP qualification covered the reviewed-Preset lifecycle through Hermes
+  Profile write, connection test, authoritative read-back, binding update and removal;
+- the current non-MSI Desktop and its bundled `yorvad` were launched from the linked P7
+  worktree for Owner inspection;
+- the focused cumulative diff review found no caller-controlled MCP command, args,
+  environment, headers, executable/path or arbitrary JSON mutation surface;
+- no destructive Restore was run against the Owner's live Hermes data, and no push, merge,
+  tag or freeze was performed.
+
+This completes the automated B7 handoff only. Phase 7 remains in progress pending Owner
+manual acceptance and any explicitly authorized live-data Restore smoke or freeze action.
