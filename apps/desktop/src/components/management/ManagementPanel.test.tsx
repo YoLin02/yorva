@@ -324,6 +324,41 @@ describe("ManagementPanel", () => {
     expect(client.listRuntimeModelBindings).toHaveBeenCalledWith("hermes", expect.any(AbortSignal));
   });
 
+  it("keeps model workflows off the resource page and opens dedicated configuration pages", async () => {
+    const second: Instance = { ...instance, instanceId: "inst-review", name: "review" };
+    const client = managementClient({
+      listRuntimeModelProviderConnections: vi.fn().mockResolvedValue({ items: [{ id: "mpc-test", providerPresetId: "qwen", displayName: "Shared Qwen", credentialConfigured: true, status: "CONFIGURED", revision: 1, createdAt: "2026-08-25T10:00:00Z", updatedAt: "2026-08-25T10:00:00Z" }] }),
+      listRuntimeModelProfiles: vi.fn().mockResolvedValue({ items: [{ id: "mpr-test", providerConnectionId: "mpc-test", displayName: "Qwen production", selectedModelIds: ["qwen-plus"], defaultModelId: "qwen-plus", revision: 1, createdAt: "2026-08-25T10:00:00Z", updatedAt: "2026-08-25T10:00:00Z" }] }),
+      getRuntimeModelDefault: vi.fn().mockResolvedValue({ modelProfileId: "mpr-test", appliedRevision: 1, updatedAt: "2026-08-25T10:00:00Z" }),
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    render(<QueryClientProvider client={queryClient}><ManagementPanel client={client} instance={instance} instances={[instance, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
+
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Runtime management sections" })).getByRole("button", { name: "Models" }));
+    expect(await screen.findByText("Shared models")).toBeInTheDocument();
+    expect(screen.queryByLabelText("API Key")).not.toBeInTheDocument();
+
+    const addConnection = screen.getByRole("button", { name: "Add connection" });
+    await waitFor(() => expect(addConnection).toBeEnabled());
+    fireEvent.click(addConnection);
+    expect(screen.getByRole("heading", { name: "Add connection" })).toBeInTheDocument();
+    expect(screen.getByLabelText("API Key")).toBeInTheDocument();
+    expect(screen.queryByText("Model Profiles")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Profile" }));
+    expect(screen.getByRole("heading", { name: "Add Profile" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Models" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Configure bindings" }));
+    expect(screen.getByRole("heading", { name: "Configure bindings" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Managed instances" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "review" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: /Back to shared models/ }));
+    expect(await screen.findByText("Shared models")).toBeInTheDocument();
+  });
+
   it("does not issue reads or present fake actions when capabilities are false", () => {
     const client = managementClient();
     const unavailable: Instance = {

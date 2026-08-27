@@ -499,9 +499,11 @@ p {
 }
 
 .runtime-models-page {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   width: min(100%, 860px);
-  gap: 16px;
+  gap: 14px;
+  padding-bottom: 24px;
 }
 
 .runtime-models-intro h3,
@@ -531,61 +533,53 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 16px;
+  min-height: 68px;
+  padding: 12px 16px;
   border-bottom: 1px solid #e7edf3;
 }
 
-.runtime-model-form,
-.runtime-model-apply {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid #e7edf3;
-  background: #f8fafc;
+.runtime-model-group-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
 }
 
-.runtime-model-form > label,
-.runtime-model-apply > label {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 600;
+.runtime-model-group-actions .button {
+  border-color: #dbe3ec;
+  color: #475569;
 }
 
-.runtime-model-form input,
-.runtime-model-form select,
 .runtime-model-inline select,
-.runtime-model-apply select {
+.runtime-model-form-grid input,
+.runtime-model-form-grid select {
   width: 100%;
   min-width: 0;
-  min-height: 36px;
+  height: 36px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 7px 10px;
+  padding: 0 10px;
   background: #fff;
   color: #0f172a;
   font: inherit;
 }
 
-.runtime-model-form > .button,
-.runtime-model-apply > .button {
-  align-self: end;
-  justify-self: start;
+.runtime-model-inline select:focus,
+.runtime-model-form-grid input:focus,
+.runtime-model-form-grid select:focus {
+  border-color: var(--yorva-brand);
+  outline: 3px solid rgb(217 54 0 / 10%);
 }
 
 .runtime-model-options,
-.runtime-model-apply fieldset {
-  grid-column: 1 / -1;
+.runtime-model-config-choice {
   margin: 0;
   border: 0;
   padding: 0;
 }
 
 .runtime-model-options legend,
-.runtime-model-apply legend {
+.runtime-model-config-choice legend {
   margin-bottom: 7px;
   color: #334155;
   font-size: 12px;
@@ -593,14 +587,14 @@ p {
 }
 
 .runtime-model-options,
-.runtime-model-apply fieldset > div {
+.runtime-model-config-choice > div {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
 .runtime-model-options label,
-.runtime-model-apply fieldset label {
+.runtime-model-config-choice label {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -662,17 +656,110 @@ p {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px;
+  min-height: 64px;
+  padding: 12px 16px;
 }
 
 .runtime-model-inline select {
   max-width: 420px;
 }
 
+.runtime-model-config-page {
+  width: min(100%, 720px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.runtime-model-config-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 0 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.runtime-model-config-header > div {
+  min-width: 0;
+}
+
+.runtime-model-config-header h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.runtime-model-config-header p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.runtime-model-config-back {
+  min-height: 30px;
+  margin-left: -10px;
+  padding: 4px 10px;
+  color: #475569;
+}
+
+.runtime-model-config-form {
+  overflow: hidden;
+  border: 1px solid #dbe3ec;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.runtime-model-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding: 18px;
+}
+
+.runtime-model-form-grid > label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.runtime-model-config-wide {
+  grid-column: 1 / -1;
+}
+
+.runtime-model-config-form footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 12px 18px;
+  border-top: 1px solid #edf1f5;
+  background: #f8fafc;
+}
+
 @media (max-width: 760px) {
-  .runtime-model-form,
-  .runtime-model-apply {
+  .runtime-model-form-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .runtime-model-config-wide {
+    grid-column: auto;
+  }
+
+  .runtime-model-group > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .runtime-model-group-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .runtime-model-resource-list article,

@@ -349,11 +349,13 @@ type Messages = {
     providerConnectionsTitle: string;
     providerConnectionsDescription: string;
     addProviderConnection: string;
+    providerConnectionConfigurationDescription: string;
     noProviderConnections: string;
     providerConnection: string;
     modelProfilesTitle: string;
     modelProfilesDescription: string;
     addModelProfile: string;
+    modelProfileConfigurationDescription: string;
     noModelProfiles: string;
     resourceDisplayName: string;
     profileModels: string;
@@ -369,7 +371,11 @@ type Messages = {
     modelProfile: string;
     bindingMode: string;
     applyModelProfile: string;
+    configureModelBindings: string;
+    modelBindingConfigurationDescription: string;
     modelApplicationRunning: string;
+    backToSharedModels: string;
+    cancelModelConfiguration: string;
     removeResource: string;
     modelBindingMode: Record<"INHERIT" | "OVERRIDE" | "EXTERNAL_CONFIGURATION", string>;
     modelBindingState: Record<"PENDING" | "SUCCEEDED" | "FAILED" | "SKIPPED", string>;
@@ -1033,11 +1039,13 @@ const english: Messages = {
     providerConnectionsTitle: "Provider connections",
     providerConnectionsDescription: "Runtime-owned Provider access. Credentials are protected by the operating system and never returned by read APIs.",
     addProviderConnection: "Add connection",
+    providerConnectionConfigurationDescription: "Create one protected Runtime Provider connection. The credential is write-only and is never returned by YORVA.",
     noProviderConnections: "No Provider connections yet.",
     providerConnection: "Provider connection",
     modelProfilesTitle: "Model Profiles",
     modelProfilesDescription: "Reusable model selections that reference one protected Provider connection.",
     addModelProfile: "Add Profile",
+    modelProfileConfigurationDescription: "Choose a protected Provider connection, select the reusable model set, and mark one model as the default.",
     noModelProfiles: "No model Profiles yet.",
     resourceDisplayName: "Display name",
     profileModels: "Models",
@@ -1053,7 +1061,11 @@ const english: Messages = {
     modelProfile: "Model Profile",
     bindingMode: "Binding mode",
     applyModelProfile: "Apply to selected instances",
+    configureModelBindings: "Configure bindings",
+    modelBindingConfigurationDescription: "Choose one Profile, its binding mode, and the Hermes instances that should receive this configuration.",
     modelApplicationRunning: "Applying Profile…",
+    backToSharedModels: "Back to shared models",
+    cancelModelConfiguration: "Cancel",
     removeResource: "Remove",
     modelBindingMode: { INHERIT: "Runtime default copy", OVERRIDE: "Instance override", EXTERNAL_CONFIGURATION: "External configuration" },
     modelBindingState: { PENDING: "Pending", SUCCEEDED: "Succeeded", FAILED: "Failed", SKIPPED: "Skipped" },
@@ -1727,11 +1739,13 @@ const simplifiedChinese: Messages = {
     providerConnectionsTitle: "模型供应商连接",
     providerConnectionsDescription: "Runtime 统一管理的 Provider 访问；凭据由操作系统保护，读取接口绝不返回明文。",
     addProviderConnection: "新增连接",
+    providerConnectionConfigurationDescription: "创建一个由 Runtime 保护的模型供应商连接；凭据只写入，不会由 YORVA 读取接口返回。",
     noProviderConnections: "尚未创建模型供应商连接。",
     providerConnection: "模型供应商连接",
     modelProfilesTitle: "模型配置方案",
     modelProfilesDescription: "引用一个受保护 Provider 连接的可复用模型选择。",
     addModelProfile: "新增方案",
+    modelProfileConfigurationDescription: "选择受保护的模型供应商连接，配置可复用的模型集合，并指定默认模型。",
     noModelProfiles: "尚未创建模型配置方案。",
     resourceDisplayName: "显示名称",
     profileModels: "模型",
@@ -1747,7 +1761,11 @@ const simplifiedChinese: Messages = {
     modelProfile: "模型配置方案",
     bindingMode: "绑定模式",
     applyModelProfile: "应用到所选实例",
+    configureModelBindings: "配置绑定",
+    modelBindingConfigurationDescription: "选择模型方案、绑定模式和需要接收此配置的 Hermes 实例。",
     modelApplicationRunning: "正在应用方案…",
+    backToSharedModels: "返回共享模型",
+    cancelModelConfiguration: "取消",
     removeResource: "移除",
     modelBindingMode: { INHERIT: "Runtime 默认副本", OVERRIDE: "实例覆盖", EXTERNAL_CONFIGURATION: "外部配置" },
     modelBindingState: { PENDING: "等待中", SUCCEEDED: "成功", FAILED: "失败", SKIPPED: "已跳过" },
