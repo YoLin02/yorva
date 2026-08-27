@@ -203,6 +203,23 @@ describe("ManagementPanel", () => {
     expect(await screen.findByText("Draft and refine documents.")).toBeInTheDocument();
   });
 
+  it("offers a bounded reproject action for a missing YORVA-managed Skill projection", async () => {
+    const enableManagedSkill = vi.fn().mockResolvedValue({ id: "op-reproject", status: "PENDING" });
+    const client = managementClient({
+      enableManagedSkill,
+      listInstanceSkills: vi.fn().mockResolvedValue({ items: [{
+        id: "yorva-document-review", sourceId: "yorva-reviewed", version: "1.0.0", ownership: "YORVA_MANAGED", projectionState: "DRIFT_MISSING",
+        installationState: "INSTALLED", enabledState: "UNKNOWN", scanState: "CLEAN", updateAvailable: false,
+      }] }),
+    });
+    renderPanel(client, { ...instance, capabilities: { ...instance.capabilities, skillMutate: true } }, "runtime");
+
+    fireEvent.click(screen.getByRole("button", { name: "Skills" }));
+    expect(await screen.findByText("Missing drift")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reproject" }));
+    await waitFor(() => expect(enableManagedSkill).toHaveBeenCalledWith("inst-coder", "yorva-document-review", expect.any(String)));
+  });
+
   it("separates Runtime MCP definitions from instance bindings and explains read-only capability", async () => {
     renderPanel(managementClient(), instance, "runtime");
 

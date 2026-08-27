@@ -464,6 +464,7 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
       mutationPending={skillRunning && skillMutation.variables?.skillId === skill.id}
       onOpen={() => openSkillPreview(skill.id)}
       onToggle={() => skillMutation.mutate({ action: skill.enabledState === "ENABLED" ? "disable" : "enable", skillId: skill.id })}
+      onReproject={() => skillMutation.mutate({ action: "enable", skillId: skill.id })}
     />;
   };
 
@@ -1055,7 +1056,7 @@ function ManagementSection({ title, description, supported, loading, error, copy
   );
 }
 
-function RuntimeSkillRow({ skill, assignedInstances, copy, mutable, mutationPending, onOpen, onToggle }: {
+function RuntimeSkillRow({ skill, assignedInstances, copy, mutable, mutationPending, onOpen, onToggle, onReproject }: {
   skill: Skill;
   assignedInstances: string[];
   copy: AppMessages;
@@ -1063,9 +1064,11 @@ function RuntimeSkillRow({ skill, assignedInstances, copy, mutable, mutationPend
   mutationPending: boolean;
   onOpen: () => void;
   onToggle: () => void;
+  onReproject: () => void;
 }) {
   const enabled = skill.enabledState === "ENABLED";
   const toggleReady = mutable && (skill.enabledState === "ENABLED" || skill.enabledState === "DISABLED") && skill.projectionState !== "DRIFT_MODIFIED" && skill.projectionState !== "CONFLICT";
+  const drifted = skill.projectionState === "DRIFT_MISSING" || skill.projectionState === "DRIFT_MODIFIED" || skill.projectionState === "CONFLICT";
   return (
     <article className="runtime-skill-row">
       <button type="button" className="runtime-skill-row-main" aria-label={`${skill.id}: ${skill.description || copy.management.skillDescriptionFallback}`} onClick={onOpen}>
@@ -1076,6 +1079,8 @@ function RuntimeSkillRow({ skill, assignedInstances, copy, mutable, mutationPend
         </span>
       </button>
       <div className="runtime-skill-row-actions">
+        {drifted ? <Badge tone="warn">{copy.management.projectionState[skill.projectionState]}</Badge> : null}
+        {mutable && skill.projectionState === "DRIFT_MISSING" ? <Button className="button-compact" disabled={mutationPending} onClick={onReproject}>{copy.management.reprojectSkill}</Button> : null}
         <label className="runtime-skill-switch" title={!toggleReady ? copy.management.skillToggleReadOnly : undefined}>
           <input
             type="checkbox"

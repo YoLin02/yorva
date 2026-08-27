@@ -809,3 +809,14 @@ P7R-B2/B3 已实现真实的 Runtime 共享模型资源：
 
 B2/B3 Gate 要求 migration、application、HTTP/OpenAPI、Desktop client/component、Secret
 不泄露、typecheck/lint 与非 MSI build 检查通过后自动提交。
+
+P7R-B4 在不改变 Hermes 原生所有权的前提下收口 Skills MVP：
+
+- 审核 Catalog 新增一个真实可用、digest 校验、纯文本的文档审查 Skill；
+- ZIP 与目录导入继续经过有界校验并进入不可变 managed store；
+- YORVA-owned 投影缺失时明确显示 Drift，并提供“重新投影”入口；
+- 内容被修改、所有权冲突或外部目标继续 fail-closed、保持只读；
+- 重新投影复用持久化 `skill.enable` Operation，并以权威回读确认结果。
+
+B4 Gate 要求 managed store/application tests、Desktop interaction tests、typecheck/lint
+与非 MSI build 通过后自动提交。

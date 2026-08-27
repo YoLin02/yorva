@@ -12,12 +12,15 @@ import (
 
 func TestBuiltInCatalogAcquireAndHash(t *testing.T) {
 	catalog := ListCatalog()
-	if len(catalog) != 1 {
-		t.Fatalf("catalog length = %d, want 1", len(catalog))
+	if len(catalog) != 2 {
+		t.Fatalf("catalog length = %d, want 2", len(catalog))
 	}
 	entry := catalog[0]
 	if entry.SourceID != "yorva-demo" || entry.SkillID != "yorva-managed-demo" || entry.Version != "1.0.0" {
 		t.Fatalf("unexpected catalog entry: %#v", entry)
+	}
+	if catalog[1].SourceID != "yorva-reviewed" || catalog[1].SkillID != "yorva-document-review" || catalog[1].DisplayName != "YORVA Document Review" || catalog[1].Version != "1.0.0" {
+		t.Fatalf("unexpected reviewed catalog entry: %#v", catalog[1])
 	}
 	dataDir := t.TempDir()
 	store, err := NewStore(dataDir)
@@ -41,6 +44,13 @@ func TestBuiltInCatalogAcquireAndHash(t *testing.T) {
 	}
 	if bundle.ContentSHA256 != acquired.ContentSHA256 {
 		t.Fatalf("bundle digest = %q, acquisition = %q", bundle.ContentSHA256, acquired.ContentSHA256)
+	}
+	reviewed, err := store.AcquireToManaged(context.Background(), "instance-1", catalog[1].SkillID, catalog[1].SourceID)
+	if err != nil {
+		t.Fatalf("acquire reviewed catalog Skill: %v", err)
+	}
+	if reviewed.SkillID != "yorva-document-review" || len(reviewed.ContentSHA256) != 64 {
+		t.Fatalf("reviewed acquisition = %#v", reviewed)
 	}
 	again, err := store.AcquireToManaged(context.Background(), "instance-1", entry.SkillID, entry.SourceID)
 	if err != nil || again != acquired {

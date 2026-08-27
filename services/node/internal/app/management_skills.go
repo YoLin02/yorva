@@ -105,7 +105,11 @@ func (s *ManagementSkills) ListSources(ctx context.Context, instanceID string) (
 	}
 	result := make([]SkillSourceView, 0, len(entries))
 	for _, entry := range entries {
-		result = append(result, SkillSourceView{SourceID: entry.SourceID, SkillID: entry.SkillID, DisplayName: entry.Description, Version: entry.Version})
+		displayName := entry.DisplayName
+		if displayName == "" {
+			displayName = entry.SkillID
+		}
+		result = append(result, SkillSourceView{SourceID: entry.SourceID, SkillID: entry.SkillID, DisplayName: displayName, Version: entry.Version})
 	}
 	return result, nil
 }

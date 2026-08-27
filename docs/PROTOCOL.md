@@ -377,6 +377,12 @@ destinations and drifted managed projections return a stable conflict and remain
 unchanged. A successful projection change restarts an already running Instance; it does
 not start an Instance that was stopped.
 
+The reviewed catalog contains immutable, digest-verified prose-only packages rather
+than executable installers. `skill.enable` also acts as the explicit reproject action
+when a YORVA-owned projection is missing and its managed package digest still matches.
+A modified or ownership-conflicting destination remains fail-closed and is never
+overwritten by reproject.
+
 Instance capability responses report YORVA `skillRead` and `skillMutate` separately
 from the six `nativeSkills` fields: native inventory, install, update, remove,
 enable/disable and Profile binding. On exact Hermes `0.20.5`, unavailable native

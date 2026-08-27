@@ -429,6 +429,7 @@ type Messages = {
     updateSkill: string;
     enableSkill: string;
     disableSkill: string;
+    reprojectSkill: string;
     removeSkill: string;
     skillMutationRunning: string;
     skillMutationFailed: string;
@@ -1112,6 +1113,7 @@ const english: Messages = {
     updateSkill: "Update",
     enableSkill: "Enable",
     disableSkill: "Disable",
+    reprojectSkill: "Reproject",
     removeSkill: "Remove",
     skillMutationRunning: "Applying managed Skill change…",
     skillMutationFailed: "The managed Skill change could not be completed.",
@@ -1805,6 +1807,7 @@ const simplifiedChinese: Messages = {
     updateSkill: "更新",
     enableSkill: "启用",
     disableSkill: "停用",
+    reprojectSkill: "重新投影",
     removeSkill: "移除",
     skillMutationRunning: "正在应用受管 Skill 变更…",
     skillMutationFailed: "无法完成受管 Skill 变更。",

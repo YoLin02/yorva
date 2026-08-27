@@ -38,6 +38,7 @@ var (
 type CatalogEntry struct {
 	SourceID    string
 	SkillID     string
+	DisplayName string
 	Version     string
 	Description string
 }
@@ -62,16 +63,30 @@ type Store struct {
 	sources []catalogSource
 }
 
-var builtInSources = []catalogSource{{
-	descriptor: CatalogEntry{
-		SourceID:    "yorva-demo",
-		SkillID:     "yorva-managed-demo",
-		Version:     "1.0.0",
-		Description: "A reviewed prose-only demonstration Skill managed by YORVA.",
+var builtInSources = []catalogSource{
+	{
+		descriptor: CatalogEntry{
+			SourceID:    "yorva-demo",
+			SkillID:     "yorva-managed-demo",
+			DisplayName: "YORVA Managed Demo",
+			Version:     "1.0.0",
+			Description: "A reviewed prose-only demonstration Skill managed by YORVA.",
+		},
+		filesystem: builtInCatalog,
+		directory:  path.Join(builtInCatalogRoot, "yorva-managed-demo"),
 	},
-	filesystem: builtInCatalog,
-	directory:  path.Join(builtInCatalogRoot, "yorva-managed-demo"),
-}}
+	{
+		descriptor: CatalogEntry{
+			SourceID:    "yorva-reviewed",
+			SkillID:     "yorva-document-review",
+			DisplayName: "YORVA Document Review",
+			Version:     "1.0.0",
+			Description: "Reviews documents for clarity, consistency, evidence, and actionable follow-up.",
+		},
+		filesystem: builtInCatalog,
+		directory:  path.Join(builtInCatalogRoot, "yorva-document-review"),
+	},
+}
 
 func NewStore(dataDir string) (*Store, error) {
 	absolute, err := filepath.Abs(dataDir)

@@ -391,4 +391,15 @@ func TestManagedSkillExternalProjectionCannotBeMutatedAndMissingIsReported(t *te
 	if err != nil || len(items) != 1 || items[0].ProjectionState != yorvaruntime.SkillProjectionDriftMissing {
 		t.Fatalf("missing projection inventory = %#v, %v", items, err)
 	}
+	started, err := service.StartEnable(context.Background(), instanceID, record.SkillID, "reproject-missing-skill")
+	if err != nil {
+		t.Fatalf("StartEnable() missing projection = %v", err)
+	}
+	if completed := waitForTestOperation(t, db, started.Operation.ID); completed.Status != operation.StatusSucceeded {
+		t.Fatalf("reproject operation = %#v", completed)
+	}
+	items, err = service.ListSkills(context.Background(), instanceID)
+	if err != nil || len(items) != 1 || items[0].ProjectionState != yorvaruntime.SkillProjectionProjected || len(projector.projectRequests) != 1 {
+		t.Fatalf("reprojected inventory = %#v, projects=%#v, err=%v", items, projector.projectRequests, err)
+	}
 }

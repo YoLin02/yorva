@@ -243,6 +243,12 @@ running Instance so Hermes does not retain a stale Skills cache; a stopped Insta
 remains stopped. Mutations are durable Operations and interrupted work is reconciled
 from the record and filesystem truth rather than replayed blindly. See ADR-0018.
 
+P7R ships a small reviewed catalog with an actual prose-only document-review Skill in
+addition to the compatibility demo. Local ZIP/directory imports use the same package
+validation. Missing YORVA-owned projections can be explicitly reprojected from the
+immutable managed copy; modified or conflicting destinations remain read-only until the
+user resolves the external state.
+
 ## 7. Runtime bundle/registry
 
 V0.1 does not implement a dynamic plugin system.

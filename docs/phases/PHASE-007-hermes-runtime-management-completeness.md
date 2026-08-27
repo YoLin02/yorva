@@ -471,3 +471,14 @@ P7R-B2/B3 shared model resources are implemented as real Runtime resources:
 
 The B2/B3 Gate requires migration, application, HTTP/OpenAPI, Desktop client/component,
 secret non-disclosure, typecheck/lint and non-MSI build checks before automatic commit.
+
+P7R-B4 closes the MVP Skills loop without changing Hermes-native ownership:
+
+- the reviewed catalog now includes a useful digest-verified prose-only document-review Skill;
+- ZIP and directory imports continue through bounded validation and immutable managed storage;
+- a missing YORVA-owned projection is visible as Drift and has an explicit reproject action;
+- modified/conflicting or external destinations remain fail-closed and read-only;
+- reproject uses the existing durable `skill.enable` Operation and authoritative readback.
+
+The B4 Gate requires managed store/application tests, Desktop interaction tests,
+typecheck/lint and non-MSI build before automatic commit.
