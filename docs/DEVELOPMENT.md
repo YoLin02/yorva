@@ -126,6 +126,9 @@ Rules:
 - Zustand is not a replacement for all local state.
 - Tauri Rust code remains a narrow native shell and security/native integration layer.
 - Desktop must never call Hermes CLI or write Hermes configuration directly.
+- Read `docs/UI_DESIGN.md` before adding or restructuring Desktop management UI. The
+  Settings page is the visual baseline; resource indexes must open dedicated configuration
+  pages instead of accumulating long editable forms.
 
 Suggested structure:
 
