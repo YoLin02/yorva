@@ -554,3 +554,15 @@ The P8 inputs retained from the MVP-first plan are the product support matrix, d
 migration, crash/restart recovery, installer lifecycle, YORVA update, sanitized diagnostics
 bundle, and basic stability verification. They must not become a READY Phase 8 execution
 Spec, and P8 implementation must not begin, until Phase 7 remediation and re-audit PASS.
+
+## 18. Owner scope amendment: managed Upgrade/Rollback deferred
+
+On 2026-08-27 the Owner approved
+`docs/phases/amendments/AMENDMENT-007A1-defer-managed-hermes-upgrade.md`. Executable
+managed Hermes Upgrade/Rollback is deferred to a later separately approved scope. Phase 7
+keeps only the truthful read-only Upgrade Plan and keeps production Upgrade/Rollback
+capabilities false. ADR-0015 remains the safety contract for future implementation.
+
+The revised freeze blockers are the disposable Restore lifecycle and exact-candidate
+CI/race evidence. The original failed audit remains preserved; a re-audit must determine
+the final Gate after both remaining items are complete.

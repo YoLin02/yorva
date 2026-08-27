@@ -234,3 +234,15 @@ match the Phase Spec's mandatory acceptance and stop conditions.
 Return Phase 7 to remediation. Do not push the current candidate for merge, merge it,
 create the Phase 7 baseline tag, mark the phase FROZEN, or begin P8 implementation/spec
 finalization.
+
+## Owner Scope Disposition — 2026-08-27
+
+After this audit, the Owner approved
+`docs/phases/amendments/AMENDMENT-007A1-defer-managed-hermes-upgrade.md`.
+Executable managed Hermes Upgrade/Rollback is deferred from the Phase 7 freeze scope;
+the read-only plan remains and production mutation capability remains false. This does
+not rewrite the original audit result or claim that HIGH-001 was implemented. It removes
+HIGH-001 from the revised Phase 7 acceptance by explicit Owner scope decision.
+
+HIGH-002 (disposable Restore lifecycle) and HIGH-003 (exact-candidate CI/race evidence)
+remain blocking until a separate re-audit records their closure.

@@ -898,3 +898,14 @@ Gate Decision：**FAIL**。阻断项为：
 数据库 Migration、崩溃/重启恢复、安装器生命周期、YORVA 更新、脱敏诊断包和基础稳定性
 验证，但在 Phase 7 修复并通过重审前不得形成 READY 的 Phase 8 执行 Spec，也不得开始
 P8 实现。
+
+## 25. Owner 范围修订：延期 Managed Upgrade/Rollback
+
+Owner 于 2026-08-27 批准
+`docs/phases/amendments/AMENDMENT-007A1-defer-managed-hermes-upgrade.md`。可执行的
+Hermes Managed Upgrade/Rollback 从 Phase 7 冻结范围延期到后续单独批准的阶段或修订。
+Phase 7 只保留如实、只读的 Upgrade Plan，生产环境 Upgrade/Rollback capability 继续为
+false；ADR-0015 仍是未来实现必须遵守的安全合同。
+
+修订后的冻结阻断项只剩 disposable Restore 完整生命周期和精确候选的 CI/race 证据。
+原始失败审计继续保留，不把延期伪装成实现通过；完成剩余两项后必须另行重审 Gate。

@@ -321,6 +321,10 @@ Owner decisions: P7-D1–D8 and B0–B10 **APPROVED** 2026-08-24
 ADR-0013–ADR-0016 and ADR-0018 **ACCEPTED** 2026-08-25. The Owner selected GitHub repos
 read-only as B5's sole first HTTPS MCP qualification candidate on 2026-08-25;
 selection does not enable the registry entry before authenticated Windows evidence.
+Owner amendment 007A1 **APPROVED** 2026-08-27: executable managed Hermes
+Upgrade/Rollback is deferred from the Phase 7 freeze scope. The read-only plan remains
+truthful and production mutation capability remains false. Restore and exact-candidate CI
+evidence remain the active freeze blockers.
 Current execution: B1 evidence is preserved as a per-surface risk map; B2 shared contracts
 and independent B3–B8 lanes proceed in parallel where no real prerequisite exists.
 Focused lane tests precede one integrated B10 independent audit.
