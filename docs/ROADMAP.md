@@ -402,6 +402,12 @@ The normal path must not require the user to open a terminal or directly edit Ru
 
 ## Phase 8 — Local product hardening
 
+Status: **DRAFT — OWNER REVIEW; IMPLEMENTATION NOT AUTHORIZED**
+Specs: docs/phases/PHASE-008-local-product-hardening.zh-CN.md (Owner review) and
+docs/phases/PHASE-008-local-product-hardening.md (execution mirror)
+Required baseline: phase-007-hermes-runtime-management-completeness-baseline
+Planned branch: phase/p8-local-product-hardening
+
 Goal: turn the completed single-Node experience into a dependable public local product before validating additional Runtime or remote-management scope.
 
 Deliverables:
@@ -416,6 +422,10 @@ Deliverables:
 - signed release pipeline;
 - user-facing diagnostics/export bundle without secrets;
 - documented support matrix and recovery guidance.
+
+The P8 update deliverable updates YORVA Desktop/yorvad and supported local schema through
+a complete verified installer. It does not reopen the managed Hermes Upgrade/Rollback
+deferred by Phase 7 Amendment 007A1.
 
 Exit criteria:
 
