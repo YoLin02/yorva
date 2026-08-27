@@ -26,8 +26,8 @@ type RuntimeMCPDefinitionService interface {
 type ManagementMCPService interface {
 	ManagementMCPReadService
 	RuntimeMCPDefinitionService
-	StartInstall(context.Context, string, string, []byte, map[string][]byte, []string, string) (app.InstallStartResult, error)
-	StartAuthenticate(context.Context, string, string, []byte, map[string][]byte, string) (app.InstallStartResult, error)
+	StartInstall(context.Context, string, string, []byte, []string, string) (app.InstallStartResult, error)
+	StartAuthenticate(context.Context, string, string, []byte, string) (app.InstallStartResult, error)
 	StartTest(context.Context, string, string, string) (app.InstallStartResult, error)
 	StartConfigure(context.Context, string, string, []string, string) (app.InstallStartResult, error)
 	StartRemove(context.Context, string, string, string) (app.InstallStartResult, error)
@@ -177,28 +177,18 @@ func startMCPMutation(service ManagementMCPService, kind mcpMutationKind) http.H
 		case mcpInstall:
 			var credential []byte
 			var toolIDs []string
-			var secrets map[string][]byte
-			credential, secrets, toolIDs, err = decodeMCPInstall(r, r.PathValue("presetId"))
+			credential, toolIDs, err = decodeMCPInstall(r, r.PathValue("presetId"))
 			if err == nil {
-				result, err = service.StartInstall(r.Context(), instanceID, r.PathValue("presetId"), credential, secrets, toolIDs, key)
+				result, err = service.StartInstall(r.Context(), instanceID, r.PathValue("presetId"), credential, toolIDs, key)
 			}
 			clear(credential)
-			for key, value := range secrets {
-				clear(value)
-				delete(secrets, key)
-			}
 		case mcpAuthenticate:
 			var credential []byte
-			var secrets map[string][]byte
-			credential, secrets, err = decodeMCPAuthentication(r)
+			credential, err = decodeMCPAuthentication(r)
 			if err == nil {
-				result, err = service.StartAuthenticate(r.Context(), instanceID, r.PathValue("serverId"), credential, secrets, key)
+				result, err = service.StartAuthenticate(r.Context(), instanceID, r.PathValue("serverId"), credential, key)
 			}
 			clear(credential)
-			for key, value := range secrets {
-				clear(value)
-				delete(secrets, key)
-			}
 		case mcpTest:
 			err = decodeClosedEmptyObject(r)
 			if err == nil {
@@ -230,41 +220,41 @@ func startMCPMutation(service ManagementMCPService, kind mcpMutationKind) http.H
 	})
 }
 
-func decodeMCPInstall(r *http.Request, presetID string) ([]byte, map[string][]byte, []string, error) {
+func decodeMCPInstall(r *http.Request, presetID string) ([]byte, []string, error) {
 	var body struct {
 		Credential     string   `json:"credential"`
 		EnabledToolIDs []string `json:"enabledToolIds"`
 	}
 	if err := decodeClosedMCPBodyLimit(r, &body, 1024*1024); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	credential := []byte(body.Credential)
 	if len(credential) > 0 {
 		if err := (yorvaruntime.MCPAuthenticateRequest{ServerID: presetID, Credential: credential}).Validate(); err != nil {
 			clear(credential)
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 	}
 	if err := (yorvaruntime.MCPConfigureRequest{ServerID: presetID, EnabledToolIDs: body.EnabledToolIDs}).Validate(); err != nil {
 		clear(credential)
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	return credential, nil, append([]string(nil), body.EnabledToolIDs...), nil
+	return credential, append([]string(nil), body.EnabledToolIDs...), nil
 }
 
-func decodeMCPAuthentication(r *http.Request) ([]byte, map[string][]byte, error) {
+func decodeMCPAuthentication(r *http.Request) ([]byte, error) {
 	var body struct {
 		Credential string `json:"credential"`
 	}
 	if err := decodeClosedMCPBodyLimit(r, &body, 1024*1024); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	credential := []byte(body.Credential)
 	if err := (yorvaruntime.MCPAuthenticateRequest{ServerID: r.PathValue("serverId"), Credential: credential}).Validate(); err != nil {
 		clear(credential)
-		return nil, nil, err
+		return nil, err
 	}
-	return credential, nil, nil
+	return credential, nil
 }
 
 func decodeMCPConfiguration(r *http.Request, serverID string) ([]string, error) {

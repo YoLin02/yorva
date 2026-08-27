@@ -332,7 +332,7 @@ input and never runs `--force`, `--force-venv` or an active-tree mutation.
 | B2 | Minimal capability contracts, registry flags, typed actions, Operation/error state, protocol skeleton and only decided migrations | Go contract/API/migration tests + OpenAPI drift |
 | B3 | Normalized Health/Logs/Security and Desktop | Parser/bounds/redaction/timeout/API/Desktop gate |
 | B4 | YORVA-managed Skills lifecycle + Hermes native capability truth | Source/ownership/conflict/Profile isolation/drift/restart/manual smoke |
-| B5 | MCP | Typed Definition validation, direct-argv execution, credential isolation, timeout/cancel/process cleanup/manual smoke |
+| B5 | MCP | Reviewed Definition + Instance Binding lifecycle, closed request schemas, credential isolation, timeout/cancel and authoritative read-back smoke |
 | B6 | Backup Create | Secret/temp/crash/archive integrity/space/manual smoke |
 | B7 | Restore | Corrupt/tamper/version/cross-scope/partial-failure/destructive smoke |
 | B8 | Managed Upgrade/Rollback | Exact source/final path/CAS/data compatibility/lifecycle/channel smoke |
@@ -482,3 +482,18 @@ P7R-B4 closes the MVP Skills loop without changing Hermes-native ownership:
 
 The B4 Gate requires managed store/application tests, Desktop interaction tests,
 typecheck/lint and non-MSI build before automatic commit.
+
+P7R-B5 closes the restricted MCP MVP without retaining a future custom execution surface:
+
+- Runtime Definitions are the safe projection of the compile-time reviewed Preset registry;
+- Instance Binding Operations install, authenticate when declared by the Preset, configure
+  Tool Scope, test, remove and reconcile against the exact Hermes Profile;
+- the application and Runtime contracts no longer contain dormant arbitrary Definition,
+  stdio command/argv, environment, header, endpoint, path or named-secret mutation fields;
+- the YORVA-owned loopback test Preset proves create, Profile write, handshake, authoritative
+  read-back, Tool Scope update, retest, second-Profile binding and deletion/absence read-back;
+- `MCPRead`, `MCPMutate` and `MCPTest` are derived from the actually registered reader/manager.
+
+The B5 Gate requires focused application/Runtime/HTTP tests, the tagged production MCP
+lifecycle qualification, Go vet, API drift checks, Desktop tests, typecheck/lint and a
+non-MSI build before automatic commit.

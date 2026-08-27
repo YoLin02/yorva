@@ -102,6 +102,15 @@ func TestYORVAManagesProductionLocalTestMCPAcrossProfiles(t *testing.T) {
 		`{"enabledToolIds":["`+mcpmanagement.YORVATestToolID+`"]}`,
 		"mcp-qualification-create-default")
 	assertManagedReady(t, service, instanceID["default"])
+	startAndWaitMCPHTTP(t, db, apiServer.Client(), apiToken, http.MethodPatch,
+		apiServer.URL+"/api/v1/instances/"+instanceID["default"]+"/mcp-bindings/"+mcpmanagement.YORVATestPresetID,
+		`{"enabledToolIds":["`+mcpmanagement.YORVATestToolID+`"]}`,
+		"mcp-qualification-configure-default")
+	assertManagedConfigured(t, service, instanceID["default"])
+	startAndWaitMCPHTTP(t, db, apiServer.Client(), apiToken, http.MethodPost,
+		apiServer.URL+"/api/v1/instances/"+instanceID["default"]+"/mcp-bindings/"+mcpmanagement.YORVATestPresetID+"/test", `{}`,
+		"mcp-qualification-retest-default")
+	assertManagedReady(t, service, instanceID["default"])
 	defaultConfig := readQualificationConfig(t, filepath.Join(hermesHome, "config.yaml"))
 	if !strings.Contains(defaultConfig, mcpmanagement.YORVATestEndpoint) || strings.Contains(defaultConfig, "authorization:") || strings.Contains(defaultConfig, "command:") || strings.Contains(defaultConfig, "args:") || strings.Contains(defaultConfig, "env:") {
 		t.Fatalf("default Profile config is not a closed HTTPS definition: %q", defaultConfig)
@@ -259,6 +268,14 @@ func assertManagedReadyID(t *testing.T, service *app.MCPManagement, instanceID, 
 	servers, err := service.ListMCPServers(context.Background(), instanceID)
 	if err != nil || len(servers) != 1 || servers[0].ID != serverID || servers[0].Ownership != "YORVA_MANAGED" || servers[0].State != yorvaruntime.MCPReady || servers[0].ReadyAt == nil {
 		t.Fatalf("managed READY readback = %#v, %v", servers, err)
+	}
+}
+
+func assertManagedConfigured(t *testing.T, service *app.MCPManagement, instanceID string) {
+	t.Helper()
+	servers, err := service.ListMCPServers(context.Background(), instanceID)
+	if err != nil || len(servers) != 1 || servers[0].ID != mcpmanagement.YORVATestPresetID || servers[0].Ownership != "YORVA_MANAGED" || servers[0].State != yorvaruntime.MCPConfigured || len(servers[0].EnabledToolIDs) != 1 || servers[0].EnabledToolIDs[0] != mcpmanagement.YORVATestToolID {
+		t.Fatalf("managed CONFIGURED readback = %#v, %v", servers, err)
 	}
 }
 

@@ -555,7 +555,7 @@ B10 统一候选时执行。一个 lane 的非致命缺口不冻结其他 lane�
 | B2 — Core capability / protocol / audit action | 添加最小 feature contracts、registry capability、typed actions、Operation/error 状态、OpenAPI skeleton 和 migration（仅已决部分） | Go contract/API/migration tests + OpenAPI drift |
 | B3 — Health / Logs / Security | 先交付 read-mostly normalized health、bounded redacted logs、显式 deep check 和 security audit | parser/size/redaction/timeout/API/Desktop focused Gate |
 | B4 — Skills Lifecycle | Native capability truth、YORVA managed store、approved install/update/enable/disable/remove、inventory merge、reconcile 和 Desktop | source/ownership/external conflict/Profile isolation/drift/restart/manual smoke |
-| B5 — MCP | Definition CRUD、绑定/install/auth/test/tool-config/remove、secret authority、process/network cleanup 和 Desktop | direct-argv/no-shell 边界、secret isolation、timeout/cancel/manual smoke |
+| B5 — MCP | 审核 Definition + Instance Binding 的 install/auth/test/tool-config/remove、凭据隔离、超时取消与 Desktop | closed schema、secret isolation、权威回读与生命周期 smoke |
 | B6 — Backup Create | scope/migration、加密或获批安全格式、create/verify/list/delete、Desktop | secret/temp/crash/archive-integrity/space/manual smoke |
 | B7 — Restore | preflight、stop/conflict、保护点、restore、reconcile、rollback 和 Desktop | corrupt/tamper/version/cross-scope/partial-failure/destructive manual smoke |
 | B8 — Managed Hermes Upgrade / Rollback | plan、new generation build、seal、activate、post-check、retention 和 rollback | exact-source/final-path/CAS/data compatibility/lifecycle/channel/manual smoke |
@@ -820,3 +820,17 @@ P7R-B4 在不改变 Hermes 原生所有权的前提下收口 Skills MVP：
 
 B4 Gate 要求 managed store/application tests、Desktop interaction tests、typecheck/lint
 与非 MSI build 通过后自动提交。
+
+P7R-B5 在不保留未来自定义执行面的前提下收口受限 MCP MVP：
+
+- Runtime Definition 只投影编译期审核 Preset registry 的安全元数据；
+- Instance Binding Operation 对精确 Hermes Profile 执行安装、Preset 声明的认证、Tool
+  Scope 配置、测试、移除与 reconcile；
+- Application 与 Runtime 合同已删除休眠的任意 Definition、stdio command/argv、
+  environment、header、endpoint、path 与 named-secret mutation 字段；
+- YORVA-owned loopback 测试 Preset 覆盖创建、Profile 写入、握手、权威回读、Tool Scope
+  更新、重新测试、第二 Profile 绑定，以及删除后的缺失回读；
+- `MCPRead`、`MCPMutate`、`MCPTest` 由实际注册的 reader/manager 推导。
+
+B5 Gate 要求 application/Runtime/HTTP 聚焦测试、带 tag 的生产 MCP 生命周期资格测试、
+Go vet、API drift、Desktop tests、typecheck/lint 与非 MSI build 通过后自动提交。

@@ -53,6 +53,9 @@ authenticated production Runtime definition read
 → initialize and list tools
 → READY authoritative read-back
 → YORVA_MANAGED binding ownership
+→ update Tool Scope through the binding resource
+→ CONFIGURED authoritative read-back
+→ explicit retest and READY authoritative read-back
 → bind the same definition to work Profile
 → remove the default binding
 → remove the work binding
@@ -64,5 +67,8 @@ used for the MCP definition, HTTP mutation, Profile mutation, protocol probe or
 read-back.
 
 Passing this gate exposes `yorva-mcp-test` through the typed `MCPRead`, `MCPMutate`,
-and `MCPTest` Runtime capabilities. Third-party Presets still require their own review;
-unknown preset IDs continue to fail at the adapter registry boundary.
+and `MCPTest` Runtime capabilities. The application and Runtime contracts contain only
+the reviewed-Preset path; no dormant custom Definition, stdio command/argv, environment,
+header, endpoint, path or secret-map mutation interface is retained. Third-party Presets
+still require their own review; unknown preset IDs continue to fail at the adapter registry
+boundary.

@@ -36,12 +36,6 @@ type MCPPresetView struct {
 	CredentialRequired bool
 	Source             string
 	Editable           bool
-	Transport          yorvaruntime.MCPTransport
-	Endpoint           string
-	Command            string
-	Args               []string
-	Environment        []yorvaruntime.MCPConfigValue
-	Headers            []yorvaruntime.MCPConfigValue
 }
 
 // MCPTestView is the safe result consumed by a future Operation worker. It is
@@ -191,10 +185,6 @@ func (s *MCPManagement) ListRuntimeMCPDefinitions(ctx context.Context, runtimeID
 	return views, nil
 }
 
-func (s *MCPManagement) customDefinition(context.Context, string) (yorvaruntime.MCPDefinition, bool, error) {
-	return yorvaruntime.MCPDefinition{}, false, nil
-}
-
 func validatedMCPPresetViews(presets []yorvaruntime.MCPPreset) ([]MCPPresetView, error) {
 	if len(presets) > managementMCPCollectionLimit {
 		return nil, ErrManagementQueryFailed
@@ -268,11 +258,9 @@ type mcpMutationInput struct {
 	serverID   string
 	credential []byte
 	toolIDs    []string
-	definition *yorvaruntime.MCPDefinition
-	secrets    map[string][]byte
 }
 
-func (s *MCPManagement) StartInstall(ctx context.Context, instanceID, presetID string, credential []byte, secretValues map[string][]byte, toolIDs []string, key string) (InstallStartResult, error) {
+func (s *MCPManagement) StartInstall(ctx context.Context, instanceID, presetID string, credential []byte, toolIDs []string, key string) (InstallStartResult, error) {
 	if err := (yorvaruntime.MCPInstallRequest{PresetID: presetID}).Validate(); err != nil {
 		return InstallStartResult{}, err
 	}
@@ -284,70 +272,27 @@ func (s *MCPManagement) StartInstall(ctx context.Context, instanceID, presetID s
 	if err := (yorvaruntime.MCPConfigureRequest{ServerID: presetID, EnabledToolIDs: toolIDs}).Validate(); err != nil {
 		return InstallStartResult{}, err
 	}
-	definition, custom, err := s.customDefinition(ctx, presetID)
-	if err != nil {
-		return InstallStartResult{}, managementMCPError(ctx, err)
-	}
-	if custom {
-		if len(credential) > 0 || !validMCPSecretValues(definition, secretValues) {
-			clearSecretMap(secretValues)
-			return InstallStartResult{}, yorvaruntime.ErrInvalidManagementContract
-		}
-	} else if len(secretValues) > 0 {
-		clearSecretMap(secretValues)
-		return InstallStartResult{}, yorvaruntime.ErrInvalidManagementContract
-	}
 	return s.start(ctx, instanceID, key, mcpMutationInput{
 		action: mcpMutationInstall, presetID: presetID,
 		credential: append([]byte(nil), credential...), toolIDs: append([]string(nil), toolIDs...),
-		definition: func() *yorvaruntime.MCPDefinition {
-			if !custom {
-				return nil
-			}
-			copy := definition
-			return &copy
-		}(), secrets: cloneSecretMap(secretValues),
 	})
 }
 
-func (s *MCPManagement) StartAuthenticate(ctx context.Context, instanceID, serverID string, credential []byte, secretValues map[string][]byte, key string) (InstallStartResult, error) {
-	definition, custom, err := s.customDefinition(ctx, serverID)
-	if err != nil {
-		return InstallStartResult{}, managementMCPError(ctx, err)
+func (s *MCPManagement) StartAuthenticate(ctx context.Context, instanceID, serverID string, credential []byte, key string) (InstallStartResult, error) {
+	request := yorvaruntime.MCPAuthenticateRequest{ServerID: serverID, Credential: credential}
+	if err := request.Validate(); err != nil {
+		return InstallStartResult{}, err
 	}
-	input := mcpMutationInput{action: mcpMutationAuthenticate, serverID: serverID}
-	if custom {
-		if len(credential) > 0 || !validMCPSecretValues(definition, secretValues) {
-			return InstallStartResult{}, yorvaruntime.ErrInvalidManagementContract
-		}
-		input.definition = &definition
-		input.secrets = cloneSecretMap(secretValues)
-	} else {
-		request := yorvaruntime.MCPAuthenticateRequest{ServerID: serverID, Credential: credential}
-		if err := request.Validate(); err != nil {
-			return InstallStartResult{}, err
-		}
-		if len(secretValues) > 0 {
-			return InstallStartResult{}, yorvaruntime.ErrInvalidManagementContract
-		}
-		input.credential = append([]byte(nil), credential...)
-	}
-	return s.start(ctx, instanceID, key, input)
+	return s.start(ctx, instanceID, key, mcpMutationInput{
+		action: mcpMutationAuthenticate, serverID: serverID, credential: append([]byte(nil), credential...),
+	})
 }
 
 func (s *MCPManagement) StartTest(ctx context.Context, instanceID, serverID, key string) (InstallStartResult, error) {
 	if err := (yorvaruntime.MCPConfigureRequest{ServerID: serverID}).Validate(); err != nil {
 		return InstallStartResult{}, err
 	}
-	definition, custom, err := s.customDefinition(ctx, serverID)
-	if err != nil {
-		return InstallStartResult{}, managementMCPError(ctx, err)
-	}
-	input := mcpMutationInput{action: mcpMutationTest, serverID: serverID}
-	if custom {
-		input.definition = &definition
-	}
-	return s.start(ctx, instanceID, key, input)
+	return s.start(ctx, instanceID, key, mcpMutationInput{action: mcpMutationTest, serverID: serverID})
 }
 
 func (s *MCPManagement) StartConfigure(ctx context.Context, instanceID, serverID string, toolIDs []string, key string) (InstallStartResult, error) {
@@ -355,30 +300,14 @@ func (s *MCPManagement) StartConfigure(ctx context.Context, instanceID, serverID
 	if err := request.Validate(); err != nil {
 		return InstallStartResult{}, err
 	}
-	definition, custom, err := s.customDefinition(ctx, serverID)
-	if err != nil {
-		return InstallStartResult{}, managementMCPError(ctx, err)
-	}
-	input := mcpMutationInput{action: mcpMutationConfigure, serverID: serverID, toolIDs: append([]string(nil), toolIDs...)}
-	if custom {
-		input.definition = &definition
-	}
-	return s.start(ctx, instanceID, key, input)
+	return s.start(ctx, instanceID, key, mcpMutationInput{action: mcpMutationConfigure, serverID: serverID, toolIDs: append([]string(nil), toolIDs...)})
 }
 
 func (s *MCPManagement) StartRemove(ctx context.Context, instanceID, serverID, key string) (InstallStartResult, error) {
 	if err := (yorvaruntime.MCPConfigureRequest{ServerID: serverID}).Validate(); err != nil {
 		return InstallStartResult{}, err
 	}
-	definition, custom, err := s.customDefinition(ctx, serverID)
-	if err != nil {
-		return InstallStartResult{}, managementMCPError(ctx, err)
-	}
-	input := mcpMutationInput{action: mcpMutationRemove, serverID: serverID}
-	if custom {
-		input.definition = &definition
-	}
-	return s.start(ctx, instanceID, key, input)
+	return s.start(ctx, instanceID, key, mcpMutationInput{action: mcpMutationRemove, serverID: serverID})
 }
 
 func (s *MCPManagement) start(ctx context.Context, instanceID, key string, input mcpMutationInput) (InstallStartResult, error) {
@@ -467,7 +396,6 @@ func mcpOperationShape(input mcpMutationInput) (operation.Type, operation.Stage,
 
 func (s *MCPManagement) runMutation(op operation.Operation, target ManagementTarget, input mcpMutationInput) {
 	defer clear(input.credential)
-	defer clearSecretMap(input.secrets)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	if !s.registerCancel(op.ID, cancel) {
 		cancel()
@@ -487,18 +415,7 @@ func (s *MCPManagement) runMutation(op operation.Operation, target ManagementTar
 	var mutationErr error
 	switch input.action {
 	case mcpMutationInstall:
-		var server yorvaruntime.MCPServer
-		var err error
-		if input.definition != nil {
-			custom, ok := target.Bundle.MCPMutate.(yorvaruntime.MCPCustomManager)
-			if !ok {
-				mutationErr = ErrManagementCapabilityUnsupported
-			} else {
-				server, err = custom.InstallCustomMCP(ctx, target.Installation, target.NativeID, *input.definition, input.secrets, nil)
-			}
-		} else {
-			server, err = target.Bundle.MCPMutate.InstallMCPPreset(ctx, target.Installation, target.NativeID, yorvaruntime.MCPInstallRequest{PresetID: input.presetID}, nil)
-		}
+		server, err := target.Bundle.MCPMutate.InstallMCPPreset(ctx, target.Installation, target.NativeID, yorvaruntime.MCPInstallRequest{PresetID: input.presetID}, nil)
 		if mutationErr == nil {
 			mutationErr = validateMCPServerMutation(server, err, "", input.presetID)
 		}
@@ -507,22 +424,12 @@ func (s *MCPManagement) runMutation(op operation.Operation, target ManagementTar
 			mutationErr = validateMCPServerMutation(server, err, input.presetID, input.presetID)
 		}
 		if mutationErr == nil && len(input.toolIDs) > 0 {
-			if input.definition != nil {
-				server, err = target.Bundle.MCPMutate.(yorvaruntime.MCPCustomManager).ConfigureCustomMCP(ctx, target.Installation, target.NativeID, *input.definition, yorvaruntime.MCPConfigureRequest{ServerID: input.presetID, EnabledToolIDs: input.toolIDs}, nil)
-			} else {
-				server, err = target.Bundle.MCPMutate.ConfigureMCP(ctx, target.Installation, target.NativeID, yorvaruntime.MCPConfigureRequest{ServerID: input.presetID, EnabledToolIDs: input.toolIDs}, nil)
-			}
+			server, err = target.Bundle.MCPMutate.ConfigureMCP(ctx, target.Installation, target.NativeID, yorvaruntime.MCPConfigureRequest{ServerID: input.presetID, EnabledToolIDs: input.toolIDs}, nil)
 			mutationErr = validateMCPServerMutation(server, err, input.presetID, input.presetID)
 		}
 		if mutationErr == nil {
 			testedFrom := s.now().UTC()
-			var result yorvaruntime.MCPTestResult
-			var testErr error
-			if input.definition != nil {
-				result, testErr = target.Bundle.MCPMutate.(yorvaruntime.MCPCustomManager).TestCustomMCP(ctx, target.Installation, target.NativeID, *input.definition, nil)
-			} else {
-				result, testErr = target.Bundle.MCPMutate.TestMCP(ctx, target.Installation, target.NativeID, input.presetID, nil)
-			}
+			result, testErr := target.Bundle.MCPMutate.TestMCP(ctx, target.Installation, target.NativeID, input.presetID, nil)
 			testedThrough := s.now().UTC()
 			if testErr != nil || result.Validate() != nil || result.ServerID != input.presetID || result.State != yorvaruntime.MCPReady ||
 				result.ReadyAt == nil || !result.ReadyAt.Equal(result.TestedAt) || result.TestedAt.Before(testedFrom) || result.TestedAt.After(testedThrough) {
@@ -553,82 +460,26 @@ func (s *MCPManagement) runMutation(op operation.Operation, target ManagementTar
 		}
 		if mutationErr != nil {
 			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
-			if input.definition != nil {
-				if custom, ok := target.Bundle.MCPMutate.(yorvaruntime.MCPCustomManager); ok {
-					_, _ = custom.RemoveCustomMCP(cleanupCtx, target.Installation, target.NativeID, *input.definition, nil)
-				}
-			} else {
-				_, _ = target.Bundle.MCPMutate.RemoveMCP(cleanupCtx, target.Installation, target.NativeID, input.presetID, nil)
-			}
+			_, _ = target.Bundle.MCPMutate.RemoveMCP(cleanupCtx, target.Installation, target.NativeID, input.presetID, nil)
 			cleanupCancel()
 		}
 	case mcpMutationAuthenticate:
-		var server yorvaruntime.MCPServer
-		var err error
-		if input.definition != nil {
-			custom, ok := target.Bundle.MCPMutate.(yorvaruntime.MCPCustomManager)
-			if !ok {
-				mutationErr = ErrManagementCapabilityUnsupported
-			} else {
-				server, err = custom.UpdateCustomMCPCredential(ctx, target.Installation, target.NativeID, *input.definition, input.secrets, nil)
-			}
-		} else {
-			server, err = target.Bundle.MCPMutate.AuthenticateMCP(ctx, target.Installation, target.NativeID, yorvaruntime.MCPAuthenticateRequest{ServerID: input.serverID, Credential: input.credential}, nil)
-		}
-		if mutationErr == nil {
-			mutationErr = validateMCPServerMutation(server, err, input.serverID, "")
-		}
+		server, err := target.Bundle.MCPMutate.AuthenticateMCP(ctx, target.Installation, target.NativeID, yorvaruntime.MCPAuthenticateRequest{ServerID: input.serverID, Credential: input.credential}, nil)
+		mutationErr = validateMCPServerMutation(server, err, input.serverID, "")
 	case mcpMutationTest:
 		startedAt := s.now().UTC()
-		var result yorvaruntime.MCPTestResult
-		var err error
-		if input.definition != nil {
-			custom, ok := target.Bundle.MCPMutate.(yorvaruntime.MCPCustomManager)
-			if !ok {
-				mutationErr = ErrManagementCapabilityUnsupported
-			} else {
-				result, err = custom.TestCustomMCP(ctx, target.Installation, target.NativeID, *input.definition, nil)
-			}
-		} else {
-			result, err = target.Bundle.MCPMutate.TestMCP(ctx, target.Installation, target.NativeID, input.serverID, nil)
-		}
+		result, err := target.Bundle.MCPMutate.TestMCP(ctx, target.Installation, target.NativeID, input.serverID, nil)
 		completedAt := s.now().UTC()
 		if err != nil || result.Validate() != nil || result.ServerID != input.serverID || result.State != yorvaruntime.MCPReady ||
 			result.ReadyAt == nil || !result.ReadyAt.Equal(result.TestedAt) || result.TestedAt.Before(startedAt) || result.TestedAt.After(completedAt) {
 			mutationErr = ErrManagementQueryFailed
 		}
 	case mcpMutationConfigure:
-		var server yorvaruntime.MCPServer
-		var err error
-		if input.definition != nil {
-			custom, ok := target.Bundle.MCPMutate.(yorvaruntime.MCPCustomManager)
-			if !ok {
-				mutationErr = ErrManagementCapabilityUnsupported
-			} else {
-				server, err = custom.ConfigureCustomMCP(ctx, target.Installation, target.NativeID, *input.definition, yorvaruntime.MCPConfigureRequest{ServerID: input.serverID, EnabledToolIDs: input.toolIDs}, nil)
-			}
-		} else {
-			server, err = target.Bundle.MCPMutate.ConfigureMCP(ctx, target.Installation, target.NativeID, yorvaruntime.MCPConfigureRequest{ServerID: input.serverID, EnabledToolIDs: input.toolIDs}, nil)
-		}
-		if mutationErr == nil {
-			mutationErr = validateMCPServerMutation(server, err, input.serverID, "")
-		}
+		server, err := target.Bundle.MCPMutate.ConfigureMCP(ctx, target.Installation, target.NativeID, yorvaruntime.MCPConfigureRequest{ServerID: input.serverID, EnabledToolIDs: input.toolIDs}, nil)
+		mutationErr = validateMCPServerMutation(server, err, input.serverID, "")
 	case mcpMutationRemove:
-		var server yorvaruntime.MCPServer
-		var err error
-		if input.definition != nil {
-			custom, ok := target.Bundle.MCPMutate.(yorvaruntime.MCPCustomManager)
-			if !ok {
-				mutationErr = ErrManagementCapabilityUnsupported
-			} else {
-				server, err = custom.RemoveCustomMCP(ctx, target.Installation, target.NativeID, *input.definition, nil)
-			}
-		} else {
-			server, err = target.Bundle.MCPMutate.RemoveMCP(ctx, target.Installation, target.NativeID, input.serverID, nil)
-		}
-		if mutationErr == nil {
-			mutationErr = validateMCPServerMutation(server, err, input.serverID, "")
-		}
+		server, err := target.Bundle.MCPMutate.RemoveMCP(ctx, target.Installation, target.NativeID, input.serverID, nil)
+		mutationErr = validateMCPServerMutation(server, err, input.serverID, "")
 		if mutationErr == nil {
 			mutationErr = s.db.DeleteManagedMCPBinding(ctx, op.TargetID, input.serverID)
 		}
@@ -642,36 +493,6 @@ func (s *MCPManagement) runMutation(op operation.Operation, target ManagementTar
 		final.Status = operation.StatusSucceeded
 	}
 	_ = s.persistOperation(context.Background(), running, final)
-}
-
-func validMCPSecretValues(definition yorvaruntime.MCPDefinition, values map[string][]byte) bool {
-	expected := definition.SecretNames()
-	if len(expected) != len(values) {
-		return false
-	}
-	for _, name := range expected {
-		value, ok := values[name]
-		if !ok || len(value) == 0 || len(value) > 8192 {
-			return false
-		}
-	}
-	return true
-}
-func cloneSecretMap(values map[string][]byte) map[string][]byte {
-	if len(values) == 0 {
-		return nil
-	}
-	result := make(map[string][]byte, len(values))
-	for key, value := range values {
-		result[key] = append([]byte(nil), value...)
-	}
-	return result
-}
-func clearSecretMap(values map[string][]byte) {
-	for key, value := range values {
-		clear(value)
-		delete(values, key)
-	}
 }
 
 func (s *MCPManagement) managedBinding(ctx context.Context, instanceID, serverID string) (bool, error) {

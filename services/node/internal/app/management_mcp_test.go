@@ -347,7 +347,7 @@ func TestMCPInstallOperationRequiresCredentialTestAndAuthoritativeReadback(t *te
 	adapter := &mcpLifecycleFake{}
 	service := NewMCPManagement(&mcpTargetResolverFake{target: testMCPManagementTarget(adapter, adapter)})
 	service.db = db
-	started, err := service.StartInstall(context.Background(), instanceID, "preset-a", []byte("test-token"), nil, []string{"tool-a"}, "mcp-complete-key")
+	started, err := service.StartInstall(context.Background(), instanceID, "preset-a", []byte("test-token"), []string{"tool-a"}, "mcp-complete-key")
 	if err != nil {
 		t.Fatal(err)
 	}

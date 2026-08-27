@@ -16,21 +16,40 @@ import (
 
 func TestDecodeMCPInstallAcceptsOnlyCredentialAndAllowlistedToolIDs(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"credential":"test-token","enabledToolIds":["tool-a"]}`))
-	credential, _, tools, err := decodeMCPInstall(request, "preset-a")
+	credential, tools, err := decodeMCPInstall(request, "preset-a")
 	if err != nil || string(credential) != "test-token" || len(tools) != 1 || tools[0] != "tool-a" {
 		t.Fatalf("decodeMCPInstall() = %q %#v, %v", credential, tools, err)
 	}
 	clear(credential)
 	emptyScope := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"enabledToolIds":[]}`))
-	if _, _, _, err := decodeMCPInstall(emptyScope, "preset-a"); err != nil {
+	if _, _, err := decodeMCPInstall(emptyScope, "preset-a"); err != nil {
 		t.Fatalf("empty Tool Scope should allow discovery: %v", err)
 	}
 
 	for _, field := range []string{"command", "args", "env", "headers", "url", "path", "json"} {
 		body := `{"enabledToolIds":["tool-a"],"` + field + `":"forbidden"}`
 		request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
-		if _, _, _, err := decodeMCPInstall(request, "preset-a"); err == nil {
+		if _, _, err := decodeMCPInstall(request, "preset-a"); err == nil {
 			t.Fatalf("forbidden field %q was accepted", field)
+		}
+	}
+}
+
+func TestDecodeMCPAuthenticationAcceptsOnlyCredential(t *testing.T) {
+	request := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(`{"credential":"test-token"}`))
+	request.SetPathValue("serverId", "preset-a")
+	credential, err := decodeMCPAuthentication(request)
+	if err != nil || string(credential) != "test-token" {
+		t.Fatalf("decodeMCPAuthentication() = %q, %v", credential, err)
+	}
+	clear(credential)
+
+	for _, field := range []string{"command", "args", "env", "headers", "endpoint", "secrets"} {
+		body := `{"credential":"test-token","` + field + `":"forbidden"}`
+		request := httptest.NewRequest(http.MethodPut, "/", strings.NewReader(body))
+		request.SetPathValue("serverId", "preset-a")
+		if _, err := decodeMCPAuthentication(request); err == nil {
+			t.Fatalf("forbidden authentication field %q was accepted", field)
 		}
 	}
 }
@@ -144,8 +163,8 @@ func TestListMCPPresetsReturnsOnlyReviewedCatalogProjection(t *testing.T) {
 	}
 }
 
-func TestListRuntimeMCPDefinitionsUsesRuntimeScopeAndOmitsCustomExecutionMaterial(t *testing.T) {
-	service := &runtimeMCPDefinitionServiceFake{items: []app.MCPPresetView{{ID: "preset-a", DisplayName: "Approved A", Transport: yorvaruntime.MCPTransportStdio, Command: "unsafe-command", Args: []string{"--unsafe"}, Environment: []yorvaruntime.MCPConfigValue{{Name: "TOKEN", Secret: true}}, Headers: []yorvaruntime.MCPConfigValue{{Name: "Authorization", Secret: true}}}}}
+func TestListRuntimeMCPDefinitionsUsesRuntimeScopeAndClosedReviewedProjection(t *testing.T) {
+	service := &runtimeMCPDefinitionServiceFake{items: []app.MCPPresetView{{ID: "preset-a", DisplayName: "Approved A"}}}
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/runtimes/hermes/mcp-definitions", nil)
 	request.SetPathValue("runtimeId", "hermes")
 	response := httptest.NewRecorder()
@@ -153,7 +172,7 @@ func TestListRuntimeMCPDefinitionsUsesRuntimeScopeAndOmitsCustomExecutionMateria
 	if response.Code != http.StatusOK || service.runtimeID != "hermes" || !strings.Contains(response.Body.String(), `"id":"preset-a"`) {
 		t.Fatalf("runtime definitions = %d %q, runtime %q", response.Code, response.Body.String(), service.runtimeID)
 	}
-	for _, forbidden := range []string{"transport", "command", "args", "environment", "headers", "unsafe-command", "Authorization", "TOKEN"} {
+	for _, forbidden := range []string{"transport", "endpoint", "command", "args", "environment", "headers"} {
 		if strings.Contains(response.Body.String(), forbidden) {
 			t.Fatalf("runtime definition exposed %q: %s", forbidden, response.Body.String())
 		}
