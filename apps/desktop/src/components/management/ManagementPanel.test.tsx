@@ -7,7 +7,8 @@ import { messages } from "../../i18n";
 import { ManagementPanel } from "./ManagementPanel";
 
 vi.mock("../../api/session", () => ({
-  selectBackupDestination: vi.fn().mockResolvedValue("a".repeat(43)),
+  selectSkillImport: vi.fn().mockResolvedValue({ sourceRef: "s".repeat(43), suggestedSkillId: "local-skill" }),
+  discardSkillImport: vi.fn().mockResolvedValue(undefined),
 }));
 
 const instance: Instance = {
@@ -71,6 +72,7 @@ function managementClient(overrides: Partial<DaemonClient> = {}) {
     listRuntimeBackups: vi.fn().mockResolvedValue({ scope: "RUNTIME", items: [] }),
     listInstanceSkillSources: vi.fn().mockResolvedValue({ items: [] }),
     installManagedSkill: vi.fn(),
+    importManagedSkill: vi.fn(),
     updateManagedSkill: vi.fn(),
     enableManagedSkill: vi.fn(),
     disableManagedSkill: vi.fn(),
@@ -91,6 +93,21 @@ function renderPanel(client: DaemonClient, target: Instance = instance, scope: "
 }
 
 describe("ManagementPanel", () => {
+	it("shows real Skill source actions and imports a native-selected directory", async () => {
+		const importManagedSkill = vi.fn().mockResolvedValue({ id: "op-import", status: "PENDING" });
+		const client = managementClient({ importManagedSkill });
+		renderPanel(client, { ...instance, capabilities: { ...instance.capabilities, skillMutate: true } }, "runtime");
+
+		fireEvent.click(screen.getByRole("button", { name: "Skills" }));
+		expect(await screen.findByRole("button", { name: "Check for updates" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Install from ZIP" })).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Import existing" }));
+		const dialog = await screen.findByRole("dialog", { name: "Install local Skill" });
+		fireEvent.click(within(dialog).getByRole("button", { name: "Install" }));
+		await waitFor(() => expect(importManagedSkill).toHaveBeenCalledWith("inst-coder", "local-skill", "s".repeat(43), expect.any(String)));
+		await waitFor(() => expect(client.getOperation).toHaveBeenCalledWith("op-import", expect.any(AbortSignal)));
+	});
+
   it("shows safe Skill and MCP reads while keeping CONFIGURED distinct from READY", async () => {
     const client = managementClient();
     renderPanel(client);
@@ -174,9 +191,12 @@ describe("ManagementPanel", () => {
     expect(screen.getByText("MCP bindings")).toBeInTheDocument();
     expect(screen.getByText("This Runtime can read MCP configuration, but YORVA mutation is not supported yet.")).toBeInTheDocument();
     expect(screen.queryByText("No MCP servers were reported for this instance.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add MCP" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Import existing" }));
+    expect(await screen.findByText("Synchronized 1 existing MCP bindings from the selected Hermes instance. External definitions remain read-only.")).toBeInTheDocument();
   });
 
-  it("builds a closed reviewed-Preset request from the MCP composer", async () => {
+  it("creates a binding from a reviewed MCP preset without custom execution fields", async () => {
     const installInstanceMCPPreset = vi.fn().mockResolvedValue({ id: "op-mcp", status: "PENDING" });
     const client = managementClient({
       installInstanceMCPPreset,
@@ -190,10 +210,11 @@ describe("ManagementPanel", () => {
     renderPanel(client, { ...instance, capabilities: { ...instance.capabilities, mcpMutate: true, mcpTest: true } }, "runtime");
 
     fireEvent.click(screen.getByRole("button", { name: "MCP" }));
-    fireEvent.click(await screen.findByRole("button", { name: "+ Add MCP" }));
-    expect(screen.getByDisplayValue("yorva-mcp-test")).toHaveAttribute("readonly");
-    expect(screen.getByText(/reviewed-preset-endpoint/)).toBeInTheDocument();
-    expect(screen.queryByText("https://mcp-test.yorva.invalid/mcp")).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Add MCP" }));
+    expect(screen.getByLabelText("Unique identifier")).toHaveValue("yorva-mcp-test");
+    expect(screen.queryByLabelText("Endpoint URL")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("HTTP headers")).not.toBeInTheDocument();
+    expect(screen.queryByText("stdio")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Test and add" }));
 
     await waitFor(() => expect(installInstanceMCPPreset).toHaveBeenCalledWith("inst-coder", "yorva-mcp-test", "", ["yorva_ping"], expect.any(String)));
@@ -277,7 +298,7 @@ describe("ManagementPanel", () => {
     expect(screen.getAllByText("Changed").length).toBeGreaterThan(0);
     expect(screen.getByText("Device-managed key")).toBeInTheDocument();
     expect(client.listRuntimeBackups).toHaveBeenCalledWith("hermes", expect.any(AbortSignal));
-    expect(screen.getByText("Stop every Hermes instance before creating or restoring a Runtime backup.")).toBeInTheDocument();
+    expect(screen.getByText("Stop every Hermes instance and close Hermes Dashboard or other Hermes background processes before creating or restoring a Runtime backup.")).toBeInTheDocument();
     const visible = document.body.textContent ?? "";
     for (const prohibited of ["artifactPath", "keyRef", "passphrase", "C:\\Backups"] ) expect(visible).not.toContain(prohibited);
   });
@@ -298,8 +319,8 @@ describe("ManagementPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Maintenance" }));
     fireEvent.click(await screen.findByRole("button", { name: "Create encrypted backup" }));
-    await waitFor(() => expect(createRuntimeBackup).toHaveBeenCalledWith("hermes", "a".repeat(43), expect.any(String)));
-    expect(await screen.findByText("Backup was not created because at least one Hermes instance is still running. Stop all instances, then try again.")).toBeInTheDocument();
+    await waitFor(() => expect(createRuntimeBackup).toHaveBeenCalledWith("hermes", expect.any(String)));
+    expect(await screen.findByText("Backup was not created because Hermes data is still in use. Stop all instances and close Hermes Dashboard or other Hermes processes, then retry.")).toBeInTheDocument();
   });
 
   it("shows an evidence-incomplete read-only Upgrade plan without mutation actions or internal identity", async () => {
@@ -308,7 +329,8 @@ describe("ManagementPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Maintenance" }));
     expect(await screen.findByText("Hermes 0.20.5 packaged snapshot (0.20.5)")).toBeInTheDocument();
-    expect(screen.getByText("Exact current-to-candidate compatibility is not proven.")).toBeInTheDocument();
+    expect(screen.getByText("Evidence still required")).toBeInTheDocument();
+    expect(screen.getByText("Compatibility evidence: this exact current-to-candidate pair needs qualified Windows upgrade and rollback results.")).toBeInTheDocument();
     expect(screen.getByText("Required; no verified protection point")).toBeInTheDocument();
     expect(client.getRuntimeUpgradePlan).toHaveBeenCalledWith("hermes", expect.any(AbortSignal));
     expect(screen.queryByRole("button", { name: /upgrade|rollback/i })).not.toBeInTheDocument();

@@ -120,23 +120,22 @@ The one manual live entry point is intentionally skipped unless a request-lifeti
 limited to stable status, tool count and pinned source revision. No live token was
 available for this evidence, so it was not run and no live response is recorded.
 
-### Qualification-only Profile lifecycle fixture
+### Production local Profile lifecycle Preset
 
-Phase 7 now also contains one compile-time `yorva-mcp-test` descriptor available only
-through the qualification registry. It is not present in the product registry. A TLS
-fixture exercises the real Hermes Profile adapter lifecycle: atomic `config.yaml`
-write, exact-Profile static credential write/read/delete, fixed handshake, tool-scope
-verification, authoritative READY readback, binding to a second Profile, deletion and
-authoritative absence readback. A tagged cross-layer gate also exercises the authenticated
-local HTTP routes, real SQLite binding repository and application Operations. The emitted Profile configuration is
-asserted to contain no credential plaintext, `command`, `args` or `env` fields. See
-`PHASE-007-B5-MCP-TEST-SERVER.md` for the fixture protocol and gate command. This closes
-the local application/adapter lifecycle harness but does not qualify a production
-endpoint.
+Phase 7 now contains one compile-time `yorva-mcp-test` descriptor in the product
+registry. Normal `yorvad` owns its ephemeral IPv4 loopback protocol server and private
+fixed-identity redirect. The production Profile adapter lifecycle covers atomic
+`config.yaml` write, fixed handshake, tool-scope verification, authoritative READY
+readback, binding to a second Profile, deletion and authoritative absence readback. A
+tagged cross-layer gate exercises authenticated local HTTP routes, the real SQLite
+binding repository and application Operations. The emitted Profile configuration is
+asserted to contain no authorization, `command`, `args` or `env` fields. See
+`PHASE-007-B5-MCP-TEST-SERVER.md` for the protocol and gate command. This qualifies only
+the YORVA-owned local test endpoint, not a third-party provider.
 
 ### Remaining gate — NO-GO
 
-Before a registry descriptor may be added, a later authorized run must still prove:
+Before a third-party registry descriptor may be added, a later authorized run must still prove:
 
 - authenticated live initialization and exact tool listing against the fixed endpoint;
 - the accepted PAT scope and account policy;

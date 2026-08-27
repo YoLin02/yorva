@@ -35,6 +35,7 @@ type managedSkillAction string
 
 const (
 	managedSkillInstall managedSkillAction = "install"
+	managedSkillImport  managedSkillAction = "import"
 	managedSkillUpdate  managedSkillAction = "update"
 	managedSkillEnable  managedSkillAction = "enable"
 	managedSkillDisable managedSkillAction = "disable"
@@ -208,6 +209,16 @@ func (s *ManagementSkills) StartInstall(ctx context.Context, instanceID, skillID
 	return s.start(ctx, instanceID, skillID, sourceID, key, managedSkillInstall)
 }
 
+func (s *ManagementSkills) StartImport(ctx context.Context, instanceID, skillID, sourceRef, key string) (InstallStartResult, error) {
+	if err := validateSkillID(skillID); err != nil {
+		return InstallStartResult{}, err
+	}
+	if err := managedskills.ValidateImportSourceRef(sourceRef); err != nil {
+		return InstallStartResult{}, yorvaruntime.ErrInvalidManagementContract
+	}
+	return s.start(ctx, instanceID, skillID, sourceRef, key, managedSkillImport)
+}
+
 func (s *ManagementSkills) StartUpdate(ctx context.Context, instanceID, skillID, key string) (InstallStartResult, error) {
 	return s.startExisting(ctx, instanceID, skillID, key, managedSkillUpdate)
 }
@@ -262,7 +273,7 @@ func (s *ManagementSkills) start(ctx context.Context, instanceID, skillID, sourc
 	if existing, ok, queryErr := s.db.GetOperationByIdempotencyKey(ctx, key); queryErr != nil {
 		return InstallStartResult{}, managementQueryError(ctx, queryErr)
 	} else if ok {
-		if existing.Type != opType || existing.TargetID != instanceID || existing.Message != skillID {
+		if existing.Type != opType || existing.TargetID != instanceID || existing.Message != skillID || existing.SourcePin != sourceID {
 			return InstallStartResult{}, ErrSkillMutationConflict
 		}
 		return InstallStartResult{Operation: existing}, nil
@@ -322,6 +333,8 @@ func (s *ManagementSkills) runWorker(ctx context.Context, op operation.Operation
 	switch action {
 	case managedSkillInstall:
 		mutationErr = s.installManaged(ctx, running, target)
+	case managedSkillImport:
+		mutationErr = s.importManaged(ctx, running, target)
 	case managedSkillUpdate:
 		mutationErr = s.updateManaged(ctx, running, target)
 	case managedSkillEnable:
@@ -348,6 +361,23 @@ func (s *ManagementSkills) installManaged(ctx context.Context, op operation.Oper
 	if err != nil {
 		return err
 	}
+	return s.publishManaged(ctx, op, target, acquired)
+}
+
+func (s *ManagementSkills) importManaged(ctx context.Context, op operation.Operation, target ManagementTarget) error {
+	if _, err := s.db.GetManagedSkill(ctx, op.TargetID, op.Message); err == nil {
+		return ErrSkillOwnershipConflict
+	} else if !errors.Is(err, sqlite.ErrManagedSkillNotFound) {
+		return err
+	}
+	acquired, err := s.store.ImportToManaged(ctx, op.TargetID, op.Message, op.SourcePin)
+	if err != nil {
+		return err
+	}
+	return s.publishManaged(ctx, op, target, acquired)
+}
+
+func (s *ManagementSkills) publishManaged(ctx context.Context, op operation.Operation, target ManagementTarget, acquired managedskills.Acquisition) error {
 	now := s.now()
 	record := sqlite.ManagedSkill{
 		ID: op.OwnershipNonce, InstanceID: op.TargetID, SkillID: op.Message,

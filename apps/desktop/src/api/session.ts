@@ -11,8 +11,14 @@ export function getDaemonSession(): Promise<DaemonSession> {
   return invoke<DaemonSession>("daemon_session");
 }
 
-export function selectBackupDestination(): Promise<string | null> {
-  return invoke<string | null>("select_backup_destination");
+export type SkillImportSelection = { sourceRef: string; suggestedSkillId: string };
+
+export function selectSkillImport(kind: "ZIP" | "DIRECTORY"): Promise<SkillImportSelection | null> {
+  return invoke<SkillImportSelection | null>("select_skill_import", { kind });
+}
+
+export function discardSkillImport(sourceRef: string): Promise<void> {
+  return invoke<void>("discard_skill_import", { sourceRef });
 }
 
 export function isDaemonNotReady(error: unknown): boolean {

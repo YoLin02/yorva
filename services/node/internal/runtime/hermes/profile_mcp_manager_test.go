@@ -67,3 +67,44 @@ func TestProfileMCPManagerQualificationPresetLifecycle(t *testing.T) {
 		t.Fatalf("second binding = %#v, %v", work, err)
 	}
 }
+
+func TestProfileMCPManagerProductionLocalTestPresetLifecycle(t *testing.T) {
+	base := t.TempDir()
+	t.Setenv("LOCALAPPDATA", base)
+	root := filepath.Join(base, "hermes")
+	writeProfileResourceFixture(t, filepath.Join(root, "config.yaml"), "model: test\n")
+	manager, err := NewProductionProfileMCPManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = manager.Close() })
+	installation := profileResourceInstallation(root)
+
+	presets, err := manager.ListMCPPresets(context.Background(), installation, "default")
+	if err != nil || len(presets) != 1 || presets[0].ID != mcpmanagement.YORVATestPresetID || presets[0].CredentialRequired {
+		t.Fatalf("production presets = %#v, %v", presets, err)
+	}
+	created, err := manager.InstallMCPPreset(context.Background(), installation, "default", yorvaruntime.MCPInstallRequest{PresetID: mcpmanagement.YORVATestPresetID}, nil)
+	if err != nil || created.State != yorvaruntime.MCPConfigured {
+		t.Fatalf("InstallMCPPreset() = %#v, %v", created, err)
+	}
+	config, err := os.ReadFile(filepath.Join(root, "config.yaml"))
+	if err != nil || !strings.Contains(string(config), mcpmanagement.YORVATestEndpoint) || strings.Contains(string(config), "authorization:") || strings.Contains(string(config), "command:") || strings.Contains(string(config), "args:") || strings.Contains(string(config), "env:") {
+		t.Fatalf("production test config = %q, %v", config, err)
+	}
+	result, err := manager.TestMCP(context.Background(), installation, "default", mcpmanagement.YORVATestPresetID, nil)
+	if err != nil || result.State != yorvaruntime.MCPReady || len(result.ToolIDs) != 1 || result.ToolIDs[0] != mcpmanagement.YORVATestToolID {
+		t.Fatalf("TestMCP() = %#v, %v", result, err)
+	}
+	observed, err := manager.ListMCPServers(context.Background(), installation, "default")
+	if err != nil || len(observed) != 1 || !observed[0].Managed || observed[0].State != yorvaruntime.MCPReady || observed[0].ReadyAt == nil {
+		t.Fatalf("authoritative readback = %#v, %v", observed, err)
+	}
+	if _, err := manager.RemoveMCP(context.Background(), installation, "default", mcpmanagement.YORVATestPresetID, nil); err != nil {
+		t.Fatalf("RemoveMCP() error = %v", err)
+	}
+	after, err := manager.ListMCPServers(context.Background(), installation, "default")
+	if err != nil || len(after) != 0 {
+		t.Fatalf("post-remove readback = %#v, %v", after, err)
+	}
+}

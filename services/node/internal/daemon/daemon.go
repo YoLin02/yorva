@@ -63,7 +63,14 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	if err != nil {
 		return fmt.Errorf("initialize native backup destination authority: %w", err)
 	}
+	mcpManager, err := hermes.NewProductionProfileMCPManager()
+	if err != nil {
+		return fmt.Errorf("initialize YORVA MCP test server: %w", err)
+	}
+	defer mcpManager.Close()
 	bindings := hermes.ManagementBindings{
+		MCPRead:    mcpManager,
+		MCPMutate:  mcpManager,
 		BackupRead: sqlite.NewRuntimeBackupReader(database, string(hermes.Kind)),
 	}
 	if runtime.GOOS == "windows" {

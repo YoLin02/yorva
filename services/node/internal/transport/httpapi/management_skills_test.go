@@ -47,6 +47,10 @@ func (f *fakeManagementSkillsService) StartInstall(_ context.Context, instanceID
 	return f.start(instanceID, skillID, sourceID, key, "install")
 }
 
+func (f *fakeManagementSkillsService) StartImport(_ context.Context, instanceID, skillID, sourceRef, key string) (app.InstallStartResult, error) {
+	return f.start(instanceID, skillID, sourceRef, key, "import")
+}
+
 func (f *fakeManagementSkillsService) StartUpdate(_ context.Context, instanceID, skillID, key string) (app.InstallStartResult, error) {
 	return f.start(instanceID, skillID, "", key, "update")
 }
@@ -161,6 +165,25 @@ func TestManagementSkillsHTTPCatalogAndMutationsAreClosed(t *testing.T) {
 	startManagedSkillMutation(service, skillMutationInstall).ServeHTTP(installResponse, install)
 	if installResponse.Code != http.StatusAccepted || service.action != "install" || service.sourceID != "yorva-demo" || service.key != "skill-install-1" {
 		t.Fatalf("install response = %d %s calls=%#v", installResponse.Code, installResponse.Body.String(), service)
+	}
+
+	importRequest := httptest.NewRequest(http.MethodPost, "/api/v1/instances/inst_1/skills/local-skill/import", strings.NewReader(`{"sourceRef":"sssssssssssssssssssssssssssssssssssssssssss"}`))
+	importRequest.Header.Set("Idempotency-Key", "skill-import-1")
+	importRequest.SetPathValue("instanceId", "inst_1")
+	importRequest.SetPathValue("skillId", "local-skill")
+	importResponse := httptest.NewRecorder()
+	startManagedSkillMutation(service, skillMutationImport).ServeHTTP(importResponse, importRequest)
+	if importResponse.Code != http.StatusAccepted || service.action != "import" || service.sourceID != strings.Repeat("s", 43) {
+		t.Fatalf("import response = %d %s calls=%#v", importResponse.Code, importResponse.Body.String(), service)
+	}
+	unsafeImport := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"sourceRef":"C:\\\\secret"}`))
+	unsafeImport.Header.Set("Idempotency-Key", "skill-import-unsafe")
+	unsafeImport.SetPathValue("instanceId", "inst_1")
+	unsafeImport.SetPathValue("skillId", "local-skill")
+	unsafeResponse := httptest.NewRecorder()
+	startManagedSkillMutation(service, skillMutationImport).ServeHTTP(unsafeResponse, unsafeImport)
+	if unsafeResponse.Code != http.StatusBadRequest {
+		t.Fatalf("unsafe import response = %d %s", unsafeResponse.Code, unsafeResponse.Body.String())
 	}
 
 	for _, body := range []string{`{"sourceId":"yorva-demo","path":"C:\\secret"}`, `{"sourceId":"yorva-demo"} {}`, `{}`} {

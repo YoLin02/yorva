@@ -3,6 +3,8 @@
 package backupmanagement
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,4 +67,44 @@ func TestCreatePrivateStagingUsesProtectedCurrentUserOnlyDACL(t *testing.T) {
 	if !aceSID.Equals(user.User.Sid) {
 		t.Fatalf("staging DACL does not grant only the current process user")
 	}
+}
+
+func TestOpenSnapshotSourceClassifiesExclusiveRuntimeHandle(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.db")
+	if err := os.WriteFile(path, []byte("database"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	name, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.CloseHandle(handle)
+
+	_, err = openSnapshotSourceFile(path)
+	var classified *VerificationError
+	if !errors.As(err, &classified) || classified.Code() != ErrorSourceRuntimeLive {
+		t.Fatalf("exclusive Runtime handle error = %v", err)
+	}
+}
+
+func TestBuildSnapshotPreservesExclusiveRuntimeClassification(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "hermes")
+	path := writeSnapshotFixture(t, root, "state.db", "database")
+	payload, container := openSnapshotStaging(t)
+	name, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handle, err := windows.CreateFile(name, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer windows.CloseHandle(handle)
+
+	_, err = buildHermesRuntimeSnapshot(context.Background(), root, testSnapshotDescriptor(), true, SnapshotStaging{Payload: payload, Container: container}, DefaultLimits())
+	assertSnapshotErrorCode(t, err, ErrorSourceRuntimeLive)
 }

@@ -72,6 +72,19 @@ Forbidden default:
 
 No management endpoint other than minimal startup health/bootstrap behavior is unauthenticated.
 
+The production `yorva-mcp-test` Preset starts one separate ephemeral IPv4 loopback
+listener owned and closed by the daemon-scoped Hermes MCP manager. It accepts only
+bounded MCP `initialize`, `notifications/initialized` and `tools/list` requests and
+returns the single non-privileged `yorva_ping` tool. The listener address is never
+returned through HTTP/Desktop or written into Hermes configuration. The fixed reviewed
+identity is redirected to loopback only inside the private adapter client; this does
+not create a generic proxy or authorize caller-provided hosts.
+
+P7R MCP mutation selects only YORVA-reviewed Presets. Desktop and HTTP callers cannot
+provide endpoints, headers, stdio executable/argv, environment, paths or arbitrary MCP
+JSON. Preset credentials are write-only, omitted from SQLite/read APIs and projected
+only to the exact selected Profile authority.
+
 ## 5. Local Desktop authentication
 
 Desktop and daemon establish a local bootstrap/session credential.
@@ -167,6 +180,13 @@ Phase 2 Hermes discovery applies this boundary concretely: `yorvad` enumerates o
 
 Phase 3 installation uses the same process-containment rules for a trusted Windows PowerShell executable resolved from the OS Windows directory, not PATH. The official installer script is obtained from the verified official commit archive after CRLF normalization, or from one immutable raw URL, then size- and SHA-256-verified, stored under an Operation-private directory, and re-hashed before every invocation. No user-controlled URL, path, argv or environment is accepted. Excluded official stages (`desktop`, `platform-sdks`, `configure`, `gateway`) are never spawned. The official `repository` stage is replaced by YORVA-owned verification and extraction of the official GitHub commit archive (online, then the MSI-bundled copy on transport failure only). Archive members are rejected for traversal, absolute paths, alternate streams, symlinks, excessive count and expansion bombs. The adapter evaluates at most eight candidates, limits stdout and stderr separately to 64 KiB, uses a three-second per-candidate timeout and a ten-second overall application deadline, and owns the full child process tree with a Windows Job Object or Unix process group. Windows children are created suspended, assigned to the kill-on-close Job Object, and only then resumed so descendants cannot escape before ownership is established. Cancellation, timeout, output overflow and normal return terminate any remaining descendants and wait/reap the direct child. The child receives an allowlisted environment containing only OS execution essentials and adapter-owned Hermes installation values; provider credentials and arbitrary inherited Python, uv, pip or npm registry settings are excluded. Amendment 003A2 then appends one fixed HTTPS Python index and one fixed HTTPS npm registry. These endpoints are transport policy, not integrity attestations; the reviewed official lockfiles remain the package integrity inputs. Raw command output is not returned through HTTP or Desktop. One structured application-level outcome record contains only Runtime kind, stable state/error code, counts, duration and timeout/cancellation flags; it excludes executable paths, command output, raw errors and environment values. Tauri may pass only the fixed packaged archive path to `yorvad` at bootstrap. That path is never exposed through HTTP or Desktop. Automatic retry of a failed install always starts a new Install Transaction with new staging and generation ids. `ownership_nonce` is not generated and must not authorize retry. Mutating official stages run against `staging/txn_*`. Public `bin` launchers are copied from `venv/Scripts` before Seal. Seal, publish and activate require a complete manifest walk; post-seal insert, modify or delete fails closed and never writes `control/active.json`. User `PATH` and `HERMES_HOME` are derived from a valid `active.json` after activation. A missing pointer is the only first-install vacancy. A present but invalid `active.json` is fail-closed (`INSTALL_BLOCKED_UNSAFE`) and is never overwritten, newest-generation inferred, or treated as absent. Unknown directories, leftover `hermes-agent` and official Hermes user data are never automatically deleted. Atomic transaction, seal and pointer writes fail closed if parent-directory durability fails before replace. After a successful replace, a complete readable record is the recovery truth even if a later directory-sync call fails.
 
+Amendment 0065A1 supersedes only the discovery timing values in the preceding text.
+Official Hermes version probes use a discovery-only 30-second child limit inside
+32/35/40-second adapter/application/Desktop deadlines. Other commands keep their
+existing narrow timeouts. Concurrent discovery callers for one Runtime share one
+bounded probe, and a supported result may be reused for five seconds; cancellation of
+the final waiter still terminates the owned process trees.
+
 Amendment 003A6 supersedes only the preceding staging-construction detail. New Hermes
 runtime bytes are built directly under their final `generations/gen_<id>` path, which is
 bound to the transaction by a bounded candidate ownership record and remains inactive
@@ -218,15 +238,23 @@ YORVA may access only paths required for:
 - known Runtime installation/configuration locations;
 - explicit user-selected backup/export locations.
 
+ADR-0020 supersedes user selection for managed Runtime Backup Create. The daemon derives
+one absent encrypted artifact path below its trusted per-user system application-data
+directory. React and HTTP submit no path; portable export remains a separate future
+action.
+
 Adapter code must not expose arbitrary read/write file endpoints to Desktop or Cloud.
 
 Normalize and validate paths before mutation. Protect against traversal when accepting relative names.
 
-Phase 7 managed Skills follow ADR-0018. Public callers select only a compile-time
-approved source ID; they cannot submit a URL, local path, command, environment, force
-flag or arbitrary package bytes. YORVA keeps the authoritative managed copy below
-`{dataDir}/skills/managed` and derives the exact Hermes default/named-Profile projection
-path inside the adapter.
+Phase 7 managed Skills follow ADR-0018. Public callers select either a compile-time
+approved source ID or an opaque one-time source reference issued by the native Desktop
+ZIP/directory picker. They cannot submit a URL, local path, command, environment, force
+flag or arbitrary package bytes through HTTP. Native imports are copied into private
+staging, reject traversal, links/reparse points, multiple archive roots, non-prose files
+and bounded-size violations, and are consumed after validation. YORVA keeps the
+authoritative immutable copy below `{dataDir}/skills/<instance>/<skill>/<digest>` and
+derives the exact Hermes default/named-Profile projection path inside the adapter.
 
 YORVA never adopts an existing Hermes Skill. When a Runtime projection exists, changing
 or removing it requires the matching `managed_skills` record, deployment ID, projection

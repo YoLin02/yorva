@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This fixture verifies YORVA's MCP management lifecycle before a third-party MCP
-preset is enabled. It is qualification infrastructure, not a product MCP server
-and not an additional architecture decision.
+This YORVA-owned local server verifies the production MCP management lifecycle before
+a third-party MCP preset is enabled. It is the first production-visible reviewed
+Preset and does not authorize any third-party endpoint.
 
 The fixed test identity is:
 
@@ -12,13 +12,13 @@ The fixed test identity is:
 preset:   yorva-mcp-test
 endpoint: https://mcp-test.yorva.invalid/mcp
 tool:     yorva_ping
-auth:     fixed static-Bearer credential class
+auth:     none
 ```
 
-The hostname is intentionally non-routable. Tagged qualification tests route
-only that exact hostname to an isolated `httptest` TLS server. Normal `yorvad`
-and Desktop builds do not contain the tagged Profile-manager composition, and
-the production Runtime MCP catalog remains unchanged.
+The hostname is intentionally non-routable. Normal `yorvad` starts an ephemeral IPv4
+loopback server and its private Hermes adapter client routes only that exact fixed
+identity to the listener. The listener address never enters the API, Desktop or Hermes
+Profile. The production Runtime catalog contains only this test Preset.
 
 ## Protocol behavior
 
@@ -29,11 +29,8 @@ connection check:
 2. `notifications/initialized`, requiring that session ID;
 3. `tools/list`, requiring that session ID and returning only `yorva_ping`.
 
-It requires the qualification credential through the descriptor-owned Bearer
-shape and rejects any other authorization value, unknown methods, wrong paths,
-oversized bodies and invalid session use. The test verifies that the credential
-is written only to the exact Profile `.env`, while `config.yaml` contains only
-the fixed `${MCP_YORVA_TEST_API_KEY}` interpolation template. It has no command,
+It rejects authorization values, unknown methods, wrong paths, oversized bodies and
+invalid session use. It has no command,
 argv, environment, arbitrary
 header, arbitrary URL, file, package, bootstrap or caller-provided JSON surface.
 
@@ -42,7 +39,7 @@ header, arbitrary URL, file, package, bootstrap or caller-provided JSON surface.
 Run:
 
 ```text
-go test -tags mcpqualification ./internal/app -run TestYORVAManagesQualificationMCPAcrossProfiles -count=1 -v
+go test -tags mcpqualification ./internal/app -run TestYORVAManagesProductionLocalTestMCPAcrossProfiles -count=1 -v
 ```
 
 The gate uses the authenticated typed local HTTP routes, real SQLite repositories,
@@ -50,9 +47,8 @@ application MCP Operations, Hermes Profile MCP manager, atomic Profile writer,
 HTTPS MCP handshake and authoritative Profile read-back. It verifies:
 
 ```text
-authenticated Runtime definition read
+authenticated production Runtime definition read
 → create default-Profile binding
-→ write and read back the Profile credential
 → write fixed Hermes configuration
 → initialize and list tools
 → READY authoritative read-back
@@ -67,7 +63,6 @@ Success requires two complete three-request MCP handshakes. No adapter fake is
 used for the MCP definition, HTTP mutation, Profile mutation, protocol probe or
 read-back.
 
-Passing this gate opens the typed `MCPRead`, `MCPMutate`, and `MCPTest` Runtime
-capabilities independently of catalog size. The normal product catalog remains empty
-until a real provider preset is reviewed; unknown preset IDs continue to fail at the
-adapter registry boundary.
+Passing this gate exposes `yorva-mcp-test` through the typed `MCPRead`, `MCPMutate`,
+and `MCPTest` Runtime capabilities. Third-party Presets still require their own review;
+unknown preset IDs continue to fail at the adapter registry boundary.

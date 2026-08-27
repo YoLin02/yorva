@@ -117,14 +117,23 @@ func TestBuildHermesRuntimeSnapshotRequiresStoppedExactRuntime(t *testing.T) {
 	assertSnapshotErrorCode(t, err, ErrorInputInvalid)
 }
 
-func TestBuildHermesRuntimeSnapshotRejectsSQLiteSidecar(t *testing.T) {
+func TestBuildHermesRuntimeSnapshotIncludesStableWALAndExcludesEphemeralSHM(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "hermes")
 	writeSnapshotFixture(t, root, "state.db", "database")
 	writeSnapshotFixture(t, root, "state.db-wal", "committed WAL state")
+	writeSnapshotFixture(t, root, "state.db-shm", "ephemeral shared memory")
 	payload, container := openSnapshotStaging(t)
 
-	_, err := buildHermesRuntimeSnapshot(context.Background(), root, testSnapshotDescriptor(), true, SnapshotStaging{Payload: payload, Container: container}, DefaultLimits())
-	assertSnapshotErrorCode(t, err, ErrorSourceSQLiteActive)
+	if _, err := buildHermesRuntimeSnapshot(context.Background(), root, testSnapshotDescriptor(), true, SnapshotStaging{Payload: payload, Container: container}, DefaultLimits()); err != nil {
+		t.Fatal(err)
+	}
+	members := readSnapshotPayloadMembers(t, payload)
+	if got := string(members["hermes-runtime/state.db-wal"]); got != "committed WAL state" {
+		t.Fatalf("WAL contents = %q", got)
+	}
+	if _, present := members["hermes-runtime/state.db-shm"]; present {
+		t.Fatal("ephemeral SQLite shared-memory file entered backup")
+	}
 }
 
 func TestBuildHermesRuntimeSnapshotUsesWindowsCaseInsensitivePolicy(t *testing.T) {
@@ -143,9 +152,36 @@ func TestBuildHermesRuntimeSnapshotUsesWindowsCaseInsensitivePolicy(t *testing.T
 	root = filepath.Join(t.TempDir(), "hermes")
 	writeSnapshotFixture(t, root, "state.db", "database")
 	writeSnapshotFixture(t, root, "STATE.DB-WAL", "committed WAL state")
+	writeSnapshotFixture(t, root, "STATE.DB-SHM", "ephemeral shared memory")
 	payload, container = openSnapshotStaging(t)
 	_, err = buildHermesRuntimeSnapshot(context.Background(), root, testSnapshotDescriptor(), true, SnapshotStaging{Payload: payload, Container: container}, DefaultLimits())
-	assertSnapshotErrorCode(t, err, ErrorSourceSQLiteActive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	members := readSnapshotPayloadMembers(t, payload)
+	if _, present := members["hermes-runtime/STATE.DB-WAL"]; !present {
+		t.Fatal("case-variant SQLite WAL was not preserved")
+	}
+	if _, present := members["hermes-runtime/STATE.DB-SHM"]; present {
+		t.Fatal("case-variant SQLite SHM entered backup")
+	}
+}
+
+func TestBuildHermesRuntimeSnapshotExcludesRegenerableLSPTree(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "hermes")
+	writeSnapshotFixture(t, root, "config.yaml", "model: test\n")
+	writeSnapshotFixture(t, root, "lsp/bin/pyright-langserver", "regenerable tool")
+	writeSnapshotFixture(t, root, "logs/.__agent.lock", "runtime lock")
+	payload, container := openSnapshotStaging(t)
+	if _, err := buildHermesRuntimeSnapshot(context.Background(), root, testSnapshotDescriptor(), true, SnapshotStaging{Payload: payload, Container: container}, DefaultLimits()); err != nil {
+		t.Fatal(err)
+	}
+	if _, present := readSnapshotPayloadMembers(t, payload)["hermes-runtime/lsp/bin/pyright-langserver"]; present {
+		t.Fatal("regenerable LSP tree entered Runtime backup")
+	}
+	if _, present := readSnapshotPayloadMembers(t, payload)["hermes-runtime/logs/.__agent.lock"]; present {
+		t.Fatal("Runtime log tree entered Runtime backup")
+	}
 }
 
 func TestBuildHermesRuntimeSnapshotRejectsSourceLink(t *testing.T) {
@@ -225,6 +261,21 @@ func TestBuildHermesRuntimeSnapshotHonorsSourceLimits(t *testing.T) {
 
 	_, err := buildHermesRuntimeSnapshot(context.Background(), root, testSnapshotDescriptor(), true, SnapshotStaging{Payload: payload, Container: container}, limits)
 	assertSnapshotErrorCode(t, err, ErrorArchiveMemberSizeLimit)
+}
+
+func TestRealWindowsHermesRuntimeSnapshotSmoke(t *testing.T) {
+	if runtime.GOOS != "windows" || os.Getenv("YORVA_REAL_HERMES_BACKUP_SMOKE") != "1" {
+		t.Skip("set YORVA_REAL_HERMES_BACKUP_SMOKE=1 to snapshot the stopped local Hermes Runtime")
+	}
+	payload, container := openSnapshotStaging(t)
+	result, err := BuildCanonicalHermesRuntimeSnapshot(context.Background(), testSnapshotDescriptor(), true, SnapshotStaging{Payload: payload, Container: container}, DefaultLimits())
+	if err != nil {
+		t.Fatalf("real Hermes Runtime snapshot failed: %v", err)
+	}
+	if result.Artifact.State != ArtifactStructureVerified || result.SourceFileCount == 0 || result.SourceBytes == 0 {
+		t.Fatalf("real Hermes Runtime snapshot = %#v", result)
+	}
+	t.Logf("real Hermes Runtime snapshot verified: files=%d sourceBytes=%d payloadBytes=%d", result.SourceFileCount, result.SourceBytes, result.Artifact.Metadata.PayloadSizeBytes)
 }
 
 func testSnapshotDescriptor() SnapshotDescriptor {

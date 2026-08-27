@@ -313,16 +313,21 @@ GET /api/v1/instances/{instanceId}/mcp-bindings
 These resources are authenticated, bounded safe projections. Health contains only
 normalized state and finding codes. Logs require exactly one allowlisted category and
 return a fixed-size redacted snapshot, never a source path or raw export. The resources
-never return native paths, Skill contents/configuration, MCP URLs, headers, commands,
-environment, credentials or tool descriptions. `CONFIGURED` is not `READY`; a `READY`
+never return native paths, Skill contents/configuration or MCP credential plaintext.
+YORVA-managed Definition reads may return non-secret endpoint, direct-command, argv,
+environment/header metadata and tool scope. `CONFIGURED` is not `READY`; a `READY`
 MCP result includes explicit time-bounded evidence. An unwired or unqualified Runtime feature returns
 `CAPABILITY_NOT_SUPPORTED` and does not fall back to a human-readable CLI.
 
 Deep/live checks and security audit remain explicit Operations. Runtime-wide health
 also remains unregistered; the current qualified projection is exact-Instance scoped.
 
-The Skill source list is compile-time closed. Install accepts only `sourceId`; no Skill
-request accepts a URL, local path, command, environment, force flag or arbitrary bytes.
+The Skill source list is compile-time closed. Catalog install accepts only `sourceId`.
+Local ZIP/directory import accepts only an opaque, one-time `sourceRef` issued after a
+native Desktop selection; no Skill HTTP request accepts a URL, local path, command,
+environment, force flag or arbitrary bytes. The daemon consumes the staged source,
+requires strict `SKILL.md` frontmatter, enforces prose-only contents and bounded archive
+extraction, then publishes an immutable managed copy before Profile projection.
 Skill responses expose only safe identity and normalized state, including ownership
 (`YORVA_MANAGED`, `EXTERNAL`, `RUNTIME_BUNDLED`, `UNKNOWN`) and projection state
 (`PROJECTED`, `NOT_PROJECTED`, `DRIFT_MISSING`, `DRIFT_MODIFIED`, `CONFLICT`,
@@ -333,6 +338,7 @@ YORVA-managed mutations are separate from Hermes-native mutations:
 
 ```text
 POST   /api/v1/instances/{instanceId}/skills/{skillId}/install
+POST   /api/v1/instances/{instanceId}/skills/{skillId}/import
 POST   /api/v1/instances/{instanceId}/skills/{skillId}/update
 POST   /api/v1/instances/{instanceId}/skills/{skillId}/enable
 POST   /api/v1/instances/{instanceId}/skills/{skillId}/disable
@@ -353,9 +359,17 @@ enable/disable and Profile binding. On exact Hermes `0.20.5`, unavailable native
 mutation/binding fields remain false with `deferred_upstream`; they are never inferred
 true from the YORVA-managed lifecycle.
 
-MCP definitions and Instance bindings use separate resources. Definitions expose only
-reviewed Preset metadata. Binding mutations accept only a reviewed ID, an optional
-request-scoped credential and an allowlisted tool subset:
+MCP definitions and Instance bindings use separate resources. The Runtime collection
+returns the safe metadata of YORVA-reviewed Presets:
+
+```text
+GET    /api/v1/runtimes/{runtimeId}/mcp-definitions
+```
+
+P7R does not register caller-defined Definition mutations and does not accept endpoint,
+header, stdio executable/argv, environment, path or arbitrary JSON fields. Binding
+mutations use the reviewed Definition ID, exact Profile assignment, write-only Preset
+credential and tool scope:
 
 ```text
 PUT    /api/v1/instances/{instanceId}/mcp-bindings/{serverId}
@@ -370,6 +384,11 @@ application, a bounded MCP handshake and authoritative Profile readback all succ
 Only bindings recorded in YORVA's ownership index after that sequence are mutable;
 all pre-existing Hermes definitions remain `EXTERNAL` and read-only. The predecessor
 `mcp-servers` and `mcp-catalog` routes remain compatibility aliases during Phase 7.
+
+The first built-in definition is `yorva-mcp-test`. It has no credential,
+exposes only `yorva_ping`, and is served by a daemon-owned ephemeral IPv4 loopback
+listener. Its fixed reviewed HTTPS identity is redirected only by the private Hermes
+adapter client; callers cannot supply the listener address or endpoint.
 
 ### Read-only managed Upgrade plan
 
@@ -390,14 +409,17 @@ qualification and remain false for the current Hermes pair. No Upgrade/Rollback
 mutation route or Operation is registered, and `UNKNOWN`/`BLOCKED` plans are never
 actionable.
 
-### Runtime backup index and reserved mutations
+### Runtime backup index and Operations
 
-Backup scope is Runtime-wide, not Instance-wide. Phase 7 registers only the authenticated
-safe-index reads:
+Backup scope is Runtime-wide, not Instance-wide. Phase 7 registers authenticated safe
+index reads and durable mutation Operations:
 
 ```text
 GET  /api/v1/runtimes/{runtimeId}/backups
 GET  /api/v1/runtimes/{runtimeId}/backups/{backupId}
+POST /api/v1/runtimes/{runtimeId}/backups
+POST /api/v1/backups/{backupId}/restore
+DELETE /api/v1/backups/{backupId}
 ```
 
 These reads return the backup ID, last-observed state, format/Runtime versions, encrypted
@@ -407,14 +429,11 @@ or archive members. `AVAILABLE` and `verifiedAt` are the last successful control
 verification recorded by YORVA; an ordinary GET does not access, decrypt, hash, reconcile
 or mutate the artifact and does not claim current Restore eligibility.
 
-The following mutations remain reserved and unregistered while their Operation,
-destination capability and destructive Restore qualification are incomplete:
-
-```text
-POST /api/v1/runtimes/{runtimeId}/backups
-POST /api/v1/backups/{backupId}/restore
-DELETE /api/v1/backups/{backupId}
-```
+Backup Create accepts only a closed empty JSON object and `Idempotency-Key`. The daemon
+derives `{dataDir}/backups/{backupId}.yorva-backup.age`; no path or destination capability
+enters React or HTTP. Create succeeds only after encryption, persisted-ciphertext
+authentication, checksum verification and safe-index insertion. Restore and delete use
+only an indexed backup ID and remain durable cancellable Operations.
 
 ## 8. Capability response
 

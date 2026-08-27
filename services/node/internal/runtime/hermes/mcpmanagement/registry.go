@@ -13,6 +13,9 @@ const (
 	maxDisplayNameLength = 128
 	maxEndpointLength    = 2048
 	maxCredentialKeyLen  = 128
+	YORVATestPresetID    = "yorva-mcp-test"
+	YORVATestToolID      = "yorva_ping"
+	YORVATestEndpoint    = "https://mcp-test.yorva.invalid/mcp"
 )
 
 var (
@@ -53,12 +56,17 @@ type reviewedDescriptor struct {
 }
 
 // reviewedDescriptors is a value-producing function rather than mutable
-// registry state. Adding an entry requires a source review and a code change.
-// No production HTTPS preset has completed descriptor/source qualification yet,
-// so the product catalog remains intentionally empty. The typed mutation API is
-// still available and rejects unknown preset IDs at this registry boundary.
-func reviewedDescriptors() [0]reviewedDescriptor {
-	return [0]reviewedDescriptor{}
+// registry state. The first production entry is a YORVA-owned local protocol
+// test server. Its fixed public identity is routed only to the loopback server
+// owned by yorvad; no caller can supply or override endpoint material.
+func reviewedDescriptors() [1]reviewedDescriptor {
+	return [1]reviewedDescriptor{{
+		presetID: YORVATestPresetID, displayName: "YORVA MCP Test",
+		description: "YORVA-owned local MCP lifecycle test server.",
+		homepageURL: "https://yorva.local/", documentationURL: "https://yorva.local/docs/mcp-test",
+		endpoint: YORVATestEndpoint, credential: CredentialClassNone,
+		allowedTools: []string{YORVATestToolID},
+	}}
 }
 
 // qualificationDescriptors is never part of the product catalog. It gives
@@ -67,12 +75,12 @@ func reviewedDescriptors() [0]reviewedDescriptor {
 // turning a test endpoint into product authority.
 func qualificationDescriptors() [1]reviewedDescriptor {
 	return [1]reviewedDescriptor{{
-		presetID: "yorva-mcp-test", displayName: "YORVA MCP Test",
+		presetID: YORVATestPresetID, displayName: "YORVA MCP Test",
 		description: "Qualification-only MCP lifecycle preset.",
 		homepageURL: "https://yorva.local/", documentationURL: "https://yorva.local/docs/mcp-test",
-		endpoint: "https://mcp-test.yorva.invalid/mcp", credential: CredentialClassStaticBearer,
+		endpoint: YORVATestEndpoint, credential: CredentialClassStaticBearer,
 		credentialKey: "MCP_YORVA_TEST_API_KEY",
-		allowedTools:  []string{"yorva_ping"},
+		allowedTools:  []string{YORVATestToolID},
 	}}
 }
 

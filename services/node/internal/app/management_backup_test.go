@@ -177,8 +177,22 @@ func TestBackupManagementNormalizesErrorsAndCancellation(t *testing.T) {
 }
 
 func TestBackupCreateOperationErrorPreservesStoppedPrecondition(t *testing.T) {
-	if got := backupCreateOperationError(fmt.Errorf("adapter context: %w", yorvaruntime.ErrBackupRuntimeNotStopped)); got != yorvaruntime.ErrorBackupRuntimeNotStopped {
-		t.Fatalf("backupCreateOperationError() = %q", got)
+	tests := []struct {
+		err  error
+		want yorvaruntime.ErrorCode
+	}{
+		{fmt.Errorf("adapter context: %w", yorvaruntime.ErrBackupRuntimeNotStopped), yorvaruntime.ErrorBackupRuntimeNotStopped},
+		{yorvaruntime.ErrBackupSourceChanged, yorvaruntime.ErrorBackupSourceChanged},
+		{yorvaruntime.ErrBackupSourceUnsafe, yorvaruntime.ErrorBackupSourceUnsafe},
+		{yorvaruntime.ErrBackupSourceIncomplete, yorvaruntime.ErrorBackupSourceIncomplete},
+		{yorvaruntime.ErrBackupInsufficientSpace, yorvaruntime.ErrorBackupInsufficientSpace},
+		{yorvaruntime.ErrBackupStagingFailed, yorvaruntime.ErrorBackupStagingFailed},
+		{yorvaruntime.ErrBackupEncryptionFailed, yorvaruntime.ErrorBackupEncryptionFailed},
+	}
+	for _, test := range tests {
+		if got := backupCreateOperationError(test.err); got != test.want {
+			t.Fatalf("backupCreateOperationError(%v) = %q, want %q", test.err, got, test.want)
+		}
 	}
 	if got := backupCreateOperationError(errors.New("private adapter detail")); got != yorvaruntime.ErrorBackupCreateFailed {
 		t.Fatalf("generic backupCreateOperationError() = %q", got)

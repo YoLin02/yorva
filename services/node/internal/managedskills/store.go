@@ -291,20 +291,9 @@ type skillFrontmatter struct {
 }
 
 func validateSkillFrontmatter(content []byte, descriptor CatalogEntry) error {
-	normalized := strings.ReplaceAll(string(content), "\r\n", "\n")
-	if !strings.HasPrefix(normalized, "---\n") {
-		return fmt.Errorf("%w: SKILL.md frontmatter is required", ErrCatalogEntryInvalid)
-	}
-	end := strings.Index(normalized[4:], "\n---\n")
-	if end < 0 {
-		return fmt.Errorf("%w: SKILL.md frontmatter is unterminated", ErrCatalogEntryInvalid)
-	}
-	frontmatter := normalized[4 : 4+end]
-	decoder := yaml.NewDecoder(strings.NewReader(frontmatter))
-	decoder.KnownFields(true)
-	var metadata skillFrontmatter
-	if err := decoder.Decode(&metadata); err != nil {
-		return fmt.Errorf("%w: strict frontmatter: %v", ErrCatalogEntryInvalid, err)
+	metadata, err := parseSkillFrontmatter(content)
+	if err != nil {
+		return err
 	}
 	if metadata.Name != descriptor.SkillID || metadata.Version != descriptor.Version || strings.TrimSpace(metadata.Description) == "" || strings.TrimSpace(metadata.Author) == "" || strings.TrimSpace(metadata.License) == "" {
 		return fmt.Errorf("%w: frontmatter does not match reviewed descriptor", ErrCatalogEntryInvalid)
@@ -322,6 +311,25 @@ func validateSkillFrontmatter(content []byte, descriptor CatalogEntry) error {
 		}
 	}
 	return nil
+}
+
+func parseSkillFrontmatter(content []byte) (skillFrontmatter, error) {
+	normalized := strings.ReplaceAll(string(content), "\r\n", "\n")
+	if !strings.HasPrefix(normalized, "---\n") {
+		return skillFrontmatter{}, fmt.Errorf("%w: SKILL.md frontmatter is required", ErrCatalogEntryInvalid)
+	}
+	end := strings.Index(normalized[4:], "\n---\n")
+	if end < 0 {
+		return skillFrontmatter{}, fmt.Errorf("%w: SKILL.md frontmatter is unterminated", ErrCatalogEntryInvalid)
+	}
+	frontmatter := normalized[4 : 4+end]
+	decoder := yaml.NewDecoder(strings.NewReader(frontmatter))
+	decoder.KnownFields(true)
+	var metadata skillFrontmatter
+	if err := decoder.Decode(&metadata); err != nil {
+		return skillFrontmatter{}, fmt.Errorf("%w: strict frontmatter: %v", ErrCatalogEntryInvalid, err)
+	}
+	return metadata, nil
 }
 
 func validCatalogRelative(relative string) bool {

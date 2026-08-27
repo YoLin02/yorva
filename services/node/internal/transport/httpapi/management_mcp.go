@@ -26,8 +26,8 @@ type RuntimeMCPDefinitionService interface {
 type ManagementMCPService interface {
 	ManagementMCPReadService
 	RuntimeMCPDefinitionService
-	StartInstall(context.Context, string, string, []byte, []string, string) (app.InstallStartResult, error)
-	StartAuthenticate(context.Context, string, string, []byte, string) (app.InstallStartResult, error)
+	StartInstall(context.Context, string, string, []byte, map[string][]byte, []string, string) (app.InstallStartResult, error)
+	StartAuthenticate(context.Context, string, string, []byte, map[string][]byte, string) (app.InstallStartResult, error)
 	StartTest(context.Context, string, string, string) (app.InstallStartResult, error)
 	StartConfigure(context.Context, string, string, []string, string) (app.InstallStartResult, error)
 	StartRemove(context.Context, string, string, string) (app.InstallStartResult, error)
@@ -56,6 +56,8 @@ type ManagementMCPPresetResponse struct {
 	DocumentationURL   string   `json:"documentationUrl"`
 	AllowedToolIDs     []string `json:"allowedToolIds"`
 	CredentialRequired bool     `json:"credentialRequired"`
+	Source             string   `json:"source"`
+	Editable           bool     `json:"editable"`
 }
 
 type ManagementMCPPresetListResponse struct {
@@ -126,6 +128,9 @@ func listRuntimeMCPDefinitions(service RuntimeMCPDefinitionService) http.Handler
 }
 
 func writeMCPPresetViews(w http.ResponseWriter, presets []app.MCPPresetView) {
+	writeMCPManagementJSON(w, ManagementMCPPresetListResponse{Items: presetResponses(presets)})
+}
+func presetResponses(presets []app.MCPPresetView) []ManagementMCPPresetResponse {
 	items := make([]ManagementMCPPresetResponse, 0, len(presets))
 	for _, preset := range presets {
 		allowedToolIDs := preset.AllowedToolIDs
@@ -136,9 +141,10 @@ func writeMCPPresetViews(w http.ResponseWriter, presets []app.MCPPresetView) {
 			ID: preset.ID, DisplayName: preset.DisplayName, Description: preset.Description,
 			HomepageURL: preset.HomepageURL, DocumentationURL: preset.DocumentationURL,
 			AllowedToolIDs: allowedToolIDs, CredentialRequired: preset.CredentialRequired,
+			Source: preset.Source, Editable: false,
 		})
 	}
-	writeMCPManagementJSON(w, ManagementMCPPresetListResponse{Items: items})
+	return items
 }
 
 type mcpMutationKind string
@@ -171,18 +177,28 @@ func startMCPMutation(service ManagementMCPService, kind mcpMutationKind) http.H
 		case mcpInstall:
 			var credential []byte
 			var toolIDs []string
-			credential, toolIDs, err = decodeMCPInstall(r, r.PathValue("presetId"))
+			var secrets map[string][]byte
+			credential, secrets, toolIDs, err = decodeMCPInstall(r, r.PathValue("presetId"))
 			if err == nil {
-				result, err = service.StartInstall(r.Context(), instanceID, r.PathValue("presetId"), credential, toolIDs, key)
+				result, err = service.StartInstall(r.Context(), instanceID, r.PathValue("presetId"), credential, secrets, toolIDs, key)
 			}
 			clear(credential)
+			for key, value := range secrets {
+				clear(value)
+				delete(secrets, key)
+			}
 		case mcpAuthenticate:
 			var credential []byte
-			credential, err = decodeMCPAuthentication(r)
+			var secrets map[string][]byte
+			credential, secrets, err = decodeMCPAuthentication(r)
 			if err == nil {
-				result, err = service.StartAuthenticate(r.Context(), instanceID, r.PathValue("serverId"), credential, key)
+				result, err = service.StartAuthenticate(r.Context(), instanceID, r.PathValue("serverId"), credential, secrets, key)
 			}
 			clear(credential)
+			for key, value := range secrets {
+				clear(value)
+				delete(secrets, key)
+			}
 		case mcpTest:
 			err = decodeClosedEmptyObject(r)
 			if err == nil {
@@ -214,45 +230,41 @@ func startMCPMutation(service ManagementMCPService, kind mcpMutationKind) http.H
 	})
 }
 
-func decodeMCPInstall(r *http.Request, presetID string) ([]byte, []string, error) {
+func decodeMCPInstall(r *http.Request, presetID string) ([]byte, map[string][]byte, []string, error) {
 	var body struct {
 		Credential     string   `json:"credential"`
 		EnabledToolIDs []string `json:"enabledToolIds"`
 	}
-	if err := decodeClosedMCPBody(r, &body); err != nil {
-		return nil, nil, err
+	if err := decodeClosedMCPBodyLimit(r, &body, 1024*1024); err != nil {
+		return nil, nil, nil, err
 	}
 	credential := []byte(body.Credential)
 	if len(credential) > 0 {
 		if err := (yorvaruntime.MCPAuthenticateRequest{ServerID: presetID, Credential: credential}).Validate(); err != nil {
 			clear(credential)
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	}
 	if err := (yorvaruntime.MCPConfigureRequest{ServerID: presetID, EnabledToolIDs: body.EnabledToolIDs}).Validate(); err != nil {
 		clear(credential)
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	if len(body.EnabledToolIDs) == 0 {
-		clear(credential)
-		return nil, nil, yorvaruntime.ErrInvalidManagementContract
-	}
-	return credential, append([]string(nil), body.EnabledToolIDs...), nil
+	return credential, nil, append([]string(nil), body.EnabledToolIDs...), nil
 }
 
-func decodeMCPAuthentication(r *http.Request) ([]byte, error) {
+func decodeMCPAuthentication(r *http.Request) ([]byte, map[string][]byte, error) {
 	var body struct {
 		Credential string `json:"credential"`
 	}
-	if err := decodeClosedMCPBody(r, &body); err != nil {
-		return nil, err
+	if err := decodeClosedMCPBodyLimit(r, &body, 1024*1024); err != nil {
+		return nil, nil, err
 	}
 	credential := []byte(body.Credential)
 	if err := (yorvaruntime.MCPAuthenticateRequest{ServerID: r.PathValue("serverId"), Credential: credential}).Validate(); err != nil {
 		clear(credential)
-		return nil, err
+		return nil, nil, err
 	}
-	return credential, nil
+	return credential, nil, nil
 }
 
 func decodeMCPConfiguration(r *http.Request, serverID string) ([]string, error) {
@@ -269,12 +281,16 @@ func decodeMCPConfiguration(r *http.Request, serverID string) ([]string, error) 
 }
 
 func decodeClosedMCPBody(r *http.Request, target any) error {
+	return decodeClosedMCPBodyLimit(r, target, 8192)
+}
+
+func decodeClosedMCPBodyLimit(r *http.Request, target any, limit int64) error {
 	if r.Body == nil {
 		return io.EOF
 	}
 	defer r.Body.Close()
-	payload, err := io.ReadAll(io.LimitReader(r.Body, 8193))
-	if err != nil || len(payload) == 0 || len(payload) > 8192 {
+	payload, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
+	if err != nil || len(payload) == 0 || int64(len(payload)) > limit {
 		return io.ErrUnexpectedEOF
 	}
 	decoder := json.NewDecoder(bytes.NewReader(payload))

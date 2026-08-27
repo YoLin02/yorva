@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-func TestReviewedRegistryStartsEmptyAndUnknownFailsClosed(t *testing.T) {
+func TestReviewedRegistryContainsOnlyYORVALocalTestAndUnknownFailsClosed(t *testing.T) {
 	registry := NewRegistry()
-	if got := registry.Catalog(); len(got) != 0 {
-		t.Fatalf("qualified catalog = %#v, want zero entries", got)
+	if got := registry.Catalog(); len(got) != 1 || got[0].ID != YORVATestPresetID || got[0].CredentialClass != CredentialClassNone || len(got[0].AllowedToolIDs) != 1 || got[0].AllowedToolIDs[0] != YORVATestToolID {
+		t.Fatalf("qualified catalog = %#v", got)
 	}
 	if _, err := registry.Resolve("unreviewed"); !errors.Is(err, ErrDescriptorUnknown) {
 		t.Fatalf("Resolve(unreviewed) error = %v, want ErrDescriptorUnknown", err)

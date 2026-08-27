@@ -259,6 +259,9 @@ func TestClosedManagementRequestsRejectUnsafeIdentifiers(t *testing.T) {
 	if err := (BackupCreateRequest{DestinationRef: strings.Repeat("a", 43), OperationID: "op_backup", RuntimeInstallationID: "rtinst_1"}).Validate(); err != nil {
 		t.Fatalf("valid backup destination reference rejected: %v", err)
 	}
+	if err := (BackupCreateRequest{OperationID: "op_system_backup", RuntimeInstallationID: "rtinst_1"}).Validate(); err != nil {
+		t.Fatalf("system backup destination rejected: %v", err)
+	}
 }
 
 func TestMCPConfiguredAndReadyRemainDistinct(t *testing.T) {

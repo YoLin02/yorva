@@ -256,10 +256,12 @@ type RuntimeBundle struct {
 Unsupported features are nil/absent and reflected in capability metadata.
 
 Phase 7 reports MCP capability facets independently: `MCPRead`, `MCPMutate` and
-`MCPTest`. Hermes Profile inventory may keep `MCPRead=true` while the reviewed product
-registry is empty; in that state both mutation and test remain false. A qualified
-adapter binding enables mutation and test together because the mutation contract owns
-write, delete, bounded connection test and authoritative readback.
+`MCPTest`. Runtime Definitions are separate from exact-Instance bindings. The built-in
+loopback Preset proves the baseline lifecycle. P7R accepts only YORVA-reviewed Presets;
+caller-provided endpoint, header, stdio executable/argv, environment, path and arbitrary
+JSON fields are not part of the contract. The Hermes adapter owns YAML projection,
+bounded connection testing, cleanup and authoritative Profile readback. External Hermes
+definitions remain read-only.
 
 Do not use runtime type assertions throughout application code; centralize capability lookup in the runtime registry.
 
@@ -363,6 +365,24 @@ requirement and closed blocked-reason codes. Source commits, hashes, seals, file
 paths, commands, URLs and internal protection-point identities stay adapter-internal.
 For the current `0.20.2` to packaged `0.20.5` pair, compatibility and protection evidence
 are not qualified, so the plan is `UNKNOWN` and never authorizes a mutation.
+
+An actionable plan requires all of: a valid YORVA `active.json`; a matching sealed known
+generation identity; authoritative inventory of affected Profiles, gateways and managed
+features; a verified encrypted protection backup; exact Windows compatibility evidence
+for the current/candidate pair; and qualified post-upgrade detection, inventory, health,
+configuration, Skill, MCP and gateway checks. Missing items are returned as closed public
+reason codes rather than one undifferentiated failure.
+
+### Managed Runtime backup destination
+
+Backup Create uses the adapter-owned per-user `{dataDir}/backups` directory and a
+daemon-generated backup ID. React and HTTP cannot choose or read the artifact path.
+Device-key encryption, ciphertext authentication, checksum verification and index write
+must all succeed before `AVAILABLE` is reported. For a stopped Hermes 0.20.5 Runtime,
+stable SQLite database and WAL bytes are captured together; regenerable SHM and LSP
+material are excluded. Any source change during the bounded double-read still fails
+closed. A sharing/lock violation from Hermes Dashboard or another background process is
+reported as `BACKUP_SOURCE_RUNTIME_NOT_STOPPED`, not as a generic create failure.
 
 ## 13. Error normalization
 

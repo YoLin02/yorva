@@ -1,11 +1,9 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"time"
 
@@ -21,7 +19,7 @@ type ManagementBackupReadService interface {
 
 type ManagementBackupService interface {
 	ManagementBackupReadService
-	StartCreateBackup(context.Context, string, string, string) (app.InstallStartResult, error)
+	StartCreateBackup(context.Context, string, string) (app.InstallStartResult, error)
 	StartDeleteBackup(context.Context, string, string, string) (app.InstallStartResult, error)
 	StartRestoreBackup(context.Context, string, string, string) (app.InstallStartResult, error)
 	CancelBackupOperation(context.Context, string) (operation.Operation, error)
@@ -90,12 +88,11 @@ func startRuntimeBackup(service ManagementBackupService) http.Handler {
 			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_IDEMPOTENCY_KEY", Message: "A valid Idempotency-Key header is required.", Retryable: false})
 			return
 		}
-		destinationRef, err := decodeBackupCreateRequest(r)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The backup request must contain only destinationRef.", Retryable: false})
+		if err := decodeClosedEmptyObject(r); err != nil {
+			writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The backup request must be a closed empty JSON object.", Retryable: false})
 			return
 		}
-		result, err := service.StartCreateBackup(r.Context(), r.PathValue("runtimeId"), destinationRef, key)
+		result, err := service.StartCreateBackup(r.Context(), r.PathValue("runtimeId"), key)
 		if err != nil {
 			writeBackupManagementError(w, r, err)
 			return
@@ -156,32 +153,6 @@ func startRestoreBackup(service ManagementBackupService) http.Handler {
 		w.WriteHeader(http.StatusAccepted)
 		_ = json.NewEncoder(w).Encode(newOperationResponse(result.Operation))
 	})
-}
-
-func decodeBackupCreateRequest(r *http.Request) (string, error) {
-	if r.Body == nil {
-		return "", io.EOF
-	}
-	defer r.Body.Close()
-	payload, err := io.ReadAll(io.LimitReader(r.Body, 2049))
-	if err != nil || len(payload) == 0 || len(payload) > 2048 {
-		return "", io.ErrUnexpectedEOF
-	}
-	var body struct {
-		DestinationRef string `json:"destinationRef"`
-	}
-	decoder := json.NewDecoder(bytes.NewReader(payload))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&body); err != nil {
-		return "", err
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return "", errors.New("trailing json")
-	}
-	if err := yorvaruntime.ValidateBackupDestinationRef(body.DestinationRef); err != nil {
-		return "", err
-	}
-	return body.DestinationRef, nil
 }
 
 func newManagementBackupResponse(backup app.BackupView) ManagementBackupResponse {

@@ -7,6 +7,8 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -74,6 +76,179 @@ func TestRuntimeDiscoveryPropagatesAdapterError(t *testing.T) {
 
 type waitingDiscoverer struct {
 	finished chan error
+}
+
+type countedDiscoverer struct {
+	calls    atomic.Int32
+	entered  chan struct{}
+	release  chan struct{}
+	finished chan error
+	result   yorvaruntime.Discovery
+}
+
+func (d *countedDiscoverer) Detect(ctx context.Context) (yorvaruntime.Discovery, error) {
+	d.calls.Add(1)
+	if d.entered != nil {
+		d.entered <- struct{}{}
+	}
+	if d.release == nil {
+		return d.result, nil
+	}
+	select {
+	case <-d.release:
+		if d.finished != nil {
+			d.finished <- nil
+		}
+		return d.result, nil
+	case <-ctx.Done():
+		if d.finished != nil {
+			d.finished <- ctx.Err()
+		}
+		return yorvaruntime.Discovery{}, ctx.Err()
+	}
+}
+
+func newRuntimeDiscoveryWithDiscoverer(t *testing.T, discoverer yorvaruntime.Discoverer) *RuntimeDiscovery {
+	t.Helper()
+	registry := yorvaruntime.NewRegistry()
+	if err := registry.Register("hermes", yorvaruntime.Bundle{
+		Descriptor: yorvaruntime.Descriptor{Kind: "hermes", Name: "Hermes"},
+		Discoverer: discoverer,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return NewRuntimeDiscovery(registry, nil)
+}
+
+func TestRuntimeDiscoveryCoalescesConcurrentRequests(t *testing.T) {
+	discoverer := &countedDiscoverer{
+		entered: make(chan struct{}, 8), release: make(chan struct{}),
+		result: yorvaruntime.Discovery{RuntimeKind: "hermes", State: yorvaruntime.DiscoverySupported},
+	}
+	service := newRuntimeDiscoveryWithDiscoverer(t, discoverer)
+	const callers = 8
+	var group sync.WaitGroup
+	errorsSeen := make(chan error, callers)
+	group.Add(callers)
+	for range callers {
+		go func() {
+			defer group.Done()
+			_, err := service.Detect(context.Background(), "hermes")
+			errorsSeen <- err
+		}()
+	}
+	select {
+	case <-discoverer.entered:
+	case <-time.After(time.Second):
+		t.Fatal("discovery did not start")
+	}
+	close(discoverer.release)
+	group.Wait()
+	close(errorsSeen)
+	for err := range errorsSeen {
+		if err != nil {
+			t.Fatalf("Detect() error = %v", err)
+		}
+	}
+	if got := discoverer.calls.Load(); got != 1 {
+		t.Fatalf("adapter calls = %d, want one coalesced probe", got)
+	}
+}
+
+func TestRuntimeDiscoveryCachesOnlySupportedResults(t *testing.T) {
+	supported := &countedDiscoverer{result: yorvaruntime.Discovery{RuntimeKind: "hermes", State: yorvaruntime.DiscoverySupported}}
+	service := newRuntimeDiscoveryWithDiscoverer(t, supported)
+	for range 2 {
+		if _, err := service.Detect(context.Background(), "hermes"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := supported.calls.Load(); got != 1 {
+		t.Fatalf("supported adapter calls = %d, want cached result", got)
+	}
+
+	timedOut := &countedDiscoverer{result: yorvaruntime.Discovery{RuntimeKind: "hermes", State: yorvaruntime.DiscoveryTimedOut, ErrorCode: yorvaruntime.ErrorRuntimeDiscoveryTimeout}}
+	service = newRuntimeDiscoveryWithDiscoverer(t, timedOut)
+	for range 2 {
+		if _, err := service.Detect(context.Background(), "hermes"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := timedOut.calls.Load(); got != 2 {
+		t.Fatalf("timed-out adapter calls = %d, want a fresh retry", got)
+	}
+}
+
+func TestRuntimeDiscoveryKeepsSharedProbeUntilLastWaiterCancels(t *testing.T) {
+	discoverer := &countedDiscoverer{
+		entered: make(chan struct{}, 1), release: make(chan struct{}), finished: make(chan error, 1),
+		result: yorvaruntime.Discovery{RuntimeKind: "hermes", State: yorvaruntime.DiscoverySupported},
+	}
+	service := newRuntimeDiscoveryWithDiscoverer(t, discoverer)
+	firstCtx, cancelFirst := context.WithCancel(context.Background())
+	firstResult := make(chan error, 1)
+	secondResult := make(chan error, 1)
+	go func() { _, err := service.Detect(firstCtx, "hermes"); firstResult <- err }()
+	<-discoverer.entered
+	go func() { _, err := service.Detect(context.Background(), "hermes"); secondResult <- err }()
+	deadline := time.Now().Add(time.Second)
+	for {
+		service.mu.Lock()
+		waiters := service.flights["hermes"].waiters
+		service.mu.Unlock()
+		if waiters == 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("second caller did not join the shared probe")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	cancelFirst()
+	if err := <-firstResult; !errors.Is(err, context.Canceled) {
+		t.Fatalf("first Detect() error = %v, want cancellation", err)
+	}
+	close(discoverer.release)
+	if err := <-secondResult; err != nil {
+		t.Fatalf("shared Detect() error = %v", err)
+	}
+	if err := <-discoverer.finished; err != nil {
+		t.Fatalf("shared adapter was cancelled while a waiter remained: %v", err)
+	}
+	if got := discoverer.calls.Load(); got != 1 {
+		t.Fatalf("adapter calls = %d, want one", got)
+	}
+}
+
+func TestRuntimeDiscoveryStartsFreshProbeAfterOnlyWaiterCancels(t *testing.T) {
+	discoverer := &countedDiscoverer{
+		entered: make(chan struct{}, 2), release: make(chan struct{}), finished: make(chan error, 2),
+		result: yorvaruntime.Discovery{RuntimeKind: "hermes", State: yorvaruntime.DiscoverySupported},
+	}
+	service := newRuntimeDiscoveryWithDiscoverer(t, discoverer)
+	firstCtx, cancelFirst := context.WithCancel(context.Background())
+	firstResult := make(chan error, 1)
+	go func() { _, err := service.Detect(firstCtx, "hermes"); firstResult <- err }()
+	<-discoverer.entered
+	cancelFirst()
+	if err := <-firstResult; !errors.Is(err, context.Canceled) {
+		t.Fatalf("first Detect() error = %v, want cancellation", err)
+	}
+
+	secondResult := make(chan error, 1)
+	go func() { _, err := service.Detect(context.Background(), "hermes"); secondResult <- err }()
+	select {
+	case <-discoverer.entered:
+	case <-time.After(time.Second):
+		t.Fatal("replacement discovery did not start")
+	}
+	close(discoverer.release)
+	if err := <-secondResult; err != nil {
+		t.Fatalf("replacement Detect() error = %v", err)
+	}
+	if got := discoverer.calls.Load(); got != 2 {
+		t.Fatalf("adapter calls = %d, want cancelled and replacement probes", got)
+	}
 }
 
 func (d waitingDiscoverer) Detect(ctx context.Context) (yorvaruntime.Discovery, error) {

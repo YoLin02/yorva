@@ -25,13 +25,14 @@ var (
 	errMCPNotManaged      = errors.New("Hermes MCP definition is not YORVA managed")
 )
 
-// ProfileMCPManager owns the closed descriptor to exact-Profile compatibility
+// ProfileMCPManager owns the reviewed descriptor to exact-Profile compatibility
 // boundary. Public callers provide only reviewed preset/server/tool IDs and a
 // request-lifetime credential; transport details never cross this boundary.
 type ProfileMCPManager struct {
 	profiles *ProfileResourceReader
 	registry mcpmanagement.Registry
 	client   *http.Client
+	local    *mcpmanagement.LocalTestServer
 	now      func() time.Time
 	mu       sync.Mutex
 	ready    map[string]time.Time
@@ -39,6 +40,30 @@ type ProfileMCPManager struct {
 
 func NewProfileMCPManager() *ProfileMCPManager {
 	return newProfileMCPManager(NewProfileResourceReader(), mcpmanagement.NewRegistry(), mcpmanagement.NewReviewedHTTPSClient())
+}
+
+// NewProductionProfileMCPManager starts the daemon-owned loopback MCP test
+// server and wires the production reviewed catalog to its private client.
+func NewProductionProfileMCPManager() (*ProfileMCPManager, error) {
+	server, err := mcpmanagement.StartLocalTestServer()
+	if err != nil {
+		return nil, err
+	}
+	client := server.Client(mcpmanagement.NewReviewedHTTPSClient())
+	if client == nil {
+		_ = server.Close()
+		return nil, errMCPProfileUnsafe
+	}
+	manager := newProfileMCPManager(NewProfileResourceReader(), mcpmanagement.NewRegistry(), client)
+	manager.local = server
+	return manager, nil
+}
+
+func (m *ProfileMCPManager) Close() error {
+	if m == nil || m.local == nil {
+		return nil
+	}
+	return m.local.Close()
 }
 
 func newProfileMCPManager(profiles *ProfileResourceReader, registry mcpmanagement.Registry, client *http.Client) *ProfileMCPManager {
@@ -116,6 +141,11 @@ func (m *ProfileMCPManager) ListMCPServers(ctx context.Context, installation yor
 			if readyAt, ok := m.readyObservation(nativeID, id, observedAt); ok && item.State == yorvaruntime.MCPConfigured {
 				item.State, item.ReadyAt = yorvaruntime.MCPReady, &readyAt
 			}
+		} else {
+			item.EnabledToolIDs = extractMCPToolIDs(servers.Content[index+1])
+			if readyAt, ok := m.readyObservation(nativeID, id, observedAt); ok {
+				item.State, item.ReadyAt = yorvaruntime.MCPReady, &readyAt
+			}
 		}
 		if item.Validate() != nil {
 			return nil, errMCPProfileUnsafe
@@ -124,6 +154,22 @@ func (m *ProfileMCPManager) ListMCPServers(ctx context.Context, installation yor
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
 	return items, nil
+}
+
+func extractMCPToolIDs(node *yaml.Node) []string {
+	scope := mappingValue(node, "tools")
+	include := mappingValue(scope, "include")
+	if include == nil || include.Kind != yaml.SequenceNode {
+		return nil
+	}
+	result := make([]string, 0, len(include.Content))
+	for _, item := range include.Content {
+		if item.Kind != yaml.ScalarNode {
+			return nil
+		}
+		result = append(result, item.Value)
+	}
+	return result
 }
 
 func (m *ProfileMCPManager) InstallMCPPreset(ctx context.Context, installation yorvaruntime.Installation, nativeID string, request yorvaruntime.MCPInstallRequest, _ yorvaruntime.ProgressSink) (yorvaruntime.MCPServer, error) {

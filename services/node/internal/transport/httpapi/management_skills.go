@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"regexp"
 
 	"github.com/YoLin02/yorva/services/node/internal/app"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
@@ -17,6 +18,7 @@ type ManagementSkillsService interface {
 	InspectSkill(context.Context, string, string) (yorvaruntime.Skill, error)
 	ListSources(context.Context, string) ([]app.SkillSourceView, error)
 	StartInstall(context.Context, string, string, string, string) (app.InstallStartResult, error)
+	StartImport(context.Context, string, string, string, string) (app.InstallStartResult, error)
 	StartUpdate(context.Context, string, string, string) (app.InstallStartResult, error)
 	StartEnable(context.Context, string, string, string) (app.InstallStartResult, error)
 	StartDisable(context.Context, string, string, string) (app.InstallStartResult, error)
@@ -128,6 +130,7 @@ type skillMutationAction string
 
 const (
 	skillMutationInstall skillMutationAction = "install"
+	skillMutationImport  skillMutationAction = "import"
 	skillMutationUpdate  skillMutationAction = "update"
 	skillMutationEnable  skillMutationAction = "enable"
 	skillMutationDisable skillMutationAction = "disable"
@@ -158,6 +161,14 @@ func startManagedSkillMutation(service ManagementSkillsService, action skillMuta
 				return
 			}
 			result, err = service.StartInstall(r.Context(), instanceID, skillID, sourceID, key)
+		} else if action == skillMutationImport {
+			var sourceRef string
+			sourceRef, err = decodeClosedSkillImportRequest(r)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The import request must contain a native source reference.", Retryable: false})
+				return
+			}
+			result, err = service.StartImport(r.Context(), instanceID, skillID, sourceRef, key)
 		} else {
 			if err = decodeClosedEmptyObject(r); err != nil {
 				writeError(w, http.StatusBadRequest, ErrorBody{Code: "INVALID_REQUEST", Message: "The Skill mutation request must be a closed empty JSON object.", Retryable: false})
@@ -182,6 +193,31 @@ func startManagedSkillMutation(service ManagementSkillsService, action skillMuta
 		w.WriteHeader(http.StatusAccepted)
 		_ = json.NewEncoder(w).Encode(newOperationResponse(result.Operation))
 	})
+}
+
+var skillSourceRefPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
+
+func decodeClosedSkillImportRequest(r *http.Request) (string, error) {
+	if r.Body == nil {
+		return "", io.EOF
+	}
+	defer r.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(r.Body, maxInstallRequestBytes+1))
+	if err != nil || len(payload) == 0 || len(payload) > maxInstallRequestBytes {
+		return "", io.ErrUnexpectedEOF
+	}
+	var body struct {
+		SourceRef string `json:"sourceRef"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&body); err != nil {
+		return "", err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) || !skillSourceRefPattern.MatchString(body.SourceRef) {
+		return "", errors.New("invalid source reference")
+	}
+	return body.SourceRef, nil
 }
 
 func decodeClosedSkillInstallRequest(r *http.Request) (string, error) {

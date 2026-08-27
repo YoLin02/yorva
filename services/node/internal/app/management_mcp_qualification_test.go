@@ -22,15 +22,19 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes"
-	"github.com/YoLin02/yorva/services/node/internal/testsupport/mcptestserver"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/mcpmanagement"
 	"github.com/YoLin02/yorva/services/node/internal/transport/httpapi"
 )
 
-func TestYORVAManagesQualificationMCPAcrossProfiles(t *testing.T) {
+func TestYORVAManagesProductionLocalTestMCPAcrossProfiles(t *testing.T) {
 	ctx := context.Background()
-	server := mcptestserver.Start(t)
 	hermesHome, executable := qualificationHermesHome(t)
-	manager := hermes.NewQualificationProfileMCPManager(hermesHome, server.Client())
+	t.Setenv("LOCALAPPDATA", filepath.Dir(hermesHome))
+	manager, err := hermes.NewProductionProfileMCPManager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = manager.Close() })
 
 	registry := yorvaruntime.NewRegistry()
 	discoverer := qualificationDiscoverer{path: executable}
@@ -89,39 +93,36 @@ func TestYORVAManagesQualificationMCPAcrossProfiles(t *testing.T) {
 	t.Cleanup(apiServer.Close)
 	definitionResponse := qualificationAPIRequest(t, apiServer.Client(), apiToken, http.MethodGet, apiServer.URL+"/api/v1/runtimes/hermes/mcp-definitions", "", "")
 	var definitions httpapi.ManagementMCPPresetListResponse
-	if err := json.Unmarshal(definitionResponse, &definitions); err != nil || len(definitions.Items) != 1 || definitions.Items[0].ID != "yorva-mcp-test" || !definitions.Items[0].CredentialRequired {
+	if err := json.Unmarshal(definitionResponse, &definitions); err != nil || len(definitions.Items) != 1 || definitions.Items[0].ID != mcpmanagement.YORVATestPresetID || definitions.Items[0].CredentialRequired {
 		t.Fatalf("Runtime MCP definitions = %#v, %v", definitions, err)
 	}
 
 	startAndWaitMCPHTTP(t, db, apiServer.Client(), apiToken, http.MethodPut,
-		apiServer.URL+"/api/v1/instances/"+instanceID["default"]+"/mcp-bindings/yorva-mcp-test",
-		`{"credential":"`+mcptestserver.Credential+`","enabledToolIds":["`+mcptestserver.ToolPing+`"]}`,
+		apiServer.URL+"/api/v1/instances/"+instanceID["default"]+"/mcp-bindings/"+mcpmanagement.YORVATestPresetID,
+		`{"enabledToolIds":["`+mcpmanagement.YORVATestToolID+`"]}`,
 		"mcp-qualification-create-default")
 	assertManagedReady(t, service, instanceID["default"])
 	defaultConfig := readQualificationConfig(t, filepath.Join(hermesHome, "config.yaml"))
-	if !strings.Contains(defaultConfig, mcptestserver.FixedEndpoint) || !strings.Contains(defaultConfig, "Bearer ${MCP_YORVA_TEST_API_KEY}") || strings.Contains(defaultConfig, mcptestserver.Credential) || strings.Contains(defaultConfig, "command:") || strings.Contains(defaultConfig, "args:") || strings.Contains(defaultConfig, "env:") {
+	if !strings.Contains(defaultConfig, mcpmanagement.YORVATestEndpoint) || strings.Contains(defaultConfig, "authorization:") || strings.Contains(defaultConfig, "command:") || strings.Contains(defaultConfig, "args:") || strings.Contains(defaultConfig, "env:") {
 		t.Fatalf("default Profile config is not a closed HTTPS definition: %q", defaultConfig)
 	}
-	assertQualificationCredential(t, filepath.Join(hermesHome, ".env"), true)
 
 	// Modify the binding by assigning the same Runtime definition to a second
 	// exact Hermes Profile and removing it from the first.
 	startAndWaitMCPHTTP(t, db, apiServer.Client(), apiToken, http.MethodPut,
-		apiServer.URL+"/api/v1/instances/"+instanceID["work"]+"/mcp-bindings/yorva-mcp-test",
-		`{"credential":"`+mcptestserver.Credential+`","enabledToolIds":["`+mcptestserver.ToolPing+`"]}`,
+		apiServer.URL+"/api/v1/instances/"+instanceID["work"]+"/mcp-bindings/"+mcpmanagement.YORVATestPresetID,
+		`{"enabledToolIds":["`+mcpmanagement.YORVATestToolID+`"]}`,
 		"mcp-qualification-bind-work")
 	assertManagedReady(t, service, instanceID["work"])
 	startAndWaitMCPHTTP(t, db, apiServer.Client(), apiToken, http.MethodDelete,
-		apiServer.URL+"/api/v1/instances/"+instanceID["default"]+"/mcp-bindings/yorva-mcp-test", `{}`,
+		apiServer.URL+"/api/v1/instances/"+instanceID["default"]+"/mcp-bindings/"+mcpmanagement.YORVATestPresetID, `{}`,
 		"mcp-qualification-unbind-default")
 	assertNoMCP(t, service, instanceID["default"])
-	assertQualificationCredential(t, filepath.Join(hermesHome, ".env"), false)
 
 	startAndWaitMCPHTTP(t, db, apiServer.Client(), apiToken, http.MethodDelete,
-		apiServer.URL+"/api/v1/instances/"+instanceID["work"]+"/mcp-bindings/yorva-mcp-test", `{}`,
+		apiServer.URL+"/api/v1/instances/"+instanceID["work"]+"/mcp-bindings/"+mcpmanagement.YORVATestPresetID, `{}`,
 		"mcp-qualification-delete-work")
 	assertNoMCP(t, service, instanceID["work"])
-	assertQualificationCredential(t, filepath.Join(hermesHome, "profiles", "work", ".env"), false)
 	bindings, err := db.ListManagedMCPBindings(ctx, instanceID["default"])
 	if err != nil || len(bindings) != 0 {
 		t.Fatalf("default managed bindings after remove = %#v, %v", bindings, err)
@@ -130,9 +131,7 @@ func TestYORVAManagesQualificationMCPAcrossProfiles(t *testing.T) {
 	if err != nil || len(bindings) != 0 {
 		t.Fatalf("work managed bindings after remove = %#v, %v", bindings, err)
 	}
-	if server.RequestCount() != 6 {
-		t.Fatalf("MCP server requests = %d, want two complete initialize/initialized/tools-list handshakes", server.RequestCount())
-	}
+
 }
 
 type qualificationDiscoverer struct{ path string }
@@ -153,7 +152,7 @@ func (qualificationProfiles) List(context.Context, string) ([]app.ProfileSnapsho
 
 func qualificationHermesHome(t *testing.T) (string, string) {
 	t.Helper()
-	root := t.TempDir()
+	root := filepath.Join(t.TempDir(), "hermes")
 	for _, path := range []string{root, filepath.Join(root, "profiles", "work"), filepath.Join(root, "bin")} {
 		if err := os.MkdirAll(path, 0o755); err != nil {
 			t.Fatal(err)
@@ -229,10 +228,36 @@ func qualificationAPIRequest(t *testing.T, client *http.Client, token, method, u
 	return payload
 }
 
+func qualificationAPIRequestStatus(t *testing.T, client *http.Client, token, method, url, body string, want int) []byte {
+	t.Helper()
+	request, err := http.NewRequest(method, url, bytes.NewBufferString(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(response.Body, 64*1024+1))
+	if err != nil || len(payload) > 64*1024 {
+		t.Fatal(err)
+	}
+	if response.StatusCode != want {
+		t.Fatalf("definition API status = %d, want %d: %s", response.StatusCode, want, payload)
+	}
+	return payload
+}
+
 func assertManagedReady(t *testing.T, service *app.MCPManagement, instanceID string) {
+	assertManagedReadyID(t, service, instanceID, "yorva-mcp-test")
+}
+func assertManagedReadyID(t *testing.T, service *app.MCPManagement, instanceID, serverID string) {
 	t.Helper()
 	servers, err := service.ListMCPServers(context.Background(), instanceID)
-	if err != nil || len(servers) != 1 || servers[0].ID != "yorva-mcp-test" || servers[0].Ownership != "YORVA_MANAGED" || servers[0].State != yorvaruntime.MCPReady || servers[0].ReadyAt == nil {
+	if err != nil || len(servers) != 1 || servers[0].ID != serverID || servers[0].Ownership != "YORVA_MANAGED" || servers[0].State != yorvaruntime.MCPReady || servers[0].ReadyAt == nil {
 		t.Fatalf("managed READY readback = %#v, %v", servers, err)
 	}
 }
@@ -252,16 +277,4 @@ func readQualificationConfig(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(payload)
-}
-
-func assertQualificationCredential(t *testing.T, path string, configured bool) {
-	t.Helper()
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	present := strings.Contains(string(payload), "MCP_YORVA_TEST_API_KEY=") && strings.Contains(string(payload), mcptestserver.Credential)
-	if present != configured {
-		t.Fatalf("qualification credential configured = %v, want %v", present, configured)
-	}
 }

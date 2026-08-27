@@ -11,6 +11,12 @@ import (
 var (
 	ErrBackupNotFound          = errors.New("Runtime backup not found")
 	ErrBackupRuntimeNotStopped = errors.New("Runtime must be stopped before backup")
+	ErrBackupSourceChanged     = errors.New("Runtime backup source changed during capture")
+	ErrBackupSourceUnsafe      = errors.New("Runtime backup source contains an unsafe entry")
+	ErrBackupSourceIncomplete  = errors.New("Runtime backup source could not be captured completely")
+	ErrBackupInsufficientSpace = errors.New("Runtime backup destination has insufficient space")
+	ErrBackupStagingFailed     = errors.New("Runtime backup staging failed")
+	ErrBackupEncryptionFailed  = errors.New("Runtime backup encryption or verification failed")
 )
 
 var backupDestinationRefPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
@@ -81,9 +87,10 @@ func (b Backup) Validate() error {
 	return nil
 }
 
-// BackupCreateRequest carries only an opaque, locally-issued destination
-// capability. It deliberately carries no caller path, URL, format, command, or
-// key material.
+// BackupCreateRequest carries only Operation ownership. DestinationRef is kept
+// for the private native-destination compatibility path; an empty value selects
+// the adapter-owned system application-data backup directory. Neither form
+// carries a caller path, URL, format, command, or key material.
 type BackupCreateRequest struct {
 	DestinationRef        string
 	OperationID           string
@@ -91,8 +98,10 @@ type BackupCreateRequest struct {
 }
 
 func (r BackupCreateRequest) Validate() error {
-	if err := ValidateBackupDestinationRef(r.DestinationRef); err != nil {
-		return err
+	if r.DestinationRef != "" {
+		if err := ValidateBackupDestinationRef(r.DestinationRef); err != nil {
+			return err
+		}
 	}
 	if err := validateManagementID("backup operation id", r.OperationID); err != nil {
 		return err

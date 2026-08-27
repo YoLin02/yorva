@@ -19,22 +19,13 @@ func TestRuntimeBackupManagerCreateAndRestoreRoundTrip(t *testing.T) {
 	writeRestoreTestTree(t, runtimeRoot, "before-backup")
 
 	dataDir := t.TempDir()
-	destination := filepath.Join(t.TempDir(), "roundtrip.yorva-backup.age")
-	registry, err := backupmanagement.NewDestinationRegistry("test-session")
-	if err != nil {
-		t.Fatal(err)
-	}
-	destinationRef := strings.Repeat("a", 43)
-	if err := registry.Grant(destinationRef, "hermes", destination); err != nil {
-		t.Fatal(err)
-	}
 	_, identity, err := backupmanagement.GenerateX25519Identity()
 	if err != nil {
 		t.Fatal(err)
 	}
 	var indexed BackupIndexEntry
 	manager := NewRuntimeBackupManager(
-		registry,
+		nil,
 		dataDir,
 		func(_ context.Context, reference string, use func([]byte) error) error {
 			if reference != backupDeviceKeyReference {
@@ -58,10 +49,16 @@ func TestRuntimeBackupManagerCreateAndRestoreRoundTrip(t *testing.T) {
 		Version: backupmanagement.QualifiedSnapshotRuntimeVersion, SupportState: yorvaruntime.DiscoverySupported,
 	}
 	created, err := manager.CreateBackup(context.Background(), installation, yorvaruntime.BackupCreateRequest{
-		DestinationRef: destinationRef, OperationID: "op_backup_roundtrip", RuntimeInstallationID: "rtinst_roundtrip",
+		OperationID: "op_backup_roundtrip", RuntimeInstallationID: "rtinst_roundtrip",
 	}, nil)
 	if err != nil || created.State != yorvaruntime.BackupAvailable || indexed.ID != created.ID {
 		t.Fatalf("CreateBackup() = %#v, index %#v, %v", created, indexed, err)
+	}
+	if filepath.Dir(indexed.ArtifactPath) != filepath.Join(dataDir, "backups") || filepath.Base(indexed.ArtifactPath) != created.ID+".yorva-backup.age" {
+		t.Fatalf("system backup destination = %q", indexed.ArtifactPath)
+	}
+	if info, statErr := os.Stat(indexed.ArtifactPath); statErr != nil || !info.Mode().IsRegular() {
+		t.Fatalf("system backup artifact = %#v, %v", info, statErr)
 	}
 	if err := os.WriteFile(filepath.Join(runtimeRoot, "state.txt"), []byte("after-backup"), 0o600); err != nil {
 		t.Fatal(err)

@@ -29,7 +29,7 @@ tags:
   - name: MCP
     description: Safe authoritative configured MCP and reviewed preset inventory.
   - name: Backups
-    description: Safe last-observed Runtime backup index reads; create, delete, and Restore remain unavailable.
+    description: Encrypted Runtime backups stored in YORVA's protected system application-data directory, with safe index, Restore, and deletion Operations.
   - name: Upgrades
     description: Read-only managed Runtime upgrade planning; mutation remains capability-gated and unregistered.
   - name: Settings
@@ -307,7 +307,7 @@ paths:
     post:
       operationId: createRuntimeBackup
       summary: Start an encrypted Runtime backup Operation
-      description: Accepts only a short-lived destination capability issued by the native Desktop save dialog. No local path, encryption key, passphrase, credential, or archive content enters this API.
+      description: Uses YORVA's fixed protected system application-data backup directory. No local path, destination capability, encryption key, passphrase, credential, or archive content enters this API.
       tags: [Backups]
       security:
         - bearerAuth: []
@@ -1339,6 +1339,58 @@ paths:
     options:
       operationId: optionsInstallManagedInstanceSkill
       summary: Validate CORS access for managed Skill install
+      tags: [Skills]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/skills/{skillId}/import:
+    parameters:
+      - $ref: "#/components/parameters/InstanceId"
+      - $ref: "#/components/parameters/SkillId"
+    post:
+      operationId: importManagedInstanceSkill
+      summary: Import one native-selected local Skill into YORVA-managed storage
+      description: Accepts only an opaque one-time source reference issued by the native Desktop picker. Filesystem paths and archive bytes never enter this API.
+      tags: [Skills]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillImportRequest"
+      responses:
+        "202":
+          description: The skill.install Operation was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsImportManagedInstanceSkill
+      summary: Validate CORS access for local managed Skill import
       tags: [Skills]
       security: []
       responses:
@@ -3091,11 +3143,7 @@ components:
     BackupCreateRequest:
       type: object
       additionalProperties: false
-      required: [destinationRef]
-      properties:
-        destinationRef:
-          type: string
-          pattern: "^[A-Za-z0-9_-]{43}$"
+      properties: {}
     ManagementBackupList:
       type: object
       additionalProperties: false
@@ -3419,6 +3467,16 @@ components:
           minLength: 1
           maxLength: 128
           pattern: "^(?!\\.$|\\.\\.$)[A-Za-z0-9._-]{1,128}$"
+    SkillImportRequest:
+      type: object
+      additionalProperties: false
+      required: [sourceRef]
+      properties:
+        sourceRef:
+          type: string
+          minLength: 43
+          maxLength: 43
+          pattern: "^[A-Za-z0-9_-]{43}$"
     MCPServer:
       type: object
       additionalProperties: false
@@ -3470,7 +3528,7 @@ components:
     MCPPreset:
       type: object
       additionalProperties: false
-      required: [id, displayName, description, homepageUrl, documentationUrl, allowedToolIds, credentialRequired]
+      required: [id, displayName, description, homepageUrl, documentationUrl, allowedToolIds, credentialRequired, source, editable]
       properties:
         id:
           type: string
@@ -3500,6 +3558,11 @@ components:
             minLength: 1
             maxLength: 128
         credentialRequired:
+          type: boolean
+        source:
+          type: string
+          enum: [BUILT_IN, YORVA_MANAGED]
+        editable:
           type: boolean
     MCPPresetList:
       type: object
@@ -3534,7 +3597,6 @@ components:
           writeOnly: true
         enabledToolIds:
           type: array
-          minItems: 1
           maxItems: 256
           uniqueItems: true
           items:

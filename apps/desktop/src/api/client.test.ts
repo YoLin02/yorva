@@ -9,6 +9,7 @@ const session = {
 };
 
 afterEach(() => {
+	vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -57,6 +58,8 @@ describe("daemon client", () => {
   });
 
   it("performs authenticated Hermes discovery with cancellation support", async () => {
+	const timeoutSignal = new AbortController().signal;
+	const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeoutSignal);
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -76,6 +79,7 @@ describe("daemon client", () => {
     const controller = new AbortController();
 
     await createDaemonClient(session).detectHermes(controller.signal);
+	expect(timeoutSpy).toHaveBeenCalledWith(40_000);
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:49152/api/v1/runtimes/hermes/detect",

@@ -1,14 +1,14 @@
-import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import type { DaemonClient } from "../../api/client";
-import { selectBackupDestination } from "../../api/session";
+import { discardSkillImport, selectSkillImport, type SkillImportSelection } from "../../api/session";
 import type { Channel, Instance, Lifecycle, MCPPreset, MCPServer, ManagementBackup, ManagementHealth, ManagementLogSnapshot, ManagementUpgradePlan, ModelConfiguration, Skill, SkillSource } from "../../api/types";
 import { formatDateTime } from "../../formatDateTime";
 import type { AppMessages, Locale } from "../../i18n";
 import type { BadgeTone } from "../../types/ui";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
-import { IconActivity, IconChevronDown, IconClose, IconRefresh } from "../ui/icons";
+import { IconActivity, IconArchiveRestore, IconChevronDown, IconClose, IconFileArchive, IconFolderInput, IconPlus, IconRefresh, IconSearch } from "../ui/icons";
 
 type ManagementScope = "instance" | "runtime";
 type RuntimeManagementTab = "overview" | "instances" | "skills" | "mcp" | "maintenance" | "diagnostics" | "operations";
@@ -25,6 +25,7 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
   onOpenModels?: () => void;
   onOpenChannels?: () => void;
 }) {
+  const queryClient = useQueryClient();
   const runtimeMode = scope === "runtime";
   const [runtimeTab, setRuntimeTab] = useState<RuntimeManagementTab>("overview");
   const [selectedInstanceId, setSelectedInstanceId] = useState(instance.instanceId);
@@ -32,6 +33,11 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
   const targetInstance = instances.find((item) => item.instanceId === selectedInstanceId) ?? instance;
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [selectedSkillSource, setSelectedSkillSource] = useState("");
+  const [skillImport, setSkillImport] = useState<SkillImportSelection | null>(null);
+  const [skillImportId, setSkillImportId] = useState("");
+  const [skillImportError, setSkillImportError] = useState(false);
+  const [externalSkillsOpen, setExternalSkillsOpen] = useState(false);
+  const [skillOperationIds, setSkillOperationIds] = useState<string[]>([]);
   const [backupOperationId, setBackupOperationId] = useState<string | null>(null);
   const [mcpOperationIds, setMCPOperationIds] = useState<string[]>([]);
   const [mcpOperationAction, setMCPOperationAction] = useState<"install" | "authenticate" | "test" | "configure" | "remove" | null>(null);
@@ -40,6 +46,8 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
   const [mcpTools, setMCPTools] = useState<Record<string, string[]>>({});
   const [mcpComposerOpen, setMCPComposerOpen] = useState(false);
   const [selectedMCPPresetId, setSelectedMCPPresetId] = useState("");
+  const [mcpImportedCount, setMCPImportedCount] = useState<number | null>(null);
+  const [mcpImportFailed, setMCPImportFailed] = useState(false);
   const [logCategory, setLogCategory] = useState<ManagementLogSnapshot["category"]>("ERRORS");
   const capabilities = targetInstance.capabilities;
   const runtimeCaps = runtimeCapabilities ?? instance.capabilities;
@@ -95,23 +103,44 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
     })),
   });
   const skillMutation = useMutation({
-    mutationFn: async ({ action, skillId, sourceId }: { action: "install" | "update" | "enable" | "disable" | "remove"; skillId: string; sourceId?: string }) => {
+    mutationFn: async ({ action, skillId, sourceId, sourceRef }: { action: "install" | "import" | "update" | "enable" | "disable" | "remove"; skillId: string; sourceId?: string; sourceRef?: string }) => {
       const key = crypto.randomUUID();
+      if (action === "import") return [await client.importManagedSkill(targetInstance.instanceId, skillId, sourceRef!, key)];
       if (action === "install") {
         const targetIds = runtimeMode && assignmentInstanceIds.length > 0 ? assignmentInstanceIds : [targetInstance.instanceId];
-        const accepted = await Promise.all(targetIds.map((instanceId) => client.installManagedSkill(instanceId, skillId, sourceId!, crypto.randomUUID())));
-        return accepted[0];
+        return Promise.all(targetIds.map((instanceId) => client.installManagedSkill(instanceId, skillId, sourceId!, crypto.randomUUID())));
       }
-      if (action === "update") return client.updateManagedSkill(targetInstance.instanceId, skillId, key);
-      if (action === "enable") return client.enableManagedSkill(targetInstance.instanceId, skillId, key);
-      if (action === "disable") return client.disableManagedSkill(targetInstance.instanceId, skillId, key);
-      return client.removeManagedSkill(targetInstance.instanceId, skillId, key);
+      if (action === "update") return [await client.updateManagedSkill(targetInstance.instanceId, skillId, key)];
+      if (action === "enable") return [await client.enableManagedSkill(targetInstance.instanceId, skillId, key)];
+      if (action === "disable") return [await client.disableManagedSkill(targetInstance.instanceId, skillId, key)];
+      return [await client.removeManagedSkill(targetInstance.instanceId, skillId, key)];
     },
-    onSuccess: () => {
-      void skillsQuery.refetch();
-      if (selectedSkillId) void skillQuery.refetch();
+    onMutate: () => setSkillOperationIds([]),
+    onSuccess: (accepted) => {
+      setSkillOperationIds(accepted.map((operation) => operation.id));
+      setSkillImport(null);
+      setSkillImportId("");
     },
   });
+  const skillOperationQueries = useQueries({
+    queries: skillOperationIds.map((operationId) => ({
+      queryKey: ["management-operation", operationId, client.scope] as const,
+      queryFn: ({ signal }: { signal: AbortSignal }) => client.getOperation(operationId, signal),
+      retry: false,
+      refetchInterval: (query: { state: { data?: { status?: string } } }) => {
+        const status = query.state.data?.status;
+        return status === "PENDING" || status === "RUNNING" ? 1000 : false;
+      },
+    })),
+  });
+  const skillAllSucceeded = skillOperationQueries.length > 0 && skillOperationQueries.every((query) => query.data?.status === "SUCCEEDED");
+
+  useEffect(() => {
+    if (!skillAllSucceeded) return;
+    void queryClient.invalidateQueries({ queryKey: ["instance-skills"] });
+    void queryClient.invalidateQueries({ queryKey: ["instance-skill"] });
+    void queryClient.invalidateQueries({ queryKey: ["instance-skill-sources"] });
+  }, [queryClient, skillAllSucceeded]);
   const serversQuery = useQuery({
     queryKey: ["instance-mcp-servers", targetInstance.instanceId, client.scope],
     queryFn: ({ signal }) => client.listInstanceMCPServers(targetInstance.instanceId, signal),
@@ -209,14 +238,8 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
     retry: false,
   });
   const backupMutation = useMutation({
-    mutationFn: async () => {
-      const destinationRef = await selectBackupDestination();
-      if (!destinationRef) return null;
-      return client.createRuntimeBackup("hermes", destinationRef, crypto.randomUUID());
-    },
-    onSuccess: (accepted) => {
-      if (accepted) setBackupOperationId(accepted.id);
-    },
+    mutationFn: () => client.createRuntimeBackup("hermes", crypto.randomUUID()),
+    onSuccess: (accepted) => setBackupOperationId(accepted.id),
   });
   const backupDeleteMutation = useMutation({
     mutationFn: (backupId: string) => client.deleteRuntimeBackup(backupId, crypto.randomUUID()),
@@ -334,9 +357,17 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
   };
   const backupRunning = backupMutation.isPending || backupDeleteMutation.isPending || backupRestoreMutation.isPending || backupOperationQuery.data?.status === "PENDING" || backupOperationQuery.data?.status === "RUNNING";
   const backupFailed = backupMutation.isError || backupDeleteMutation.isError || backupRestoreMutation.isError || backupOperationQuery.data?.status === "FAILED" || backupOperationQuery.data?.status === "CANCELLED";
-  const backupFailureMessage = backupOperationQuery.data?.errorCode === "BACKUP_SOURCE_RUNTIME_NOT_STOPPED"
-    ? copy.management.backupRuntimeNotStopped
-    : copy.management.backupCreateFailed;
+  const backupFailureMessage = ({
+    BACKUP_SOURCE_RUNTIME_NOT_STOPPED: copy.management.backupRuntimeNotStopped,
+    BACKUP_SOURCE_CHANGED: copy.management.backupSourceChanged,
+    BACKUP_SOURCE_UNSAFE: copy.management.backupSourceUnsafe,
+    BACKUP_SOURCE_INCOMPLETE: copy.management.backupSourceIncomplete,
+    BACKUP_DESTINATION_INSUFFICIENT_SPACE: copy.management.backupInsufficientSpace,
+    BACKUP_STAGING_FAILED: copy.management.backupStagingFailed,
+    BACKUP_ENCRYPTION_FAILED: copy.management.backupEncryptionFailed,
+  } as Record<string, string>)[backupOperationQuery.data?.errorCode ?? ""] ?? copy.management.backupCreateFailed;
+  const skillRunning = skillMutation.isPending || skillOperationQueries.some((query) => query.data?.status === "PENDING" || query.data?.status === "RUNNING");
+  const skillFailed = skillMutation.isError || skillOperationQueries.some((query) => query.isError || query.data?.status === "FAILED" || query.data?.status === "CANCELLED");
   const mcpRunning = mcpMutation.isPending || mcpOperationQueries.some((query) => query.data?.status === "PENDING" || query.data?.status === "RUNNING");
   const mcpFailed = mcpMutation.isError || mcpOperationQueries.some((query) => query.isError || query.data?.status === "FAILED" || query.data?.status === "CANCELLED");
   const upgradeRunning = upgradeMutation.isPending || upgradeOperationQuery.data?.status === "PENDING" || upgradeOperationQuery.data?.status === "RUNNING";
@@ -351,7 +382,7 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
       void upgradeOperationQuery.refetch();
     },
   });
-  const busy = healthQuery.isFetching || logsQuery.isFetching || skillsQuery.isFetching || skillQuery.isFetching || skillSourcesQuery.isFetching || skillAssignmentQueries.some((query) => query.isFetching) || mcpAssignmentQueries.some((query) => query.isFetching) || skillMutation.isPending || serversQuery.isFetching || presetsQuery.isFetching || upgradePlanQuery.isFetching || backupsQuery.isFetching || runtimeOperationsQuery.isFetching || lifecycleQuery.isFetching || modelQuery.isFetching || channelsQuery.isFetching || lifecycleMutation.isPending || backupRunning || mcpRunning || upgradeRunning;
+  const busy = healthQuery.isFetching || logsQuery.isFetching || skillsQuery.isFetching || skillQuery.isFetching || skillSourcesQuery.isFetching || skillAssignmentQueries.some((query) => query.isFetching) || mcpAssignmentQueries.some((query) => query.isFetching) || skillRunning || serversQuery.isFetching || presetsQuery.isFetching || upgradePlanQuery.isFetching || backupsQuery.isFetching || runtimeOperationsQuery.isFetching || lifecycleQuery.isFetching || modelQuery.isFetching || channelsQuery.isFetching || lifecycleMutation.isPending || backupRunning || mcpRunning || upgradeRunning;
   const displayedSkills = runtimeMode
     ? Array.from(new Map(skillAssignmentQueries.flatMap((query, index) => assignmentInstanceIds.includes(instances[index].instanceId) ? (query.data?.items ?? []) : []).map((skill) => [skill.id, skill])).values())
     : (skillsQuery.data?.items ?? []);
@@ -362,7 +393,43 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
     : (serversQuery.data?.items ?? []);
   const skillAssignments = (skillId: string) => instances.filter((item, index) => assignmentInstanceIds.includes(item.instanceId) && skillAssignmentQueries[index]?.data?.items.some((skill) => skill.id === skillId && skill.installationState === "INSTALLED")).map((item) => item.name);
   const mcpAssignments = (serverId: string) => instances.filter((item, index) => assignmentInstanceIds.includes(item.instanceId) && mcpAssignmentQueries[index]?.data?.items.some((server) => server.id === serverId && server.state !== "NOT_CONFIGURED")).map((item) => item.name);
-  const installableSkillSources = (skillSourcesQuery.data?.items ?? []).filter((source) => source.sourceId !== "yorva-demo");
+  const installableSkillSources = skillSourcesQuery.data?.items ?? [];
+  const openSkillImport = async (kind: "ZIP" | "DIRECTORY") => {
+    setSkillImportError(false);
+    try {
+      const selected = await selectSkillImport(kind);
+      if (selected) {
+        setSkillImport(selected);
+        setSkillImportId(selected.suggestedSkillId);
+      }
+    } catch {
+      setSkillImportError(true);
+    }
+  };
+  const closeSkillImport = () => {
+    if (skillImport) void discardSkillImport(skillImport.sourceRef);
+    setSkillImport(null);
+    setSkillImportId("");
+  };
+  const openMCPComposer = () => {
+    const first = presetsQuery.data?.items[0];
+    setMCPOperationIds([]);
+    setMCPOperationAction(null);
+    setSelectedMCPPresetId((current) => current || first?.id || "");
+    if (first && mcpTools[first.id] === undefined) setMCPTools((current) => ({ ...current, [first.id]: first.allowedToolIds }));
+    setMCPComposerOpen(true);
+  };
+  const importExistingMCP = async () => {
+    setMCPImportedCount(null);
+    setMCPImportFailed(false);
+    const result = await serversQuery.refetch();
+    if (result.isError) {
+      setMCPImportFailed(true);
+      return;
+    }
+    setMCPImportedCount(result.data?.items.length ?? 0);
+    await queryClient.invalidateQueries({ queryKey: ["instance-mcp-servers"] });
+  };
   const inspectSkill = (skillId: string) => {
     if (selectedSkillId === skillId) {
       setSelectedSkillId(null);
@@ -389,7 +456,7 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
       assignedInstances={skillAssignments(skill.id)}
       copy={copy}
       mutable={skillMutate && targetSkill?.ownership === "YORVA_MANAGED"}
-      mutationPending={skillMutation.isPending && skillMutation.variables?.skillId === skill.id}
+      mutationPending={skillRunning && skillMutation.variables?.skillId === skill.id}
       onOpen={() => openSkillPreview(skill.id)}
       onToggle={() => skillMutation.mutate({ action: skill.enabledState === "ENABLED" ? "disable" : "enable", skillId: skill.id })}
     />;
@@ -596,13 +663,21 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
         showCapabilityBadge={!runtimeMode}
         hideHeading={runtimeMode}
       >
+        {runtimeMode ? <div className="runtime-skill-toolbar" aria-label={copy.management.skillTools}>
+          <Button disabled={busy} onClick={() => { void skillSourcesQuery.refetch(); void skillsQuery.refetch(); }}><IconRefresh />{copy.management.checkSkillUpdates}</Button>
+          <Button disabled={busy} onClick={() => setRuntimeTab("maintenance")}><IconArchiveRestore />{copy.management.restoreSkills}</Button>
+          <Button disabled={busy || !skillMutate} onClick={() => void openSkillImport("ZIP")}><IconFileArchive />{copy.management.installSkillZip}</Button>
+          <Button disabled={busy || !skillMutate} onClick={() => void openSkillImport("DIRECTORY")}><IconFolderInput />{copy.management.importExistingSkill}</Button>
+          <Button disabled={busy} onClick={() => { setExternalSkillsOpen(true); void skillsQuery.refetch(); }}><IconSearch />{copy.management.discoverSkills}</Button>
+        </div> : null}
+        {skillImportError ? <p className="notice notice-warn" role="alert">{copy.management.skillImportSourceFailed}</p> : null}
         {runtimeMode ? (
           <div className="runtime-skill-groups">
             <section className="runtime-skill-group runtime-skill-group-managed">
               <header><div><h4>{copy.management.managedSkillsGroup}</h4><p>{copy.management.managedSkillsGroupDescription}</p></div><span className="runtime-skill-group-count">{managedSkills.length}</span></header>
               {managedSkills.length === 0 ? <p className="management-empty">{copy.management.noManagedSkills}</p> : <div className="runtime-skill-group-list">{managedSkills.map(runtimeSkillRow)}</div>}
             </section>
-            <details className="runtime-skill-group runtime-skill-group-external">
+            <details className="runtime-skill-group runtime-skill-group-external" open={externalSkillsOpen} onToggle={(event) => setExternalSkillsOpen(event.currentTarget.open)}>
               <summary><div><h4>{copy.management.externalSkillsGroup}</h4><p>{copy.management.externalSkillsGroupDescription}</p></div><span className="runtime-skill-group-summary-meta"><span className="runtime-skill-group-count">{externalSkills.length}</span><span className="runtime-skill-group-chevron"><IconChevronDown /></span></span></summary>
               {externalSkills.length === 0 ? <p className="management-empty">{copy.management.noSkills}</p> : <div className="runtime-skill-group-list">{externalSkills.map(runtimeSkillRow)}</div>}
             </details>
@@ -639,14 +714,23 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
             installedSkillIds={skillsQuery.data?.items.filter((skill) => skill.installationState === "INSTALLED").map((skill) => skill.id) ?? []}
             assignmentReady={assignmentInstanceIds.length > 0}
             appliesBeyondObserved={assignmentInstanceIds.some((instanceId) => instanceId !== targetInstance.instanceId)}
-            pending={skillMutation.isPending}
+            pending={skillRunning}
             copy={copy}
             onSelect={setSelectedSkillSource}
             onInstall={(source) => skillMutation.mutate({ action: "install", skillId: source.skillId, sourceId: source.sourceId })}
           />
         ) : null}
-        {skillMutation.isPending ? <p className="management-empty" role="status">{copy.management.skillMutationRunning}</p> : null}
-        {skillMutation.isError ? <p className="notice notice-warn" role="alert">{copy.management.skillMutationFailed}</p> : null}
+        {skillRunning ? <p className="management-empty" role="status">{copy.management.skillMutationRunning}</p> : null}
+        {skillFailed ? <p className="notice notice-warn" role="alert">{copy.management.skillMutationFailed}</p> : null}
+        {skillImport ? <div className="skill-import-backdrop" role="presentation" onMouseDown={closeSkillImport}>
+          <div className="skill-import-dialog" role="dialog" aria-modal="true" aria-labelledby="skill-import-title" onMouseDown={(event) => event.stopPropagation()}>
+            <h3 id="skill-import-title">{copy.management.skillImportTitle}</h3>
+            <p>{copy.management.skillImportDescription}</p>
+            <label><span>{copy.management.skillUniqueId}</span><input value={skillImportId} onChange={(event) => setSkillImportId(event.target.value.toLowerCase())} autoFocus /></label>
+            <small>{copy.management.skillImportTarget.replace("{instance}", targetInstance.name)}</small>
+            <div className="management-header-actions"><Button onClick={closeSkillImport}>{copy.management.cancelSkillImport}</Button><Button className="button-primary" disabled={!/^[a-z][a-z0-9_-]{0,63}$/.test(skillImportId) || skillRunning} onClick={() => skillMutation.mutate({ action: "import", skillId: skillImportId, sourceRef: skillImport.sourceRef })}>{copy.management.installSkill}</Button></div>
+          </div>
+        </div> : null}
       </ManagementSection> : null}
 
       {(!runtimeMode || runtimeTab === "mcp") ? <ManagementSection
@@ -661,17 +745,15 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
         hideHeading={runtimeMode}
       >
         {runtimeMode ? <div className="runtime-mcp-page">
+          <div className="runtime-mcp-toolbar" aria-label={copy.management.mcpTools}>
+            <Button disabled={busy || !mcpRead} onClick={() => void importExistingMCP()}><IconFolderInput />{copy.management.importExistingMCP}</Button>
+            <Button className="button-primary" disabled={mcpRunning || !mcpMutate} onClick={openMCPComposer}><IconPlus />{copy.management.addMCP}</Button>
+          </div>
+          {mcpImportedCount !== null ? <p className="notice notice-info" role="status">{copy.management.mcpImportSucceeded.replace("{count}", String(mcpImportedCount))}</p> : null}
+          {mcpImportFailed ? <p className="notice notice-warn" role="alert">{copy.management.mcpImportFailed}</p> : null}
           <section className="runtime-mcp-group">
             <header className="runtime-mcp-group-heading">
               <div><h3>{copy.management.mcpDefinitionsTitle}</h3><p>{copy.management.mcpDefinitionsDescription}</p></div>
-              {mcpMutate && (presetsQuery.data?.items.length ?? 0) > 0 ? <Button className="button-primary" disabled={mcpRunning} onClick={() => {
-                const first = presetsQuery.data?.items[0];
-                setMCPOperationIds([]);
-                setMCPOperationAction(null);
-                setSelectedMCPPresetId((current) => current || first?.id || "");
-                if (first && mcpTools[first.id] === undefined) setMCPTools((current) => ({ ...current, [first.id]: first.allowedToolIds }));
-                setMCPComposerOpen(true);
-              }}>+ {copy.management.addMCP}</Button> : null}
             </header>
             {mcpRead && !mcpMutate ? <p className="runtime-mcp-capability-note">{copy.management.mcpReadOnlyCapability}</p> : null}
             {presetsQuery.data?.items.length === 0 ? <div className="runtime-mcp-empty"><strong>{copy.management.noPresets}</strong><span>{copy.management.noPresetsDescription}</span></div> : (
@@ -679,9 +761,10 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
             )}
           </section>
           {mcpComposerOpen && !(mcpOperationAction === "install" && mcpAllSucceeded) ? <MCPComposer
-            presets={presetsQuery.data?.items ?? []} selectedPresetId={selectedMCPPresetId}
-            instances={instances} selectedInstances={assignmentInstanceIds} credentials={mcpCredentials} tools={mcpTools}
-            busy={mcpRunning} copy={copy}
+            presets={presetsQuery.data?.items ?? []}
+            selectedPresetId={selectedMCPPresetId}
+            instances={instances} selectedInstances={assignmentInstanceIds}
+            credentials={mcpCredentials} tools={mcpTools} busy={mcpRunning} copy={copy}
             onSelectPreset={(preset) => { setSelectedMCPPresetId(preset.id); if (mcpTools[preset.id] === undefined) setMCPTools((current) => ({ ...current, [preset.id]: preset.allowedToolIds })); }}
             onToggleInstance={toggleManagedInstance}
             onCredential={(presetId, value) => setMCPCredentials((current) => ({ ...current, [presetId]: value }))}
@@ -866,7 +949,10 @@ function UpgradePlanView({ plan, copy, locale }: { plan: ManagementUpgradePlan; 
         <div><dt>{copy.management.protectionPoint}</dt><dd>{protectionPointCopy(plan, copy)}</dd></div>
       </dl>
       {plan.blockedReasons.length > 0 ? (
-        <ul className="management-finding-list">{plan.blockedReasons.map((reason) => <li key={reason}>{copy.management.upgradeReasons[reason]}</li>)}</ul>
+        <div className="management-upgrade-evidence">
+          <strong>{copy.management.upgradeEvidenceRequired}</strong>
+          <ul className="management-finding-list">{plan.blockedReasons.map((reason) => <li key={reason}>{copy.management.upgradeReasons[reason]}</li>)}</ul>
+        </div>
       ) : null}
     </article>
   );
@@ -1198,8 +1284,8 @@ function MCPServerCard({ server, preset, assignedInstances, copy, locale, mutabl
       </dl>
       {assignedInstances.length > 0 ? <p className="management-detail">{copy.management.appliedInstances}: {assignedInstances.join(", ")}</p> : null}
       {mutable ? (
-        <div className="management-catalog">
-          {preset?.credentialRequired ? <div className="management-item-footer">
+          <div className="management-catalog">
+            {preset?.credentialRequired ? <div className="management-item-footer">
             <input type="password" value={credential} onChange={(event) => onCredential(event.target.value)} placeholder={copy.management.mcpCredential} autoComplete="off" disabled={busy} />
             <Button disabled={busy || credential.length === 0} onClick={() => onAction("authenticate")}>{copy.management.authenticateMCP}</Button>
           </div> : null}

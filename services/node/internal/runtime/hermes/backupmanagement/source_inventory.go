@@ -52,6 +52,8 @@ var snapshotRootExcludedDirectoryNames = map[string]struct{}{
 	"control":         {},
 	"generations":     {},
 	"hermes-agent":    {},
+	"lsp":             {},
+	"logs":            {},
 	"node":            {},
 	"operations":      {},
 	"transactions":    {},
@@ -70,8 +72,7 @@ var snapshotRootExcludedFileNames = map[string]struct{}{
 	"yorva.sqlite3": {},
 }
 
-var snapshotExcludedFileSuffixes = []string{".pyc", ".pyo"}
-var snapshotSQLiteSidecarSuffixes = []string{".db-wal", ".db-shm", ".db-journal"}
+var snapshotExcludedFileSuffixes = []string{".db-shm", ".pyc", ".pyo"}
 
 type snapshotSourceEntry struct {
 	relPath string
@@ -157,9 +158,6 @@ func inventorySnapshotDirectory(ctx context.Context, root, relative string, limi
 		if excludedSnapshotSource(childRelative, info) {
 			continue
 		}
-		if hasSQLiteSidecarSuffix(child.Name()) {
-			return verificationError(ErrorSourceSQLiteActive)
-		}
 		if unsafeSnapshotInfo(info) {
 			return verificationError(ErrorSourceUnsafe)
 		}
@@ -242,16 +240,6 @@ func validateSnapshotSourcePathChain(path string) error {
 			return nil
 		}
 	}
-}
-
-func hasSQLiteSidecarSuffix(name string) bool {
-	name = strings.ToLower(name)
-	for _, suffix := range snapshotSQLiteSidecarSuffixes {
-		if strings.HasSuffix(name, suffix) {
-			return true
-		}
-	}
-	return false
 }
 
 func childState(name string, info fs.FileInfo) snapshotChildState {

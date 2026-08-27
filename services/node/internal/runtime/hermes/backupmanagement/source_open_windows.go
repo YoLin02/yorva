@@ -33,6 +33,9 @@ func openSnapshotSourceFile(path string) (*os.File, error) {
 		0,
 	)
 	if err != nil {
+		if err == windows.ERROR_SHARING_VIOLATION || err == windows.ERROR_LOCK_VIOLATION {
+			return nil, verificationError(ErrorSourceRuntimeLive)
+		}
 		return nil, err
 	}
 	var information windows.ByHandleFileInformation

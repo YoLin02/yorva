@@ -159,7 +159,7 @@ export interface paths {
         put?: never;
         /**
          * Start an encrypted Runtime backup Operation
-         * @description Accepts only a short-lived destination capability issued by the native Desktop save dialog. No local path, encryption key, passphrase, credential, or archive content enters this API.
+         * @description Uses YORVA's fixed protected system application-data backup directory. No local path, destination capability, encryption key, passphrase, credential, or archive content enters this API.
          */
         post: operations["createRuntimeBackup"];
         delete?: never;
@@ -573,6 +573,30 @@ export interface paths {
         delete?: never;
         /** Validate CORS access for managed Skill install */
         options: operations["optionsInstallManagedInstanceSkill"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/instances/{instanceId}/skills/{skillId}/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import one native-selected local Skill into YORVA-managed storage
+         * @description Accepts only an opaque one-time source reference issued by the native Desktop picker. Filesystem paths and archive bytes never enter this API.
+         */
+        post: operations["importManagedInstanceSkill"];
+        delete?: never;
+        /** Validate CORS access for local managed Skill import */
+        options: operations["optionsImportManagedInstanceSkill"];
         head?: never;
         patch?: never;
         trace?: never;
@@ -1349,9 +1373,7 @@ export interface components {
             /** @enum {string} */
             keyMode: "DEVICE" | "PASSPHRASE";
         };
-        BackupCreateRequest: {
-            destinationRef: string;
-        };
+        BackupCreateRequest: Record<string, never>;
         ManagementBackupList: {
             /** @enum {string} */
             scope: "RUNTIME";
@@ -1482,6 +1504,9 @@ export interface components {
         SkillInstallRequest: {
             sourceId: string;
         };
+        SkillImportRequest: {
+            sourceRef: string;
+        };
         MCPServer: {
             id: string;
             presetId: string;
@@ -1505,6 +1530,9 @@ export interface components {
             documentationUrl: string;
             allowedToolIds: string[];
             credentialRequired: boolean;
+            /** @enum {string} */
+            source: "BUILT_IN" | "YORVA_MANAGED";
+            editable: boolean;
         };
         MCPPresetList: {
             items: components["schemas"]["MCPPreset"][];
@@ -3046,6 +3074,59 @@ export interface operations {
         };
     };
     optionsInstallManagedInstanceSkill: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    importManagedInstanceSkill: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                instanceId: components["parameters"]["InstanceId"];
+                skillId: components["parameters"]["SkillId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillImportRequest"];
+            };
+        };
+        responses: {
+            /** @description The skill.install Operation was accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsImportManagedInstanceSkill: {
         parameters: {
             query?: never;
             header?: never;

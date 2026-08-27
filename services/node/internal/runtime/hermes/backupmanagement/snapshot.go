@@ -276,6 +276,9 @@ func snapshotPayloadUpperBound(inventory snapshotInventory) int64 {
 func copyStableSnapshotFile(ctx context.Context, destination io.Writer, entry snapshotSourceEntry) error {
 	file, err := openSnapshotSourceFile(entry.absPath)
 	if err != nil {
+		if _, classified := ErrorCodeOf(err); classified {
+			return err
+		}
 		return verificationError(ErrorSourceUnsafe)
 	}
 	before, err := file.Stat()

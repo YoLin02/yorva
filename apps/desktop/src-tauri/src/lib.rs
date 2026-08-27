@@ -2,7 +2,9 @@ mod daemon;
 #[cfg(desktop)]
 mod desktop;
 
-use daemon::{DaemonLifecycle, daemon_session, select_backup_destination, start_daemon};
+use daemon::{
+    DaemonLifecycle, daemon_session, discard_skill_import, select_skill_import, start_daemon,
+};
 use tauri::{Manager, RunEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -33,7 +35,8 @@ pub fn run() {
     let app = builder
         .invoke_handler(tauri::generate_handler![
             daemon_session,
-            select_backup_destination,
+            select_skill_import,
+            discard_skill_import,
             desktop::desktop_preferences,
             desktop::set_desktop_preferences
         ])

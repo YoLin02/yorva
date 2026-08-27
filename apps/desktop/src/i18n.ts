@@ -401,6 +401,18 @@ type Messages = {
     removeSkill: string;
     skillMutationRunning: string;
     skillMutationFailed: string;
+	skillTools: string;
+	checkSkillUpdates: string;
+	restoreSkills: string;
+	installSkillZip: string;
+	importExistingSkill: string;
+	discoverSkills: string;
+	skillImportTitle: string;
+	skillImportDescription: string;
+	skillUniqueId: string;
+	skillImportTarget: string;
+	skillImportSourceFailed: string;
+	cancelSkillImport: string;
     externalReadOnly: string;
     ownership: string;
     projection: string;
@@ -418,6 +430,10 @@ type Messages = {
     noPresetsDescription: string;
     reviewedPreset: string;
     mcpReadOnlyCapability: string;
+    mcpTools: string;
+    importExistingMCP: string;
+    mcpImportSucceeded: string;
+    mcpImportFailed: string;
     addMCP: string;
     addMCPDescription: string;
     cancelAddMCP: string;
@@ -433,7 +449,6 @@ type Messages = {
     mcpConfigPreview: string;
     mcpConfigPreviewDescription: string;
     testAndAddMCP: string;
-    installMCP: string;
     authenticateMCP: string;
     testMCP: string;
     removeMCP: string;
@@ -459,6 +474,7 @@ type Messages = {
     startRollback: string;
     upgradeRunning: string;
     upgradeFailed: string;
+    upgradeEvidenceRequired: string;
     upgradeState: Record<"UP_TO_DATE" | "AVAILABLE" | "BLOCKED" | "UNKNOWN", string>;
     managedState: Record<"MANAGED" | "UNKNOWN", string>;
     compatibilityState: Record<"NOT_REQUIRED" | "PROVEN" | "UNSAFE" | "UNKNOWN", string>;
@@ -471,6 +487,12 @@ type Messages = {
     backupCreateFailed: string;
     backupRequiresStopped: string;
     backupRuntimeNotStopped: string;
+    backupSourceChanged: string;
+    backupSourceUnsafe: string;
+    backupSourceIncomplete: string;
+    backupInsufficientSpace: string;
+    backupStagingFailed: string;
+    backupEncryptionFailed: string;
     deleteBackup: string;
     restoreBackup: string;
     restoreConfirm: string;
@@ -1030,14 +1052,26 @@ const english: Messages = {
     disableSkill: "Disable",
     removeSkill: "Remove",
     skillMutationRunning: "Applying managed Skill change…",
-    skillMutationFailed: "The managed Skill change could not be started.",
+    skillMutationFailed: "The managed Skill change could not be completed.",
+	skillTools: "Skill installation tools",
+	checkSkillUpdates: "Check for updates",
+	restoreSkills: "Restore from backup",
+	installSkillZip: "Install from ZIP",
+	importExistingSkill: "Import existing",
+	discoverSkills: "Discover Skills",
+	skillImportTitle: "Install local Skill",
+	skillImportDescription: "YORVA will validate and copy this Skill into managed storage before projecting it to Hermes. The unique ID must match the name in SKILL.md.",
+	skillUniqueId: "Unique Skill ID",
+	skillImportTarget: "Install to Hermes instance: {instance}",
+	skillImportSourceFailed: "The selected Skill source could not be staged. Check its size and file type, then try again.",
+	cancelSkillImport: "Cancel",
     externalReadOnly: "Runtime or externally owned; read-only in YORVA.",
     ownership: "Ownership",
     projection: "Projection",
     mcpTitle: "MCP servers",
     mcpDescription: "Reads configured MCP definitions from each selected Hermes Profile without returning URLs, commands, headers, environment values, or credentials.",
     mcpDefinitionsTitle: "Runtime MCP definitions",
-    mcpDefinitionsDescription: "Reviewed definitions owned by the Runtime. Executable details remain fixed inside the Hermes adapter.",
+    mcpDefinitionsDescription: "YORVA-reviewed MCP Presets managed at Runtime scope; executable and raw configuration fields are not accepted.",
     mcpBindingsTitle: "MCP bindings",
     mcpBindingsDescription: "MCP definitions bound to this exact instance. Definition management belongs to Runtime resources.",
     noServers: "No MCP servers were reported for this instance.",
@@ -1045,11 +1079,15 @@ const english: Messages = {
     noServersDescription: "The current instance has no MCP service binding.",
     catalogTitle: "Reviewed presets",
     noPresets: "No reviewed presets are available.",
-    noPresetsDescription: "YORVA will enable Add MCP only after a preset completes adapter and Runtime qualification.",
+    noPresetsDescription: "No reviewed MCP Preset was reported. Refresh or restart the Runtime and try again.",
     reviewedPreset: "Reviewed Preset",
     mcpReadOnlyCapability: "This Runtime can read MCP configuration, but YORVA mutation is not supported yet.",
+    mcpTools: "MCP management tools",
+    importExistingMCP: "Import existing",
+    mcpImportSucceeded: "Synchronized {count} existing MCP bindings from the selected Hermes instance. External definitions remain read-only.",
+    mcpImportFailed: "Existing MCP bindings could not be synchronized from Hermes.",
     addMCP: "Add MCP",
-    addMCPDescription: "Create a binding from a reviewed Preset, test it, and accept it only after authoritative read-back.",
+    addMCPDescription: "Select a YORVA-reviewed MCP Preset, bind it to the chosen Hermes Profiles, and accept it only after connection testing and authoritative read-back.",
     cancelAddMCP: "Cancel",
     mcpPresetType: "MCP Preset type",
     mcpUniqueId: "Unique identifier",
@@ -1058,12 +1096,11 @@ const english: Messages = {
     mcpHomepage: "Homepage",
     mcpDocumentation: "Documentation",
     mcpBindingInstances: "Bind Hermes instances",
-    mcpBindingInstancesDescription: "Select exact Profiles that should receive this reviewed definition.",
+    mcpBindingInstancesDescription: "Select the exact Hermes Profiles that should receive this definition.",
     mcpToolScope: "Tool Scope",
     mcpConfigPreview: "Redacted configuration preview",
-    mcpConfigPreviewDescription: "Transport and credentials are fixed by the Preset and cannot be edited.",
+    mcpConfigPreviewDescription: "Review the exact structured configuration; secret values stay redacted.",
     testAndAddMCP: "Test and add",
-    installMCP: "Install",
     authenticateMCP: "Save credential",
     testMCP: "Test connection",
     removeMCP: "Remove",
@@ -1089,25 +1126,32 @@ const english: Messages = {
     startRollback: "Rollback Runtime",
     upgradeRunning: "Runtime change is in progress…",
     upgradeFailed: "The Runtime change did not complete.",
-    upgradeState: { UP_TO_DATE: "Up to date", AVAILABLE: "Plan available", BLOCKED: "Blocked", UNKNOWN: "Evidence incomplete" },
+    upgradeState: { UP_TO_DATE: "Up to date", AVAILABLE: "Plan available", BLOCKED: "Blocked", UNKNOWN: "Evidence incomplete — upgrade unavailable" },
     managedState: { MANAGED: "Managed", UNKNOWN: "Unknown" },
     compatibilityState: { NOT_REQUIRED: "Not required", PROVEN: "Proven", UNSAFE: "Unsafe", UNKNOWN: "Unknown" },
     upgradeReasons: {
-      MANAGED_EVIDENCE_UNKNOWN: "The live managed pointer and sealed generation could not be proven.",
-      CURRENT_IDENTITY_UNKNOWN: "The exact current Runtime snapshot could not be identified.",
-      INVENTORY_UNKNOWN: "The affected Runtime inventory is not complete.",
-      PROTECTION_POINT_REQUIRED: "A verified protection point is required before any upgrade.",
-      COMPATIBILITY_UNKNOWN: "Exact current-to-candidate compatibility is not proven.",
-      POSTCHECKS_UNQUALIFIED: "The required post-upgrade checks are not fully qualified.",
+      MANAGED_EVIDENCE_UNKNOWN: "Managed installation evidence: a valid YORVA active.json and matching sealed generation are required.",
+      CURRENT_IDENTITY_UNKNOWN: "Current identity evidence: the active generation must match an exact known version and source snapshot.",
+      INVENTORY_UNKNOWN: "Inventory evidence: all affected Profiles, gateways, and managed features require authoritative readback.",
+      PROTECTION_POINT_REQUIRED: "Protection evidence: a verified encrypted Runtime backup must exist before upgrade.",
+      COMPATIBILITY_UNKNOWN: "Compatibility evidence: this exact current-to-candidate pair needs qualified Windows upgrade and rollback results.",
+      POSTCHECKS_UNQUALIFIED: "Post-check evidence: detection, Profile inventory, health, configuration, Skills, MCP, and gateway checks must be qualified.",
     },
+    upgradeEvidenceRequired: "Evidence still required",
     backupsTitle: "Runtime backups",
-    backupsDescription: "Last-observed encrypted backup index. Refresh does not open, decrypt, or re-verify an artifact.",
+    backupsDescription: "Encrypted backups are stored in YORVA's protected system application-data folder. Refresh shows only the last-observed index and does not open or decrypt an artifact.",
     noBackups: "No verified Runtime backups are indexed.",
     createBackup: "Create encrypted backup",
     backupCreating: "Creating and verifying the encrypted backup…",
     backupCreateFailed: "The backup could not be started or completed.",
-    backupRequiresStopped: "Stop every Hermes instance before creating or restoring a Runtime backup.",
-    backupRuntimeNotStopped: "Backup was not created because at least one Hermes instance is still running. Stop all instances, then try again.",
+    backupRequiresStopped: "Stop every Hermes instance and close Hermes Dashboard or other Hermes background processes before creating or restoring a Runtime backup.",
+    backupRuntimeNotStopped: "Backup was not created because Hermes data is still in use. Stop all instances and close Hermes Dashboard or other Hermes processes, then retry.",
+    backupSourceChanged: "Hermes data changed while it was being captured. Keep all instances stopped and retry.",
+    backupSourceUnsafe: "The Hermes data directory contains an unsupported filesystem entry. Review the diagnostic log before retrying.",
+    backupSourceIncomplete: "YORVA could not capture the complete Hermes Runtime data set within the backup safety limits.",
+    backupInsufficientSpace: "The system application-data volume does not have enough free space for this encrypted backup.",
+    backupStagingFailed: "YORVA could not create or verify its protected temporary backup data.",
+    backupEncryptionFailed: "The encrypted backup could not be published and verified.",
     deleteBackup: "Delete backup",
     restoreBackup: "Restore",
     restoreConfirm: "Restore this backup? All Hermes instances must be stopped. Current Runtime data will be replaced after verification.",
@@ -1670,14 +1714,26 @@ const simplifiedChinese: Messages = {
     disableSkill: "停用",
     removeSkill: "移除",
     skillMutationRunning: "正在应用受管 Skill 变更…",
-    skillMutationFailed: "无法启动受管 Skill 变更。",
+    skillMutationFailed: "无法完成受管 Skill 变更。",
+	skillTools: "Skill 安装工具",
+	checkSkillUpdates: "检查更新",
+	restoreSkills: "从备份中恢复",
+	installSkillZip: "从 ZIP 安装",
+	importExistingSkill: "导入已有",
+	discoverSkills: "发现技能",
+	skillImportTitle: "安装本地 Skill",
+	skillImportDescription: "YORVA 会先校验并复制此 Skill 到受管存储，再投影到 Hermes。唯一标识必须与 SKILL.md 中的 name 一致。",
+	skillUniqueId: "Skill 唯一标识",
+	skillImportTarget: "安装到 Hermes 实例：{instance}",
+	skillImportSourceFailed: "无法暂存所选 Skill 来源，请检查文件类型与大小后重试。",
+	cancelSkillImport: "取消",
     externalReadOnly: "由 Runtime 或外部管理；YORVA 中仅可读取。",
     ownership: "所有权",
     projection: "投影",
     mcpTitle: "MCP 服务器",
     mcpDescription: "读取所选 Hermes Profile 中已经配置的 MCP；不会向界面返回 URL、命令、请求头、环境值或凭据。",
     mcpDefinitionsTitle: "Runtime MCP 定义",
-    mcpDefinitionsDescription: "由 Runtime 管理的已审核定义；可执行细节固定保留在 Hermes Adapter 内。",
+    mcpDefinitionsDescription: "在 Runtime 范围统一管理 YORVA 审核 Preset；不接受可执行命令和原始配置字段。",
     mcpBindingsTitle: "MCP 绑定",
     mcpBindingsDescription: "只展示此实例绑定的 MCP；定义管理统一放在 Runtime 扩展资源中。",
     noServers: "此实例没有报告任何 MCP 服务器。",
@@ -1685,11 +1741,15 @@ const simplifiedChinese: Messages = {
     noServersDescription: "当前实例暂未绑定 MCP 服务。",
     catalogTitle: "已审核预设",
     noPresets: "当前没有可用的已审核预设。",
-    noPresetsDescription: "Preset 完成 Adapter 与 Runtime 资格验证后，YORVA 才会开放新增 MCP。",
+    noPresetsDescription: "Runtime 未报告已审核 MCP Preset，请刷新或重启 Runtime 后重试。",
     reviewedPreset: "已审核 Preset",
     mcpReadOnlyCapability: "当前 Runtime 支持读取 MCP 配置，但尚未支持由 YORVA 修改。",
+    mcpTools: "MCP 管理工具",
+    importExistingMCP: "导入已有",
+    mcpImportSucceeded: "已从所选 Hermes 实例同步 {count} 个已有 MCP 绑定；外部定义保持只读。",
+    mcpImportFailed: "无法从 Hermes 同步已有 MCP 绑定。",
     addMCP: "新增 MCP",
-    addMCPDescription: "从已审核 Preset 建立绑定；仅在测试与权威回读成功后完成添加。",
+    addMCPDescription: "选择 YORVA 审核通过的 MCP Preset，绑定到所选 Hermes Profile，并仅在连接测试和权威回读成功后完成添加。",
     cancelAddMCP: "取消",
     mcpPresetType: "MCP Preset 类型",
     mcpUniqueId: "唯一标识",
@@ -1698,12 +1758,11 @@ const simplifiedChinese: Messages = {
     mcpHomepage: "主页",
     mcpDocumentation: "文档链接",
     mcpBindingInstances: "绑定 Hermes 实例",
-    mcpBindingInstancesDescription: "选择需要写入此审核定义的准确 Hermes Profile。",
+    mcpBindingInstancesDescription: "选择需要写入此定义的准确 Hermes Profile。",
     mcpToolScope: "Tool Scope",
     mcpConfigPreview: "只读脱敏配置预览",
-    mcpConfigPreviewDescription: "传输与凭据结构由 Preset 固定，不允许直接编辑。",
+    mcpConfigPreviewDescription: "核对将写入的结构化配置；凭据值始终脱敏。",
     testAndAddMCP: "测试并添加",
-    installMCP: "安装",
     authenticateMCP: "保存凭据",
     testMCP: "测试连接",
     removeMCP: "移除",
@@ -1729,25 +1788,32 @@ const simplifiedChinese: Messages = {
     startRollback: "回滚 Runtime",
     upgradeRunning: "正在执行 Runtime 更改…",
     upgradeFailed: "Runtime 更改未能完成。",
-    upgradeState: { UP_TO_DATE: "已是最新", AVAILABLE: "计划可用", BLOCKED: "已阻止", UNKNOWN: "证据不完整" },
+    upgradeState: { UP_TO_DATE: "已是最新", AVAILABLE: "计划可用", BLOCKED: "已阻止", UNKNOWN: "证据不完整，暂不可升级" },
     managedState: { MANAGED: "受管", UNKNOWN: "未知" },
     compatibilityState: { NOT_REQUIRED: "不需要", PROVEN: "已证明", UNSAFE: "不安全", UNKNOWN: "未知" },
     upgradeReasons: {
-      MANAGED_EVIDENCE_UNKNOWN: "无法证明实时受管指针与密封 generation。",
-      CURRENT_IDENTITY_UNKNOWN: "无法确认当前 Runtime 的精确快照身份。",
-      INVENTORY_UNKNOWN: "受影响的 Runtime 清单尚不完整。",
-      PROTECTION_POINT_REQUIRED: "执行任何升级前都必须具备已验证保护点。",
-      COMPATIBILITY_UNKNOWN: "尚未证明当前版本到候选版本的精确兼容性。",
-      POSTCHECKS_UNQUALIFIED: "所需的升级后检查尚未全部通过资格确认。",
+      MANAGED_EVIDENCE_UNKNOWN: "受管安装证据：需要有效的 YORVA active.json，并能校验其对应的密封 generation。",
+      CURRENT_IDENTITY_UNKNOWN: "当前身份证据：活动 generation 必须匹配已知的精确版本与源码快照。",
+      INVENTORY_UNKNOWN: "清单证据：需要权威回读全部受影响的 Profiles、网关和受管功能。",
+      PROTECTION_POINT_REQUIRED: "保护点证据：升级前必须存在一份已验证的加密 Runtime 备份。",
+      COMPATIBILITY_UNKNOWN: "兼容性证据：需要该精确版本对在 Windows 上的升级与回滚资格验证结果。",
+      POSTCHECKS_UNQUALIFIED: "升级后证据：检测、Profile 清单、健康、配置、Skills、MCP 与网关检查必须通过资格验证。",
     },
+    upgradeEvidenceRequired: "仍需补齐的升级证据",
     backupsTitle: "Runtime 备份",
-    backupsDescription: "展示加密备份索引的最近一次观测结果；刷新不会打开、解密或重新验证备份文件。",
+    backupsDescription: "加密备份默认保存在 YORVA 受保护的系统应用数据目录；刷新仅展示最近一次索引状态，不会打开或解密备份文件。",
     noBackups: "当前没有已验证并建立索引的 Runtime 备份。",
     createBackup: "创建加密备份",
     backupCreating: "正在创建并校验加密备份…",
     backupCreateFailed: "备份未能启动或完成。",
-    backupRequiresStopped: "创建或恢复 Runtime 备份前，请先停止全部 Hermes 实例。",
-    backupRuntimeNotStopped: "备份未创建：至少有一个 Hermes 实例仍在运行。请停止全部实例后重试。",
+    backupRequiresStopped: "创建或恢复 Runtime 备份前，请停止全部 Hermes 实例，并关闭 Hermes Dashboard 或其他 Hermes 后台进程。",
+    backupRuntimeNotStopped: "备份未创建：Hermes 数据仍被占用。请停止全部实例并关闭 Hermes Dashboard 或其他 Hermes 进程后重试。",
+    backupSourceChanged: "捕获期间 Hermes 数据发生变化。请保持全部实例停止后重试。",
+    backupSourceUnsafe: "Hermes 数据目录包含当前不支持的文件系统条目，请先查看诊断日志。",
+    backupSourceIncomplete: "YORVA 无法在备份安全限制内完整捕获 Hermes Runtime 数据。",
+    backupInsufficientSpace: "系统应用数据所在磁盘空间不足，无法创建加密备份。",
+    backupStagingFailed: "YORVA 无法创建或验证受保护的临时备份数据。",
+    backupEncryptionFailed: "加密备份未能完成发布和权威校验。",
     deleteBackup: "删除备份",
     restoreBackup: "恢复",
     restoreConfirm: "确定恢复此备份吗？所有 Hermes 实例必须已停止；校验通过后，当前 Runtime 数据会被替换。",

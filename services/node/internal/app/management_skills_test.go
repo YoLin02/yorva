@@ -3,7 +3,9 @@ package app
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -145,6 +147,10 @@ func TestManagementSkillsManagedMutationValidatesBeforeResolution(t *testing.T) 
 			_, err := service.StartInstall(context.Background(), "inst_1", "writer", "../unapproved", "key")
 			return err
 		}},
+		{"import source reference", func(service *ManagementSkills) error {
+			_, err := service.StartImport(context.Background(), "inst_1", "writer", "C:/unsafe/skill", "key")
+			return err
+		}},
 		{"update", func(service *ManagementSkills) error {
 			_, err := service.StartUpdate(context.Background(), "inst_1", "../escape", "key")
 			return err
@@ -233,6 +239,63 @@ func (*fakeSkillLifecycle) Stop(context.Context, yorvaruntime.LifecycleInstallat
 func (f *fakeSkillLifecycle) Restart(context.Context, yorvaruntime.LifecycleInstallation, string) error {
 	f.restarts++
 	return nil
+}
+
+func TestManagementSkillsImportRunsDurableProjectionAndAuthoritativeReadback(t *testing.T) {
+	_, db, instanceID, _ := newB3ManagementTargetFixture(t)
+	dataDir := t.TempDir()
+	store, err := managedskills.NewStore(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceRef := strings.Repeat("i", 43)
+	staged := filepath.Join(dataDir, "skill-imports", sourceRef, "directory")
+	if err := os.MkdirAll(staged, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	content := "---\nname: imported-skill\ndescription: Imported lifecycle test.\nversion: 1.0.0\nauthor: Test\nlicense: MIT\nplatforms: [windows, linux, macos]\n---\n\n# Imported Skill\n"
+	if err := os.WriteFile(filepath.Join(staged, managedskills.SkillFileName), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	projector := &fakeManagedSkillProjector{}
+	lifecycle := &fakeSkillLifecycle{state: yorvaruntime.LifecycleStopped}
+	target := ManagementTarget{
+		Installation: yorvaruntime.Installation{Path: "C:/hermes.exe", Version: "0.20.5"}, NativeID: "coder",
+		Bundle: yorvaruntime.Bundle{SkillProjection: projector, Lifecycle: lifecycle},
+	}
+	service := NewManagedManagementSkills(&fakeManagementTargetResolver{target: target}, db, store, nil)
+	started, err := service.StartImport(context.Background(), instanceID, "imported-skill", sourceRef, "import-lifecycle-key")
+	if err != nil {
+		t.Fatalf("StartImport() error = %v", err)
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		stored, readErr := db.GetOperation(context.Background(), started.Operation.ID)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if operation.IsTerminal(stored.Status) {
+			if stored.Status != operation.StatusSucceeded {
+				t.Fatalf("import operation = %#v", stored)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("import operation did not finish")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	record, err := db.GetManagedSkill(context.Background(), instanceID, "imported-skill")
+	if err != nil || record.SourceID != managedskills.LocalImportSourceID || record.ProjectionState != yorvaruntime.SkillProjectionProjected {
+		t.Fatalf("managed import = %#v, %v", record, err)
+	}
+	if len(projector.projectRequests) != 1 || projector.projectRequests[0].ContentSHA256 != record.ContentSHA256 {
+		t.Fatalf("projection requests = %#v", projector.projectRequests)
+	}
+	items, err := service.ListSkills(context.Background(), instanceID)
+	if err != nil || len(items) != 1 || items[0].ID != "imported-skill" || items[0].ProjectionState != yorvaruntime.SkillProjectionProjected {
+		t.Fatalf("authoritative readback = %#v, %v", items, err)
+	}
 }
 
 func TestManagedSkillDisabledUpdateKeepsOwnershipAndEnableRemoveRemainAvailable(t *testing.T) {

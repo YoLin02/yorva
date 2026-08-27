@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -46,6 +48,7 @@ type BackupManagement struct {
 	targets RuntimeManagementTargetResolver
 	db      *sqlite.Database
 	events  *events.Broker
+	logger  *slog.Logger
 	now     func() time.Time
 	newID   func() (string, error)
 	mu      sync.Mutex
@@ -53,7 +56,14 @@ type BackupManagement struct {
 }
 
 func NewBackupManagement(targets RuntimeManagementTargetResolver) *BackupManagement {
-	return &BackupManagement{targets: targets, now: func() time.Time { return time.Now().UTC() }, newID: newOperationID, cancels: make(map[string]context.CancelFunc)}
+	return &BackupManagement{targets: targets, now: func() time.Time { return time.Now().UTC() }, newID: newOperationID, cancels: make(map[string]context.CancelFunc), logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+}
+
+func (s *BackupManagement) WithLogger(logger *slog.Logger) *BackupManagement {
+	if logger != nil {
+		s.logger = logger
+	}
+	return s
 }
 
 func NewManagedBackupManagement(targets RuntimeManagementTargetResolver, db *sqlite.Database, broker *events.Broker) *BackupManagement {
@@ -67,6 +77,9 @@ func (s *InstanceInventory) NewBackupManagement() (*BackupManagement, error) {
 		return nil, ErrManagementQueryFailed
 	}
 	service := NewManagedBackupManagement(s, s.db, s.events)
+	if s.discovery != nil {
+		service.WithLogger(s.discovery.logger)
+	}
 	if _, err := service.RecoverInterrupted(context.Background()); err != nil {
 		return nil, err
 	}
@@ -151,11 +164,8 @@ func (s *BackupManagement) CreateBackup(ctx context.Context, runtimeID string, r
 	return validatedBackupView(backup)
 }
 
-func (s *BackupManagement) StartCreateBackup(ctx context.Context, runtimeID, destinationRef, idempotencyKey string) (InstallStartResult, error) {
+func (s *BackupManagement) StartCreateBackup(ctx context.Context, runtimeID, idempotencyKey string) (InstallStartResult, error) {
 	if s == nil || s.db == nil || ValidateIdempotencyKey(idempotencyKey) != nil {
-		return InstallStartResult{}, ErrManagementQueryFailed
-	}
-	if err := yorvaruntime.ValidateBackupDestinationRef(destinationRef); err != nil {
 		return InstallStartResult{}, ErrManagementQueryFailed
 	}
 	target, err := s.resolve(ctx, runtimeID)
@@ -196,7 +206,7 @@ func (s *BackupManagement) StartCreateBackup(ctx context.Context, runtimeID, des
 		return InstallStartResult{}, managementBackupError(ctx, err)
 	}
 	s.emitOperation(operation.Operation{}, op, true)
-	go s.runCreateBackup(op, target, destinationRef)
+	go s.runCreateBackup(op, target)
 	return InstallStartResult{Operation: op, Created: true}, nil
 }
 
@@ -359,7 +369,7 @@ func (s *BackupManagement) runRestoreBackup(op operation.Operation, target Runti
 	_ = s.persistOperation(context.Background(), running, final)
 }
 
-func (s *BackupManagement) runCreateBackup(op operation.Operation, target RuntimeManagementTarget, destinationRef string) {
+func (s *BackupManagement) runCreateBackup(op operation.Operation, target RuntimeManagementTarget) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	if !s.registerCancel(op.ID, cancel) {
 		cancel()
@@ -377,22 +387,37 @@ func (s *BackupManagement) runCreateBackup(op operation.Operation, target Runtim
 		return
 	}
 	_, err = target.Bundle.BackupMutate.CreateBackup(ctx, target.Installation, yorvaruntime.BackupCreateRequest{
-		DestinationRef: destinationRef, OperationID: op.ID, RuntimeInstallationID: target.InstallationID,
+		OperationID: op.ID, RuntimeInstallationID: target.InstallationID,
 	}, nil)
 	completed := s.now()
 	final := running
 	final.Stage, final.CompletedAt, final.UpdatedAt = operation.StageBackupReconcile, &completed, completed
 	if err != nil {
 		final.Status, final.ErrorCode, final.Retryable = operation.StatusFailed, backupCreateOperationError(err), true
+		s.logger.Warn("Runtime backup creation failed", "runtimeKind", target.Installation.RuntimeKind, "operationId", op.ID, "errorCode", final.ErrorCode)
 	} else {
 		final.Status = operation.StatusSucceeded
+		s.logger.Info("Runtime backup creation completed", "runtimeKind", target.Installation.RuntimeKind, "operationId", op.ID)
 	}
 	_ = s.persistOperation(context.Background(), running, final)
 }
 
 func backupCreateOperationError(err error) yorvaruntime.ErrorCode {
-	if errors.Is(err, yorvaruntime.ErrBackupRuntimeNotStopped) {
+	switch {
+	case errors.Is(err, yorvaruntime.ErrBackupRuntimeNotStopped):
 		return yorvaruntime.ErrorBackupRuntimeNotStopped
+	case errors.Is(err, yorvaruntime.ErrBackupSourceChanged):
+		return yorvaruntime.ErrorBackupSourceChanged
+	case errors.Is(err, yorvaruntime.ErrBackupSourceUnsafe):
+		return yorvaruntime.ErrorBackupSourceUnsafe
+	case errors.Is(err, yorvaruntime.ErrBackupSourceIncomplete):
+		return yorvaruntime.ErrorBackupSourceIncomplete
+	case errors.Is(err, yorvaruntime.ErrBackupInsufficientSpace):
+		return yorvaruntime.ErrorBackupInsufficientSpace
+	case errors.Is(err, yorvaruntime.ErrBackupStagingFailed):
+		return yorvaruntime.ErrorBackupStagingFailed
+	case errors.Is(err, yorvaruntime.ErrBackupEncryptionFailed):
+		return yorvaruntime.ErrorBackupEncryptionFailed
 	}
 	return yorvaruntime.ErrorBackupCreateFailed
 }

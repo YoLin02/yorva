@@ -224,9 +224,10 @@ Completed negative discovery is typed data, normally HTTP `200`, because absence
 
 ## 10. Timeout / Cancellation
 
-- per-candidate timeout: 3 seconds;
-- overall daemon deadline: 10 seconds;
-- Desktop timeout: 12 seconds, leaving the daemon authoritative;
+- per-candidate timeout: 30 seconds under Amendment 0065A1;
+- adapter/application deadlines: 32/35 seconds so process cleanup completes before the application boundary;
+- Desktop timeout: 40 seconds, leaving the daemon authoritative;
+- concurrent requests for the same Runtime share one in-flight probe, and a supported result may be reused for five seconds to prevent page-level query fan-out from spawning duplicate launchers;
 - evaluate sequentially for deterministic ordering and simple ownership;
 - overall cancellation stops remaining candidates;
 - request cancellation propagates to the child;

@@ -1,7 +1,6 @@
 use std::{
-    collections::HashMap,
-    io,
-    path::{Path, PathBuf},
+    fs, io,
+    path::Path,
     sync::{Condvar, Mutex, MutexGuard},
     thread,
     time::Duration,
@@ -18,7 +17,8 @@ use tauri_plugin_shell::{
 const PROTOCOL_VERSION: &str = "1";
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(3);
-const BACKUP_GRANT_TIMEOUT: Duration = Duration::from_secs(5);
+const MAX_SKILL_IMPORT_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_SKILL_IMPORT_ENTRIES: usize = 160;
 const SHUTDOWN_MESSAGE: &[u8] = b"{\"type\":\"shutdown\"}\n";
 const STARTUP_FAILED_MESSAGE: &str = "The local daemon could not be started.";
 
@@ -65,12 +65,13 @@ impl ChildControl for CommandChild {
 struct LifecycleInner {
     status: StartupStatus,
     child: Option<Box<dyn ChildControl>>,
-    pending_backup_grants: HashMap<String, PendingBackupGrant>,
 }
 
-struct PendingBackupGrant {
-    destination_ref: String,
-    accepted: Option<bool>,
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkillImportSelection {
+    source_ref: String,
+    suggested_skill_id: String,
 }
 
 pub struct DaemonLifecycle {
@@ -84,7 +85,6 @@ impl DaemonLifecycle {
             inner: Mutex::new(LifecycleInner {
                 status: StartupStatus::Starting,
                 child: None,
-                pending_backup_grants: HashMap::new(),
             }),
             changed: Condvar::new(),
         }
@@ -124,7 +124,6 @@ impl DaemonLifecycle {
                 return;
             }
             inner.status = StartupStatus::Failed;
-            inner.pending_backup_grants.clear();
             self.changed.notify_all();
             inner.child.take()
         };
@@ -159,7 +158,6 @@ impl DaemonLifecycle {
     fn process_terminated(&self) {
         let mut inner = self.lock();
         inner.child.take();
-        inner.pending_backup_grants.clear();
         inner.status = if matches!(
             inner.status,
             StartupStatus::Stopping | StartupStatus::Stopped
@@ -184,7 +182,6 @@ impl DaemonLifecycle {
         }
 
         inner.status = StartupStatus::Stopping;
-        inner.pending_backup_grants.clear();
         let write_failed = inner
             .child
             .as_mut()
@@ -237,116 +234,6 @@ impl DaemonLifecycle {
                 retryable: true,
             }),
         }
-    }
-
-    fn issue_backup_destination(&self, path: &Path) -> Result<String, DaemonCommandError> {
-        let path = path.to_str().ok_or_else(backup_destination_error)?;
-        let request_id = generate_token().map_err(|_| backup_destination_error())?;
-        let destination_ref = generate_token().map_err(|_| backup_destination_error())?;
-        let mut message = serde_json::to_vec(&BackupDestinationGrant {
-            message_type: "backup_destination.grant",
-            request_id: &request_id,
-            destination_ref: &destination_ref,
-            runtime_id: "hermes",
-            path,
-        })
-        .map_err(|_| backup_destination_error())?;
-        message.push(b'\n');
-
-        let mut inner = self.lock();
-        if !matches!(inner.status, StartupStatus::Ready(_))
-            || inner.pending_backup_grants.len() >= 8
-        {
-            return Err(backup_destination_error());
-        }
-        inner.pending_backup_grants.insert(
-            request_id.clone(),
-            PendingBackupGrant {
-                destination_ref: destination_ref.clone(),
-                accepted: None,
-            },
-        );
-        let write_result = inner
-            .child
-            .as_mut()
-            .ok_or_else(backup_destination_error)
-            .and_then(|child| {
-                child
-                    .write(&message)
-                    .map_err(|_| backup_destination_error())
-            });
-        if let Err(error) = write_result {
-            inner.pending_backup_grants.remove(&request_id);
-            return Err(error);
-        }
-
-        let (mut inner, wait_result) = self
-            .changed
-            .wait_timeout_while(inner, BACKUP_GRANT_TIMEOUT, |state| {
-                state
-                    .pending_backup_grants
-                    .get(&request_id)
-                    .is_some_and(|pending| pending.accepted.is_none())
-            })
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let pending = inner.pending_backup_grants.remove(&request_id);
-        if wait_result.timed_out() || !pending.is_some_and(|pending| pending.accepted == Some(true))
-        {
-            return Err(backup_destination_error());
-        }
-        Ok(destination_ref)
-    }
-
-    fn accept_backup_destination_ack(&self, payload: &[u8]) -> Result<(), String> {
-        let mut decoder = serde_json::Deserializer::from_slice(payload);
-        let ack = BackupDestinationAck::deserialize(&mut decoder)
-            .map_err(|_| "invalid backup destination acknowledgement".to_owned())?;
-        decoder
-            .end()
-            .map_err(|_| "invalid backup destination acknowledgement".to_owned())?;
-        if ack.message_type != "backup_destination.ack" {
-            return Err("invalid backup destination acknowledgement".to_owned());
-        }
-        let mut inner = self.lock();
-        let pending = inner
-            .pending_backup_grants
-            .get_mut(&ack.request_id)
-            .ok_or_else(|| "unexpected backup destination acknowledgement".to_owned())?;
-        if pending.destination_ref != ack.destination_ref || pending.accepted.is_some() {
-            return Err("mismatched backup destination acknowledgement".to_owned());
-        }
-        pending.accepted = Some(ack.accepted);
-        self.changed.notify_all();
-        Ok(())
-    }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BackupDestinationGrant<'a> {
-    #[serde(rename = "type")]
-    message_type: &'static str,
-    request_id: &'a str,
-    destination_ref: &'a str,
-    runtime_id: &'static str,
-    path: &'a str,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct BackupDestinationAck {
-    #[serde(rename = "type")]
-    message_type: String,
-    request_id: String,
-    destination_ref: String,
-    accepted: bool,
-}
-
-fn backup_destination_error() -> DaemonCommandError {
-    DaemonCommandError {
-        code: "BACKUP_DESTINATION_UNAVAILABLE",
-        message: "Yorva could not authorize the selected backup destination.",
-        retryable: true,
     }
 }
 
@@ -413,30 +300,163 @@ pub fn daemon_session(
 }
 
 #[tauri::command]
-pub fn select_backup_destination(
-    lifecycle: tauri::State<'_, DaemonLifecycle>,
-) -> Result<Option<String>, DaemonCommandError> {
-    let selected = rfd::FileDialog::new()
-        .set_title("Save Yorva backup")
-        .set_file_name("yorva-backup.yorva-backup.age")
-        .add_filter("Yorva encrypted backup", &["age"])
-        .save_file();
-    let Some(path) = selected else {
+pub fn select_skill_import(
+    app: AppHandle,
+    kind: String,
+) -> Result<Option<SkillImportSelection>, DaemonCommandError> {
+    let selected = match kind.as_str() {
+        "ZIP" => rfd::FileDialog::new()
+            .set_title("Install Skill from ZIP")
+            .add_filter("Skill ZIP", &["zip"])
+            .pick_file(),
+        "DIRECTORY" => rfd::FileDialog::new()
+            .set_title("Import existing Skill")
+            .pick_folder(),
+        _ => return Err(skill_import_error()),
+    };
+    let Some(source) = selected else {
         return Ok(None);
     };
-    let path = normalize_backup_destination(path)?;
-    lifecycle.issue_backup_destination(&path).map(Some)
+    let source_ref = generate_token().map_err(|_| skill_import_error())?;
+    let imports_root = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| skill_import_error())?
+        .join("skill-imports");
+    let staging = imports_root.join(&source_ref);
+    fs::create_dir_all(&staging).map_err(|_| skill_import_error())?;
+    let result = if kind == "ZIP" {
+        stage_skill_zip(&source, &staging)
+    } else {
+        stage_skill_directory(&source, &staging.join("directory"))
+    };
+    if result.is_err() {
+        let _ = fs::remove_dir_all(&staging);
+        return Err(skill_import_error());
+    }
+    Ok(Some(SkillImportSelection {
+        source_ref,
+        suggested_skill_id: suggested_skill_id(&source),
+    }))
 }
 
-fn normalize_backup_destination(mut path: PathBuf) -> Result<PathBuf, DaemonCommandError> {
-    let name = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .ok_or_else(backup_destination_error)?;
-    if !name.ends_with(".yorva-backup.age") {
-        path.set_file_name(format!("{name}.yorva-backup.age"));
+#[tauri::command]
+pub fn discard_skill_import(app: AppHandle, source_ref: String) -> Result<(), DaemonCommandError> {
+    if source_ref.len() != 43
+        || !source_ref
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+    {
+        return Err(skill_import_error());
     }
-    Ok(path)
+    let imports_root = app
+        .path()
+        .app_data_dir()
+        .map_err(|_| skill_import_error())?
+        .join("skill-imports");
+    let staging = imports_root.join(source_ref);
+    if staging.parent() != Some(imports_root.as_path()) {
+        return Err(skill_import_error());
+    }
+    match fs::remove_dir_all(staging) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(_) => Err(skill_import_error()),
+    }
+}
+
+fn stage_skill_zip(source: &Path, staging: &Path) -> Result<(), ()> {
+    let metadata = fs::symlink_metadata(source).map_err(|_| ())?;
+    if !metadata.file_type().is_file()
+        || metadata.file_type().is_symlink()
+        || metadata.len() == 0
+        || metadata.len() > MAX_SKILL_IMPORT_BYTES
+    {
+        return Err(());
+    }
+    fs::copy(source, staging.join("source.zip")).map_err(|_| ())?;
+    Ok(())
+}
+
+fn stage_skill_directory(source: &Path, destination: &Path) -> Result<(), ()> {
+    let metadata = fs::symlink_metadata(source).map_err(|_| ())?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+        return Err(());
+    }
+    fs::create_dir(destination).map_err(|_| ())?;
+    let mut pending = vec![(source.to_path_buf(), destination.to_path_buf(), 0_usize)];
+    let mut entries = 0_usize;
+    let mut total = 0_u64;
+    while let Some((from, to, depth)) = pending.pop() {
+        if depth > 8 {
+            return Err(());
+        }
+        for item in fs::read_dir(&from).map_err(|_| ())? {
+            let item = item.map_err(|_| ())?;
+            entries += 1;
+            if entries > MAX_SKILL_IMPORT_ENTRIES {
+                return Err(());
+            }
+            let item_type = item.file_type().map_err(|_| ())?;
+            if item_type.is_symlink() {
+                return Err(());
+            }
+            let target = to.join(item.file_name());
+            if item_type.is_dir() {
+                fs::create_dir(&target).map_err(|_| ())?;
+                pending.push((item.path(), target, depth + 1));
+            } else if item_type.is_file() {
+                let size = item.metadata().map_err(|_| ())?.len();
+                total = total.checked_add(size).ok_or(())?;
+                if size > 512 * 1024 || total > MAX_SKILL_IMPORT_BYTES {
+                    return Err(());
+                }
+                fs::copy(item.path(), target).map_err(|_| ())?;
+            } else {
+                return Err(());
+            }
+        }
+    }
+    Ok(())
+}
+
+fn suggested_skill_id(source: &Path) -> String {
+    let stem = source
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("imported-skill");
+    let mut result = String::new();
+    for ch in stem.chars().flat_map(char::to_lowercase) {
+        if ch.is_ascii_lowercase() || ch.is_ascii_digit() {
+            result.push(ch);
+        } else if !result.ends_with('-') {
+            result.push('-');
+        }
+    }
+    let result = result.trim_matches('-');
+    let mut result = if result
+        .chars()
+        .next()
+        .is_some_and(|ch| ch.is_ascii_lowercase())
+    {
+        result.to_owned()
+    } else {
+        format!("skill-{result}")
+    };
+    result.truncate(64);
+    if result.is_empty() {
+        "imported-skill".to_owned()
+    } else {
+        result
+    }
+}
+
+fn skill_import_error() -> DaemonCommandError {
+    DaemonCommandError {
+        code: "SKILL_IMPORT_SOURCE_UNAVAILABLE",
+        message: "Yorva could not stage the selected Skill source.",
+        retryable: true,
+    }
 }
 
 pub fn start_daemon(app: &AppHandle) {
@@ -448,6 +468,11 @@ pub fn start_daemon(app: &AppHandle) {
 
 fn try_start_daemon(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = app.path().app_data_dir()?;
+    match fs::remove_dir_all(data_dir.join("skill-imports")) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => log_diagnostic("skill_import_staging_cleanup_failed", &error.to_string()),
+    }
     let data_dir_text = path_to_utf8(&data_dir)?;
     let token = generate_token()?;
     let embedded_source = resolve_hermes_resource(app, HERMES_EMBEDDED_SOURCE_NAME);
@@ -492,12 +517,13 @@ fn try_start_daemon(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     }
                     handshake_complete = true;
                 }
-                CommandEvent::Stdout(line) => {
-                    if let Err(error) = lifecycle.accept_backup_destination_ack(&line) {
-                        log_diagnostic("daemon_stdout_contract_violation", &error);
-                        lifecycle.fail_startup();
-                        return;
-                    }
+                CommandEvent::Stdout(_) => {
+                    log_diagnostic(
+                        "daemon_stdout_contract_violation",
+                        "unexpected stdout after handshake",
+                    );
+                    lifecycle.fail_startup();
+                    return;
                 }
                 CommandEvent::Stderr(line) => {
                     log_diagnostic("daemon_stderr", &String::from_utf8_lossy(&line));

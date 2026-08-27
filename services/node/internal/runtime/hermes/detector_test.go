@@ -103,6 +103,19 @@ func TestDetectorOutcomes(t *testing.T) {
 	}
 }
 
+func TestDiscoveryCommandRunnerUsesAmendedVersionProbeBudget(t *testing.T) {
+	runner := newDiscoveryCommandRunner()
+	if discoveryCommandTimeout != 30*time.Second {
+		t.Fatalf("configured discovery timeout = %s, want 30s", discoveryCommandTimeout)
+	}
+	if runner.timeout != discoveryCommandTimeout {
+		t.Fatalf("discovery timeout = %s, want 30s", runner.timeout)
+	}
+	if commandTimeout != 3*time.Second {
+		t.Fatalf("ordinary command timeout = %s, want unchanged 3s", commandTimeout)
+	}
+}
+
 func TestDetectorWarnsForUntestedPrerelease(t *testing.T) {
 	detector := detectorWithResults(t, []commandResult{{stdout: "Hermes Agent v0.20.2-rc.1\n", exitCode: 0}})
 	got, err := detector.Detect(context.Background())

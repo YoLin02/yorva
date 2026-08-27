@@ -58,15 +58,11 @@ func NewRuntimeBackupManager(
 }
 
 func (m *RuntimeBackupManager) CreateBackup(ctx context.Context, installation yorvaruntime.Installation, request yorvaruntime.BackupCreateRequest, progress yorvaruntime.ProgressSink) (yorvaruntime.Backup, error) {
-	if m == nil || m.destinations == nil || m.useDeviceKey == nil || m.insertIndex == nil || m.ensureStopped == nil ||
+	if m == nil || m.useDeviceKey == nil || m.insertIndex == nil || m.ensureStopped == nil ||
 		request.Validate() != nil || installation.RuntimeKind != Kind ||
 		installation.Version != backupmanagement.QualifiedSnapshotRuntimeVersion || installation.Path == "" ||
 		!filepath.IsAbs(installation.Path) || installation.SupportState != yorvaruntime.DiscoverySupported {
 		return yorvaruntime.Backup{}, yorvaruntime.ErrInvalidManagementContract
-	}
-	consumed, err := m.destinations.Consume(request.DestinationRef, string(Kind), request.OperationID)
-	if err != nil {
-		return yorvaruntime.Backup{}, err
 	}
 	if progress != nil {
 		progress.Report(yorvaruntime.ProgressUpdate{Stage: "backup.preflight"})
@@ -79,6 +75,10 @@ func (m *RuntimeBackupManager) CreateBackup(ctx context.Context, installation yo
 	backupID, err := newBackupID()
 	if err != nil {
 		return yorvaruntime.Backup{}, err
+	}
+	destination, indexPath, err := m.resolveBackupDestination(request, backupID)
+	if err != nil {
+		return yorvaruntime.Backup{}, normalizeBackupCreateError(err)
 	}
 	stagingRoot := filepath.Join(m.dataDir, "backup-staging")
 	if err := os.MkdirAll(stagingRoot, 0o700); err != nil {
@@ -111,7 +111,7 @@ func (m *RuntimeBackupManager) CreateBackup(ctx context.Context, installation yo
 		Installation: identity,
 	}, true, backupmanagement.SnapshotStaging{Payload: payload, Container: container}, backupmanagement.DefaultLimits())
 	if err != nil {
-		return yorvaruntime.Backup{}, err
+		return yorvaruntime.Backup{}, normalizeBackupCreateError(err)
 	}
 	if snapshot.Artifact.Metadata.BackupID != backupID {
 		return yorvaruntime.Backup{}, errors.New("backup snapshot identity mismatch")
@@ -134,7 +134,7 @@ func (m *RuntimeBackupManager) CreateBackup(ctx context.Context, installation yo
 			return credentialErr
 		}
 		published, deriveErr = backupmanagement.PublishVerifiedArtifact(ctx, backupmanagement.PublicationRequest{
-			Destination: consumed.Destination, Artifact: container, ArtifactSize: containerInfo.Size(),
+			Destination: destination, Artifact: container, ArtifactSize: containerInfo.Size(),
 			Credential: credential, Limits: backupmanagement.DefaultLimits(),
 		})
 		return deriveErr
@@ -143,12 +143,12 @@ func (m *RuntimeBackupManager) CreateBackup(ctx context.Context, installation yo
 		if err == nil {
 			err = errors.New("backup publication did not verify")
 		}
-		return yorvaruntime.Backup{}, err
+		return yorvaruntime.Backup{}, normalizeBackupCreateError(err)
 	}
 	verifiedAt := m.now()
 	indexEntry := BackupIndexEntry{
 		ID: backupID, RuntimeInstallationID: request.RuntimeInstallationID, FormatVersion: backupmanagement.FormatVersion,
-		RuntimeVersion: installation.Version, ArtifactPath: consumed.IndexPath,
+		RuntimeVersion: installation.Version, ArtifactPath: indexPath,
 		SizeBytes: published.EncryptedSizeBytes, ChecksumSHA256: published.ChecksumSHA256,
 		KeyRef: backupDeviceKeyReference, CreatedAt: createdAt, VerifiedAt: verifiedAt,
 	}
@@ -167,6 +167,58 @@ func (m *RuntimeBackupManager) CreateBackup(ctx context.Context, installation yo
 		ChecksumSHA256: published.ChecksumSHA256, CreatedAt: createdAt, VerifiedAt: verifiedAt,
 		KeyMode: yorvaruntime.BackupKeyDevice,
 	}, nil
+}
+
+func normalizeBackupCreateError(err error) error {
+	code, ok := backupmanagement.ErrorCodeOf(err)
+	if !ok {
+		return err
+	}
+	var normalized error
+	switch code {
+	case backupmanagement.ErrorSourceRuntimeLive:
+		normalized = yorvaruntime.ErrBackupRuntimeNotStopped
+	case backupmanagement.ErrorSourceChanged, backupmanagement.ErrorSourceSQLiteActive:
+		normalized = yorvaruntime.ErrBackupSourceChanged
+	case backupmanagement.ErrorSourceUnsafe, backupmanagement.ErrorArchiveTypeUnsafe, backupmanagement.ErrorArchivePathUnsafe:
+		normalized = yorvaruntime.ErrBackupSourceUnsafe
+	case backupmanagement.ErrorSourceIncomplete, backupmanagement.ErrorArchiveMemberLimit,
+		backupmanagement.ErrorArchiveMemberSizeLimit, backupmanagement.ErrorArchiveTotalSizeLimit:
+		normalized = yorvaruntime.ErrBackupSourceIncomplete
+	case backupmanagement.ErrorInsufficientSpace:
+		normalized = yorvaruntime.ErrBackupInsufficientSpace
+	case backupmanagement.ErrorStagingFailed:
+		normalized = yorvaruntime.ErrBackupStagingFailed
+	case backupmanagement.ErrorEncryptionFailed, backupmanagement.ErrorPublicationFailed,
+		backupmanagement.ErrorPublicationReconcile:
+		normalized = yorvaruntime.ErrBackupEncryptionFailed
+	default:
+		return err
+	}
+	return errors.Join(normalized, err)
+}
+
+func (m *RuntimeBackupManager) resolveBackupDestination(request yorvaruntime.BackupCreateRequest, backupID string) (backupmanagement.LocalDestination, string, error) {
+	if request.DestinationRef != "" {
+		if m.destinations == nil {
+			return backupmanagement.LocalDestination{}, "", yorvaruntime.ErrInvalidManagementContract
+		}
+		consumed, err := m.destinations.Consume(request.DestinationRef, string(Kind), request.OperationID)
+		return consumed.Destination, consumed.IndexPath, err
+	}
+	if m.dataDir == "" || !filepath.IsAbs(m.dataDir) {
+		return backupmanagement.LocalDestination{}, "", yorvaruntime.ErrInvalidManagementContract
+	}
+	backupRoot := filepath.Join(m.dataDir, "backups")
+	if err := os.MkdirAll(backupRoot, 0o700); err != nil {
+		return backupmanagement.LocalDestination{}, "", err
+	}
+	path := filepath.Join(backupRoot, backupID+".yorva-backup.age")
+	destination, err := backupmanagement.InspectLocalDestination(path)
+	if err != nil {
+		return backupmanagement.LocalDestination{}, "", err
+	}
+	return destination, path, nil
 }
 
 func (m *RuntimeBackupManager) DeleteBackup(ctx context.Context, installation yorvaruntime.Installation, backupID string, progress yorvaruntime.ProgressSink) error {

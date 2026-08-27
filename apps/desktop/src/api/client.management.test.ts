@@ -100,6 +100,19 @@ describe("daemon client management reads", () => {
     expect((fetchMock.mock.calls[5][1] as RequestInit).method).toBe("DELETE");
   });
 
+  it("uses reviewed MCP preset binding requests without custom execution fields", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "op-mcp" }), { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createDaemonClient(session);
+    await client.installInstanceMCPPreset("instance/a b", "yorva-mcp-test", "", ["yorva_ping"], "bind-key");
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://127.0.0.1:49152/api/v1/instances/instance%2Fa%20b/mcp-bindings/yorva-mcp-test",
+    ]);
+    expect((fetchMock.mock.calls[0][1] as RequestInit).body).toBe(JSON.stringify({ credential: "", enabledToolIds: ["yorva_ping"] }));
+    expect((fetchMock.mock.calls[0][1] as RequestInit).headers).toEqual(expect.objectContaining({ "Idempotency-Key": "bind-key", Authorization: "Bearer session-secret" }));
+  });
+
   it("bounds management reads and propagates caller cancellation", async () => {
     const timeoutController = new AbortController();
     const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeoutController.signal);
@@ -154,6 +167,22 @@ describe("daemon client management reads", () => {
       expect(init.body).toBeUndefined();
       expect(init.headers).toEqual(expect.objectContaining({ Authorization: "Bearer session-secret" }));
     }
+  });
+
+  it("starts a system-directory Runtime backup without accepting a caller destination", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "op-backup", status: "PENDING" }), { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createDaemonClient(session).createRuntimeBackup("hermes", "backup-create-key");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:49152/api/v1/runtimes/hermes/backups",
+      expect.objectContaining({
+        method: "POST",
+        body: "{}",
+        headers: expect.objectContaining({ "Idempotency-Key": "backup-create-key", Authorization: "Bearer session-secret" }),
+      }),
+    );
   });
 
   it("aborts management reads when the bounded Desktop timeout fires", async () => {

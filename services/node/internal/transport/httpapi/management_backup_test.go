@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/app"
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
@@ -20,6 +21,30 @@ type b6BackupReadService struct {
 	err         error
 	gotRuntime  string
 	gotBackupID string
+}
+
+type b6BackupMutationService struct {
+	b6BackupReadService
+	createCalls int
+	gotKey      string
+}
+
+func (f *b6BackupMutationService) StartCreateBackup(_ context.Context, runtimeID, key string) (app.InstallStartResult, error) {
+	f.createCalls++
+	f.gotRuntime, f.gotKey = runtimeID, key
+	return app.InstallStartResult{Operation: operation.Operation{ID: "op_backup_create", Type: operation.TypeBackupCreate, Status: operation.StatusPending}}, nil
+}
+
+func (*b6BackupMutationService) StartDeleteBackup(context.Context, string, string, string) (app.InstallStartResult, error) {
+	return app.InstallStartResult{}, nil
+}
+
+func (*b6BackupMutationService) StartRestoreBackup(context.Context, string, string, string) (app.InstallStartResult, error) {
+	return app.InstallStartResult{}, nil
+}
+
+func (*b6BackupMutationService) CancelBackupOperation(context.Context, string) (operation.Operation, error) {
+	return operation.Operation{}, nil
 }
 
 func (f *b6BackupReadService) ListBackups(_ context.Context, runtimeID string) ([]app.BackupView, error) {
@@ -92,6 +117,27 @@ func TestBackupReadHandlersReturnEmptyArrayNotNull(t *testing.T) {
 	listRuntimeBackups(service).ServeHTTP(res, req)
 	if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"items":[]`) {
 		t.Fatalf("response = %d %s", res.Code, res.Body.String())
+	}
+}
+
+func TestBackupCreateUsesClosedSystemDestinationRequest(t *testing.T) {
+	service := &b6BackupMutationService{}
+	request := httptest.NewRequest(http.MethodPost, "/backups", strings.NewReader("{}"))
+	request.SetPathValue("runtimeId", "hermes")
+	request.Header.Set("Idempotency-Key", "backup-create-key")
+	response := httptest.NewRecorder()
+	startRuntimeBackup(service).ServeHTTP(response, request)
+	if response.Code != http.StatusAccepted || service.createCalls != 1 || service.gotRuntime != "hermes" || service.gotKey != "backup-create-key" {
+		t.Fatalf("system backup create = %d calls=%d runtime=%q key=%q body=%s", response.Code, service.createCalls, service.gotRuntime, service.gotKey, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "/backups", strings.NewReader(`{"destinationRef":"`+strings.Repeat("a", 43)+`"}`))
+	request.SetPathValue("runtimeId", "hermes")
+	request.Header.Set("Idempotency-Key", "backup-create-key-2")
+	response = httptest.NewRecorder()
+	startRuntimeBackup(service).ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest || service.createCalls != 1 || !strings.Contains(response.Body.String(), "INVALID_REQUEST") {
+		t.Fatalf("caller destination was accepted: %d calls=%d body=%s", response.Code, service.createCalls, response.Body.String())
 	}
 }
 

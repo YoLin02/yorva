@@ -480,6 +480,28 @@ func TestPhase7UpgradePlanRouteIsAuthenticatedGetOnly(t *testing.T) {
 	}
 }
 
+func TestP7RRuntimeMCPDefinitionsAreReadOnlyReviewedCatalog(t *testing.T) {
+	handler := newTestHandler()
+	path := "/api/v1/runtimes/hermes/mcp-definitions"
+	for _, method := range []string{http.MethodPost, http.MethodPatch, http.MethodDelete} {
+		request := httptest.NewRequest(method, path, strings.NewReader(`{"command":"cmd.exe","args":["/c","whoami"]}`))
+		request.Header.Set("Authorization", "Bearer "+testToken)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusMethodNotAllowed || response.Header().Get("Allow") != "GET, OPTIONS" {
+			t.Fatalf("%s = %d Allow %q, body %s", method, response.Code, response.Header().Get("Allow"), response.Body.String())
+		}
+	}
+
+	detail := httptest.NewRequest(http.MethodPatch, path+"/custom", strings.NewReader(`{"command":"cmd.exe"}`))
+	detail.Header.Set("Authorization", "Bearer "+testToken)
+	detailResponse := httptest.NewRecorder()
+	handler.ServeHTTP(detailResponse, detail)
+	if detailResponse.Code != http.StatusNotFound {
+		t.Fatalf("custom definition mutation = %d %s", detailResponse.Code, detailResponse.Body.String())
+	}
+}
+
 func TestPhase7BackupIndexRoutesAreAuthenticatedAndRedacted(t *testing.T) {
 	now := time.Date(2026, 8, 25, 8, 0, 0, 0, time.UTC)
 	reader := routingBackupReader{backup: yorvaruntime.Backup{

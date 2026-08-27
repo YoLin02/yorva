@@ -2146,6 +2146,18 @@ p {
   gap: 20px;
 }
 
+.runtime-mcp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.runtime-mcp-toolbar .button {
+  min-height: 34px;
+  padding: 6px 12px;
+}
+
 .runtime-mcp-group,
 .runtime-mcp-composer {
   overflow: hidden;
@@ -2316,6 +2328,7 @@ p {
 }
 
 .runtime-mcp-fields input,
+.runtime-mcp-fields select,
 .runtime-mcp-fields textarea,
 .runtime-mcp-secret input {
   width: 100%;
@@ -2334,6 +2347,9 @@ p {
 .runtime-mcp-preview {
   margin: 0 16px 14px;
 }
+
+.runtime-mcp-credential-fields { display: grid; min-width: min(360px, 100%); gap: 8px; }
+.runtime-mcp-credential-fields label { display: grid; gap: 4px; color: #64748b; font-size: 11px; }
 
 .runtime-mcp-bindings-field {
   margin: 0 16px 14px;
@@ -2411,6 +2427,66 @@ p {
 .runtime-skill-groups {
   display: grid;
   gap: 20px;
+}
+
+.runtime-skill-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 0 14px;
+}
+
+.runtime-skill-toolbar .button {
+  min-height: 34px;
+  padding: 6px 12px;
+}
+
+.skill-import-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 34%);
+}
+
+.skill-import-dialog {
+  width: min(460px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 20px 60px rgb(15 23 42 / 20%);
+}
+
+.skill-import-dialog h3,
+.skill-import-dialog p {
+  margin: 0;
+}
+
+.skill-import-dialog p,
+.skill-import-dialog small {
+  color: var(--muted);
+}
+
+.skill-import-dialog label {
+  display: grid;
+  gap: 7px;
+  font-weight: 650;
+}
+
+.skill-import-dialog input {
+  min-width: 0;
+  height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .runtime-skill-group {
@@ -2851,6 +2927,15 @@ p {
   gap: 10px;
   color: #64748b;
   font-size: 11px;
+}
+
+.management-upgrade-evidence {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #eef2f6;
+  color: #334155;
+  font-size: 12px;
 }
 
 .management-log-list {

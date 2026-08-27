@@ -146,6 +146,7 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("GET /api/v1/instances/{instanceId}/skills/{skillId}", requireBearer(token, inspectInstanceSkill(skills)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/skill-sources", requireBearer(token, listInstanceSkillSources(skills)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/skills/{skillId}/install", requireBearer(token, startManagedSkillMutation(skills, skillMutationInstall)))
+	mux.Handle("POST /api/v1/instances/{instanceId}/skills/{skillId}/import", requireBearer(token, startManagedSkillMutation(skills, skillMutationImport)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/skills/{skillId}/update", requireBearer(token, startManagedSkillMutation(skills, skillMutationUpdate)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/skills/{skillId}/enable", requireBearer(token, startManagedSkillMutation(skills, skillMutationEnable)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/skills/{skillId}/disable", requireBearer(token, startManagedSkillMutation(skills, skillMutationDisable)))

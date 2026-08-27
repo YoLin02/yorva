@@ -310,7 +310,7 @@ runtime_installation_id  TEXT NOT NULL REFERENCES runtime_installations(id)
 scope_type               TEXT NOT NULL  -- fixed RUNTIME
 format_version           TEXT NOT NULL
 runtime_version          TEXT NOT NULL
-artifact_path            TEXT NOT NULL  -- locally selected; never in ordinary read APIs
+artifact_path            TEXT NOT NULL  -- daemon-derived below YORVA app data; never in ordinary read APIs
 size_bytes               INTEGER NOT NULL
 checksum_sha256          TEXT NOT NULL
 state                    TEXT NOT NULL  -- AVAILABLE | MISSING | CHANGED | UNDECRYPTABLE | MALFORMED | UNKNOWN
@@ -350,6 +350,15 @@ PRIMARY KEY (instance_id, server_id)
 
 This table stores no endpoint, command, arguments, headers, environment or credential.
 A matching external Hermes definition without this ownership row is read-only.
+
+### 11.3 `managed_mcp_definitions`
+
+Migration 015 stores Runtime-scoped YORVA-owned custom Definition metadata: identity,
+display metadata, transport, endpoint or direct executable/argv, non-secret environment
+and header values, secret markers and tool scope. Secret-marked values are always empty
+in SQLite; their plaintext is written only to the exact Hermes Profile credential
+authority during binding. A Definition referenced by `managed_mcp_bindings` cannot be
+updated or deleted.
 
 ## 12. `app_settings`
 

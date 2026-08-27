@@ -58,7 +58,7 @@ Authorities are deliberately singular:
 | Concern | Sole authority |
 | --- | --- |
 | Hermes data and native scope | exact qualified Hermes Runtime/Profile stores |
-| encrypted artifact bytes | the selected local `.yorva-backup.age` file |
+| encrypted artifact bytes | the daemon-derived `.yorva-backup.age` file below YORVA system application data |
 | device-managed decryption identity | YORVA OS-backed `SecretStore` entry referenced only by a non-secret key ID |
 | portable decryption secret | the user-held passphrase, supplied for one request and never persisted |
 | safe inventory metadata | YORVA backup index after artifact verification |
@@ -134,8 +134,8 @@ No database transaction remains open during filesystem or Runtime work.
 
 The closed flow is:
 
-1. Resolve a valid managed Runtime, exact scope and one native-picker-selected local
-   destination. A remote caller cannot supply an arbitrary path.
+1. Resolve a valid Runtime and exact scope. Derive one new destination below the trusted
+   YORVA system application-data backup directory. No caller can supply a path.
 2. Snapshot the authoritative Runtime/Profile inventory, versions and affected running
    state; reject unknown scope or an unsupported source contract.
 3. Allocate an Operation-private directory under YORVA-owned state. Disable inherited
@@ -146,7 +146,7 @@ The closed flow is:
    partial or uncertain source result fails the backup.
 5. Build and verify the canonical manifest and nested archive, then stream the complete
    plaintext container through the approved age library into a hidden sibling temporary
-   file at the destination.
+   file in the system-managed backup directory.
 6. Close and durably flush the encrypted temporary file, decrypt it through the same
    bounded verifier, validate its manifest and payload checksum, then atomically replace
    the final destination. Existing files are never overwritten without a separate
@@ -167,8 +167,8 @@ with fail-closed cleanup and no plaintext final artifact.
 Restore is a separate Runtime-scoped destructive Operation. Before any Runtime file,
 gateway or Profile mutation it must complete all of the following:
 
-- canonicalize the exact local file selected through the native picker and reject device,
-  pipe, directory and reparse-point inputs;
+- resolve the exact indexed file below the YORVA system backup directory and reject
+  device, pipe, directory and reparse-point inputs;
 - verify whole-file checksum when indexed, complete age authentication and the selected
   key/passphrase authority;
 - parse the bounded manifest and reject unknown format, scope, policy or Runtime
@@ -217,7 +217,7 @@ does not blindly replay a destructive step after daemon restart.
 The current Instance-scoped `backups` rows are not reinterpreted. A later B2/B6 migration
 must add explicit scope and Runtime ownership while preserving predecessor rows and must
 be tested from empty and formal P6/P6.5 schemas. It stores only safe metadata: artifact
-path selected locally, byte size, checksum, format/scope/Runtime versions, state,
+daemon-derived internal artifact path, byte size, checksum, format/scope/Runtime versions, state,
 timestamps and a non-secret key reference.
 
 An artifact is `AVAILABLE` only after create-time verification. Missing, externally

@@ -3,6 +3,7 @@ import hermesIcon from "../../assets/hermes-icon.png";
 import yorvaIcon from "../../assets/yorva-icon.png";
 import {
   Activity,
+  ArchiveRestore,
   AlertTriangle,
   Box,
   Check,
@@ -13,6 +14,8 @@ import {
   Globe,
   Home,
   Info,
+  FileArchive,
+  FolderInput,
   Layers,
   Loader2,
   MoreHorizontal,
@@ -118,6 +121,18 @@ export function IconMoon(props: LucideProps) {
 
 export function IconRefresh(props: LucideProps) {
   return glyph(RotateCw, 14, props);
+}
+
+export function IconArchiveRestore(props: LucideProps) {
+  return glyph(ArchiveRestore, 14, props);
+}
+
+export function IconFileArchive(props: LucideProps) {
+  return glyph(FileArchive, 14, props);
+}
+
+export function IconFolderInput(props: LucideProps) {
+  return glyph(FolderInput, 14, props);
 }
 
 export function IconChevronRight(props: LucideProps) {

@@ -22,7 +22,7 @@ export type StreamEvent = {
 
 export type DaemonClient = ReturnType<typeof createDaemonClient>;
 
-const desktopDiscoveryTimeoutMs = 12_000;
+const desktopDiscoveryTimeoutMs = 40_000;
 const desktopRequestTimeoutMs = 15_000;
 
 function withDesktopTimeout(signal?: AbortSignal): AbortSignal {
@@ -44,6 +44,7 @@ export function createDaemonClient(session: DaemonSession) {
     if (!response.ok) {
       throw await decodeError(response);
     }
+	if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
   }
 
@@ -156,6 +157,13 @@ export function createDaemonClient(session: DaemonSession) {
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
         body: JSON.stringify({ sourceId }),
       }),
+    importManagedSkill: (instanceId: string, skillId: string, sourceRef: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/instances/${encodeURIComponent(instanceId)}/skills/${encodeURIComponent(skillId)}/import`, {
+        method: "POST",
+        signal: withDesktopTimeout(signal),
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({ sourceRef }),
+      }),
     updateManagedSkill: (instanceId: string, skillId: string, idempotencyKey: string, signal?: AbortSignal) =>
       managedSkillEmptyMutation(instanceId, skillId, "update", idempotencyKey, signal),
     enableManagedSkill: (instanceId: string, skillId: string, idempotencyKey: string, signal?: AbortSignal) =>
@@ -220,12 +228,12 @@ export function createDaemonClient(session: DaemonSession) {
       request<ManagementBackupList>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/backups`, {
         signal: withDesktopTimeout(signal),
       }),
-    createRuntimeBackup: (runtimeId: string, destinationRef: string, idempotencyKey: string, signal?: AbortSignal) =>
+    createRuntimeBackup: (runtimeId: string, idempotencyKey: string, signal?: AbortSignal) =>
       request<Operation>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/backups`, {
         method: "POST",
         signal: withDesktopTimeout(signal),
         headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
-        body: JSON.stringify({ destinationRef }),
+        body: "{}",
       }),
     getRuntimeBackup: (runtimeId: string, backupId: string, signal?: AbortSignal) =>
       request<ManagementBackup>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/backups/${encodeURIComponent(backupId)}`, {
