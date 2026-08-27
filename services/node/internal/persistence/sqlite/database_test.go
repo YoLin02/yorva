@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"io/fs"
 	"path/filepath"
 	"testing"
 	"time"
@@ -69,8 +70,8 @@ func TestMigrationsAreIdempotentAndNodeIdentityPersists(t *testing.T) {
 	if err := raw.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&migrations); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if migrations != 15 {
-		t.Fatalf("migration count = %d, want 15", migrations)
+	if migrations != 16 {
+		t.Fatalf("migration count = %d, want 16", migrations)
 	}
 	for _, table := range []string{"schema_migrations", "nodes", "app_settings", "operations", "runtime_installations", "instances", "channel_bindings", "runtime_backups", "managed_skills", "managed_mcp_bindings", "model_provider_connections", "model_profiles", "runtime_model_defaults", "instance_model_bindings"} {
 		var count int
@@ -81,6 +82,53 @@ func TestMigrationsAreIdempotentAndNodeIdentityPersists(t *testing.T) {
 			t.Fatalf("table %s count = %d, want 1", table, count)
 		}
 	}
+}
+
+func TestMigration16RepairsDatabaseThatRecordedEarlierVersion15WithoutSharedModels(t *testing.T) {
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	entries, err := fs.Glob(migrationFiles, "migrations/*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range entries {
+		version, err := migrationVersion(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if version <= 14 {
+			applyVersionedMigration(t, ctx, dataDir, filepath.Base(path))
+		}
+	}
+
+	raw, err := sql.Open("sqlite", filepath.Join(dataDir, databaseFilename)+"?_pragma=foreign_keys(1)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.ExecContext(ctx, `CREATE TABLE managed_mcp_definitions (id TEXT PRIMARY KEY)`); err != nil {
+		_ = raw.Close()
+		t.Fatal(err)
+	}
+	if _, err := raw.ExecContext(ctx, "INSERT INTO schema_migrations(version, applied_at) VALUES (15, ?)", time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		_ = raw.Close()
+		t.Fatal(err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	repaired, err := Open(ctx, dataDir)
+	if err != nil {
+		t.Fatalf("Open() repair error = %v", err)
+	}
+	defer repaired.Close()
+	for _, table := range []string{"model_provider_connections", "model_profiles", "runtime_model_defaults", "instance_model_bindings"} {
+		var count int
+		if err := repaired.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", table).Scan(&count); err != nil || count != 1 {
+			t.Fatalf("repaired table %s count = %d err = %v", table, count, err)
+		}
+	}
+	assertMigrationCount(t, dataDir, 16)
 }
 
 func assertPragmasSurviveReconnect(t *testing.T, ctx context.Context, db *sql.DB) {
