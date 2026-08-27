@@ -1,6 +1,6 @@
 # YORVA Phase 7 — Hermes Runtime Management Completeness
 
-> Status: **IN_PROGRESS — B0 PASS; DEPENDENCY-DRIVEN PARALLEL IMPLEMENTATION**
+> Status: **IN_PROGRESS — P7R MVP CLOSURE; IMPLEMENT, VERIFY AND AUTO-COMMIT EACH BATCH**
 > Phase: 7
 > Owner: Repository Owner
 > Plan date: 2026-08-24
@@ -62,8 +62,8 @@ closed path.
 | Decision | Accepted direction |
 | --- | --- |
 | P7-D1 | Scope is Health/Logs, Skills, MCP, Backup/Restore, Upgrade and recovery UX. Other Hermes surfaces are later work. |
-| P7-D2 | Skills use only inspected/audited official or Owner-approved catalog/registry identities. No unchecked direct URL or force bypass. |
-| P7-D3 | MCP uses approved presets/catalog plus qualified HTTPS MCP. No caller-controlled stdio command, argv, environment or header surface. |
+| P7-D2 | Skills use inspected/audited official or Owner-approved catalog identities, plus an explicitly native-selected local ZIP/directory copied through the bounded prose-only importer. No unchecked direct URL, caller path or force bypass. |
+| P7-D3 | P7R MCP supports built-in and YORVA-reviewed Presets/Definitions only. Caller-provided stdio command, args, environment, HTTP headers, paths and arbitrary JSON are deferred. |
 | P7-D4 | Prefer an encrypted Runtime-scope complete backup. Do not ship plaintext full Hermes backup if a standard encrypted format and reliable Restore cannot be qualified. ADR required. |
 | P7-D5 | Managed upgrade creates a new generation under ADR-0006/0009. Never mutate the active tree with `hermes update` or `--force-venv`. ADR required. |
 | P7-D6 | Health/logs expose allowlisted categories, fixed bounds and mandatory redaction only. No arbitrary path tail or raw log export. |
@@ -71,8 +71,8 @@ closed path.
 | P7-D8 | Stable `0.20.x` may be detected, but each P7 feature reports capability only after exact-version surface qualification. Unknown contracts fail closed. |
 
 ADR-0013 (encrypted Runtime backup/Restore) and ADR-0015 (managed generation
-Upgrade/Rollback) were accepted by the Owner on 2026-08-25. MCP remains governed by
-the accepted P7-D3 typed preset boundary and its lifecycle qualification evidence.
+Upgrade/Rollback) were accepted by the Owner on 2026-08-25. The Owner deferred the
+ADR-0019 fully custom MCP surface on 2026-08-27; it is not part of P7R MVP authority.
 Acceptance does not replace lane-specific qualification and destructive-flow evidence.
 
 ADR-0016 was accepted by the Owner on 2026-08-25. It authorizes the exact-Profile
@@ -133,21 +133,25 @@ for its managed copy, ownership record and expected Runtime projection.
 
 ### 5.3 MCP
 
-- live configured inventory and approved catalog/preset inventory;
-- preset install, qualified HTTPS configuration and bounded connection/tool test;
+- live configured inventory plus built-in and YORVA-managed Runtime Definitions;
+- one production-visible YORVA-owned loopback lifecycle Preset (`yorva-mcp-test`)
+  with fixed identity and the single `yorva_ping` tool;
+- reusable Definition creation from YORVA-reviewed Presets, Profile binding, deletion and bounded connection/tool test;
+- no caller-defined stdio command, args, environment, HTTP headers or arbitrary MCP JSON in the P7R MVP;
 - safe browser/device/OAuth flow only if initiating-session isolation is proven;
 - closed tool-selection mutation, remove, reauthentication and reconciliation;
 - timeout/cancel cleanup for process and network work.
 
-No Desktop/API field may accept an arbitrary stdio command, executable, package name,
-argv, environment, header, local path or secret-bearing URL. Any approved local-process
-MCP requires a fixed adapter-owned descriptor.
+Fully custom MCP is deferred to a separately qualified post-P7R scope. P7R Desktop/API
+requests select reviewed Presets and only the credential and Tool Scope declared by that
+Preset; they cannot submit executable, argv, environment, headers, paths or raw config.
+Credentials remain write-only and Profile-scoped.
 
 ### 5.4 Backup and Restore
 
 - explicit Runtime or qualified Instance scope, format version, Runtime version,
   timestamp, size, checksum and state;
-- explicit user-selected local destination; no automatic Cloud upload;
+- fixed per-user YORVA system application-data destination; no caller path and no automatic Cloud upload;
 - create, verify, list and delete;
 - Restore format/scope/version/checksum/space/conflict preflight;
 - pre-Restore protection point, stop plan, authoritative post-check and rollback;
@@ -266,9 +270,12 @@ Source identifiers, presets, tool selection, log category/filter and every mutat
 field are allowlisted. Long work returns `202 Operation`. Desktop uses TanStack Query for
 daemon state and SSE only for invalidation/progress.
 
-No request accepts arbitrary command, environment, local path or secret-bearing URL.
-A user-selected backup destination remains a narrowly scoped local capability and cannot
-silently become a future remote file command.
+P7R MCP Definition requests select a reviewed Preset and its declared credential and Tool
+Scope only. They do not accept executable, argv, environment, headers, caller paths, raw
+configuration or plaintext secret readback.
+A system-managed backup destination remains a narrowly scoped local capability and cannot
+silently become a future remote file command. The daemon derives it from trusted app data
+and its own backup ID; React and HTTP never submit a path.
 
 The Runtime-scoped backup index may be exposed independently as an authenticated read-only
 capability once its repository is available. List/get return last-observed safe metadata
@@ -325,7 +332,7 @@ input and never runs `--force`, `--force-venv` or an active-tree mutation.
 | B2 | Minimal capability contracts, registry flags, typed actions, Operation/error state, protocol skeleton and only decided migrations | Go contract/API/migration tests + OpenAPI drift |
 | B3 | Normalized Health/Logs/Security and Desktop | Parser/bounds/redaction/timeout/API/Desktop gate |
 | B4 | YORVA-managed Skills lifecycle + Hermes native capability truth | Source/ownership/conflict/Profile isolation/drift/restart/manual smoke |
-| B5 | MCP | No generic command surface, credential/session isolation, timeout/cancel/manual smoke |
+| B5 | MCP | Typed Definition validation, direct-argv execution, credential isolation, timeout/cancel/process cleanup/manual smoke |
 | B6 | Backup Create | Secret/temp/crash/archive integrity/space/manual smoke |
 | B7 | Restore | Corrupt/tamper/version/cross-scope/partial-failure/destructive smoke |
 | B8 | Managed Upgrade/Rollback | Exact source/final path/CAS/data compatibility/lifecycle/channel smoke |
@@ -348,8 +355,8 @@ B1 and later tests must cover at least:
 - static/deep/live health semantic separation;
 - oversized/malicious/secret-bearing logs with truncation, redaction and no script injection;
 - default/named Profile Skill isolation, blocked scan, malicious source and partial update;
-- MCP arbitrary command/env/header rejection, session-bound auth, timeout cleanup and
-  `CONFIGURED` versus `READY` distinction;
+- MCP malformed Definition/JSON rejection, secret redaction, direct-argv and HTTP
+  timeout cleanup, plus `CONFIGURED` versus `READY` distinction;
 - encrypted/approved backup handling, crash cleanup, checksum/tamper/traversal/bomb rejection;
 - Restore running-state conflict, protection point, partial failure and rollback truth;
 - upgrade never mutating the active generation, final-path validation, activation CAS,
@@ -389,7 +396,7 @@ compromised:
 - the branch is not a successor of the formal P6.5 baseline;
 - an official surface cannot be non-interactive, scope-exact, bounded and verifiable;
 - implementation requires Hermes internal Python imports or an undocumented state DB;
-- Skills/MCP requires arbitrary command/env/path/header or a force bypass;
+- MCP requires untyped JSON, shell-string construction, plaintext secret persistence or an unowned child process;
 - MCP/backup/upgrade Secret authority cannot be uniquely defined;
 - full backup can only produce an unencrypted credential/session/account archive;
 - Restore cannot prove archive safety before mutation or define failure/rollback truth;
@@ -409,3 +416,31 @@ create/verify annotated tag
 `phase-007-hermes-runtime-management-completeness-baseline`.
 
 Then stop. Phase 8 requires its own approved Spec.
+
+## 16. P7R MVP closure decision and B0 audit
+
+On 2026-08-27 the Owner approved P7R MVP closure on the current Phase 7 branch:
+
+- each completed P7R batch is committed automatically after its relevant Gate; push,
+  merge, tag and freeze still require separate authorization;
+- implementation prioritizes real mutation, authoritative Runtime read-back, real
+  execution and truthful failure feedback, without per-UI-change ADRs or evidence files;
+- Secret confidentiality, explicit destructive targets/results, the prohibition on
+  arbitrary remote Shell/Process/File APIs, architecture boundaries and Runtime state
+  ownership remain hard constraints;
+- the MCP MVP accepts only YORVA-reviewed Presets/Definitions. Caller-provided stdio
+  command, args, environment, HTTP headers, paths and arbitrary MCP JSON are deferred.
+
+P7R-B0 observed the following implementation state:
+
+| Surface | Current implementation | P7R gap / next batch |
+|---|---|---|
+| Runtime Workspace | Overview, Instances, Skills, MCP, Maintenance and Operations exist; Diagnostics is reached from Instance entry points | Add Models and complete Runtime-resource versus Instance-binding separation |
+| Skills | install/update/enable/disable/remove, ZIP/directory import and Runtime multi-Instance selection are wired | Add real qualified catalog items, Drift/reprojection and real read-back smoke |
+| MCP | reviewed test Preset, install/auth/test/configure/remove and Profile read-back exist | remove/close the uncommitted arbitrary STDIO/env/header surface; converge on reviewed Definition + Binding and add a real Preset smoke |
+| Backup/Restore | authenticated Operations, encrypted container, system app-data destination, Restore and stable errors exist | run real create/read-back/restore/delete smoke after all Hermes processes are stopped |
+| Upgrade | Plan, HTTP/Application Operation contracts and Desktop entry exist | daemon has no real Upgrader/Rollbacker binding; implement fixed candidate Generation, protection point, activation, post-check and rollback |
+| Models | still centered on native per-Instance configuration | add Provider Connection, Model Profile, Runtime Default, Instance Override and batch Copy-on-Apply |
+
+The P7R-B0 Gate passes only when these facts match the public contract, the prohibited
+custom MCP surface is absent from the commit and focused checks pass.

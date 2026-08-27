@@ -1,6 +1,6 @@
 # YORVA Phase 7 — Hermes Runtime 日常管理完善
 
-> 状态：**IN_PROGRESS — B0 已通过；采用依赖驱动的并行实现，危险 surface 按 lane 保持关闭**
+> 状态：**IN_PROGRESS — P7R MVP 收口；按 Batch 实现、验证并自动提交**
 > 阶段：Phase 7
 > Owner：Repository Owner
 > 计划日期：2026-08-24
@@ -11,7 +11,7 @@
 > 英文执行镜像：`docs/phases/PHASE-007-hermes-runtime-management-completeness.md`
 > Owner 授权：2026-08-24，批准 P7-D1–D8 推荐方向及 B0–B10 实现顺序
 > 实现授权：**Owner 于 2026-08-25 批准依赖驱动的并行 B-stage；共享合同先行，互不依赖的 Hermes adapter、测试与 UX lane 可并行，危险 mutation 必须等待对应 ADR/资格条件**
-> ADR 授权：**Owner 于 2026-08-25 正式接受 ADR-0013、ADR-0015；MCP 按已批准的 P7-D3 类型化 Preset 边界和生命周期资格证据实施。每项 product capability 仍须通过精确版本资格和破坏性流程证据后才能置为 true。**
+> ADR 授权：**Owner 于 2026-08-25 正式接受 ADR-0013、ADR-0015；Owner 于 2026-08-27 将 ADR-0019 完全自定义 MCP surface 延后到 P7R 之后。每项 product capability 仍须通过精确版本资格和生命周期证据后才能置为 true。**
 > ADR 授权补充：**Owner 于 2026-08-25 接受 ADR-0016；exact Profile 的 `API_SERVER_KEY` 是 Hermes-native 唯一权威，仅允许 loopback、禁止重定向地读取 `/health/detailed` 与 `/v1/skills`。真实 Health/SkillRead capability 仍须在聚焦资格与接线通过后才能置为 true。**
 > B4 架构补充：**Owner 于 2026-08-25 接受 ADR-0018。Hermes Native Skills mutation 的不可靠部分保持 `deferred_upstream`；YORVA 通过自己的 managed store 与 exact Profile copy projection 提供 Skills 生命周期。**
 
@@ -37,6 +37,11 @@ Kanban 和其他新增 Hermes 产品面只有在 Owner 以后通过 Phase 7 Amen
 
 Phase 7 保持 YORVA 是 Runtime 管理层而不是 Hermes fork：Hermes 拥有 Hermes 状态，
 YORVA 拥有 Operation、策略、安全投影、备份索引、审计和用户体验。
+
+Skills 来源允许已审核目录，以及用户通过原生选择器明确选择的本地 ZIP/目录。后者
+只通过一次性不透明引用进入 daemon，必须复制到 YORVA 受管存储并通过根级
+`SKILL.md`、纯文本内容、路径、链接与大小限制校验后，才能投影到所选 Profile；
+HTTP 不接受本地路径、URL 或任意包内容。
 
 ## 1. 进入条件
 
@@ -108,7 +113,7 @@ commit、push、merge 或 tag。
 
 ```text
 选择 Runtime 或经资格确认的 Instance scope
-  → 选择本机目标位置
+  → YORVA 选择受保护的每用户系统应用数据目录
   → YORVA 创建 backup Operation
   → 生成、校验并安全落盘
   → Desktop 显示大小、checksum、scope、版本和创建时间
@@ -145,7 +150,7 @@ YORVA 检测当前 managed generation 与本构建携带的目标 Hermes snapsho
 | --- | --- | --- |
 | P7-D1 范围定义 | 以 Health/Logs、Skills、MCP、Backup/Restore、Upgrade 和 recovery UX 作为 Phase 7 完整范围；其他 Hermes 命令延后 | **APPROVED — 2026-08-24** |
 | P7-D2 Skills 来源 | 第一版只允许经 inspect/audit 的官方或 Owner 批准 catalog/registry 标识；禁止未检查的直接 URL 和 `--force` 绕过扫描 | **APPROVED — 2026-08-24** |
-| P7-D3 MCP 来源 | 第一版支持获批 catalog/preset 与经资格确认的 HTTPS MCP；不向 UI/API 暴露任意 stdio command、args、env 或 header | **APPROVED — 2026-08-24** |
+| P7-D3 MCP 来源 | P7R 只支持内置和 YORVA 审核 Preset/Definition；调用者提供的 stdio command、args、environment、HTTP headers、路径和任意 JSON 延后 | **AMENDED — 2026-08-27** |
 | P7-D4 Backup scope / secrets | 优先实现 Runtime-scope 加密完整备份；若无法建立标准加密格式和可靠 Restore，则不把 Hermes 明文 full backup 作为产品能力 | **APPROVED — ADR REQUIRED** |
 | P7-D5 Upgrade | managed Hermes 只通过 ADR-0006/0009 新 generation 升级；不执行 active tree 上的 `hermes update`，不使用 `--force-venv` | **APPROVED — ADR REQUIRED** |
 | P7-D6 Health/Logs | 只展示 allowlisted 类别、固定上限、强制脱敏的结构化/标准化结果；不提供任意路径 tail 或原始日志下载 | **APPROVED — 2026-08-24** |
@@ -205,23 +210,25 @@ Hermes 仍是 Native Skill observation 的权威；YORVA 只对自己的 managed
 ### 6.3 MCP 管理
 
 - live configured MCP inventory；
-- approved catalog/preset inventory；
-- catalog/preset install；
-- 经资格确认的 HTTPS transport 配置；
+- 内置 Preset 与 YORVA-managed Runtime Definition inventory；
+- 一个生产可见、由 YORVA 持有的回环生命周期 Preset（`yorva-mcp-test`），固定身份且仅提供 `yorva_ping`；
+- 从 YORVA 审核 Preset 创建可复用 Definition，并绑定或删除；
+- 当前 P7R MVP 不开放任意 stdio command、args、environment、HTTP headers 或任意 MCP JSON；
 - OAuth/device/browser flow 只有在可安全限定于发起 session 时才进入；
 - connection/tool-discovery test；
 - tool selection 的 closed mutation；
 - remove、reauth 和 external-change reconciliation；
 - MCP process/network timeout、cancel 和 cleanup。
 
-任意 stdio command、args、environment、headers、local path 或 package executor 不能通过
-Desktop/API 直传。若特定 catalog MCP 需要本地进程，Hermes adapter 必须拥有固定的
-reviewed descriptor，而不是建立通用 command surface。
+完全自定义 MCP 延后到 P7R 之后的独立资格阶段。P7R 的 Desktop/API 只能选择审核
+Preset 和 Preset 规定的凭据、工具范围；不能提交 executable、argv、environment、
+headers、路径或原始配置。凭据只写入精确 Profile 的 authority，不能进入 SQLite 或
+普通 GET 回应。
 
 ### 6.4 Backup 与 Restore
 
 - 明确 target scope、Runtime version、创建时间、大小、checksum、格式版本和状态；
-- 用户明确选择的本机目标位置；
+- YORVA 每用户系统应用数据目录中的固定目标位置；
 - 创建、校验、列出、删除；
 - restore preflight、冲突阻止、恢复前保护点、post-check 和失败回滚；
 - corrupt、truncated、tampered、unsupported-version、insufficient-space 处理；
@@ -261,7 +268,7 @@ Phase 7 不实现：
 - Control Plane、远程 Node、组织、Principal/Grant 持久化、RBAC、SSO 或多用户 daemon；
 - 微信/企业微信消息发送者到 YORVA Principal 的企业权限映射；
 - 任意 shell、process、PowerShell、cmd、filesystem、registry、service 或 environment API；
-- UI/API 传入的任意 MCP stdio command、package name、args、env、header 或 executable；
+- 任意 MCP JSON、YORVA 拼接 shell 字符串、明文持久化 MCP secret 或无 owner 的 child process；
 - 跳过 Skill/MCP scan、`--force` 安装、`--yolo` 或自动批准未知 hooks；
 - Hermes source fork、Python internal import、undocumented DB schema 依赖；
 - active sealed generation 上的 `hermes update`、repair 或 dependency mutation；
@@ -459,7 +466,8 @@ Runtime 目标语义。Logs 同样只接受一个固定类别。Security audit �
 - secrets write-only，不从 GET、Operation、event 或 error 返回；
 - source identifier、preset、tool selection、log source 和 filter 都是 allowlisted schema；
 - 不接受 shell command、environment key/value、arbitrary local path 或 URL query secret；
-- 用户选择的 backup destination 是明确 local-only capability，不自动成为未来 remote
+- 系统托管的 backup destination 是明确 local-only capability，由 daemon 从受信任的
+  YORVA app data 与 backup ID 推导；React/HTTP 不提交路径，也不成为未来 remote
   command 参数；
 - Runtime-scope backup index 可在仓储可用后独立发布为 authenticated read-only
   capability。list/get 只返回最近一次观测的安全元数据，不打开、解密、hash、reconcile
@@ -547,7 +555,7 @@ B10 统一候选时执行。一个 lane 的非致命缺口不冻结其他 lane�
 | B2 — Core capability / protocol / audit action | 添加最小 feature contracts、registry capability、typed actions、Operation/error 状态、OpenAPI skeleton 和 migration（仅已决部分） | Go contract/API/migration tests + OpenAPI drift |
 | B3 — Health / Logs / Security | 先交付 read-mostly normalized health、bounded redacted logs、显式 deep check 和 security audit | parser/size/redaction/timeout/API/Desktop focused Gate |
 | B4 — Skills Lifecycle | Native capability truth、YORVA managed store、approved install/update/enable/disable/remove、inventory merge、reconcile 和 Desktop | source/ownership/external conflict/Profile isolation/drift/restart/manual smoke |
-| B5 — MCP | catalog/list/install/auth/test/tool-config/remove、secret authority、process/network cleanup 和 Desktop | no generic command surface、OAuth/session isolation、timeout/cancel/manual smoke |
+| B5 — MCP | Definition CRUD、绑定/install/auth/test/tool-config/remove、secret authority、process/network cleanup 和 Desktop | direct-argv/no-shell 边界、secret isolation、timeout/cancel/manual smoke |
 | B6 — Backup Create | scope/migration、加密或获批安全格式、create/verify/list/delete、Desktop | secret/temp/crash/archive-integrity/space/manual smoke |
 | B7 — Restore | preflight、stop/conflict、保护点、restore、reconcile、rollback 和 Desktop | corrupt/tamper/version/cross-scope/partial-failure/destructive manual smoke |
 | B8 — Managed Hermes Upgrade / Rollback | plan、new generation build、seal、activate、post-check、retention 和 rollback | exact-source/final-path/CAS/data compatibility/lifecycle/channel/manual smoke |
@@ -582,7 +590,7 @@ B6/B7 共享 backup format，B8 依赖已验证保护点与 exact compatibility�
 | Skill blocked scan | 不能通过 force 安装 | adapter/API/Desktop |
 | Skill source traversal/symlink | fail closed；无外部写入 | adapter/security |
 | Skill update partial failure | 真实 previous/current 状态可 reconcile | adapter/recovery |
-| MCP arbitrary command/env/header | schema 不存在或请求被拒；无 child | API/security |
+| MCP 审核 Definition | 非 Preset 字段拒绝；凭据不回显；连接测试有 timeout/cancel；成功须权威回读 | API/security/adapter |
 | MCP auth belongs to initiating session | 其他 session 无法读取/完成 | API/security |
 | MCP test timeout/cancel | process/network 清理；稳定 terminal result | adapter/application |
 | MCP CONFIGURED vs READY | 未测试不显示 READY | adapter/Desktop |
@@ -662,7 +670,7 @@ Phase 7 审计必须应用 `AUDIT_STANDARD.md` 全部十二个维度，并重点
 
 - Core/React/Tauri 无 Hermes command/path/config 逻辑；
 - 每个 capability 来自 qualified surface，而不是只因命令名存在；
-- 没有 arbitrary shell/file/MCP stdio execution surface；
+- MCP Definition/Binding 只能来自审核 Preset，不提供 stdio command、args、environment、headers、路径或任意 JSON surface；
 - Skills source identity、scan 与 rollback 不可绕过；
 - MCP credential authority、OAuth/session isolation 和 child cleanup；
 - backup 是否包含 secrets、加密格式/密钥 authority、plaintext temp 和 restore archive 安全；
@@ -674,7 +682,7 @@ Phase 7 审计必须应用 `AUDIT_STANDARD.md` 全部十二个维度，并重点
 - migration 从正式前序 baseline 工作；
 - exact-candidate CI、MSI（如适用）与真实 Windows evidence 对应同一候选。
 
-任何 secret/plaintext backup 泄露、arbitrary command surface、cross-Profile mutation、
+任何 secret/plaintext backup 泄露、shell command surface、cross-Profile mutation、
 unsafe archive extraction、active generation mutation、虚假 Restore/Upgrade success、
 无法回滚的数据破坏或未认证管理路径都是阻塞项。
 
@@ -687,7 +695,7 @@ Phase 7 只有在以下全部成立时才能进入 Audit：
 - 每项能力只在 exact Runtime/version qualification 通过时暴露；
 - 默认和命名 Instance/Profile 不发生跨 scope 状态或 credential mutation；
 - Skills blocked scan 不能被 UI/API 绕过；
-- MCP 没有 caller-controlled arbitrary process/env/header surface；
+- MCP Definition 只从审核 Preset 建立，Binding 只接受 Preset 声明的凭据与 Tool Scope，不形成任意执行、路径或明文 secret 回读 surface；
 - backup/restore 的 scope 与敏感数据范围真实可见，秘密不会以普通明文备份形式落盘；
 - corrupt/tampered backup 在任何 mutation 前被拒绝；
 - Restore 和 Upgrade 具有权威 postcondition，失败不报告 success；
@@ -708,7 +716,7 @@ Phase 7 只有在以下全部成立时才能进入 Audit：
 - P6.5 尚未冻结/放弃，或 P7 branch 不是正式 baseline 的后继；
 - official Hermes surface 不能提供 non-interactive、scope-exact、bounded、可验证结果；
 - 需要 import Hermes internal Python module 或依赖 undocumented state DB schema；
-- Skills/MCP 只能通过 arbitrary command、env、path、header 或 force bypass 完成；
+- Skills/MCP 只能通过 shell command、任意工作目录、明文 secret 回读或 force bypass 完成；
 - MCP/backup/upgrade secret 无法确定唯一 authority；
 - full backup 只能产生未加密的 credential/session/account archive；
 - Restore 无法在 mutation 前证明 archive 安全，或无法定义失败/回滚语义；
@@ -750,3 +758,29 @@ Phase 6 frozen tag 的独立干净后继中完成，原开发者工作树保持�
 
 B0 Gate：**PASS — 2026-08-24**。P7 现进入 B1，只允许官方 surface 资格确认、证据和
 必要 ADR；B1 Gate 通过前不新增产品 API、migration、Desktop 功能或 Runtime mutation。
+
+## 23. P7R MVP 收口决策与 B0 核验
+
+Owner 于 2026-08-27 批准在当前 P7 分支继续 P7R MVP 收口，并确认：
+
+- 每个完成并通过相关 Gate 的 P7R Batch 自动提交；不自动 push、merge、tag 或 freeze；
+- 优先完成真实写入、真实 Runtime read-back、真实运行和真实失败反馈，减少非必要的
+  分批证据文件与普通 UI/API 接线 ADR；
+- Secret 不泄露、破坏性操作目标与结果明确、禁止任意远程 Shell/Process/File API，
+  以及仓库架构与 Runtime ownership 仍是硬边界；
+- MCP MVP 只允许 YORVA 审核 Preset/Definition，不开放调用者提供的 stdio command、
+  args、environment、HTTP headers、路径或任意 MCP JSON；完全自定义 MCP 延后。
+
+P7R-B0 对当前实现的核验结果：
+
+| Surface | 当前事实 | P7R 缺口 / 下一批动作 |
+|---|---|---|
+| Runtime Workspace | 已有 Overview、Instances、Skills、MCP、Maintenance、Operations；Diagnostics 通过实例入口进入 | 增加 Models；进一步分离 Runtime 资源与 Instance Binding |
+| Skills | install/update/enable/disable/remove、ZIP/目录导入和 Runtime 多实例选择已接线 | 增加真实可验证 Catalog、Drift 与重新投影，并完成真机 read-back |
+| MCP | reviewed test Preset、install/auth/test/configure/remove 与 Profile read-back 已存在 | 删除/关闭尚未提交的任意 STDIO/env/header surface；收敛为审核 Definition + Binding，并增加真实 Preset Smoke |
+| Backup/Restore | authenticated Operation、加密容器、系统应用数据目录、Restore 与错误分类已存在 | 在全部 Hermes 进程停止后完成真机 create/read-back/restore/delete Smoke |
+| Upgrade | Plan、HTTP/Application Operation 合同和 Desktop 入口已存在 | daemon 尚未注入真实 Upgrader/Rollbacker；需要固定候选 Generation、保护点、切换、post-check 与失败回滚 |
+| Models | 仍以单 Instance 原生配置为主 | 新增 Provider Connection、Model Profile、Runtime Default、Instance Override 与批量 Copy-on-Apply |
+
+P7R-B0 Gate：只有上述事实与公开合同一致、禁止的自定义 MCP surface 未进入提交，且
+focused checks 通过后才标记 PASS。
