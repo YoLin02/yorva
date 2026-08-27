@@ -313,7 +313,7 @@ hashed. No source, executable, resource or packaging input changed after that ac
 
 ## Phase 7 — Runtime management completeness
 
-Status: **IN_PROGRESS — DEPENDENCY-DRIVEN PARALLEL B-STAGES**
+Status: **FAILED — 2026-08-27 FREEZE AUDIT BLOCKERS; P7R REMEDIATION REQUIRED**
 Specs: `docs/phases/PHASE-007-hermes-runtime-management-completeness.zh-CN.md` (Owner review) and `docs/phases/PHASE-007-hermes-runtime-management-completeness.md` (execution mirror)
 Baseline: `phase-0065-developer-led-demo-baseline` → `5f68e48f17e7e342e1781b37613b19d4bd1f060b`
 Branch: `codex/phase7-hermes-runtime-management`

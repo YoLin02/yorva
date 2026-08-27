@@ -1,6 +1,6 @@
 # YORVA Phase 7 — Hermes Runtime Management Completeness
 
-> Status: **IN_PROGRESS — P7R MVP CLOSURE; IMPLEMENT, VERIFY AND AUTO-COMMIT EACH BATCH**
+> Status: **FAILED — 2026-08-27 FREEZE AUDIT BLOCKERS; RETURNED TO P7R REMEDIATION**
 > Phase: 7
 > Owner: Repository Owner
 > Plan date: 2026-08-24
@@ -531,5 +531,26 @@ P7R-B7 automated integration and handoff checks are complete:
 - no destructive Restore was run against the Owner's live Hermes data, and no push, merge,
   tag or freeze was performed.
 
-This completes the automated B7 handoff only. Phase 7 remains in progress pending Owner
-manual acceptance and any explicitly authorized live-data Restore smoke or freeze action.
+This completes the automated B7 handoff only. The later 2026-08-27 freeze-audit decision
+is recorded in section 17 and supersedes the earlier `IN_PROGRESS` handoff state here.
+
+## 17. MVP-first plan integration and freeze audit result
+
+The Phase 7-relevant requirements from the Owner-provided MVP-first P7R–P13 plan are now
+incorporated into this repository Spec rather than depending on an external downloaded
+copy. P7R requires Runtime-owned shared Models, managed Skills, reviewed MCP Definitions,
+Runtime maintenance, authoritative read-back, truthful failure results, and a terminal-free
+product flow. The final integration flow includes encrypted Backup/Restore and a real
+fixed-candidate Upgrade/Rollback; a visible page or readable plan does not replace an
+executable mutation.
+
+The 2026-08-27 freeze audit is recorded at
+`docs/phases/audits/AUDIT-007-hermes-runtime-management-completeness.md` with Gate Decision
+**FAIL**. Production Upgrade/Rollback bindings are absent, disposable Windows Restore
+success/failure-recovery evidence is missing, and the exact candidate has no CI/race
+evidence. This candidate must not be pushed for merge, merged, tagged, or marked FROZEN.
+
+The P8 inputs retained from the MVP-first plan are the product support matrix, database
+migration, crash/restart recovery, installer lifecycle, YORVA update, sanitized diagnostics
+bundle, and basic stability verification. They must not become a READY Phase 8 execution
+Spec, and P8 implementation must not begin, until Phase 7 remediation and re-audit PASS.

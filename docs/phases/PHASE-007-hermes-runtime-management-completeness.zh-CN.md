@@ -1,6 +1,6 @@
 # YORVA Phase 7 — Hermes Runtime 日常管理完善
 
-> 状态：**IN_PROGRESS — P7R MVP 收口；按 Batch 实现、验证并自动提交**
+> 状态：**FAILED — 2026-08-27 冻结审计发现阻断项，返回 P7R 修复**
 > 阶段：Phase 7
 > Owner：Repository Owner
 > 计划日期：2026-08-24
@@ -863,5 +863,38 @@ P7R-B7 的自动化集成与交接检查已完成：
   executable/path 或任意 JSON mutation surface；
 - 未对 Owner 真实 Hermes 数据执行破坏性 Restore，也未 push、merge、tag 或 freeze。
 
-以上只表示 B7 自动化交接完成。Phase 7 仍保持进行中，等待 Owner 手动验收，以及后续明确
-授权的真实数据 Restore smoke 或 freeze 操作。
+以上只表示 B7 自动化交接完成。其后的 2026-08-27 冻结审计结论由第 24 节记录，并取代
+这里此前的 `IN_PROGRESS` 交接状态。
+
+## 24. MVP-First 阶段规划归并与冻结审计结果
+
+Owner 提供的《YORVA MVP-First 阶段总规划（P7R–P13）》中与当前阶段有关的内容正式归并
+到本 Phase 7 Spec，以本节和第 23 节作为仓库内权威记录，不依赖下载目录中的外部副本。
+
+归并后的 P7R 产品收口要求为：
+
+- Runtime Workspace 统一承载 Models、Skills、MCP、Maintenance、Diagnostics 与 Operations；
+- `ModelProviderConnection → ModelProfile → Runtime Default / Instance Binding` 是共享模型主链；
+- `ManagedSkillPackage → SkillBinding → Instance` 保持 YORVA managed 与 Hermes external
+  来源分离；
+- `MCPDefinition → MCPBinding → Instance` 只接受审核 Preset，不开放任意 command、args、
+  environment、header、path 或 JSON；
+- Runtime Backup、Restore、Upgrade 和 Runtime Diagnostics 不下沉到单 Instance 页面；
+- MVP 必须以真实写入、Runtime 权威回读、真实失败反馈和无需终端的完整用户闭环为准；
+- P7R 最终集成必须覆盖共享模型、Skills、MCP、加密 Backup/Restore，以及固定候选的真实
+  Upgrade/Rollback；“页面存在”或“计划可读”不能替代可执行 mutation。
+
+2026-08-27 冻结审计记录：
+`docs/phases/audits/AUDIT-007-hermes-runtime-management-completeness.md`。
+
+Gate Decision：**FAIL**。阻断项为：
+
+1. production daemon 未注入 `Upgrade` / `Rollback` adapter binding，真实升级与回滚仍为
+   capability-false；
+2. 尚无 disposable Windows 状态上的 Restore 成功及失败恢复 smoke；
+3. 当前精确候选尚无 CI/race 证据，本机因缺少 C compiler 无法运行 Go race。
+
+因此本次不 push、不 merge、不 tag、不标记 FROZEN。P8 的候选输入保留为产品支持矩阵、
+数据库 Migration、崩溃/重启恢复、安装器生命周期、YORVA 更新、脱敏诊断包和基础稳定性
+验证，但在 Phase 7 修复并通过重审前不得形成 READY 的 Phase 8 执行 Spec，也不得开始
+P8 实现。
