@@ -1,17 +1,39 @@
 # YORVA
 
-YORVA is a local-first deployment and control platform for AI runtimes. Hermes Agent is the first supported runtime, not the boundary of the architecture.
+YORVA is a **local-first, Runtime-neutral Agent Runtime management infrastructure**.
 
-The repository is currently establishing its Phase 1 bootstrap baseline. No Hermes discovery, installation, CLI integration, profile management, or other post-bootstrap features are implemented in this phase.
+It starts with Hermes Agent as the first supported Runtime, but Hermes is not the boundary of the architecture. YORVA is designed to make AI Runtime deployment, Instance management, configuration, lifecycle, recovery and future multi-Node control available through one normalized management layer.
+
+Current product path:
+
+```text
+YORVA Desktop
+    ↓
+yorvad / YORVA Node
+    ↓
+Runtime Contract
+    ↓
+Runtime Adapter
+    ↓
+Hermes and future AI Runtimes
+    ↓
+Runtime Instances
+```
+
+The accepted local baseline has progressed through Phase 6.5. The next roadmap phase is **Phase 7 — Single-Node Runtime operations completeness**, focused on completing Skills, MCP, backup/restore, Runtime upgrade, health/log visibility and recovery before distributed management is introduced.
+
+Longer term, the roadmap validates the Runtime abstraction with a real second Runtime before evolving `yorvad` into a headless YORVA Node, then adds multi-Node YORVA Control, Fleet configuration/Desired State and enterprise governance in that order.
+
+YORVA is not intended to become a general Agent workflow/RAG/prompt-authoring platform. Its core responsibility is Runtime and Node management infrastructure that upper-layer Agent platforms can rely on without understanding each Runtime's native operational details.
 
 ## Repository layout
 
 ```text
 apps/desktop/       Tauri 2 + React desktop application
-services/node/      Go yorvad local management daemon
-api/                OpenAPI source for generated Desktop contract types
-runtimes/hermes/    Future independent Hermes adapter boundary
-docs/               Architecture, protocol, security, and phase governance
+services/node/      Go yorvad Runtime/Node management daemon
+api/                OpenAPI source for generated management contract types
+runtimes/hermes/    Independent Hermes Runtime adapter boundary
+docs/               Architecture, Runtime contract, security, roadmap and phase governance
 ```
 
 ## Development prerequisites
@@ -24,7 +46,7 @@ docs/               Architecture, protocol, security, and phase governance
 - Tauri CLI 2.11.4
 - Windows C++ build tools and WebView2
 
-The authoritative setup and validation commands are documented in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Phase scope is defined by [docs/BOOTSTRAP.md](docs/BOOTSTRAP.md).
+The authoritative setup and validation commands are documented in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Product direction is documented in [docs/ROADMAP.md](docs/ROADMAP.md), and architectural boundaries are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/RUNTIME.md](docs/RUNTIME.md).
 
 ## Licensing
 
