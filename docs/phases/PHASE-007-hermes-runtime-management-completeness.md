@@ -1,6 +1,6 @@
 # YORVA Phase 7 — Hermes Runtime Management Completeness
 
-> Status: **PASS — 2026-08-27 RE-AUDIT; AWAITING BASELINE FREEZE**
+> Status: **COMPLETE / FROZEN — 2026-08-27**
 > Phase: 7
 > Owner: Repository Owner
 > Plan date: 2026-08-24
@@ -570,5 +570,6 @@ the final Gate after both remaining items are complete.
 The disposable Restore and exact-candidate CI evidence is now preserved at
 `docs/phases/evidence/PHASE-007-DISPOSABLE-RESTORE-AND-CI.md`. Re-audit
 `docs/phases/audits/AUDIT-007R1-hermes-runtime-management-completeness.md` records
-**PASS**. Phase 7 is not yet FROZEN; merge, final-main CI and baseline/tag governance are
-separate next actions.
+**PASS**. Main integration `248937819e5b063c7973b76fd60a70667876ce7b` passed
+final-main CI run 33050692156. The formal baseline is
+`phase-007-hermes-runtime-management-completeness-baseline`; Phase 7 is COMPLETE / FROZEN.

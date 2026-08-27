@@ -347,9 +347,10 @@ hashed. No source, executable, resource or packaging input changed after that ac
 
 ## Phase 7 — Single-Node Runtime operations completeness
 
-Status: **PASS — 2026-08-27 RE-AUDIT; AWAITING BASELINE FREEZE**
+Status: **COMPLETE / FROZEN**
 Specs: `docs/phases/PHASE-007-hermes-runtime-management-completeness.zh-CN.md` (Owner review) and `docs/phases/PHASE-007-hermes-runtime-management-completeness.md` (execution mirror)
-Baseline: `phase-0065-developer-led-demo-baseline` → `5f68e48f17e7e342e1781b37613b19d4bd1f060b`
+Predecessor baseline: `phase-0065-developer-led-demo-baseline` → `5f68e48f17e7e342e1781b37613b19d4bd1f060b`
+Formal baseline: `phase-007-hermes-runtime-management-completeness-baseline`
 Branch: `phase/p7-hermes-runtime-management`
 Owner decisions: P7-D1–D8 and B0–B10 **APPROVED** 2026-08-24
 ADR-0013–ADR-0016 and ADR-0018 **ACCEPTED** 2026-08-25. The Owner selected GitHub repos
@@ -359,8 +360,10 @@ Owner amendment 007A1 **APPROVED** 2026-08-27: executable managed Hermes
 Upgrade/Rollback is deferred from the Phase 7 freeze scope. The read-only plan remains
 truthful and production mutation capability remains false. Restore and exact-candidate CI
 evidence remained the active freeze blockers until both subsequently passed for product SHA
-`e21e8618f6fcda34eba31707500c29bde75893b5`; `AUDIT-007R1` records PASS. Merge,
-final-main CI and the formal baseline/tag remain pending, so Phase 7 is not yet FROZEN.
+`e21e8618f6fcda34eba31707500c29bde75893b5`; `AUDIT-007R1` records PASS. Main integration
+`248937819e5b063c7973b76fd60a70667876ce7b` passed final-main CI run
+[`33050692156`](https://github.com/YoLin02/yorva/actions/runs/33050692156) before the
+formal baseline was frozen.
 
 Goal: complete the local, terminal-free operating loop for multiple Runtime Instances on one machine before adding distributed management.
 

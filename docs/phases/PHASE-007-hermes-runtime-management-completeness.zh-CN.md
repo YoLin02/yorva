@@ -1,6 +1,6 @@
 # YORVA Phase 7 — Hermes Runtime 日常管理完善
 
-> 状态：**PASS — 2026-08-27 重审通过，等待基线冻结**
+> 状态：**COMPLETE / FROZEN — 2026-08-27**
 > 阶段：Phase 7
 > Owner：Repository Owner
 > 计划日期：2026-08-24
@@ -913,4 +913,6 @@ false；ADR-0015 仍是未来实现必须遵守的安全合同。
 disposable Restore 与精确候选 CI 证据现已记录于
 `docs/phases/evidence/PHASE-007-DISPOSABLE-RESTORE-AND-CI.md`；重审
 `docs/phases/audits/AUDIT-007R1-hermes-runtime-management-completeness.md` 结论为
-**PASS**。Phase 7 尚未标记 FROZEN；合并、final-main CI 与 baseline/tag 仍是后续独立动作。
+**PASS**。main 集成提交 `248937819e5b063c7973b76fd60a70667876ce7b` 已通过
+final-main CI 运行 33050692156；正式基线为
+`phase-007-hermes-runtime-management-completeness-baseline`，Phase 7 已 COMPLETE / FROZEN。

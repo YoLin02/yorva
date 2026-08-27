@@ -81,3 +81,12 @@ The disposable Restore success, failed-postcheck rollback, tamper rejection,
 authoritative read-back and cleanup requirements are established on both the local
 candidate and the GitHub Windows runner. Exact-candidate race and native build evidence
 are attributable to the same product commit.
+
+## Final-main integration
+
+The accepted Phase 7 tree was synchronized with the latest main documentation and
+integrated to main at `248937819e5b063c7973b76fd60a70667876ce7b`.
+[Final-main CI run 33050692156](https://github.com/YoLin02/yorva/actions/runs/33050692156)
+completed with `Success`: Web/API, Go race and Windows native/Restore/non-MSI build jobs
+all passed. No product, build, API or test input changed between that successful main
+integration and the documentation-only freeze commit.

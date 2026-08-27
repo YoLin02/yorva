@@ -113,3 +113,12 @@ and Windows-native evidence. The PASS criteria in `docs/AUDIT_STANDARD.md` are m
 If the Owner chooses to freeze Phase 7, use the governed baseline workflow: merge the
 accepted candidate, run final-main CI, create the baseline commit/tag if required, and
 only then mark Phase 7 FROZEN. Do not represent deferred Upgrade/Rollback as implemented.
+
+## Freeze Completion — 2026-08-27
+
+The Owner authorized merge and baseline freeze. Main integration
+`248937819e5b063c7973b76fd60a70667876ce7b` passed
+[final-main CI run 33050692156](https://github.com/YoLin02/yorva/actions/runs/33050692156).
+The documentation-only freeze commit is tagged
+`phase-007-hermes-runtime-management-completeness-baseline`. Phase 7 is COMPLETE / FROZEN; executable
+managed Hermes Upgrade/Rollback remains explicitly deferred and capability-false.
