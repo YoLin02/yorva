@@ -343,6 +343,36 @@ type Messages = {
     configuringInstance: string;
     configuringInstanceDescription: string;
     modelConfiguringInstanceDescription: string;
+    sharedModelsTitle: string;
+    sharedModelsDescription: string;
+    sharedModelsMutationFailed: string;
+    providerConnectionsTitle: string;
+    providerConnectionsDescription: string;
+    addProviderConnection: string;
+    noProviderConnections: string;
+    providerConnection: string;
+    modelProfilesTitle: string;
+    modelProfilesDescription: string;
+    addModelProfile: string;
+    noModelProfiles: string;
+    resourceDisplayName: string;
+    profileModels: string;
+    profileModelCount: string;
+    runtimeModelDefaultTitle: string;
+    runtimeModelDefaultDescription: string;
+    noRuntimeModelDefault: string;
+    clearRuntimeDefault: string;
+    runtimeDefaultBadge: string;
+    modelBindingsTitle: string;
+    modelBindingsDescription: string;
+    noModelBindings: string;
+    modelProfile: string;
+    bindingMode: string;
+    applyModelProfile: string;
+    modelApplicationRunning: string;
+    removeResource: string;
+    modelBindingMode: Record<"INHERIT" | "OVERRIDE" | "EXTERNAL_CONFIGURATION", string>;
+    modelBindingState: Record<"PENDING" | "SUCCEEDED" | "FAILED" | "SKIPPED", string>;
     appliedInstances: string;
     currentState: string;
     openDetailedConfiguration: string;
@@ -996,6 +1026,36 @@ const english: Messages = {
     configuringInstance: "Configuring",
     configuringInstanceDescription: "Select the Hermes instance whose Skills you want to view and manage.",
     modelConfiguringInstanceDescription: "Select the Hermes instance whose model binding you want to configure.",
+    sharedModelsTitle: "Shared models",
+    sharedModelsDescription: "Store a Provider credential once, define reusable model Profiles, then copy a Profile to selected Hermes instances with authoritative read-back.",
+    sharedModelsMutationFailed: "The shared model change did not complete. Review the binding result and retry only the affected instances.",
+    providerConnectionsTitle: "Provider connections",
+    providerConnectionsDescription: "Runtime-owned Provider access. Credentials are protected by the operating system and never returned by read APIs.",
+    addProviderConnection: "Add connection",
+    noProviderConnections: "No Provider connections yet.",
+    providerConnection: "Provider connection",
+    modelProfilesTitle: "Model Profiles",
+    modelProfilesDescription: "Reusable model selections that reference one protected Provider connection.",
+    addModelProfile: "Add Profile",
+    noModelProfiles: "No model Profiles yet.",
+    resourceDisplayName: "Display name",
+    profileModels: "Models",
+    profileModelCount: "models",
+    runtimeModelDefaultTitle: "Runtime default",
+    runtimeModelDefaultDescription: "Choose the Profile used when an Instance is explicitly applied in inherit mode. MVP uses Copy-on-Apply, not continuous synchronization.",
+    noRuntimeModelDefault: "No Runtime default",
+    clearRuntimeDefault: "Clear default",
+    runtimeDefaultBadge: "Runtime default",
+    modelBindingsTitle: "Instance bindings",
+    modelBindingsDescription: "Apply one Profile to one or more Instances. Every result comes from Hermes authoritative read-back; one failure cannot claim batch success.",
+    noModelBindings: "No managed model bindings yet.",
+    modelProfile: "Model Profile",
+    bindingMode: "Binding mode",
+    applyModelProfile: "Apply to selected instances",
+    modelApplicationRunning: "Applying Profile…",
+    removeResource: "Remove",
+    modelBindingMode: { INHERIT: "Runtime default copy", OVERRIDE: "Instance override", EXTERNAL_CONFIGURATION: "External configuration" },
+    modelBindingState: { PENDING: "Pending", SUCCEEDED: "Succeeded", FAILED: "Failed", SKIPPED: "Skipped" },
     appliedInstances: "Applied instances",
     currentState: "Current state",
     openDetailedConfiguration: "Open detailed configuration to complete setup.",
@@ -1659,6 +1719,36 @@ const simplifiedChinese: Messages = {
     configuringInstance: "正在配置",
     configuringInstanceDescription: "选择要查看和管理 Skills 的 Hermes 实例。",
     modelConfiguringInstanceDescription: "选择要配置模型绑定的 Hermes 实例。",
+    sharedModelsTitle: "共享模型",
+    sharedModelsDescription: "Provider 凭据只保存一次，创建可复用的模型配置方案，再批量复制到所选 Hermes 实例并进行权威回读。",
+    sharedModelsMutationFailed: "共享模型变更未完整完成。请查看各实例绑定结果，只重试受影响的实例。",
+    providerConnectionsTitle: "模型供应商连接",
+    providerConnectionsDescription: "Runtime 统一管理的 Provider 访问；凭据由操作系统保护，读取接口绝不返回明文。",
+    addProviderConnection: "新增连接",
+    noProviderConnections: "尚未创建模型供应商连接。",
+    providerConnection: "模型供应商连接",
+    modelProfilesTitle: "模型配置方案",
+    modelProfilesDescription: "引用一个受保护 Provider 连接的可复用模型选择。",
+    addModelProfile: "新增方案",
+    noModelProfiles: "尚未创建模型配置方案。",
+    resourceDisplayName: "显示名称",
+    profileModels: "模型",
+    profileModelCount: "个模型",
+    runtimeModelDefaultTitle: "Runtime 默认方案",
+    runtimeModelDefaultDescription: "实例以继承模式应用时使用此方案。MVP 采用按次复制，不做持续自动同步。",
+    noRuntimeModelDefault: "未设置 Runtime 默认方案",
+    clearRuntimeDefault: "清除默认方案",
+    runtimeDefaultBadge: "Runtime 默认",
+    modelBindingsTitle: "实例绑定",
+    modelBindingsDescription: "将一个模型方案应用到一个或多个实例；每项结果均来自 Hermes 权威回读，单个失败不会显示为整批成功。",
+    noModelBindings: "尚无由 YORVA 管理的模型绑定。",
+    modelProfile: "模型配置方案",
+    bindingMode: "绑定模式",
+    applyModelProfile: "应用到所选实例",
+    modelApplicationRunning: "正在应用方案…",
+    removeResource: "移除",
+    modelBindingMode: { INHERIT: "Runtime 默认副本", OVERRIDE: "实例覆盖", EXTERNAL_CONFIGURATION: "外部配置" },
+    modelBindingState: { PENDING: "等待中", SUCCEEDED: "成功", FAILED: "失败", SKIPPED: "已跳过" },
     appliedInstances: "已应用实例",
     currentState: "当前状态",
     openDetailedConfiguration: "进入详细配置完成设置。",

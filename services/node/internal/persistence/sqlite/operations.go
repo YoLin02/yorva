@@ -98,6 +98,7 @@ func (d *Database) ActiveInstanceMutation(ctx context.Context, installationID st
         WHERE target_type = ? AND target_id = ? AND status IN ('PENDING', 'RUNNING')
           AND operation_type IN (
               'instance.create', 'instance.delete',
+              'model.profile.apply',
               'backup.create', 'backup.restore',
               'runtime.upgrade', 'runtime.rollback'
           )
@@ -181,6 +182,26 @@ func (d *Database) ListActiveModelValidations(ctx context.Context) ([]operation.
     `, string(operation.TypeModelValidate))
 	if err != nil {
 		return nil, fmt.Errorf("list active model validations: %w", err)
+	}
+	defer rows.Close()
+	result := make([]operation.Operation, 0)
+	for rows.Next() {
+		value, err := scanOperation(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
+
+func (d *Database) ListActiveOperationsByType(ctx context.Context, operationType operation.Type) ([]operation.Operation, error) {
+	rows, err := d.db.QueryContext(ctx, operationSelect+`
+        WHERE operation_type = ? AND status IN ('PENDING', 'RUNNING')
+        ORDER BY created_at ASC
+    `, string(operationType))
+	if err != nil {
+		return nil, fmt.Errorf("list active %s operations: %w", operationType, err)
 	}
 	defer rows.Close()
 	result := make([]operation.Operation, 0)
@@ -610,6 +631,7 @@ func mapOperationCreateError(err error, operationType operation.Type) error {
 		operationType == operation.TypeSkillRemove ||
 		operationType == operation.TypeMCPInstall || operationType == operation.TypeMCPAuthenticate ||
 		operationType == operation.TypeMCPTest || operationType == operation.TypeMCPConfigure || operationType == operation.TypeMCPRemove ||
+		operationType == operation.TypeModelProfileApply ||
 		operationType == operation.TypeBackupCreate || operationType == operation.TypeBackupDelete || operationType == operation.TypeBackupRestore ||
 		operationType == operation.TypeRuntimeUpgrade || operationType == operation.TypeRuntimeRollback {
 		return ErrActiveInstanceMutation

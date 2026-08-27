@@ -126,7 +126,14 @@ instance/channel credential
 future cloud refresh/session credential
 ```
 
-ADR-0007 defines one narrow exception for the Windows consumer MVP: Hermes Profile model provider credentials remain solely in Hermes' official Profile credential store. YORVA prefers a qualified official Hermes surface. Under ADR-0012's compatible stable `0.20.x` policy, only the Hermes adapter may use the approved Profile-scoped, Provider-allowlisted canonical `.env` compatibility writer when the offline non-interactive CLI would expose the key in argv. No caller supplies a path or env name; the writer is bounded, preserves unrelated entries, uses same-directory atomic replacement and fails closed on observed external modification. YORVA keeps no `SecretStore`, SQLite or `secret_refs` duplicate. This is an explicit at-rest tradeoff, not a general plaintext fallback.
+ADR-0007 defines the Hermes Profile credential as Runtime-native state and P7R defines a
+separate reusable YORVA Provider Connection as YORVA-owned source state. The connection
+credential exists once in the OS-backed SecretStore; SQLite contains only an opaque
+reference. Copy-on-Apply holds plaintext only for the bounded mutation and sends it only
+to the qualified exact-Profile Hermes adapter. The resulting Hermes Profile copy is not
+treated as a second YORVA record or synchronized continuously. No caller supplies a
+path, env name, Provider endpoint or config key; the Provider Preset and adapter select
+all such targets. Ordinary reads expose only configured/status metadata.
 
 Rules:
 

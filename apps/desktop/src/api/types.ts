@@ -38,6 +38,13 @@ export type ModelProviderPresetList = components["schemas"]["ModelProviderPreset
 export type ModelConfiguration = components["schemas"]["ModelConfiguration"];
 export type ModelCredential = components["schemas"]["ModelCredential"];
 export type ModelProviderCatalog = components["schemas"]["ModelProviderCatalog"];
+export type ModelProviderConnection = components["schemas"]["ModelProviderConnection"];
+export type ModelProviderConnectionList = components["schemas"]["ModelProviderConnectionList"];
+export type ModelProfile = components["schemas"]["ModelProfile"];
+export type ModelProfileList = components["schemas"]["ModelProfileList"];
+export type RuntimeModelDefault = components["schemas"]["RuntimeModelDefault"];
+export type InstanceModelBinding = components["schemas"]["InstanceModelBinding"];
+export type InstanceModelBindingList = components["schemas"]["InstanceModelBindingList"];
 export type HermesDownloadSources = components["schemas"]["HermesDownloadSources"];
 export type HermesPrerequisites = {
   node: { state: string; version: string; errorCode: string | null; retryable: boolean };

@@ -427,6 +427,152 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runtimes/{runtimeId}/model-provider-connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        /** List Runtime-owned model Provider connections */
+        get: operations["listRuntimeModelProviderConnections"];
+        put?: never;
+        /** Create a Provider connection with one protected credential */
+        post: operations["createRuntimeModelProviderConnection"];
+        delete?: never;
+        /** Validate CORS access for Runtime model Provider connections */
+        options: operations["optionsRuntimeModelProviderConnections"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/{runtimeId}/model-provider-connections/{connectionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+                connectionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an unused Provider connection and its protected credential */
+        delete: operations["deleteRuntimeModelProviderConnection"];
+        /** Validate CORS access for one Runtime model Provider connection */
+        options: operations["optionsRuntimeModelProviderConnection"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/{runtimeId}/model-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        /** List reusable Runtime model Profiles */
+        get: operations["listRuntimeModelProfiles"];
+        put?: never;
+        /** Create a reusable model Profile */
+        post: operations["createRuntimeModelProfile"];
+        delete?: never;
+        /** Validate CORS access for Runtime model Profiles */
+        options: operations["optionsRuntimeModelProfiles"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/{runtimeId}/model-profiles/{profileId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an unused Runtime model Profile */
+        delete: operations["deleteRuntimeModelProfile"];
+        /** Validate CORS access for one Runtime model Profile */
+        options: operations["optionsRuntimeModelProfile"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/{runtimeId}/model-default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        /** Read the Runtime default model Profile */
+        get: operations["getRuntimeModelDefault"];
+        /** Select the Runtime default model Profile */
+        put: operations["putRuntimeModelDefault"];
+        post?: never;
+        /** Clear the Runtime default model Profile */
+        delete: operations["deleteRuntimeModelDefault"];
+        /** Validate CORS access for the Runtime model default */
+        options: operations["optionsRuntimeModelDefault"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/{runtimeId}/model-bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        /** List managed and external Instance model bindings */
+        get: operations["listRuntimeModelBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for Runtime model bindings */
+        options: operations["optionsRuntimeModelBindings"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runtimes/{runtimeId}/model-profile-applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy one model Profile to selected Instances */
+        post: operations["startRuntimeModelProfileApplication"];
+        delete?: never;
+        /** Validate CORS access for model Profile applications */
+        options: operations["optionsRuntimeModelProfileApplications"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}": {
         parameters: {
             query?: never;
@@ -1267,7 +1413,7 @@ export interface components {
         Operation: {
             id: string;
             /** @enum {string} */
-            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "instance.start" | "instance.stop" | "instance.restart" | "model.validate" | "channel.connect" | "channel.disconnect" | "skill.install" | "skill.update" | "skill.enable" | "skill.disable" | "skill.remove" | "mcp.install" | "mcp.authenticate" | "mcp.test" | "mcp.configure" | "mcp.remove" | "backup.create" | "backup.delete" | "backup.restore" | "runtime.upgrade" | "runtime.rollback";
+            type: "runtime.install" | "hermes.prerequisites" | "instance.create" | "instance.delete" | "instance.start" | "instance.stop" | "instance.restart" | "model.validate" | "model.profile.apply" | "channel.connect" | "channel.disconnect" | "skill.install" | "skill.update" | "skill.enable" | "skill.disable" | "skill.remove" | "mcp.install" | "mcp.authenticate" | "mcp.test" | "mcp.configure" | "mcp.remove" | "backup.create" | "backup.delete" | "backup.restore" | "runtime.upgrade" | "runtime.rollback";
             targetType: string;
             targetId: string;
             /** @enum {string} */
@@ -1559,6 +1705,79 @@ export interface components {
         ModelProviderPresetList: {
             items: components["schemas"]["ModelProviderPreset"][];
         };
+        ModelProviderConnectionCreate: {
+            /** @enum {string} */
+            providerPresetId: "deepseek" | "qwen" | "kimi" | "minimax" | "glm" | "openrouter" | "openai" | "anthropic";
+            displayName: string;
+            credential: string;
+        };
+        ModelProviderConnection: {
+            id: string;
+            providerPresetId: string;
+            displayName: string;
+            credentialConfigured: boolean;
+            /** @enum {string} */
+            status: "CONFIGURED" | "UNAVAILABLE";
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ModelProviderConnectionList: {
+            items: components["schemas"]["ModelProviderConnection"][];
+        };
+        ModelProfileCreate: {
+            providerConnectionId: string;
+            displayName: string;
+            selectedModelIds: string[];
+            defaultModelId: string;
+        };
+        ModelProfile: {
+            id: string;
+            providerConnectionId: string;
+            displayName: string;
+            selectedModelIds: string[];
+            defaultModelId: string;
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ModelProfileList: {
+            items: components["schemas"]["ModelProfile"][];
+        };
+        RuntimeModelDefaultPut: {
+            modelProfileId: string;
+        };
+        RuntimeModelDefault: {
+            modelProfileId: string;
+            appliedRevision: number;
+            updatedAt: string | null;
+        };
+        InstanceModelBinding: {
+            instanceId: string;
+            instanceName: string;
+            modelProfileId: string;
+            /** @enum {string} */
+            mode: "INHERIT" | "OVERRIDE" | "EXTERNAL_CONFIGURATION";
+            appliedRevision: number;
+            /** @enum {string} */
+            state: "PENDING" | "SUCCEEDED" | "FAILED" | "SKIPPED";
+            errorCode: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        InstanceModelBindingList: {
+            items: components["schemas"]["InstanceModelBinding"][];
+        };
+        ModelProfileApplicationRequest: {
+            modelProfileId: string;
+            instanceIds: string[];
+            /** @enum {string} */
+            mode: "INHERIT" | "OVERRIDE";
+        };
         ModelConfigurationPatch: {
             providerPresetId: string;
             modelId: string;
@@ -1701,6 +1920,7 @@ export interface components {
         };
     };
     parameters: {
+        RuntimeId: "hermes";
         IdempotencyKey: string;
         /** @description Ephemeral Desktop process identifier; it is not an authentication credential. */
         ChannelSessionId: string;
@@ -2696,6 +2916,402 @@ export interface operations {
             204: components["responses"]["PreflightAccepted"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listRuntimeModelProviderConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Safe Provider connection metadata; credentials are never returned. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelProviderConnectionList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createRuntimeModelProviderConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelProviderConnectionCreate"];
+            };
+        };
+        responses: {
+            /** @description Provider connection created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelProviderConnection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsRuntimeModelProviderConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteRuntimeModelProviderConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+                connectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Provider connection deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsRuntimeModelProviderConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+                connectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listRuntimeModelProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reusable non-secret model Profiles. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelProfileList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createRuntimeModelProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelProfileCreate"];
+            };
+        };
+        responses: {
+            /** @description Model Profile created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelProfile"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    optionsRuntimeModelProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteRuntimeModelProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Model Profile deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsRuntimeModelProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+                profileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getRuntimeModelDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runtime default pointer; an empty modelProfileId means no default. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeModelDefault"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    putRuntimeModelDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuntimeModelDefaultPut"];
+            };
+        };
+        responses: {
+            /** @description Runtime default updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeModelDefault"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteRuntimeModelDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runtime default cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    optionsRuntimeModelDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listRuntimeModelBindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Per-Instance authoritative model binding state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceModelBindingList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    optionsRuntimeModelBindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    startRuntimeModelProfileApplication: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelProfileApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description Batch Copy-on-Apply Operation accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    optionsRuntimeModelProfileApplications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getInstance: {

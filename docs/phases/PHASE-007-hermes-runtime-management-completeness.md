@@ -459,3 +459,15 @@ P7R-B1 Runtime/Instance scope closure is implemented as follows:
 
 The P7R-B1 Gate requires focused Desktop tests, TypeScript typecheck, lint and a non-MSI
 Desktop build before its automatic commit.
+
+P7R-B2/B3 shared model resources are implemented as real Runtime resources:
+
+- Runtime Provider Connections store one write-only credential in the OS-backed SecretStore;
+- reusable Model Profiles reference reviewed Provider presets and allowlisted model IDs;
+- Runtime Default and exact-Instance `INHERIT`/`OVERRIDE` bindings are separate resources;
+- multi-Instance application is a durable `model.profile.apply` Operation with one
+  result per Instance and Hermes authoritative readback before success;
+- existing Hermes-only model configuration remains external and is not silently adopted.
+
+The B2/B3 Gate requires migration, application, HTTP/OpenAPI, Desktop client/component,
+secret non-disclosure, typecheck/lint and non-MSI build checks before automatic commit.

@@ -797,3 +797,15 @@ P7R-B1 已按以下边界完成 Runtime/Instance 页面收口：
 
 P7R-B1 Gate 要求 focused Desktop tests、TypeScript typecheck、lint 与非 MSI Desktop build
 通过后自动提交。
+
+P7R-B2/B3 已实现真实的 Runtime 共享模型资源：
+
+- Runtime Provider Connection 将一份只写凭据存入 OS-backed SecretStore；
+- Model Profile 复用审核 Provider Preset 和 allowlisted model IDs；
+- Runtime Default 与精确 Instance 的 `INHERIT`/`OVERRIDE` Binding 分离；
+- 多实例应用使用持久化 `model.profile.apply` Operation，每个实例分别记录结果，并且只有
+  Hermes 权威回读成功后才记录成功；
+- Hermes 原有且未被 YORVA 应用的模型配置保持 External，不会被静默接管。
+
+B2/B3 Gate 要求 migration、application、HTTP/OpenAPI、Desktop client/component、Secret
+不泄露、typecheck/lint 与非 MSI build 检查通过后自动提交。

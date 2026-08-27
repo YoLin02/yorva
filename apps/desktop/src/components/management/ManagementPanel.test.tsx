@@ -79,6 +79,17 @@ function managementClient(overrides: Partial<DaemonClient> = {}) {
     }),
     getModelCredential: vi.fn().mockResolvedValue({ providerPresetId: "qwen", configured: true, observedAt: "2026-08-25T10:00:00Z" }),
     listOperations: vi.fn().mockResolvedValue({ operations: [] }),
+    listRuntimeModelProviderConnections: vi.fn().mockResolvedValue({ items: [] }),
+    createRuntimeModelProviderConnection: vi.fn(),
+    deleteRuntimeModelProviderConnection: vi.fn(),
+    listRuntimeModelProfiles: vi.fn().mockResolvedValue({ items: [] }),
+    createRuntimeModelProfile: vi.fn(),
+    deleteRuntimeModelProfile: vi.fn(),
+    getRuntimeModelDefault: vi.fn().mockResolvedValue({ modelProfileId: "", appliedRevision: 0, updatedAt: null }),
+    setRuntimeModelDefault: vi.fn(),
+    clearRuntimeModelDefault: vi.fn(),
+    listRuntimeModelBindings: vi.fn().mockResolvedValue({ items: [] }),
+    applyRuntimeModelProfile: vi.fn(),
     listInstanceSkillSources: vi.fn().mockResolvedValue({ items: [] }),
     installManagedSkill: vi.fn(),
     importManagedSkill: vi.fn(),
@@ -274,26 +285,26 @@ describe("ManagementPanel", () => {
     await waitFor(() => expect(client.getInstanceHealth).toHaveBeenCalledWith("inst-coder", expect.any(AbortSignal)));
   });
 
-  it("exposes model binding in the Runtime workspace and switches the authoritative instance", async () => {
+  it("exposes shared Provider, Profile, default and binding resources in the Runtime workspace", async () => {
     const second: Instance = { ...instance, instanceId: "inst-review", name: "review" };
     const client = managementClient({
-      getModelConfiguration: vi.fn().mockImplementation((instanceId: string) => Promise.resolve({
-        providerPresetId: "qwen", modelId: instanceId === "inst-review" ? "qwen-max" : "qwen-plus",
-        selectedModelIds: [instanceId === "inst-review" ? "qwen-max" : "qwen-plus"], state: "CONFIGURED",
-        credentialConfigured: true, observedAt: "2026-08-25T10:00:00Z", validation: { state: "PASSED", errorCode: null, completedAt: "2026-08-25T10:00:00Z" },
-      })),
+      listRuntimeModelProviderConnections: vi.fn().mockResolvedValue({ items: [{ id: "mpc-test", providerPresetId: "qwen", displayName: "Shared Qwen", credentialConfigured: true, status: "CONFIGURED", revision: 1, createdAt: "2026-08-25T10:00:00Z", updatedAt: "2026-08-25T10:00:00Z" }] }),
+      listRuntimeModelProfiles: vi.fn().mockResolvedValue({ items: [{ id: "mpr-test", providerConnectionId: "mpc-test", displayName: "Qwen production", selectedModelIds: ["qwen-plus"], defaultModelId: "qwen-plus", revision: 1, createdAt: "2026-08-25T10:00:00Z", updatedAt: "2026-08-25T10:00:00Z" }] }),
+      getRuntimeModelDefault: vi.fn().mockResolvedValue({ modelProfileId: "mpr-test", appliedRevision: 1, updatedAt: "2026-08-25T10:00:00Z" }),
+      listRuntimeModelBindings: vi.fn().mockResolvedValue({ items: [{ instanceId: "inst-review", instanceName: "review", modelProfileId: "mpr-test", mode: "INHERIT", appliedRevision: 1, state: "SUCCEEDED", errorCode: null, updatedAt: "2026-08-25T10:00:00Z" }] }),
     });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
     render(<QueryClientProvider client={queryClient}><ManagementPanel client={client} instance={instance} instances={[instance, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
 
     const navigation = screen.getByRole("navigation", { name: "Runtime management sections" });
     fireEvent.click(within(navigation).getByRole("button", { name: "Models" }));
-    expect(await screen.findByRole("region", { name: "Add model Provider: coder" })).toBeInTheDocument();
-    await waitFor(() => expect(client.getModelConfiguration).toHaveBeenCalledWith("inst-coder", expect.any(AbortSignal)));
-
-    fireEvent.change(screen.getByRole("combobox", { name: "Configuring" }), { target: { value: "inst-review" } });
-    expect(await screen.findByRole("region", { name: "Add model Provider: review" })).toBeInTheDocument();
-    await waitFor(() => expect(client.getModelConfiguration).toHaveBeenCalledWith("inst-review", expect.any(AbortSignal)));
+    expect(await screen.findByText("Shared models")).toBeInTheDocument();
+    expect((await screen.findAllByText("Shared Qwen")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Qwen production")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Runtime default").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("review").length).toBeGreaterThan(0);
+    expect(screen.getByText("Succeeded")).toBeInTheDocument();
+    expect(client.listRuntimeModelBindings).toHaveBeenCalledWith("hermes", expect.any(AbortSignal));
   });
 
   it("does not issue reads or present fake actions when capabilities are false", () => {

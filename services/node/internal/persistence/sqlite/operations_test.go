@@ -25,7 +25,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := emptyDB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, emptyDir, 14)
+	assertMigrationCount(t, emptyDir, 15)
 
 	phase2Dir := t.TempDir()
 	applyNamedMigration(t, ctx, phase2Dir, "001_initial.sql")
@@ -37,7 +37,7 @@ func TestOperationsAndInstallationsMigrateFromEmptyAndPhase2(t *testing.T) {
 	if err := phase2DB.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, phase2Dir, 14)
+	assertMigrationCount(t, phase2Dir, 15)
 }
 
 func TestRuntimeWideAndInstanceOperationsConflictAcrossTargets(t *testing.T) {
@@ -87,6 +87,32 @@ func TestRuntimeWideAndInstanceOperationsConflictAcrossTargets(t *testing.T) {
 	secondLifecycle.CreatedAt, secondLifecycle.UpdatedAt = now.Add(3*time.Second), now.Add(3*time.Second)
 	if err := db.CreateOperation(ctx, secondLifecycle); !errors.Is(err, ErrActiveInstanceMutation) {
 		t.Fatalf("lifecycle during backup = %v", err)
+	}
+	backupDone := backup
+	backupDone.Status = operation.StatusFailed
+	backupDone.ErrorCode = yorvaruntime.ErrorOperationInterrupted
+	backupDone.CompletedAt = &completedAt
+	backupDone.UpdatedAt = completedAt
+	if err := db.UpdateOperation(ctx, backup, backupDone); err != nil {
+		t.Fatal(err)
+	}
+	modelApply := operation.Operation{
+		ID: "op_model_apply_active", Type: operation.TypeModelProfileApply, TargetType: operation.TargetRuntimeInstallation,
+		TargetID: installationID, Status: operation.StatusPending, Stage: operation.StageModelProfileApply,
+		IdempotencyKey: "runtime-wide-model-apply", CorrelationID: "cor_model_apply",
+		CreatedAt: now.Add(4 * time.Second), UpdatedAt: now.Add(4 * time.Second),
+	}
+	if err := db.CreateOperation(ctx, modelApply); err != nil {
+		t.Fatal(err)
+	}
+	secondLifecycle.ID, secondLifecycle.IdempotencyKey = "op_lifecycle_model_conflict", "runtime-wide-lifecycle-model-conflict"
+	if err := db.CreateOperation(ctx, secondLifecycle); !errors.Is(err, ErrActiveInstanceMutation) {
+		t.Fatalf("lifecycle during model apply = %v", err)
+	}
+	secondApply := modelApply
+	secondApply.ID, secondApply.IdempotencyKey = "op_model_apply_conflict", "runtime-wide-model-apply-conflict"
+	if err := db.CreateOperation(ctx, secondApply); !errors.Is(err, ErrActiveInstanceMutation) {
+		t.Fatalf("second model apply = %v", err)
 	}
 }
 

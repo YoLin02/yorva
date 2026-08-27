@@ -242,7 +242,12 @@ UNIQUE(scope_type, scope_id, secret_name)
 
 `provider_ref` must not itself contain the secret.
 
-ADR-0007 classifies Hermes Profile model provider credentials as Runtime-native state for the Windows consumer MVP. Those credentials do not create `secret_refs` rows and are not copied into any other SQLite table. Hermes remains their sole authority, including when the Hermes adapter uses the approved pinned Profile credential compatibility writer; YORVA stores only safe status/projection metadata where the Phase contract explicitly requires it.
+ADR-0007 classifies a credential already applied to a Hermes Profile as Runtime-native
+state. P7R additionally permits a reusable YORVA Provider Connection to keep one source
+credential in the OS-backed SecretStore. SQLite stores only its opaque `secret_ref` and
+safe metadata. Copy-on-Apply writes the credential to each exact Profile through the
+qualified Hermes adapter; the Profile copy remains Hermes-native state and is verified
+by authoritative safe readback.
 
 ## Phase 7 `managed_skills`
 
@@ -351,14 +356,35 @@ PRIMARY KEY (instance_id, server_id)
 This table stores no endpoint, command, arguments, headers, environment or credential.
 A matching external Hermes definition without this ownership row is read-only.
 
-### 11.3 `managed_mcp_definitions`
+### 11.3 Shared model resources
 
-Migration 015 stores Runtime-scoped YORVA-owned custom Definition metadata: identity,
-display metadata, transport, endpoint or direct executable/argv, non-secret environment
-and header values, secret markers and tool scope. Secret-marked values are always empty
-in SQLite; their plaintext is written only to the exact Hermes Profile credential
-authority during binding. A Definition referenced by `managed_mcp_bindings` cannot be
-updated or deleted.
+Migration 015 separates Runtime-owned reusable resources from exact-Instance bindings:
+
+```text
+model_provider_connections
+  id, runtime_installation_id, provider_preset_id, display_name,
+  secret_ref, status, revision, created_at, updated_at
+
+model_profiles
+  id, runtime_installation_id, provider_connection_id, display_name,
+  selected_model_ids_json, default_model_id, revision, created_at, updated_at
+
+runtime_model_defaults
+  runtime_installation_id PRIMARY KEY, model_profile_id,
+  applied_revision, updated_at
+
+instance_model_bindings
+  instance_id PRIMARY KEY, model_profile_id, mode, applied_revision,
+  state, error_code, updated_at
+```
+
+`secret_ref` is an opaque OS SecretStore reference, never plaintext. A Model Profile
+contains only allowlisted Provider/model IDs. Binding mode is `INHERIT` or `OVERRIDE`;
+state is `PENDING`, `SUCCEEDED`, `FAILED` or `SKIPPED`. Runtime Default is a selected
+Profile, not continuous synchronization. Applying it performs an explicit
+Copy-on-Apply Operation and records success only after Hermes authoritative readback.
+Hermes configurations without a YORVA binding row are projected as external/read-only
+and are not adopted into these tables.
 
 ## 12. `app_settings`
 

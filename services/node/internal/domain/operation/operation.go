@@ -18,6 +18,8 @@ const TypeInstanceDelete Type = "instance.delete"
 
 const TypeModelValidate Type = "model.validate"
 
+const TypeModelProfileApply Type = "model.profile.apply"
+
 const TypeInstanceStart Type = "instance.start"
 
 const TypeInstanceStop Type = "instance.stop"
@@ -102,6 +104,7 @@ const (
 	StageInstanceDelete         Stage = "instance.delete"
 	StageInstanceReconcile      Stage = "instance.reconcile"
 	StageModelValidate          Stage = "model.validate"
+	StageModelProfileApply      Stage = "model.profile.apply"
 	StageInstanceStart          Stage = "instance.start"
 	StageInstanceStop           Stage = "instance.stop"
 	StageInstanceRestart        Stage = "instance.restart"

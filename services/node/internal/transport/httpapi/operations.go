@@ -219,7 +219,7 @@ func getOperationLog(installs RuntimeInstallService, dataDir string) http.Handle
 	})
 }
 
-func cancelOperation(installs RuntimeInstallService, instances InstanceInventoryService, models ModelConfigurationService, channels ChannelService, backups ManagementBackupService, mcp ManagementMCPService) http.Handler {
+func cancelOperation(installs RuntimeInstallService, instances InstanceInventoryService, models ModelConfigurationService, sharedModels SharedModelService, channels ChannelService, backups ManagementBackupService, mcp ManagementMCPService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if installs == nil {
 			writeError(w, http.StatusNotFound, ErrorBody{Code: "NOT_FOUND", Message: "The requested local API resource was not found."})
@@ -237,6 +237,8 @@ func cancelOperation(installs RuntimeInstallService, instances InstanceInventory
 			value, err = instances.CancelDelete(r.Context(), value.ID)
 		} else if value.Type == operation.TypeModelValidate && models != nil {
 			value, err = models.CancelModelValidation(r.Context(), value.ID)
+		} else if value.Type == operation.TypeModelProfileApply && sharedModels != nil {
+			value, err = sharedModels.CancelModelProfileApplication(r.Context(), value.ID)
 		} else if isLifecycleOperationType(value.Type) && instances != nil {
 			if lifecycle, ok := instances.(InstanceLifecycleService); ok {
 				value, err = lifecycle.CancelLifecycle(r.Context(), value.ID)

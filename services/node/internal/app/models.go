@@ -127,7 +127,11 @@ func (s *InstanceInventory) GetModelCredential(ctx context.Context, instanceID s
 }
 
 func (s *InstanceInventory) SaveModelCredentialConfiguration(ctx context.Context, instanceID, presetID, modelID string, selectedModelIDs []string, secret []byte) (ModelConfigurationView, error) {
-	row, models, installation, unlock, err := s.resolveModelTarget(ctx, instanceID, true)
+	return s.saveModelCredentialConfiguration(ctx, instanceID, presetID, modelID, selectedModelIDs, secret, "")
+}
+
+func (s *InstanceInventory) saveModelCredentialConfiguration(ctx context.Context, instanceID, presetID, modelID string, selectedModelIDs []string, secret []byte, ownOperationID string) (ModelConfigurationView, error) {
+	row, models, installation, unlock, err := s.resolveModelTargetForOperation(ctx, instanceID, true, ownOperationID)
 	if err != nil {
 		return ModelConfigurationView{}, err
 	}
@@ -229,6 +233,10 @@ func (s *InstanceInventory) DeleteModelCredential(ctx context.Context, instanceI
 }
 
 func (s *InstanceInventory) resolveModelTarget(ctx context.Context, instanceID string, mutation bool) (instance.Instance, yorvaruntime.ModelConfigurator, yorvaruntime.ModelInstallation, func(), error) {
+	return s.resolveModelTargetForOperation(ctx, instanceID, mutation, "")
+}
+
+func (s *InstanceInventory) resolveModelTargetForOperation(ctx context.Context, instanceID string, mutation bool, ownOperationID string) (instance.Instance, yorvaruntime.ModelConfigurator, yorvaruntime.ModelInstallation, func(), error) {
 	if s == nil || s.db == nil || s.discovery == nil || s.source == nil || instanceID == "" {
 		return instance.Instance{}, nil, yorvaruntime.ModelInstallation{}, nil, ErrInstanceNotFound
 	}
@@ -250,9 +258,9 @@ func (s *InstanceInventory) resolveModelTarget(ctx context.Context, instanceID s
 		return instance.Instance{}, nil, yorvaruntime.ModelInstallation{}, nil, err
 	}
 	if mutation {
-		if _, active, activeErr := s.db.ActiveInstanceMutation(ctx, row.RuntimeInstallationID); activeErr != nil {
+		if activeOperation, active, activeErr := s.db.ActiveInstanceMutation(ctx, row.RuntimeInstallationID); activeErr != nil {
 			return fail(activeErr)
-		} else if active {
+		} else if active && activeOperation.ID != ownOperationID {
 			return fail(yorvaruntime.ErrInstanceConfigConflict)
 		}
 		if _, active, activeErr := s.db.ActiveInstanceRuntimeMutation(ctx, row.ID); activeErr != nil {

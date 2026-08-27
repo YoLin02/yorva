@@ -55,6 +55,7 @@ type RuntimeWarningResponse struct {
 func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService, instances InstanceInventoryService, dataDir string, sourceSettings HermesDownloadSourceSettingsService) http.Handler {
 	mux := http.NewServeMux()
 	models, _ := instances.(ModelConfigurationService)
+	sharedModels, _ := instances.(SharedModelService)
 	lifecycle, _ := instances.(InstanceLifecycleService)
 	channels, _ := instances.(ChannelService)
 	var skills ManagementSkillsService
@@ -122,6 +123,17 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("POST /api/v1/backups/{backupId}/restore", requireBearer(token, startRestoreBackup(managementBackups)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, createRuntimeInstance(instances)))
 	mux.Handle("GET /api/v1/runtimes/hermes/model-provider-presets", requireBearer(token, listModelProviderPresets(models)))
+	mux.Handle("GET /api/v1/runtimes/{runtimeId}/model-provider-connections", requireBearer(token, listModelProviderConnections(sharedModels)))
+	mux.Handle("POST /api/v1/runtimes/{runtimeId}/model-provider-connections", requireBearer(token, createModelProviderConnection(sharedModels)))
+	mux.Handle("DELETE /api/v1/runtimes/{runtimeId}/model-provider-connections/{connectionId}", requireBearer(token, deleteModelProviderConnection(sharedModels)))
+	mux.Handle("GET /api/v1/runtimes/{runtimeId}/model-profiles", requireBearer(token, listModelProfiles(sharedModels)))
+	mux.Handle("POST /api/v1/runtimes/{runtimeId}/model-profiles", requireBearer(token, createModelProfile(sharedModels)))
+	mux.Handle("DELETE /api/v1/runtimes/{runtimeId}/model-profiles/{profileId}", requireBearer(token, deleteModelProfile(sharedModels)))
+	mux.Handle("GET /api/v1/runtimes/{runtimeId}/model-default", requireBearer(token, getRuntimeModelDefault(sharedModels)))
+	mux.Handle("PUT /api/v1/runtimes/{runtimeId}/model-default", requireBearer(token, putRuntimeModelDefault(sharedModels)))
+	mux.Handle("DELETE /api/v1/runtimes/{runtimeId}/model-default", requireBearer(token, deleteRuntimeModelDefault(sharedModels)))
+	mux.Handle("GET /api/v1/runtimes/{runtimeId}/model-bindings", requireBearer(token, listInstanceModelBindings(sharedModels)))
+	mux.Handle("POST /api/v1/runtimes/{runtimeId}/model-profile-applications", requireBearer(token, startModelProfileApplication(sharedModels)))
 	mux.Handle("GET /api/v1/instances/{instanceId}", requireBearer(token, getInstance(instances)))
 	mux.Handle("DELETE /api/v1/instances/{instanceId}", requireBearer(token, deleteInstance(instances)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/config", requireBearer(token, getModelConfiguration(models)))
@@ -170,7 +182,7 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("GET /api/v1/operations/{operationId}/channel-qr", requireBearer(token, getChannelQR(channels)))
 	mux.Handle("GET /api/v1/operations/{operationId}/log", requireBearer(token, getOperationLog(installs, dataDir)))
 	mux.Handle("GET /api/v1/operations", requireBearer(token, listOperations(installs)))
-	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs, instances, models, channels, managementBackups, mcp)))
+	mux.Handle("POST /api/v1/operations/{operationId}/cancel", requireBearer(token, cancelOperation(installs, instances, models, sharedModels, channels, managementBackups, mcp)))
 	return securityHeaders(restrictOrigins(routeContract(mux)))
 }
 
@@ -291,6 +303,18 @@ func allowedMethods(path string) (string, bool) {
 			return "GET, OPTIONS", true
 		}
 	}
+	switch runtimeModelPathKind(path) {
+	case "connections", "profiles":
+		return "GET, POST, OPTIONS", true
+	case "connection", "profile":
+		return "DELETE, OPTIONS", true
+	case "default":
+		return "GET, PUT, DELETE, OPTIONS", true
+	case "bindings":
+		return "GET, OPTIONS", true
+	case "applications":
+		return "POST, OPTIONS", true
+	}
 	switch instancePathKind(path) {
 	case "list":
 		return "GET, POST, OPTIONS", true
@@ -338,6 +362,35 @@ func allowedMethods(path string) (string, bool) {
 		return "POST, OPTIONS", true
 	}
 	return "", false
+}
+
+func runtimeModelPathKind(path string) string {
+	const prefix = "/api/v1/runtimes/"
+	if !strings.HasPrefix(path, prefix) {
+		return ""
+	}
+	parts := strings.Split(strings.TrimPrefix(path, prefix), "/")
+	if len(parts) < 2 || parts[0] == "" {
+		return ""
+	}
+	switch {
+	case len(parts) == 2 && parts[1] == "model-provider-connections":
+		return "connections"
+	case len(parts) == 3 && parts[1] == "model-provider-connections" && parts[2] != "":
+		return "connection"
+	case len(parts) == 2 && parts[1] == "model-profiles":
+		return "profiles"
+	case len(parts) == 3 && parts[1] == "model-profiles" && parts[2] != "":
+		return "profile"
+	case len(parts) == 2 && parts[1] == "model-default":
+		return "default"
+	case len(parts) == 2 && parts[1] == "model-bindings":
+		return "bindings"
+	case len(parts) == 2 && parts[1] == "model-profile-applications":
+		return "applications"
+	default:
+		return ""
+	}
 }
 
 func runtimeBackupPathKind(path string) string {

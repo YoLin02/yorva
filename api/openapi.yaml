@@ -974,6 +974,231 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/runtimes/{runtimeId}/model-provider-connections:
+    parameters:
+      - $ref: "#/components/parameters/RuntimeId"
+    get:
+      operationId: listRuntimeModelProviderConnections
+      summary: List Runtime-owned model Provider connections
+      tags: [Models]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Safe Provider connection metadata; credentials are never returned.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ModelProviderConnectionList" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createRuntimeModelProviderConnection
+      summary: Create a Provider connection with one protected credential
+      tags: [Models]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ModelProviderConnectionCreate" } } }
+      responses:
+        "201":
+          description: Provider connection created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ModelProviderConnection" } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    options:
+      operationId: optionsRuntimeModelProviderConnections
+      summary: Validate CORS access for Runtime model Provider connections
+      tags: [Models]
+      security: []
+      responses:
+        "204": { $ref: "#/components/responses/PreflightAccepted" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/runtimes/{runtimeId}/model-provider-connections/{connectionId}:
+    parameters:
+      - $ref: "#/components/parameters/RuntimeId"
+      - name: connectionId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 64 }
+    delete:
+      operationId: deleteRuntimeModelProviderConnection
+      summary: Delete an unused Provider connection and its protected credential
+      tags: [Models]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Provider connection deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    options:
+      operationId: optionsRuntimeModelProviderConnection
+      summary: Validate CORS access for one Runtime model Provider connection
+      tags: [Models]
+      security: []
+      responses:
+        "204": { $ref: "#/components/responses/PreflightAccepted" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/runtimes/{runtimeId}/model-profiles:
+    parameters:
+      - $ref: "#/components/parameters/RuntimeId"
+    get:
+      operationId: listRuntimeModelProfiles
+      summary: List reusable Runtime model Profiles
+      tags: [Models]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Reusable non-secret model Profiles.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ModelProfileList" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createRuntimeModelProfile
+      summary: Create a reusable model Profile
+      tags: [Models]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ModelProfileCreate" } } }
+      responses:
+        "201":
+          description: Model Profile created.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ModelProfile" } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    options:
+      operationId: optionsRuntimeModelProfiles
+      summary: Validate CORS access for Runtime model Profiles
+      tags: [Models]
+      security: []
+      responses:
+        "204": { $ref: "#/components/responses/PreflightAccepted" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/runtimes/{runtimeId}/model-profiles/{profileId}:
+    parameters:
+      - $ref: "#/components/parameters/RuntimeId"
+      - name: profileId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 64 }
+    delete:
+      operationId: deleteRuntimeModelProfile
+      summary: Delete an unused Runtime model Profile
+      tags: [Models]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Model Profile deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    options:
+      operationId: optionsRuntimeModelProfile
+      summary: Validate CORS access for one Runtime model Profile
+      tags: [Models]
+      security: []
+      responses:
+        "204": { $ref: "#/components/responses/PreflightAccepted" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/runtimes/{runtimeId}/model-default:
+    parameters:
+      - $ref: "#/components/parameters/RuntimeId"
+    get:
+      operationId: getRuntimeModelDefault
+      summary: Read the Runtime default model Profile
+      tags: [Models]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Runtime default pointer; an empty modelProfileId means no default.
+          content: { application/json: { schema: { $ref: "#/components/schemas/RuntimeModelDefault" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    put:
+      operationId: putRuntimeModelDefault
+      summary: Select the Runtime default model Profile
+      tags: [Models]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/RuntimeModelDefaultPut" } } }
+      responses:
+        "200":
+          description: Runtime default updated.
+          content: { application/json: { schema: { $ref: "#/components/schemas/RuntimeModelDefault" } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: deleteRuntimeModelDefault
+      summary: Clear the Runtime default model Profile
+      tags: [Models]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204": { description: Runtime default cleared. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    options:
+      operationId: optionsRuntimeModelDefault
+      summary: Validate CORS access for the Runtime model default
+      tags: [Models]
+      security: []
+      responses:
+        "204": { $ref: "#/components/responses/PreflightAccepted" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/runtimes/{runtimeId}/model-bindings:
+    parameters:
+      - $ref: "#/components/parameters/RuntimeId"
+    get:
+      operationId: listRuntimeModelBindings
+      summary: List managed and external Instance model bindings
+      tags: [Models]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Per-Instance authoritative model binding state.
+          content: { application/json: { schema: { $ref: "#/components/schemas/InstanceModelBindingList" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    options:
+      operationId: optionsRuntimeModelBindings
+      summary: Validate CORS access for Runtime model bindings
+      tags: [Models]
+      security: []
+      responses:
+        "204": { $ref: "#/components/responses/PreflightAccepted" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/runtimes/{runtimeId}/model-profile-applications:
+    parameters:
+      - $ref: "#/components/parameters/RuntimeId"
+    post:
+      operationId: startRuntimeModelProfileApplication
+      summary: Copy one model Profile to selected Instances
+      tags: [Models, Operations]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/ModelProfileApplicationRequest" } } }
+      responses:
+        "202":
+          description: Batch Copy-on-Apply Operation accepted.
+          content: { application/json: { schema: { $ref: "#/components/schemas/Operation" } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    options:
+      operationId: optionsRuntimeModelProfileApplications
+      summary: Validate CORS access for model Profile applications
+      tags: [Models]
+      security: []
+      responses:
+        "204": { $ref: "#/components/responses/PreflightAccepted" }
+        "403": { $ref: "#/components/responses/Forbidden" }
   /api/v1/instances/{instanceId}:
     parameters:
       - name: instanceId
@@ -2647,6 +2872,13 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   parameters:
+    RuntimeId:
+      name: runtimeId
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [hermes]
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -2881,7 +3113,7 @@ components:
           type: string
         type:
           type: string
-          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, instance.start, instance.stop, instance.restart, model.validate, channel.connect, channel.disconnect, skill.install, skill.update, skill.enable, skill.disable, skill.remove, mcp.install, mcp.authenticate, mcp.test, mcp.configure, mcp.remove, backup.create, backup.delete, backup.restore, runtime.upgrade, runtime.rollback]
+          enum: [runtime.install, hermes.prerequisites, instance.create, instance.delete, instance.start, instance.stop, instance.restart, model.validate, model.profile.apply, channel.connect, channel.disconnect, skill.install, skill.update, skill.enable, skill.disable, skill.remove, mcp.install, mcp.authenticate, mcp.test, mcp.configure, mcp.remove, backup.create, backup.delete, backup.restore, runtime.upgrade, runtime.rollback]
         targetType:
           type: string
         targetId:
@@ -3646,6 +3878,134 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ModelProviderPreset"
+    ModelProviderConnectionCreate:
+      type: object
+      additionalProperties: false
+      required: [providerPresetId, displayName, credential]
+      properties:
+        providerPresetId:
+          type: string
+          enum: [deepseek, qwen, kimi, minimax, glm, openrouter, openai, anthropic]
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+        credential:
+          type: string
+          minLength: 1
+          maxLength: 65536
+          writeOnly: true
+    ModelProviderConnection:
+      type: object
+      additionalProperties: false
+      required: [id, providerPresetId, displayName, credentialConfigured, status, revision, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        providerPresetId: { type: string }
+        displayName: { type: string }
+        credentialConfigured: { type: boolean }
+        status: { type: string, enum: [CONFIGURED, UNAVAILABLE] }
+        revision: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ModelProviderConnectionList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ModelProviderConnection" }
+    ModelProfileCreate:
+      type: object
+      additionalProperties: false
+      required: [providerConnectionId, displayName, selectedModelIds, defaultModelId]
+      properties:
+        providerConnectionId: { type: string, minLength: 1, maxLength: 64 }
+        displayName: { type: string, minLength: 1, maxLength: 80 }
+        selectedModelIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 200 }
+        defaultModelId: { type: string, minLength: 1, maxLength: 200 }
+    ModelProfile:
+      type: object
+      additionalProperties: false
+      required: [id, providerConnectionId, displayName, selectedModelIds, defaultModelId, revision, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        providerConnectionId: { type: string }
+        displayName: { type: string }
+        selectedModelIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string }
+        defaultModelId: { type: string }
+        revision: { type: integer, minimum: 1 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ModelProfileList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ModelProfile" }
+    RuntimeModelDefaultPut:
+      type: object
+      additionalProperties: false
+      required: [modelProfileId]
+      properties:
+        modelProfileId: { type: string, minLength: 1, maxLength: 64 }
+    RuntimeModelDefault:
+      type: object
+      additionalProperties: false
+      required: [modelProfileId, appliedRevision, updatedAt]
+      properties:
+        modelProfileId: { type: string }
+        appliedRevision: { type: integer, minimum: 0 }
+        updatedAt:
+          anyOf:
+            - { type: string, format: date-time }
+            - { type: "null" }
+    InstanceModelBinding:
+      type: object
+      additionalProperties: false
+      required: [instanceId, instanceName, modelProfileId, mode, appliedRevision, state, errorCode, updatedAt]
+      properties:
+        instanceId: { type: string }
+        instanceName: { type: string }
+        modelProfileId: { type: string }
+        mode: { type: string, enum: [INHERIT, OVERRIDE, EXTERNAL_CONFIGURATION] }
+        appliedRevision: { type: integer, minimum: 0 }
+        state: { type: string, enum: [PENDING, SUCCEEDED, FAILED, SKIPPED] }
+        errorCode: { type: [string, "null"] }
+        updatedAt: { type: string, format: date-time }
+    InstanceModelBindingList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/InstanceModelBinding" }
+    ModelProfileApplicationRequest:
+      type: object
+      additionalProperties: false
+      required: [modelProfileId, instanceIds, mode]
+      properties:
+        modelProfileId: { type: string, minLength: 1, maxLength: 64 }
+        instanceIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 128 }
+        mode: { type: string, enum: [INHERIT, OVERRIDE] }
     ModelConfigurationPatch:
       type: object
       additionalProperties: false

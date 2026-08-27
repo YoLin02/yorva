@@ -90,21 +90,27 @@ type InstanceList struct {
 }
 
 type InstanceInventory struct {
-	discovery   *RuntimeDiscovery
-	db          *sqlite.Database
-	source      ProfileSource
-	mutator     ProfileMutator
-	nodeID      string
-	now         func() time.Time
-	newID       func() (string, error)
-	mu          sync.Mutex
-	operationMu sync.Mutex
-	ensureMu    sync.Mutex
-	locks       map[string]*sync.Mutex
-	workers     map[string]context.CancelFunc
-	started     map[string]bool
-	events      *events.Broker
-	channelQR   *channelQRBroker
+	discovery    *RuntimeDiscovery
+	db           *sqlite.Database
+	source       ProfileSource
+	mutator      ProfileMutator
+	nodeID       string
+	now          func() time.Time
+	newID        func() (string, error)
+	mu           sync.Mutex
+	operationMu  sync.Mutex
+	ensureMu     sync.Mutex
+	locks        map[string]*sync.Mutex
+	workers      map[string]context.CancelFunc
+	started      map[string]bool
+	events       *events.Broker
+	channelQR    *channelQRBroker
+	modelSecrets ModelSecretStore
+}
+
+func (s *InstanceInventory) WithModelSecrets(store ModelSecretStore) *InstanceInventory {
+	s.modelSecrets = store
+	return s
 }
 
 func NewInstanceInventory(discovery *RuntimeDiscovery, db *sqlite.Database, source ProfileSource, nodeID string) *InstanceInventory {

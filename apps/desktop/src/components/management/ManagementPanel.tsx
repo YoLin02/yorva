@@ -6,7 +6,7 @@ import type { Channel, Instance, Lifecycle, MCPPreset, MCPServer, ManagementBack
 import { formatDateTime } from "../../formatDateTime";
 import type { AppMessages, Locale } from "../../i18n";
 import type { BadgeTone } from "../../types/ui";
-import { ModelConfigurationPanel } from "../models/ModelConfigurationPanel";
+import { RuntimeModelsPanel } from "../models/RuntimeModelsPanel";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { IconActivity, IconArchiveRestore, IconChevronDown, IconClose, IconFileArchive, IconFolderInput, IconPlus, IconRefresh, IconSearch } from "../ui/icons";
@@ -534,17 +534,7 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
       ) : null}
 
       {runtimeMode && runtimeTab === "models" ? (
-        <div className="runtime-model-workspace">
-          <RuntimeInstanceSelector
-            instances={instances}
-            value={targetInstance.instanceId}
-            label={copy.management.configuringInstance}
-            description={copy.management.modelConfiguringInstanceDescription}
-            copy={copy}
-            onChange={selectTargetInstance}
-          />
-          <ModelConfigurationPanel client={client} instance={targetInstance} copy={copy} locale={locale} embedded />
-        </div>
+        <RuntimeModelsPanel client={client} instances={instances} copy={copy} />
       ) : null}
 
       {runtimeMode && runtimeTab === "skills" && selectedSkillId === null ? (

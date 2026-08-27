@@ -1,6 +1,6 @@
 # ADR-0007: Hermes-Native Model Credential Authority for the Windows Consumer MVP
 
-- Status: Accepted
+- Status: Accepted; amended for P7R shared Provider Connections on 2026-08-27
 - Date: 2026-08-19
 - Owner approval: 2026-08-19 (Phase 5 D1-D6, this ADR, and the bounded compatibility fallback amendment)
 - Related: ADR-0003, Phase 5 `PHASE-005-models-credentials.md`
@@ -21,7 +21,9 @@ For pinned Hermes `0.20.2` only, the Hermes adapter may therefore use one narrow
 
 The following rules are mandatory:
 
-- YORVA does not keep a duplicate Hermes model credential in `SecretStore`, SQLite, `secret_refs`, an Operation, an event, a log, diagnostics or Desktop storage.
+- Except for the separately owned P7R Provider Connection source described below,
+  YORVA does not keep a duplicate Hermes Profile credential in `SecretStore`, SQLite,
+  `secret_refs`, an Operation, an event, a log, diagnostics or Desktop storage.
 - Only the Hermes adapter's bounded compatibility writer may open and update the canonical `.env` belonging to the exact Profile resolved from the Instance `nativeId`.
 - Callers cannot provide a path, env name or config key. Provider preset mapping supplies the exact allowlisted credential key.
 - The writer imposes a file-size limit, preserves unknown variables, changes only the target key, writes a same-directory temporary file, atomically replaces the target, verifies safe read-back status and removes temporary files on failure.
@@ -34,6 +36,29 @@ The following rules are mandatory:
 This is an explicit at-rest tradeoff. Hermes may store its Profile credential in a file that is not an OS credential vault. YORVA does not represent that storage as OS-secure and does not broaden its own file access to compensate. The V0.1 local-user trust model and Hermes' own Profile storage protections apply.
 
 The YORVA `SecretStore` boundary remains for YORVA-owned secrets, including future device/Cloud credentials, and for later Runtime/channel designs that do not have an approved native credential authority. This ADR does not authorize channel credentials, secret synchronization or a general Runtime-native exception.
+
+### P7R amendment: reusable Provider Connections
+
+P7R introduces a distinct YORVA-owned source resource so one reviewed Provider
+credential can be applied to multiple selected Hermes Profiles without asking the user
+to re-enter it for each operation. This does not change the authority of an already
+applied Hermes Profile credential:
+
+- the reusable Provider Connection keeps one source value only in the OS-backed YORVA
+  `SecretStore`; SQLite stores an opaque reference and safe metadata;
+- the local API is write-only for the source value and cannot select endpoint, path,
+  environment name or configuration key;
+- an explicit Copy-on-Apply Operation reads the source for the duration of the bounded
+  mutation, writes only selected exact Profiles through the qualified Hermes adapter,
+  then verifies safe authoritative readback;
+- the resulting Profile credential remains Hermes-native and independently usable;
+  YORVA does not continuously synchronize, scrape, compare or return its plaintext;
+- deleting a Provider Connection is refused while a Model Profile references it, and
+  deleting it removes its OS-backed source value.
+
+Thus there may be a YORVA-owned reusable source and one or more Hermes-owned applied
+copies, but there is still only one authority for each role. This amendment does not
+authorize arbitrary Provider endpoints, generic Secret APIs or cross-Profile mutation.
 
 ## Alternatives considered
 

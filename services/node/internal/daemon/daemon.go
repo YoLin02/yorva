@@ -39,6 +39,30 @@ type Streams struct {
 	Stderr io.Writer
 }
 
+type modelSecretStore struct {
+	store *secrets.Store
+}
+
+func (s modelSecretStore) Put(ctx context.Context, reference string, value []byte) error {
+	return s.store.Put(ctx, secrets.Reference(reference), value)
+}
+
+func (s modelSecretStore) Use(ctx context.Context, reference string, use func([]byte)) error {
+	return s.store.Get(ctx, secrets.Reference(reference), func(value []byte) error {
+		use(value)
+		return nil
+	})
+}
+
+func (s modelSecretStore) Delete(ctx context.Context, reference string) error {
+	return s.store.Delete(ctx, secrets.Reference(reference))
+}
+
+func (s modelSecretStore) Configured(ctx context.Context, reference string) (bool, error) {
+	metadata, err := s.store.Inspect(ctx, secrets.Reference(reference))
+	return metadata.Configured, err
+}
+
 func Run(ctx context.Context, args []string, streams Streams) error {
 	if len(args) != 1 || args[0] != "--bootstrap-stdio" {
 		return errors.New("yorvad requires --bootstrap-stdio")
@@ -73,6 +97,7 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 		MCPMutate:  mcpManager,
 		BackupRead: sqlite.NewRuntimeBackupReader(database, string(hermes.Kind)),
 	}
+	var sharedModelSecrets app.ModelSecretStore
 	if runtime.GOOS == "windows" {
 		if recoverErr := hermes.RecoverInterruptedRestores(ctx); recoverErr != nil {
 			return fmt.Errorf("recover interrupted Hermes Restore: %w", recoverErr)
@@ -81,6 +106,7 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 		if secretErr != nil {
 			return fmt.Errorf("initialize backup SecretStore: %w", secretErr)
 		}
+		sharedModelSecrets = modelSecretStore{store: secretStore}
 		useDeviceKey := func(ctx context.Context, reference string, use func([]byte) error) error {
 			ref := secrets.Reference(reference)
 			metadata, inspectErr := secretStore.Inspect(ctx, ref)
@@ -180,12 +206,15 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	if _, err := installs.InterruptStale(ctx); err != nil {
 		logger.Warn("failed to interrupt stale install operations", "error", err)
 	}
-	instances := app.NewInstanceInventory(discovery, database, app.HermesProfileSource{}, localNode.ID).WithMutator(app.HermesProfileSource{}).WithEvents(broker)
+	instances := app.NewInstanceInventory(discovery, database, app.HermesProfileSource{}, localNode.ID).WithMutator(app.HermesProfileSource{}).WithEvents(broker).WithModelSecrets(sharedModelSecrets)
 	if _, err := instances.RecoverStale(ctx); err != nil {
 		logger.Warn("failed to recover stale instance operations", "error", err)
 	}
 	if _, err := instances.RecoverModelValidations(ctx); err != nil {
 		logger.Warn("failed to recover stale model validation operations", "error", err)
+	}
+	if _, err := instances.RecoverModelProfileApplications(ctx); err != nil {
+		logger.Warn("failed to recover stale model profile applications", "error", err)
 	}
 	if _, err := instances.RecoverLifecycle(ctx); err != nil {
 		logger.Warn("failed to recover stale lifecycle operations", "error", err)

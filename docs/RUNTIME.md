@@ -186,6 +186,17 @@ validated model IDs and does not retain the credential. Hermes remains authorita
 for the active `model.default`; YORVA persists only the user-selected non-secret model
 ID set for reopening the Desktop configuration view.
 
+P7R adds Runtime-owned `ProviderConnection`, `ModelProfile` and `RuntimeDefault`
+resources above the existing exact-Instance adapter. A Provider Connection selects only
+a compiled Provider Preset and owns one OS-protected source credential. A Model Profile
+contains reusable non-secret model selection. Applying a Profile is an explicit durable
+Copy-on-Apply Operation: Core resolves exact Instances, the Hermes adapter writes each
+exact Profile, rereads authoritative model/credential status, and records a separate
+binding result. `INHERIT` always means the current Runtime Default Profile;
+`OVERRIDE` selects another Profile for that Instance. MVP does not continuously sync
+later Profile changes, and pre-existing Hermes configuration remains external until an
+explicit successful YORVA apply.
+
 ### Channels
 
 ```go

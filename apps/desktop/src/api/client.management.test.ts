@@ -113,6 +113,32 @@ describe("daemon client management reads", () => {
     expect((fetchMock.mock.calls[0][1] as RequestInit).headers).toEqual(expect.objectContaining({ "Idempotency-Key": "bind-key", Authorization: "Bearer session-secret" }));
   });
 
+  it("uses closed shared model resource and batch application requests", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "DELETE") return new Response(null, { status: 204 });
+      return new Response(JSON.stringify({ id: "resource-or-operation", status: "PENDING" }), { status: init?.method === "POST" ? 202 : 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createDaemonClient(session);
+
+    await client.createRuntimeModelProviderConnection("hermes/runtime", "deepseek", "Shared DeepSeek", "write-only-secret");
+    await client.createRuntimeModelProfile("hermes/runtime", "connection/id", "Coding", ["deepseek-v4-pro"], "deepseek-v4-pro");
+    await client.setRuntimeModelDefault("hermes/runtime", "profile/id");
+    await client.applyRuntimeModelProfile("hermes/runtime", "profile/id", ["instance/a", "instance/b"], "INHERIT", "model-apply-key");
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "http://127.0.0.1:49152/api/v1/runtimes/hermes%2Fruntime/model-provider-connections",
+      "http://127.0.0.1:49152/api/v1/runtimes/hermes%2Fruntime/model-profiles",
+      "http://127.0.0.1:49152/api/v1/runtimes/hermes%2Fruntime/model-default",
+      "http://127.0.0.1:49152/api/v1/runtimes/hermes%2Fruntime/model-profile-applications",
+    ]);
+    expect((fetchMock.mock.calls[0][1] as RequestInit).body).toBe(JSON.stringify({ providerPresetId: "deepseek", displayName: "Shared DeepSeek", credential: "write-only-secret" }));
+    expect((fetchMock.mock.calls[1][1] as RequestInit).body).toBe(JSON.stringify({ providerConnectionId: "connection/id", displayName: "Coding", selectedModelIds: ["deepseek-v4-pro"], defaultModelId: "deepseek-v4-pro" }));
+    expect((fetchMock.mock.calls[2][1] as RequestInit).body).toBe(JSON.stringify({ modelProfileId: "profile/id" }));
+    expect((fetchMock.mock.calls[3][1] as RequestInit).body).toBe(JSON.stringify({ modelProfileId: "profile/id", instanceIds: ["instance/a", "instance/b"], mode: "INHERIT" }));
+    expect((fetchMock.mock.calls[3][1] as RequestInit).headers).toEqual(expect.objectContaining({ "Idempotency-Key": "model-apply-key", Authorization: "Bearer session-secret" }));
+  });
+
   it("bounds management reads and propagates caller cancellation", async () => {
     const timeoutController = new AbortController();
     const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeoutController.signal);

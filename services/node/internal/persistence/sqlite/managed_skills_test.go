@@ -169,7 +169,7 @@ func TestManagedSkillsMigrationUpgradesPriorSchema(t *testing.T) {
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, dir, 14)
+	assertMigrationCount(t, dir, 15)
 
 	raw, err := sql.Open("sqlite", filepath.Join(dir, databaseFilename))
 	if err != nil {

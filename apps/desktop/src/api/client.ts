@@ -1,4 +1,4 @@
-import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, ManagementBackup, ManagementBackupList, ManagementHealth, ManagementLogCategory, ManagementLogSnapshot, ManagementUpgradePlan, MCPServerList, MCPPresetList, ModelConfiguration, ModelCredential, ModelProviderCatalog, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery, Skill, SkillList, SkillSourceList } from "./types";
+import type { ChannelList, ChannelPairingApproval, ChannelPairingStatus, ChannelQr, DaemonSession, ErrorResponse, Health, HermesDownloadSources, Instance, InstanceList, InstanceModelBindingList, ManagementBackup, ManagementBackupList, ManagementHealth, ManagementLogCategory, ManagementLogSnapshot, ManagementUpgradePlan, MCPServerList, MCPPresetList, ModelConfiguration, ModelCredential, ModelProfile, ModelProfileList, ModelProviderCatalog, ModelProviderConnection, ModelProviderConnectionList, ModelProviderPresetList, Node, Operation, OperationList, RuntimeDiscovery, RuntimeModelDefault, Skill, SkillList, SkillSourceList } from "./types";
 
 export class YorvaApiError extends Error {
   readonly code: string;
@@ -305,6 +305,39 @@ export function createDaemonClient(session: DaemonSession) {
     listModelProviderPresets: (signal?: AbortSignal) =>
       request<ModelProviderPresetList>("/api/v1/runtimes/hermes/model-provider-presets", {
         signal: withDesktopTimeout(signal),
+      }),
+    listRuntimeModelProviderConnections: (runtimeId: string, signal?: AbortSignal) =>
+      request<ModelProviderConnectionList>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-provider-connections`, { signal: withDesktopTimeout(signal) }),
+    createRuntimeModelProviderConnection: (runtimeId: string, providerPresetId: string, displayName: string, credential: string, signal?: AbortSignal) =>
+      request<ModelProviderConnection>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-provider-connections`, {
+        method: "POST", signal: withDesktopTimeout(signal), headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerPresetId, displayName, credential }),
+      }),
+    deleteRuntimeModelProviderConnection: (runtimeId: string, connectionId: string, signal?: AbortSignal) =>
+      request<void>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-provider-connections/${encodeURIComponent(connectionId)}`, { method: "DELETE", signal: withDesktopTimeout(signal) }),
+    listRuntimeModelProfiles: (runtimeId: string, signal?: AbortSignal) =>
+      request<ModelProfileList>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-profiles`, { signal: withDesktopTimeout(signal) }),
+    createRuntimeModelProfile: (runtimeId: string, providerConnectionId: string, displayName: string, selectedModelIds: string[], defaultModelId: string, signal?: AbortSignal) =>
+      request<ModelProfile>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-profiles`, {
+        method: "POST", signal: withDesktopTimeout(signal), headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerConnectionId, displayName, selectedModelIds, defaultModelId }),
+      }),
+    deleteRuntimeModelProfile: (runtimeId: string, profileId: string, signal?: AbortSignal) =>
+      request<void>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-profiles/${encodeURIComponent(profileId)}`, { method: "DELETE", signal: withDesktopTimeout(signal) }),
+    getRuntimeModelDefault: (runtimeId: string, signal?: AbortSignal) =>
+      request<RuntimeModelDefault>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-default`, { signal: withDesktopTimeout(signal) }),
+    setRuntimeModelDefault: (runtimeId: string, modelProfileId: string, signal?: AbortSignal) =>
+      request<RuntimeModelDefault>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-default`, {
+        method: "PUT", signal: withDesktopTimeout(signal), headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modelProfileId }),
+      }),
+    clearRuntimeModelDefault: (runtimeId: string, signal?: AbortSignal) =>
+      request<void>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-default`, { method: "DELETE", signal: withDesktopTimeout(signal) }),
+    listRuntimeModelBindings: (runtimeId: string, signal?: AbortSignal) =>
+      request<InstanceModelBindingList>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-bindings`, { signal: withDesktopTimeout(signal) }),
+    applyRuntimeModelProfile: (runtimeId: string, modelProfileId: string, instanceIds: string[], mode: "INHERIT" | "OVERRIDE", idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-profile-applications`, {
+        method: "POST", signal: withDesktopTimeout(signal), headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({ modelProfileId, instanceIds, mode }),
       }),
     getModelConfiguration: (instanceId: string, signal?: AbortSignal) =>
       request<ModelConfiguration>(`/api/v1/instances/${encodeURIComponent(instanceId)}/config`, {

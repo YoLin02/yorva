@@ -207,6 +207,29 @@ YORVA-owned non-secret selection set and must contain `modelId`. The Provider ca
 endpoint accepts `{providerPresetId, value}` with `value` write-only, performs one
 bounded Provider request, and returns only normalized model IDs plus fetch time.
 
+P7R exposes Runtime-owned shared model resources separately from exact-Instance model
+configuration:
+
+```text
+GET|POST /api/v1/runtimes/{runtimeId}/model-provider-connections
+DELETE   /api/v1/runtimes/{runtimeId}/model-provider-connections/{connectionId}
+GET|POST /api/v1/runtimes/{runtimeId}/model-profiles
+DELETE   /api/v1/runtimes/{runtimeId}/model-profiles/{profileId}
+GET|PUT|DELETE /api/v1/runtimes/{runtimeId}/model-default
+GET      /api/v1/runtimes/{runtimeId}/model-bindings
+POST     /api/v1/runtimes/{runtimeId}/model-profile-applications
+```
+
+Provider Connection create accepts only `{providerPresetId, displayName, credential}`;
+`credential` is write-only and ordinary responses expose only configured status. Model
+Profile create accepts only a connection ID, display name, allowlisted selected model
+IDs and one default model ID. Batch application requires `Idempotency-Key`, a Profile,
+one or more exact Instance IDs and mode `INHERIT` or `OVERRIDE`, then returns a durable
+`model.profile.apply` Operation. `INHERIT` must use the current Runtime Default Profile.
+The Operation succeeds only when every selected Hermes Profile write and authoritative
+readback succeeds; per-Instance binding state remains visible when a batch partially
+fails. No endpoint accepts a Provider URL, path, env name or arbitrary configuration.
+
 ### Secrets
 
 Prefer resource-specific secret mutation endpoints rather than a generic secret dump API.
@@ -314,8 +337,9 @@ These resources are authenticated, bounded safe projections. Health contains onl
 normalized state and finding codes. Logs require exactly one allowlisted category and
 return a fixed-size redacted snapshot, never a source path or raw export. The resources
 never return native paths, Skill contents/configuration or MCP credential plaintext.
-YORVA-managed Definition reads may return non-secret endpoint, direct-command, argv,
-environment/header metadata and tool scope. `CONFIGURED` is not `READY`; a `READY`
+YORVA-managed Definition reads return only reviewed Preset metadata and tool scope.
+They do not return or accept caller-defined endpoint, command, argv, environment or
+header fields. `CONFIGURED` is not `READY`; a `READY`
 MCP result includes explicit time-bounded evidence. An unwired or unqualified Runtime feature returns
 `CAPABILITY_NOT_SUPPORTED` and does not fall back to a human-readable CLI.
 
