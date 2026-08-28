@@ -53,6 +53,14 @@ func main() {
 	switch os.Getenv("YORVA_FAKE_HERMES_MODE") {
 	case "success":
 		fmt.Println("Hermes Agent v0.19.7 (2026.8.14)")
+	case "version-wait":
+		if path := os.Getenv("YORVA_FAKE_HERMES_PID_FILE"); path != "" {
+			_ = os.WriteFile(path, []byte(fmt.Sprintf("%d", os.Getpid())), 0o600)
+		}
+		fmt.Println("Hermes Agent v0.20.2 (2026.8.28)")
+		for {
+			time.Sleep(time.Second)
+		}
 	case "failure":
 		fmt.Fprintln(os.Stderr, "private fake failure detail")
 		os.Exit(3)

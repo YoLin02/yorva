@@ -1,4 +1,4 @@
-import { HermesDiscoveryView, type HermesDiscoveryViewState } from "../components/HermesDiscoveryView";
+import { HermesDiscoveryView, type HermesDiscoveryViewState, type HermesRuntimeStartupState } from "../components/HermesDiscoveryView";
 import { HermesInstallPanel } from "../components/HermesInstallPanel";
 import { HermesPrerequisitePanel } from "../components/HermesPrerequisitePanel";
 import type { HermesPrerequisites, Operation } from "../api/types";
@@ -34,6 +34,7 @@ export function RuntimePage({
   onCancelInstall,
   onRetryInstall,
   instanceCount,
+  runtimeStartup,
   onOpenInstances,
   onOpenManagement,
 }: {
@@ -65,6 +66,7 @@ export function RuntimePage({
   onCancelInstall: () => void;
   onRetryInstall: () => void;
   instanceCount: number | null;
+  runtimeStartup?: HermesRuntimeStartupState;
   onOpenInstances: () => void;
   onOpenManagement?: () => void;
 }) {
@@ -93,6 +95,7 @@ export function RuntimePage({
         copy={copy}
         locale={locale}
         instanceCount={instanceCount}
+        runtimeStartup={runtimeStartup}
         onOpenInstances={onOpenInstances}
         onOpenManagement={onOpenManagement}
       />

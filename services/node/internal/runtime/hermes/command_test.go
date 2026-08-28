@@ -73,6 +73,43 @@ func TestCommandRunnerExecutesValidatedPythonEntrypointArguments(t *testing.T) {
 	}
 }
 
+func TestDiscoveryCommandRunnerStopsAfterTrustedVersionLine(t *testing.T) {
+	executable := buildFakeHermes(t)
+	pidFile := filepath.Join(t.TempDir(), "pid")
+	runner := testCommandRunner("version-wait", pidFile, 5*time.Second)
+	runner.stdoutReady = discoveryVersionReady
+	invocation := trustedDirectInvocation(executable)
+
+	started := time.Now()
+	result := runner.run(context.Background(), invocation)
+	if !result.ready || result.err != nil || result.stdout != "Hermes Agent v0.20.2 (2026.8.28)\n" {
+		t.Fatalf("early version run() = %#v", result)
+	}
+	if time.Since(started) >= 2*time.Second {
+		t.Fatalf("discovery waited for non-version work: %s", time.Since(started))
+	}
+	pid := readPID(t, pidFile)
+	if !waitForProcessExit(pid, 2*time.Second) {
+		t.Fatalf("early-complete Hermes process %d still exists after run returned", pid)
+	}
+}
+
+func TestDiscoveryCommandRunnerDoesNotEarlyAcceptUntrustedPathCandidate(t *testing.T) {
+	executable := buildFakeHermes(t)
+	pidFile := filepath.Join(t.TempDir(), "pid")
+	runner := testCommandRunner("version-wait", pidFile, 100*time.Millisecond)
+	runner.stdoutReady = discoveryVersionReady
+
+	result := runner.run(context.Background(), directInvocation(executable))
+	if result.ready || !result.timedOut || !errors.Is(result.err, context.DeadlineExceeded) {
+		t.Fatalf("untrusted early version run() = %#v", result)
+	}
+	pid := readPID(t, pidFile)
+	if !waitForProcessExit(pid, 2*time.Second) {
+		t.Fatalf("untrusted timed-out Hermes process %d still exists after run returned", pid)
+	}
+}
+
 func TestCommandRunnerBoundsOutputAndReapsOnTimeout(t *testing.T) {
 	executable := buildFakeHermes(t)
 	limited := testCommandRunner("output-limit", "", time.Second).run(context.Background(), directInvocation(executable))

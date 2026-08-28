@@ -45,6 +45,25 @@ func TestCandidateFinderPrioritizesOfficialCandidatesBeforePath(t *testing.T) {
 	}
 }
 
+func TestWindowsCandidateFinderTrustsHermesHomeBinLauncher(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows Hermes home layout")
+	}
+	localAppData := t.TempDir()
+	hermesHomeLauncher := writeCandidate(t, filepath.Join(localAppData, "hermes", "bin"))
+	t.Setenv("LOCALAPPDATA", localAppData)
+	t.Setenv("PATH", "")
+
+	got := newCandidateFinder().find()
+	if len(got.commands) != 1 {
+		t.Fatalf("find() commands = %#v, want Hermes home launcher", got.commands)
+	}
+	command := got.commands[0]
+	if command.path != canonicalPath(t, hermesHomeLauncher) || !command.trusted {
+		t.Fatalf("Hermes home invocation = %#v, want trusted launcher %q", command, hermesHomeLauncher)
+	}
+}
+
 func TestCandidateFinderIgnoresMissingDirectoriesAndNonFiles(t *testing.T) {
 	root := t.TempDir()
 	directoryCandidate := filepath.Join(root, executableNameForTest())

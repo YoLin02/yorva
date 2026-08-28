@@ -66,6 +66,9 @@ type Messages = {
     supportedRange: string;
     lastChecked: string;
     managedInstances: string;
+    defaultRuntime: string;
+    startRuntimeAgain: string;
+    runtimeStates: Record<"checking" | "starting" | "running" | "failed" | "unknown", string>;
     viewInstances: string;
     manageRuntime: string;
     unavailableValue: string;
@@ -680,6 +683,15 @@ const english: Messages = {
     supportedRange: "Supported range",
     lastChecked: "Last checked",
     managedInstances: "Managed instances",
+    defaultRuntime: "Default Runtime",
+    startRuntimeAgain: "Start again",
+    runtimeStates: {
+      checking: "Checking status",
+      starting: "Yorva is starting Hermes",
+      running: "Running",
+      failed: "Automatic start failed",
+      unknown: "Status unavailable",
+    },
     viewInstances: "View instances",
     manageRuntime: "Manage this Runtime",
     unavailableValue: "—",
@@ -1380,6 +1392,15 @@ const simplifiedChinese: Messages = {
     supportedRange: "支持范围",
     lastChecked: "上次检测",
     managedInstances: "管理实例",
+    defaultRuntime: "默认 Runtime",
+    startRuntimeAgain: "重新启动",
+    runtimeStates: {
+      checking: "正在读取状态",
+      starting: "YORVA 正在启动 Hermes",
+      running: "运行中",
+      failed: "自动启动失败",
+      unknown: "状态不可用",
+    },
     viewInstances: "查看实例",
     manageRuntime: "管理该引擎",
     unavailableValue: "—",

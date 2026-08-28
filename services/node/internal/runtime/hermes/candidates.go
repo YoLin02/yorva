@@ -24,6 +24,7 @@ type commandInvocation struct {
 	executable string
 	args       []string
 	workingDir string
+	trusted    bool
 }
 
 func directInvocation(path string) commandInvocation {
@@ -32,6 +33,12 @@ func directInvocation(path string) commandInvocation {
 		executable: path,
 		args:       []string{"--version"},
 	}
+}
+
+func trustedDirectInvocation(path string) commandInvocation {
+	invocation := directInvocation(path)
+	invocation.trusted = true
+	return invocation
 }
 
 type candidateSet struct {
@@ -59,13 +66,19 @@ func newCandidateFinder() candidateFinder {
 	if runtime.GOOS == "windows" {
 		executableName = "hermes.exe"
 		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			hermesHome := filepath.Join(localAppData, "hermes")
 			if gen, ok := resolveActiveGeneration(localAppData); ok {
 				officialPaths = append(officialPaths, gen.officialPaths...)
 				installationRoots = append(installationRoots, gen.installationRoots...)
 				ignorePathPrefixes = append(ignorePathPrefixes, gen.ignorePathPrefixes...)
 			} else {
-				installRoot := filepath.Join(localAppData, "hermes", "hermes-agent")
+				installRoot := filepath.Join(hermesHome, "hermes-agent")
 				installationRoots = append(installationRoots, installRoot)
+				officialPaths = append(officialPaths, filepath.Join(
+					hermesHome,
+					"bin",
+					"hermes.exe",
+				))
 				officialPaths = append(officialPaths, filepath.Join(
 					installRoot,
 					"bin",
@@ -103,7 +116,7 @@ func (f candidateFinder) find() candidateSet {
 	// are still inspected for ambiguity, but cannot crowd official launchers out
 	// of the bounded candidate set.
 	for _, path := range f.officialPaths {
-		ordered = append(ordered, directInvocation(path))
+		ordered = append(ordered, trustedDirectInvocation(path))
 	}
 	for _, root := range f.installationRoots {
 		if command, ok := f.officialPythonInvocation(root); ok {
@@ -128,7 +141,9 @@ func (f candidateFinder) find() candidateSet {
 			if !ok {
 				continue
 			}
+			trusted := command.trusted
 			command = directInvocation(canonical)
+			command.trusted = trusted
 		}
 		key := command.executable + "\x00" + strings.Join(command.args, "\x00")
 		if f.caseInsensitive {
@@ -189,6 +204,7 @@ func (f candidateFinder) officialPythonInvocation(root string) (commandInvocatio
 		executable: python,
 		args:       []string{"-I", "-m", hermesCLIModule, "--version"},
 		workingDir: canonicalRoot,
+		trusted:    true,
 	}, true
 }
 

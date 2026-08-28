@@ -1,11 +1,20 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { localeStorageKey } from "./i18n";
 
 const sessionMocks = vi.hoisted(() => ({ getDaemonSession: vi.fn() }));
-const clientMocks = vi.hoisted(() => ({ getNode: vi.fn(), detectHermes: vi.fn(), getHermesPrerequisites: vi.fn(), listOperations: vi.fn(), listHermesInstances: vi.fn() }));
+const clientMocks = vi.hoisted(() => ({
+  getNode: vi.fn(),
+  detectHermes: vi.fn(),
+  getHermesPrerequisites: vi.fn(),
+  listOperations: vi.fn(),
+  listHermesInstances: vi.fn(),
+  getInstanceLifecycle: vi.fn(),
+  startInstanceLifecycle: vi.fn(),
+  getOperation: vi.fn(),
+}));
 
 vi.mock("./api/session", () => ({
   getDaemonSession: sessionMocks.getDaemonSession,
@@ -15,7 +24,16 @@ vi.mock("./api/client", async () => {
   const actual = await vi.importActual<typeof import("./api/client")>("./api/client");
   return {
     ...actual,
-    createDaemonClient: () => ({ getNode: clientMocks.getNode, detectHermes: clientMocks.detectHermes, getHermesPrerequisites: clientMocks.getHermesPrerequisites, listOperations: clientMocks.listOperations, listHermesInstances: clientMocks.listHermesInstances }),
+    createDaemonClient: () => ({
+      getNode: clientMocks.getNode,
+      detectHermes: clientMocks.detectHermes,
+      getHermesPrerequisites: clientMocks.getHermesPrerequisites,
+      listOperations: clientMocks.listOperations,
+      listHermesInstances: clientMocks.listHermesInstances,
+      getInstanceLifecycle: clientMocks.getInstanceLifecycle,
+      startInstanceLifecycle: clientMocks.startInstanceLifecycle,
+      getOperation: clientMocks.getOperation,
+    }),
   };
 });
 vi.mock("./hooks/useEventStreamStatus", () => ({ useEventStreamStatus: () => "connected" }));
@@ -53,6 +71,14 @@ describe("App Desktop navigation and locale", () => {
     clientMocks.getNode.mockReset().mockResolvedValue(node);
     clientMocks.detectHermes.mockReset().mockResolvedValue(discovery);
     clientMocks.listOperations.mockReset().mockResolvedValue({ operations: [] });
+    clientMocks.getInstanceLifecycle.mockReset().mockResolvedValue({
+      state: "RUNNING",
+      activeOperationId: null,
+      observedAt: "2026-08-28T00:00:00Z",
+      errorCode: null,
+    });
+    clientMocks.startInstanceLifecycle.mockReset();
+    clientMocks.getOperation.mockReset();
     clientMocks.listHermesInstances.mockReset().mockResolvedValue({
       runtimeId: "hermes",
       runtimeInstallationId: "rtinst_test",
@@ -110,6 +136,93 @@ describe("App Desktop navigation and locale", () => {
     expect(screen.queryByRole("button", { name: "Manage this Runtime" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Back to Runtime/ }));
     expect(await screen.findByRole("button", { name: "Manage this Runtime" })).toBeInTheDocument();
+  });
+
+  it("starts only the stopped default Hermes Runtime when the Runtime page opens", async () => {
+    clientMocks.listHermesInstances.mockResolvedValue({
+      runtimeId: "hermes",
+      runtimeInstallationId: "rtinst_test",
+      freshness: "FRESH",
+      lastSyncedAt: "2026-08-28T00:00:00Z",
+      instances: [
+        {
+          instanceId: "inst_default",
+          runtimeInstallationId: "rtinst_test",
+          name: "default",
+          default: true,
+          protected: true,
+          availability: "AVAILABLE",
+          lastSyncedAt: "2026-08-28T00:00:00Z",
+          createdAt: "2026-08-28T00:00:00Z",
+          updatedAt: "2026-08-28T00:00:00Z",
+          capabilities: { instances: true, lifecycle: true },
+        },
+        {
+          instanceId: "inst_work",
+          runtimeInstallationId: "rtinst_test",
+          name: "work",
+          default: false,
+          protected: false,
+          availability: "AVAILABLE",
+          lastSyncedAt: "2026-08-28T00:00:00Z",
+          createdAt: "2026-08-28T00:00:00Z",
+          updatedAt: "2026-08-28T00:00:00Z",
+          capabilities: { instances: true, lifecycle: true },
+        },
+      ],
+      capabilities: { instances: true, lifecycle: true },
+      errorCode: null,
+    });
+    clientMocks.getInstanceLifecycle.mockResolvedValue({
+      state: "STOPPED",
+      activeOperationId: null,
+      observedAt: "2026-08-28T00:00:00Z",
+      errorCode: null,
+    });
+    clientMocks.startInstanceLifecycle.mockResolvedValue({
+      id: "op_runtime_start",
+      type: "instance.start",
+      targetType: "instance",
+      targetId: "inst_default",
+      status: "PENDING",
+      stage: "preflight",
+      progress: null,
+      message: "start",
+      errorCode: null,
+      retryable: false,
+      correlationId: "cor_runtime_start",
+      createdAt: "2026-08-28T00:00:00Z",
+      startedAt: null,
+      completedAt: null,
+      updatedAt: "2026-08-28T00:00:00Z",
+    });
+    clientMocks.getOperation.mockResolvedValue({
+      id: "op_runtime_start",
+      type: "instance.start",
+      targetType: "instance",
+      targetId: "inst_default",
+      status: "RUNNING",
+      stage: "instance.start",
+      progress: null,
+      message: "start",
+      errorCode: null,
+      retryable: false,
+      correlationId: "cor_runtime_start",
+      createdAt: "2026-08-28T00:00:00Z",
+      startedAt: "2026-08-28T00:00:01Z",
+      completedAt: null,
+      updatedAt: "2026-08-28T00:00:01Z",
+    });
+
+    renderApp();
+    await screen.findByText("DESKTOP-TEST");
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
+
+    await waitFor(() => {
+      expect(clientMocks.startInstanceLifecycle).toHaveBeenCalledTimes(1);
+    });
+    expect(clientMocks.startInstanceLifecycle).toHaveBeenCalledWith("inst_default", "start", expect.any(String));
+    expect(await screen.findByText("Yorva is starting Hermes")).toBeInTheDocument();
   });
 
   it("switches language immediately and persists the selection", async () => {

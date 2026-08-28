@@ -55,6 +55,11 @@ func TestDetectorOutcomes(t *testing.T) {
 			wantState: yorvaruntime.DiscoveryTimedOut, wantCode: yorvaruntime.ErrorRuntimeDiscoveryTimeout, wantCandidates: 1,
 		},
 		{
+			name:      "trusted version completed before update-status work",
+			commands:  []commandResult{{stdout: "Hermes Agent v0.20.2 (2026.8.28)\n", exitCode: -1, ready: true}},
+			wantState: yorvaruntime.DiscoverySupported, wantVersion: "0.20.2", wantSelected: true, wantCandidates: 1,
+		},
+		{
 			name:      "output limited",
 			commands:  []commandResult{{exitCode: -1, err: errOutputLimit, limited: true}},
 			wantState: yorvaruntime.DiscoveryBrokenExecutable, wantCode: yorvaruntime.ErrorRuntimeCommandOutputLimit, wantCandidates: 1,

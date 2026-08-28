@@ -92,6 +92,20 @@ describe("HermesDiscoveryView", () => {
     expect(onOpenInstances).toHaveBeenCalledOnce();
   });
 
+  it("shows that Yorva is starting the default Runtime", () => {
+    render(
+      <HermesDiscoveryView
+        state={{ kind: "complete", discovery: discovery("SUPPORTED"), onRetry: vi.fn() }}
+        copy={copy}
+        locale="en-US"
+        instanceCount={1}
+        runtimeStartup={{ kind: "starting" }}
+      />,
+    );
+    expect(screen.getByText("Default Runtime")).toBeInTheDocument();
+    expect(screen.getByText("Yorva is starting Hermes")).toBeInTheDocument();
+  });
+
   it("opens Runtime management from the supported engine card", () => {
     const onOpenManagement = vi.fn();
     render(

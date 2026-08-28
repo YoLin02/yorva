@@ -1,6 +1,7 @@
 package hermes
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -132,7 +133,7 @@ func (d *Detector) inspect(ctx context.Context, invocation commandInvocation) (y
 	if errors.Is(command.err, context.Canceled) {
 		return candidate, command.err
 	}
-	if command.err != nil || command.exitCode != 0 {
+	if command.err != nil || (command.exitCode != 0 && !command.ready) {
 		candidate.State = yorvaruntime.DiscoveryBrokenExecutable
 		candidate.ErrorCode = yorvaruntime.ErrorRuntimeExecutableBroken
 		return candidate, nil
@@ -152,6 +153,15 @@ func (d *Detector) inspect(ctx context.Context, invocation commandInvocation) (y
 		candidate.ErrorCode = yorvaruntime.ErrorRuntimeUnsupported
 	}
 	return candidate, nil
+}
+
+func discoveryVersionReady(output []byte) bool {
+	lineEnd := bytes.IndexByte(output, '\n')
+	if lineEnd < 0 {
+		return false
+	}
+	_, err := parseVersionBanner(string(output[:lineEnd+1]))
+	return err == nil
 }
 
 func aggregateDiscovery(result yorvaruntime.Discovery, officialRoots []string) yorvaruntime.Discovery {

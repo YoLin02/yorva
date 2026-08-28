@@ -3824,6 +3824,7 @@ p {
 
 .runtime-overview-heading,
 .runtime-secondary-head,
+.runtime-process-summary,
 .runtime-instance-summary {
   display: flex;
   align-items: center;
@@ -3896,6 +3897,7 @@ p {
 
 .runtime-overview-meta > div,
 .runtime-secondary-head > div,
+.runtime-process-summary > div,
 .runtime-instance-summary > div {
   min-width: 0;
 }
@@ -3962,6 +3964,35 @@ p {
 
 .runtime-instance-summary {
   padding-top: 2px;
+}
+
+.runtime-process-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid #eef2f6;
+  border-bottom: 1px solid #eef2f6;
+}
+
+.runtime-process-state {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.runtime-process-state.is-running {
+  color: #047857;
+}
+
+.runtime-process-state.is-starting,
+.runtime-process-state.is-checking {
+  color: #b45309;
+}
+
+.runtime-process-state.is-failed {
+  color: #b91c1c;
 }
 
 .runtime-instance-summary strong {
@@ -4777,6 +4808,7 @@ p {
 
   .runtime-overview-heading,
   .runtime-secondary-head,
+  .runtime-process-summary,
   .runtime-support-heading {
     align-items: flex-start;
     flex-direction: column;

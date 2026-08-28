@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createDaemonClient } from "./api/client";
 import { YorvaApiError } from "./api/client";
 import type { InstallRequestError } from "./installDiagnostic";
 import { getDaemonSession, isDaemonNotReady } from "./api/session";
 import { DesktopShell } from "./components/layout/DesktopShell";
-import type { HermesDiscoveryViewState } from "./components/HermesDiscoveryView";
+import type { HermesDiscoveryViewState, HermesRuntimeStartupState } from "./components/HermesDiscoveryView";
 import { useEventStreamStatus } from "./hooks/useEventStreamStatus";
 import { loadLocale, messages, saveLocale, type Locale, type PageId } from "./i18n";
 import {
@@ -46,6 +46,7 @@ export function App() {
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
   const [deleteOperationId, setDeleteOperationId] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const runtimeAutoStartAttempt = useRef<string | null>(null);
   const copy = messages[locale];
 
   const sessionQuery = useQuery({
@@ -330,6 +331,77 @@ export function App() {
       && (activePage === "instances" || activePage === "runtimes"),
     retry: false,
   });
+  const defaultRuntimeInstance = instancesQuery.data?.instances.find((item) =>
+    item.default && item.availability === "AVAILABLE" && item.capabilities.lifecycle,
+  );
+  const defaultRuntimeInstanceId = defaultRuntimeInstance?.instanceId ?? null;
+  const defaultRuntimeAttemptKey = client && defaultRuntimeInstanceId
+    ? `${client.scope}:${defaultRuntimeInstanceId}`
+    : null;
+  const defaultLifecycleQuery = useQuery({
+    queryKey: ["runtime-default-lifecycle", defaultRuntimeInstanceId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getInstanceLifecycle(defaultRuntimeInstanceId!, signal),
+    enabled: client !== undefined
+      && activePage === "runtimes"
+      && !runtimeManagementOpen
+      && defaultRuntimeInstanceId !== null,
+    retry: false,
+    refetchInterval: 5000,
+  });
+  const refetchDefaultLifecycle = defaultLifecycleQuery.refetch;
+  const runtimeStartMutation = useMutation({
+    mutationFn: (instanceId: string) => client!.startInstanceLifecycle(instanceId, "start", crypto.randomUUID()),
+    onError: () => {
+      void refetchDefaultLifecycle();
+    },
+  });
+  const followedRuntimeStartId = runtimeStartMutation.data?.id ?? defaultLifecycleQuery.data?.activeOperationId ?? null;
+  const runtimeStartOperationQuery = useQuery({
+    queryKey: ["runtime-default-start-operation", followedRuntimeStartId, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.getOperation(followedRuntimeStartId!, signal),
+    enabled: client !== undefined && followedRuntimeStartId !== null,
+    retry: false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "RUNNING" ? 750 : false;
+    },
+  });
+  const runtimeStartOperation = runtimeStartOperationQuery.data;
+  const runtimeStartBusy = runtimeStartMutation.isPending
+    || runtimeStartOperation?.status === "PENDING"
+    || runtimeStartOperation?.status === "RUNNING";
+  const startDefaultRuntime = useCallback(() => {
+    if (!client || !defaultRuntimeInstanceId || !defaultRuntimeAttemptKey || runtimeStartBusy) return;
+    runtimeAutoStartAttempt.current = defaultRuntimeAttemptKey;
+    runtimeStartMutation.mutate(defaultRuntimeInstanceId);
+  }, [client, defaultRuntimeAttemptKey, defaultRuntimeInstanceId, runtimeStartBusy, runtimeStartMutation]);
+  useEffect(() => {
+    if (
+      defaultLifecycleQuery.data?.state !== "STOPPED"
+      || defaultLifecycleQuery.data.activeOperationId !== null
+      || !defaultRuntimeAttemptKey
+      || runtimeStartBusy
+      || runtimeAutoStartAttempt.current === defaultRuntimeAttemptKey
+    ) return;
+    void startDefaultRuntime();
+  }, [
+    defaultLifecycleQuery.data?.activeOperationId,
+    defaultLifecycleQuery.data?.state,
+    defaultRuntimeAttemptKey,
+    runtimeStartBusy,
+    startDefaultRuntime,
+  ]);
+  useEffect(() => {
+    if (!runtimeStartOperation || runtimeStartBusy) return;
+    if (runtimeStartOperation.status === "SUCCEEDED") {
+      void refetchDefaultLifecycle();
+      void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+      return;
+    }
+    if (runtimeStartOperation.status === "FAILED" || runtimeStartOperation.status === "CANCELLED") {
+      void refetchDefaultLifecycle();
+    }
+  }, [queryClient, refetchDefaultLifecycle, runtimeStartBusy, runtimeStartOperation]);
   const instanceOperationsQuery = useQuery({
     queryKey: ["instance-operations", instancesQuery.data?.runtimeInstallationId, sessionQuery.data?.baseUrl],
     queryFn: ({ signal }) =>
@@ -424,6 +496,21 @@ export function App() {
     }
   }, [deleteOperationQuery.data?.status, queryClient]);
 
+  let runtimeStartup: HermesRuntimeStartupState | undefined;
+  if (defaultRuntimeInstanceId) {
+    if (runtimeStartBusy || defaultLifecycleQuery.data?.state === "STOPPED" && !runtimeStartMutation.isError && runtimeStartOperation?.status !== "FAILED" && runtimeStartOperation?.status !== "CANCELLED") {
+      runtimeStartup = { kind: "starting" };
+    } else if (defaultLifecycleQuery.data?.state === "RUNNING") {
+      runtimeStartup = { kind: "running" };
+    } else if (runtimeStartMutation.isError || runtimeStartOperation?.status === "FAILED" || runtimeStartOperation?.status === "CANCELLED") {
+      runtimeStartup = { kind: "failed", onRetry: startDefaultRuntime };
+    } else if (defaultLifecycleQuery.isPending || defaultLifecycleQuery.isFetching) {
+      runtimeStartup = { kind: "checking" };
+    } else {
+      runtimeStartup = { kind: "unknown" };
+    }
+  }
+
   let content;
   if (activePage === "settings") {
     content = <SettingsPage copy={copy} locale={locale} client={client} onLocaleChange={changeLocale} />;
@@ -510,6 +597,7 @@ export function App() {
         onCancelInstall={() => { void cancelInstall(); }}
         onRetryInstall={retryInstall}
         instanceCount={instancesQuery.data?.instances.length ?? null}
+        runtimeStartup={runtimeStartup}
         onOpenInstances={() => setActivePage("instances")}
         onOpenManagement={instancesQuery.data?.instances.length ? () => setRuntimeManagementOpen(true) : undefined}
       />

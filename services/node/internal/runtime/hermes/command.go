@@ -33,6 +33,7 @@ type commandResult struct {
 	err      error
 	timedOut bool
 	limited  bool
+	ready    bool
 }
 
 type commandRunner struct {
@@ -41,6 +42,7 @@ type commandRunner struct {
 	outputLimit    int64
 	allowBreakaway bool
 	environment    func() []string
+	stdoutReady    func([]byte) bool
 }
 
 func newCommandRunner() commandRunner {
@@ -55,6 +57,10 @@ func newCommandRunner() commandRunner {
 func newDiscoveryCommandRunner() commandRunner {
 	runner := newCommandRunner()
 	runner.timeout = discoveryCommandTimeout
+	runner.environment = func() []string {
+		return append(minimalEnvironment(), "PYTHONUNBUFFERED=1")
+	}
+	runner.stdoutReady = discoveryVersionReady
 	return runner
 }
 
@@ -114,12 +120,18 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 	defer cleanupProcessTree()
 
 	type streamResult struct {
-		name string
-		data []byte
-		err  error
+		name  string
+		data  []byte
+		ready bool
+		err   error
 	}
 	streams := make(chan streamResult, 2)
 	read := func(name string, source io.Reader) {
+		if name == "stdout" && invocation.trusted && r.stdoutReady != nil {
+			data, ready, readErr := readBoundedUntil(source, r.outputLimit, r.stdoutReady)
+			streams <- streamResult{name: name, data: data, ready: ready, err: readErr}
+			return
+		}
 		data, readErr := readBounded(source, r.outputLimit)
 		streams <- streamResult{name: name, data: data, err: readErr}
 	}
@@ -130,6 +142,7 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 	var stderrData []byte
 	received := 0
 	limited := false
+	ready := false
 	var readErr error
 	contextDone := commandCtx.Done()
 	terminate := func() {
@@ -153,6 +166,10 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 				if readErr == nil {
 					readErr = classified
 				}
+				terminate()
+			}
+			if stream.ready {
+				ready = true
 				terminate()
 			}
 		case <-contextDone:
@@ -187,6 +204,9 @@ func (r commandRunner) run(ctx context.Context, invocation commandInvocation) co
 	if readErr != nil {
 		return commandResult{stdout: stdoutText, stderr: stderrText, exitCode: exitCode, err: readErr}
 	}
+	if ready {
+		return commandResult{stdout: stdoutText, stderr: stderrText, exitCode: exitCode, ready: true}
+	}
 	return commandResult{stdout: stdoutText, stderr: stderrText, exitCode: exitCode, err: waitErr}
 }
 
@@ -206,6 +226,31 @@ func readBounded(source io.Reader, limit int64) ([]byte, error) {
 		return data[:limit], errOutputLimit
 	}
 	return data, nil
+}
+
+func readBoundedUntil(source io.Reader, limit int64, ready func([]byte) bool) ([]byte, bool, error) {
+	data := make([]byte, 0, min(limit, 4096))
+	buffer := make([]byte, 4096)
+	for {
+		read, err := source.Read(buffer)
+		if read > 0 {
+			remaining := limit - int64(len(data))
+			if int64(read) > remaining {
+				data = append(data, buffer[:remaining]...)
+				return data, false, errOutputLimit
+			}
+			data = append(data, buffer[:read]...)
+			if ready(data) {
+				return data, true, nil
+			}
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return data, false, nil
+			}
+			return data, false, err
+		}
+	}
 }
 
 func minimalEnvironment() []string {

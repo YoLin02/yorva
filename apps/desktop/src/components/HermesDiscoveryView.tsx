@@ -12,11 +12,17 @@ export type HermesDiscoveryViewState =
   | { kind: "failure"; onRetry: () => void }
   | { kind: "complete"; discovery: RuntimeDiscovery; onRetry: () => void };
 
+export type HermesRuntimeStartupState = {
+  kind: "checking" | "starting" | "running" | "failed" | "unknown";
+  onRetry?: () => void;
+};
+
 export function HermesDiscoveryView({
   state,
   copy,
   locale,
   instanceCount,
+  runtimeStartup,
   onOpenInstances,
   onOpenManagement,
 }: {
@@ -24,6 +30,7 @@ export function HermesDiscoveryView({
   copy: AppMessages;
   locale: Locale;
   instanceCount?: number | null;
+  runtimeStartup?: HermesRuntimeStartupState;
   onOpenInstances?: () => void;
   onOpenManagement?: () => void;
 }) {
@@ -104,16 +111,34 @@ export function HermesDiscoveryView({
         ) : null}
 
         {instanceCount !== undefined && instanceCount !== null ? (
-          <div className="runtime-instance-summary">
-            <div>
-              <span className="runtime-field-label">{copy.hermes.managedInstances}</span>
-              <strong>{instanceCount}</strong>
+          <>
+            {runtimeStartup ? (
+              <div className="runtime-process-summary">
+                <div>
+                  <span className="runtime-field-label">{copy.hermes.defaultRuntime}</span>
+                  <strong className={`runtime-process-state is-${runtimeStartup.kind}`}>
+                    {copy.hermes.runtimeStates[runtimeStartup.kind]}
+                  </strong>
+                </div>
+                {runtimeStartup.kind === "failed" && runtimeStartup.onRetry ? (
+                  <Button variant="secondary" className="button-compact button-neutral" onClick={runtimeStartup.onRetry}>
+                    <IconRefresh />
+                    {copy.hermes.startRuntimeAgain}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="runtime-instance-summary">
+              <div>
+                <span className="runtime-field-label">{copy.hermes.managedInstances}</span>
+                <strong>{instanceCount}</strong>
+              </div>
+              <div className="runtime-instance-actions">
+                {isSupported && onOpenManagement ? <Button variant="primary" onClick={onOpenManagement}>{copy.hermes.manageRuntime}</Button> : null}
+                {onOpenInstances ? <Button variant="ghost" onClick={onOpenInstances}>{copy.hermes.viewInstances} →</Button> : null}
+              </div>
             </div>
-            <div className="runtime-instance-actions">
-              {isSupported && onOpenManagement ? <Button variant="primary" onClick={onOpenManagement}>{copy.hermes.manageRuntime}</Button> : null}
-              {onOpenInstances ? <Button variant="ghost" onClick={onOpenInstances}>{copy.hermes.viewInstances} →</Button> : null}
-            </div>
-          </div>
+          </>
         ) : null}
       </div>
 
