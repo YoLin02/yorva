@@ -41,6 +41,13 @@ type managementRoutingInventory struct {
 	instanceID    string
 	runtimeTarget app.RuntimeManagementTarget
 	runtimeID     string
+	clearedID     string
+	clearErr      error
+}
+
+func (f *managementRoutingInventory) ClearRemovedInstance(_ context.Context, instanceID string) error {
+	f.clearedID = instanceID
+	return f.clearErr
 }
 
 func (f *managementRoutingInventory) ResolveRuntimeManagementTarget(_ context.Context, runtimeID string) (app.RuntimeManagementTarget, error) {
@@ -280,6 +287,36 @@ func TestOriginPolicyAllowsOnlyDesktopOrigins(t *testing.T) {
 		}
 		assertProtocolError(t, response, "NOT_FOUND")
 	})
+}
+
+func TestRemovedInstanceRecordRouteAllowsPreflightAndAuthenticatedDelete(t *testing.T) {
+	inventory := &managementRoutingInventory{}
+	handler := NewHandler(testToken, testNode, nil, fakeRuntimeDiscovery{}, nil, inventory, "", nil)
+	path := "/api/v1/instances/inst-removed/record"
+
+	preflight := httptest.NewRequest(http.MethodOptions, path, nil)
+	preflight.Header.Set("Origin", "http://tauri.localhost")
+	preflightResponse := httptest.NewRecorder()
+	handler.ServeHTTP(preflightResponse, preflight)
+	if preflightResponse.Code != http.StatusNoContent || preflightResponse.Header().Get("Allow") != "DELETE, OPTIONS" {
+		t.Fatalf("preflight = %d Allow %q", preflightResponse.Code, preflightResponse.Header().Get("Allow"))
+	}
+
+	request := httptest.NewRequest(http.MethodDelete, path, nil)
+	request.Header.Set("Authorization", "Bearer "+testToken)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent || inventory.clearedID != "inst-removed" {
+		t.Fatalf("DELETE = %d body %q cleared %q", response.Code, response.Body.String(), inventory.clearedID)
+	}
+
+	post := httptest.NewRequest(http.MethodPost, path, nil)
+	post.Header.Set("Authorization", "Bearer "+testToken)
+	postResponse := httptest.NewRecorder()
+	handler.ServeHTTP(postResponse, post)
+	if postResponse.Code != http.StatusMethodNotAllowed || postResponse.Header().Get("Allow") != "DELETE, OPTIONS" {
+		t.Fatalf("POST = %d Allow %q", postResponse.Code, postResponse.Header().Get("Allow"))
+	}
 }
 
 func TestRoutingErrorsUseStableProtocolEnvelope(t *testing.T) {

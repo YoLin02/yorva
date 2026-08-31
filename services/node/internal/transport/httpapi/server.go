@@ -325,6 +325,8 @@ func allowedMethods(path string) (string, bool) {
 		return "GET, POST, OPTIONS", true
 	case "get":
 		return "GET, DELETE, OPTIONS", true
+	case "record":
+		return "DELETE, OPTIONS", true
 	case "lifecycle":
 		return "POST, OPTIONS", true
 	case "lifecycle-status":

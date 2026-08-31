@@ -413,6 +413,12 @@ func instancePathKind(path string) string {
 		if rest != "" && !strings.Contains(rest, "/") {
 			return "get"
 		}
+		if strings.HasSuffix(rest, "/record") {
+			id := strings.TrimSuffix(rest, "/record")
+			if id != "" && !strings.Contains(id, "/") {
+				return "record"
+			}
+		}
 		for _, action := range []string{"/start", "/stop", "/restart"} {
 			if strings.HasSuffix(rest, action) {
 				id := strings.TrimSuffix(rest, action)
