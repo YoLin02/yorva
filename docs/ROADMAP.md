@@ -365,6 +365,16 @@ evidence remained the active freeze blockers until both subsequently passed for 
 [`33050692156`](https://github.com/YoLin02/yorva/actions/runs/33050692156) before the
 formal baseline was frozen.
 
+Post-freeze stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc`
+was fast-forwarded to `main` on 2026-08-31. It adds bounded Hermes launch during
+detection, separates removed Instance records from the active inventory, and closes the
+authenticated cleanup route after authoritative absence readback. Exact revision CI run
+[`33365096577`](https://github.com/YoLin02/yorva/actions/runs/33365096577) passed. Final-main
+CI run [`33366271630`](https://github.com/YoLin02/yorva/actions/runs/33366271630) retained
+an initial Windows handshake-timeout failure and passed on attempt 2; Windows MSI run
+[`33366271629`](https://github.com/YoLin02/yorva/actions/runs/33366271629) passed. The
+original Phase 7 baseline tag remains immutable and is not moved by this corrective patch.
+
 Goal: complete the local, terminal-free operating loop for multiple Runtime Instances on one machine before adding distributed management.
 
 Candidate deliverables:
@@ -405,8 +415,15 @@ The normal path must not require the user to open a terminal or directly edit Ru
 Status: **DRAFT — OWNER REVIEW; IMPLEMENTATION NOT AUTHORIZED**
 Specs: docs/phases/PHASE-008-local-product-hardening.zh-CN.md (Owner review) and
 docs/phases/PHASE-008-local-product-hardening.md (execution mirror)
-Required baseline: phase-007-hermes-runtime-management-completeness-baseline
+Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus accepted
+P7 stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc` on `main`
 Planned branch: phase/p8-local-product-hardening
+
+The P7 stability handoff adds bounded Hermes launch during detection and authoritative
+removed-Instance record classification/cleanup without moving the frozen P7 tag or
+reopening deferred P7 capabilities. Exact revision CI run `33365096577`, final-main CI
+run `33366271630` attempt 2 and Windows MSI run `33366271629` passed. P8 implementation
+remains blocked until the Owner approves the P8 Spec.
 
 Goal: turn the completed single-Node experience into a dependable public local product before validating additional Runtime or remote-management scope.
 

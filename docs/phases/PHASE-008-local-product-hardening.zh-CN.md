@@ -3,7 +3,7 @@
 > 状态：**DRAFT — 等待 Owner 审批，尚未授权实现**
 > 阶段标识：P8
 > 阶段性质：本地产品可靠化与首个正式 Windows MVP
-> 必需基线：phase-007-hermes-runtime-management-completeness-baseline
+> 必需基线：phase-007-hermes-runtime-management-completeness-baseline + P7 稳定性修订 `9834a8cb1df9e70502936153943f501ed37cb8fc`
 > 计划分支：phase/p8-local-product-hardening
 > 产品输入：《YORVA MVP-First 阶段总规划（P7R–P13）》P8
 > 执行方式：单主 Agent；每个完成并通过聚焦 Gate 的 Batch 自动 Commit
@@ -12,6 +12,10 @@
 
 本文件把 Owner 提供的 MVP-First P8 内容整理为适合当前仓库的可执行计划。
 创建本文件不等于授权实现。只有 Owner 明确批准本 Spec 后，P8-B0 才能开始。
+
+P8 以 2026-08-31 已合并到 `main` 的 P7 稳定性修订 `9834a8c` 为代码起点，
+但不移动或重写既有 Phase 7 冻结标签。该修订只补充 Hermes 检测时的有界自动启动、
+已移除 Instance 记录分组与安全清理，不扩大 P7 已冻结的产品范围。
 
 Phase 8 不重新打开 Phase 7 已延期的 Hermes Managed Upgrade/Rollback。本文中的
 “YORVA 更新”只表示 YORVA Desktop、yorvad、数据库 Schema 与随包资源从一个受支持
@@ -43,7 +47,23 @@ Phase 8 的完成标准是真实安装包、真实持久化数据和真实失败
 
 ## 2. 冻结基线与当前事实
 
-Phase 8 从 Phase 7 正式标签开始，不修改或移动 Phase 7 标签。
+Phase 8 从 Phase 7 正式标签及其已接纳的稳定性修订开始，不修改或移动 Phase 7 标签。
+
+P7 交接链：
+
+~~~text
+phase-007-hermes-runtime-management-completeness-baseline (12b16bc)
+→ 64761ac  Hermes 检测时有界自动启动与超时稳定化
+→ be7b812  当前 Instance 与已移除记录分组
+→ 9834a8c  已移除记录清理路由闭环
+→ main
+~~~
+
+修订候选 `9834a8c` 已通过 GitHub CI run `33365096577` 的 Web/API、Go race、
+Windows native、Rust 与非 MSI build Gate。合并后的 final-main CI run `33366271630`
+在首次 Windows runner 握手超时后保留失败记录，并由 attempt 2 完整通过；Windows MSI
+run `33366271629` 同时通过。P8 计划分支必须包含该提交，P8 实现仍须由 Owner 批准本
+Spec。
 
 当前可复用基础：
 
@@ -52,6 +72,9 @@ Phase 8 从 Phase 7 正式标签开始，不修改或移动 Phase 7 标签。
 - 当前数据库通过内嵌顺序 Migration 自动升级，冻结 Schema 为 016；
 - Desktop 已拥有 daemon 启动、握手、托盘、隐藏启动和单实例基础；
 - Runtime/Instance、Operation、Skills、MCP、Backup/Restore 已有恢复或 reconcile 基础；
+- Hermes 已安装但未运行时，检测链具有一次有界启动与重新检测能力；
+- 外部删除的 Hermes Profile 会进入独立的“已移除记录”，并且只有在权威回读仍确认
+  不存在时才能清理 YORVA 管理记录；
 - 安装与运行日志已有脱敏约束和稳定错误码；
 - CI 已包含 Web/API、Go race、Windows native、Rust 与非 MSI build。
 
@@ -64,6 +87,14 @@ Phase 8 从 Phase 7 正式标签开始，不修改或移动 Phase 7 标签。
 - 没有用户可一键导出的脱敏诊断包；
 - 没有 3 Instance、4–8 小时 Soak 和资源增长证据；
 - 没有 P8 发布签名、支持矩阵、恢复指南和更新来源策略。
+
+### 2.1 P8 进入条件
+
+- `main` 包含 P7 稳定性修订 `9834a8c`，且 final-main CI 成功；
+- P8 中英文 Spec 与 `ROADMAP.md` 使用同一代码基线；
+- Phase 7 冻结标签保持不变，修订内容不被错误表述为新 P7 capability；
+- Owner 明确批准 P8-D1–D9、B0–B6 顺序及自动 Commit 方式；
+- 在上述条件满足前，只允许计划审阅，不开始 P8 实现。
 
 ## 3. P8 产品决策
 
@@ -222,9 +253,13 @@ acquire single daemon ownership
 - Desktop crash 后 daemon 所有权和重新连接；
 - daemon crash 后 Desktop 有界重启与明确失败；
 - Windows reboot 后 autostart/single-instance/daemon 启动连续性；
+- Hermes 已安装但未运行时执行一次有界启动并重新检测；启动失败必须进入稳定、可重试
+  的恢复状态，不能无限拉起或继续显示“检测超时”；
 - stale Operation 按各自资源权威状态恢复或失败；
 - install、restore、model、Skill、MCP、Backup Operation 恢复矩阵；
 - Runtime/Instance inventory reconcile；
+- Hermes Profile 在外部删除、恢复或重建后，当前 Instance 与已移除记录必须按权威
+  read-back 重新分类；只有持续确认缺失的非受保护记录可以清理；
 - 不重复启动 daemon，不留下孤儿进程；
 - 恢复过程的进度和最终错误在 Desktop 可理解地展示；
 - 恢复失败不阻断诊断导出入口。
@@ -235,6 +270,10 @@ B2 Gate：
 - daemon kill/restart：PASS；
 - 模拟 stale Operations：PASS；
 - disposable Windows reboot/login smoke：PASS；
+- Hermes 预先停止 → YORVA 有界启动 → 支持版本检测成功：PASS；
+- Hermes 启动失败 → 明确恢复状态且无重复拉起：PASS；
+- Profile 外部删除 → 进入已移除记录 → 权威确认后清理：PASS；
+- 已移除 Profile 重新出现时拒绝清理、刷新后恢复当前 Instance：PASS；
 - Runtime/Instance 权威 read-back：PASS；
 - 无虚假 SUCCEEDED、无双 daemon、无未回收测试进程；
 - Go/Rust/Desktop tests 与 Windows smoke 通过后 Commit。

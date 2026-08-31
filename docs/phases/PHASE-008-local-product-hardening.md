@@ -2,7 +2,7 @@
 
 > Status: **DRAFT — OWNER REVIEW; IMPLEMENTATION NOT AUTHORIZED**
 > Phase: P8
-> Required baseline: phase-007-hermes-runtime-management-completeness-baseline
+> Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus P7 stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc`
 > Planned branch: phase/p8-local-product-hardening
 > Product input: YORVA MVP-First P7R–P13 plan, P8
 > Execution: one primary agent; automatic commit after each completed Batch Gate
@@ -16,6 +16,11 @@ when wording differs.
 This Spec translates the Owner-provided MVP-first plan into the current repository
 baseline. It does not authorize implementation by itself. P8-B0 starts only after
 explicit Owner approval.
+
+P8 uses the P7 stability revision `9834a8c`, merged to `main` on 2026-08-31, as its
+code starting point without moving or rewriting the existing Phase 7 baseline tag. The
+revision only closes bounded Hermes detect/autostart behavior and removed-Instance record
+classification/cleanup; it does not expand the frozen Phase 7 product scope.
 
 Phase 8 does not reopen the managed Hermes Upgrade/Rollback deferred by Phase 7
 Amendment 007A1. “YORVA update” means updating the YORVA Desktop, yorvad, supported
@@ -47,6 +52,22 @@ success is not completion evidence.
 
 ## 3. Baseline facts
 
+P7 handoff chain:
+
+~~~text
+phase-007-hermes-runtime-management-completeness-baseline (12b16bc)
+→ 64761ac  bounded Hermes launch during detection and timeout stabilization
+→ be7b812  separate current Instances from removed records
+→ 9834a8c  complete the removed-record cleanup route
+→ main
+~~~
+
+Candidate `9834a8c` passed GitHub CI run `33365096577`, including Web/API, Go race,
+Windows native, Rust and no-bundle build Gates. After merge, final-main CI run
+`33366271630` preserved an initial Windows runner handshake-timeout failure and passed in
+full on attempt 2; Windows MSI run `33366271629` also passed. The P8 branch must contain
+this commit, and implementation still requires explicit Owner approval.
+
 Reusable Phase 7 foundations:
 
 - Tauri 2, React/TypeScript, Go yorvad and SQLite form the local product path;
@@ -54,6 +75,9 @@ Reusable Phase 7 foundations:
 - embedded ordered SQLite migrations currently end at schema 016;
 - daemon handshake, tray, hidden startup and single-instance behavior exist;
 - Runtime/Instance Operations and recovery/reconcile foundations exist;
+- detection can make one bounded launch attempt when Hermes is installed but stopped;
+- externally removed Hermes Profiles are separated from current Instances and their
+  YORVA records can be cleared only after authoritative absence is reconfirmed;
 - CI covers Web/API, Go race, Windows native, Rust and no-bundle builds.
 
 P8 gaps:
@@ -65,6 +89,15 @@ P8 gaps:
 - no one-click sanitized diagnostic bundle;
 - no 3-Instance 4–8 hour soak evidence;
 - no final support matrix, release signing contract or recovery guide.
+
+### 3.1 P8 entry conditions
+
+- `main` contains `9834a8c` and final-main CI succeeds;
+- both P8 Specs and `ROADMAP.md` name the same code baseline;
+- the immutable Phase 7 tag remains unchanged and the patch is not represented as a new
+  P7 capability;
+- the Owner explicitly approves P8-D1–D9, B0–B6 ordering and automatic Batch commits;
+- before these conditions hold, plan review is allowed but P8 implementation is not.
 
 ## 4. Proposed Owner decisions
 
@@ -183,11 +216,17 @@ single daemon ownership
 ~~~
 
 Cover Desktop crash, daemon crash, Windows reboot, stale Operations, Runtime/Instance
-inventory reconciliation, orphan prevention and usable recovery UI. SQLite cache never
-substitutes for live Runtime state.
+inventory reconciliation, orphan prevention and usable recovery UI. If an installed
+Hermes is stopped, YORVA performs one bounded launch and redetection attempt; launch
+failure becomes a stable retryable recovery state, never an infinite respawn or a generic
+timeout loop. Externally removed, restored or recreated Profiles are reclassified from
+authoritative readback, and only a still-absent non-protected record may be cleared.
+SQLite cache never substitutes for live Runtime state.
 
 Gate: Desktop kill/reopen, daemon kill/restart, stale-operation fixtures, disposable
-Windows reboot/login smoke, authoritative readback, no false success or duplicate daemon.
+Windows reboot/login smoke, stopped-Hermes launch/redetect, launch-failure no-respawn,
+external Profile removal/reappearance/cleanup, authoritative readback, no false success
+or duplicate daemon.
 
 ### P8-B3 — Windows installer lifecycle
 
