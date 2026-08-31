@@ -30,6 +30,7 @@ var (
 	ErrInstanceNotCancellable       = errors.New("instance operation is not cancellable")
 	ErrInstanceProtected            = errors.New("instance is protected")
 	ErrInstanceConfirmationMismatch = errors.New("instance confirmation does not match")
+	ErrInstanceRecordNotRemoved     = errors.New("instance record is not removed")
 )
 
 type ProfileSnapshot struct {
@@ -636,6 +637,60 @@ func (s *InstanceInventory) profilePresent(ctx context.Context, installationID, 
 		}
 	}
 	return false, nil
+}
+
+// ClearRemovedInstance deletes YORVA-owned metadata only after a fresh Hermes
+// reconciliation still confirms that the Runtime-owned profile is absent.
+func (s *InstanceInventory) ClearRemovedInstance(ctx context.Context, instanceID string) error {
+	row, err := s.db.GetInstance(ctx, instanceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrInstanceNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if row.Default || row.Protected || row.NativeID == "default" {
+		return ErrInstanceProtected
+	}
+
+	unlock := s.lockInstallation(row.RuntimeInstallationID)
+	defer unlock()
+
+	discovery, err := s.discovery.Detect(ctx, yorvaruntime.Kind(hermesRuntimeID))
+	if err != nil {
+		return err
+	}
+	if discovery.State != yorvaruntime.DiscoverySupported || discovery.Selected == nil || discovery.Selected.Path == "" {
+		return ErrRuntimeNotSupported
+	}
+	if _, err := s.reconcileLocked(ctx, row.RuntimeInstallationID, discovery.Selected.Path); err != nil {
+		return err
+	}
+
+	current, err := s.db.GetInstance(ctx, instanceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrInstanceNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if current.Availability != instance.Missing {
+		return ErrInstanceRecordNotRemoved
+	}
+	if _, active, err := s.db.ActiveInstanceRuntimeMutation(ctx, instanceID); err != nil {
+		return err
+	} else if active {
+		return ErrInstanceConflict
+	}
+
+	deleted, err := s.db.DeleteMissingInstanceRecord(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+	if !deleted {
+		return ErrInstanceRecordNotRemoved
+	}
+	return nil
 }
 
 func (s *InstanceInventory) succeedCreate(current operation.Operation) {

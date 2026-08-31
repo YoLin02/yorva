@@ -67,6 +67,7 @@ const (
 	ErrorInstanceNotAvailable         ErrorCode = "INSTANCE_NOT_AVAILABLE"
 	ErrorInstanceProtected            ErrorCode = "INSTANCE_PROTECTED"
 	ErrorInstanceConfirmationMismatch ErrorCode = "INSTANCE_CONFIRMATION_MISMATCH"
+	ErrorInstanceRecordNotRemoved     ErrorCode = "INSTANCE_RECORD_NOT_REMOVED"
 	ErrorInstanceConflict             ErrorCode = "INSTANCE_CONFLICT"
 	ErrorInstanceQueryFailed          ErrorCode = "INSTANCE_QUERY_FAILED"
 	ErrorInstanceOutputUnrecognized   ErrorCode = "INSTANCE_OUTPUT_UNRECOGNIZED"

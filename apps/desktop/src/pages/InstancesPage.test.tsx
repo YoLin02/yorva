@@ -130,7 +130,7 @@ describe("InstancesPage", () => {
     expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Capabilities" })).not.toBeInTheDocument();
     expect(screen.queryByText("Instance management")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Available").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Current/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByText(messages["en-US"].instances.emptyNamed)).not.toBeInTheDocument();
     expect(screen.queryByText(messages["en-US"].instances.lifecycleUnavailable)).not.toBeInTheDocument();
     expect(screen.queryByText(messages["en-US"].instances.totalCount.replace("{count}", "2"))).not.toBeInTheDocument();
@@ -331,7 +331,8 @@ describe("InstancesPage", () => {
     expect(within(dialog).getByRole("button", { name: "Delete" })).toBeDisabled();
   });
 
-  it("does not offer delete for missing or unknown instances", () => {
+  it("keeps removed records out of the current list and offers metadata cleanup separately", async () => {
+    const onClearRemoved = vi.fn(async () => undefined);
     const tombstoned: InstanceList = {
       ...inventory,
       instances: [
@@ -369,15 +370,20 @@ describe("InstancesPage", () => {
         onDeleteConfirmationChange={() => undefined}
         onDelete={() => undefined}
         onCancelDelete={() => undefined}
+        onClearRemoved={onClearRemoved}
       />,
     );
-    expect(screen.getByText("coder")).toBeInTheDocument();
+    expect(screen.queryByText("coder")).not.toBeInTheDocument();
     expect(screen.getByText("notes")).toBeInTheDocument();
-    expect(screen.getAllByText("Deleted").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
-    const moreButtons = screen.getAllByRole("button", { name: "More actions" });
-    expect(moreButtons.filter((button) => button.hasAttribute("disabled"))).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: /Removed records/ }));
+    expect(screen.getByText("coder")).toBeInTheDocument();
+    expect(screen.queryByText("notes")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear record" }));
+    const dialog = screen.getByRole("dialog", { name: "Clear removed record" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear record" }));
+    await waitFor(() => expect(onClearRemoved).toHaveBeenCalledWith(tombstoned.instances[1]));
   });
 
   it("opens the read-only management panel from an exact Instance action", () => {

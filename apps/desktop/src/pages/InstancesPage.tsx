@@ -26,7 +26,7 @@ import { ChannelPanel } from "../components/channels/ChannelPanel";
 import { ManagementPanel } from "../components/management/ManagementPanel";
 
 const createNamePattern = /^[a-z][a-z0-9_-]{0,63}$/;
-type AvailabilityFilter = "ALL" | Instance["availability"];
+type AvailabilityFilter = "ACTIVE" | "REMOVED";
 
 type InstancesPageProps = {
   supported: boolean;
@@ -51,6 +51,7 @@ type InstancesPageProps = {
   onDeleteConfirmationChange: (value: string) => void;
   onDelete: () => void;
   onCancelDelete: () => void;
+  onClearRemoved?: (item: Instance) => Promise<void>;
   client?: DaemonClient;
 };
 
@@ -77,13 +78,18 @@ export function InstancesPage({
   onDeleteConfirmationChange,
   onDelete,
   onCancelDelete,
+  onClearRemoved,
   client,
 }: InstancesPageProps) {
   const items = useMemo(() => inventory?.instances ?? [], [inventory?.instances]);
-  const named = items.filter((item) => !item.default);
-  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("ALL");
+  const activeItems = useMemo(() => items.filter((item) => item.availability !== "MISSING"), [items]);
+  const named = activeItems.filter((item) => !item.default);
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("ACTIVE");
   const [searchQuery, setSearchQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [clearTarget, setClearTarget] = useState<Instance | null>(null);
+  const [clearBusy, setClearBusy] = useState(false);
+  const [clearFailed, setClearFailed] = useState(false);
   const [modelInstanceId, setModelInstanceId] = useState<string | null>(null);
   const [channelInstanceId, setChannelInstanceId] = useState<string | null>(null);
   const [managementInstanceId, setManagementInstanceId] = useState<string | null>(null);
@@ -102,7 +108,9 @@ export function InstancesPage({
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase(locale);
     return items.filter((item) => {
-      const matchesAvailability = availabilityFilter === "ALL" || item.availability === availabilityFilter;
+      const matchesAvailability = availabilityFilter === "REMOVED"
+        ? item.availability === "MISSING"
+        : item.availability !== "MISSING";
       const matchesQuery = query === ""
         || item.name.toLocaleLowerCase(locale).includes(query)
         || item.instanceId.toLocaleLowerCase(locale).includes(query);
@@ -111,11 +119,23 @@ export function InstancesPage({
   }, [availabilityFilter, items, locale, searchQuery]);
 
   const availabilityCounts = useMemo(() => ({
-    ALL: items.length,
-    AVAILABLE: items.filter((item) => item.availability === "AVAILABLE").length,
-    MISSING: items.filter((item) => item.availability === "MISSING").length,
-    UNKNOWN: items.filter((item) => item.availability === "UNKNOWN").length,
-  }), [items]);
+    ACTIVE: activeItems.length,
+    REMOVED: items.filter((item) => item.availability === "MISSING").length,
+  }), [activeItems.length, items]);
+
+  const clearRemoved = async () => {
+    if (!clearTarget || !onClearRemoved || clearBusy) return;
+    setClearBusy(true);
+    setClearFailed(false);
+    try {
+      await onClearRemoved(clearTarget);
+      setClearTarget(null);
+    } catch {
+      setClearFailed(true);
+    } finally {
+      setClearBusy(false);
+    }
+  };
 
   const openCreate = () => {
     onPrepareCreate();
@@ -136,7 +156,7 @@ export function InstancesPage({
         <>
           <div className="instance-control-bar">
             <div className="instance-filter-tabs" role="group" aria-label={copy.instances.tableAvailability}>
-              {(["ALL", "AVAILABLE", "MISSING", "UNKNOWN"] as const).map((filter) => (
+              {(["ACTIVE", "REMOVED"] as const).map((filter) => (
                 <button
                   type="button"
                   key={filter}
@@ -144,8 +164,8 @@ export function InstancesPage({
                   aria-pressed={availabilityFilter === filter}
                   onClick={() => setAvailabilityFilter(filter)}
                 >
-                  {filter !== "ALL" ? <span className={`availability-dot is-${filter.toLowerCase()}`} /> : null}
-                  <span>{filter === "ALL" ? copy.instances.allFilter : copy.instances.availability[filter]}</span>
+                  {filter === "REMOVED" ? <span className="availability-dot is-missing" /> : null}
+                  <span>{filter === "ACTIVE" ? copy.instances.activeFilter : copy.instances.removedFilter}</span>
                   <span className="instance-filter-count">{availabilityCounts[filter]}</span>
                 </button>
               ))}
@@ -200,10 +220,16 @@ export function InstancesPage({
                       onOpenModels={() => setModelInstanceId(item.instanceId)}
                       onOpenChannels={() => setChannelInstanceId(item.instanceId)}
                       onOpenManagement={() => setManagementInstanceId(item.instanceId)}
+                      onClearRemoved={() => {
+                        setClearFailed(false);
+                        setClearTarget(item);
+                      }}
                     />
                   ))}
                   {!loading && filteredItems.length === 0 ? (
-                    <tr><td className="instance-table-empty" colSpan={4}>{copy.instances.noMatches}</td></tr>
+                    <tr><td className="instance-table-empty" colSpan={4}>
+                      {availabilityFilter === "REMOVED" ? copy.instances.noRemoved : copy.instances.noMatches}
+                    </td></tr>
                   ) : null}
                 </tbody>
               </table>
@@ -238,6 +264,17 @@ export function InstancesPage({
               onConfirm={onDelete}
               onCancelOperation={onCancelDelete}
               onDismiss={() => onDeleteTargetChange(null)}
+            />
+          ) : null}
+
+          {clearTarget?.availability === "MISSING" ? (
+            <ClearRemovedDialog
+              target={clearTarget}
+              busy={clearBusy}
+              failed={clearFailed}
+              copy={copy}
+              onConfirm={() => { void clearRemoved(); }}
+              onDismiss={() => setClearTarget(null)}
             />
           ) : null}
 
@@ -435,6 +472,43 @@ function DeleteConfirmDialog({ target, confirmation, busy, operation, copy, onCo
   );
 }
 
+function ClearRemovedDialog({ target, busy, failed, copy, onConfirm, onDismiss }: {
+  target: Instance;
+  busy: boolean;
+  failed: boolean;
+  copy: AppMessages;
+  onConfirm: () => void;
+  onDismiss: () => void;
+}) {
+  useDialogDismiss({ locked: busy, canCancelOperation: false, onCancelOperation: onDismiss, onDismiss });
+  return (
+    <div className="instance-modal-backdrop" onMouseDown={(event) => dismissFromBackdrop(event, busy, false, onDismiss, onDismiss)}>
+      <div className="instance-modal" role="dialog" aria-modal="true" aria-labelledby="clear-instance-title" aria-describedby="clear-instance-warning">
+        <ModalHeader
+          icon={<IconTrash />}
+          danger
+          title={copy.instances.clearRecordTitle}
+          description={copy.instances.clearRecordWarning}
+          titleId="clear-instance-title"
+          descriptionId="clear-instance-warning"
+          closeLabel={copy.instances.dismissDelete}
+          onClose={onDismiss}
+          closeDisabled={busy}
+        />
+        <p className="instance-modal-name">{target.name}</p>
+        {failed ? <p className="notice notice-warning" role="alert">{copy.instances.clearRecordFailed}</p> : null}
+        <div className="instance-modal-actions">
+          <Button type="button" onClick={onDismiss} disabled={busy}>{copy.instances.dismissDelete}</Button>
+          <Button type="button" variant="danger" disabled={busy} onClick={onConfirm}>
+            <IconTrash />
+            {busy ? copy.instances.clearRecordRunning : copy.instances.clearRecordAction}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModalHeader({ icon, title, description, titleId, descriptionId, danger = false, showIcon = true, closeLabel, onClose, closeDisabled }: {
   icon: ReactNode;
   title: string;
@@ -484,7 +558,7 @@ function dismissFromBackdrop(event: MouseEvent<HTMLDivElement>, locked: boolean,
   else onDismiss();
 }
 
-function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, onOpenChannels, onOpenManagement }: {
+function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, onOpenChannels, onOpenManagement, onClearRemoved }: {
   item: Instance;
   copy: AppMessages;
   locale: Locale;
@@ -494,11 +568,17 @@ function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, 
   onOpenModels: () => void;
   onOpenChannels: () => void;
   onOpenManagement: () => void;
+  onClearRemoved: () => void;
 }) {
   const availability = item.availability;
   const canLifecycle = Boolean(client && item.capabilities.lifecycle && availability === "AVAILABLE");
   const synced = <td className="instance-sync-time">{item.lastSyncedAt ? formatRelativeTime(item.lastSyncedAt, locale, now) : "—"}</td>;
-  const moreActions = (
+  const moreActions = availability === "MISSING" ? (
+    <Button type="button" variant="ghost" className="button-compact instance-clear-record" onClick={onClearRemoved}>
+      <IconTrash />
+      {copy.instances.clearRecordAction}
+    </Button>
+  ) : (
     <InstanceMoreActions
       copy={copy}
       disabled={availability !== "AVAILABLE"}

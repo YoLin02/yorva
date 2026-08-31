@@ -171,6 +171,23 @@ func (d *Database) ListInstances(ctx context.Context, installationID string) ([]
 	return out, rows.Err()
 }
 
+// DeleteMissingInstanceRecord removes only a reconciled tombstone. Runtime-owned
+// profile deletion remains the adapter's responsibility and is never performed here.
+func (d *Database) DeleteMissingInstanceRecord(ctx context.Context, instanceID string) (bool, error) {
+	result, err := d.db.ExecContext(ctx, `
+        DELETE FROM instances
+        WHERE id = ? AND availability = ? AND is_default = 0 AND is_protected = 0
+    `, instanceID, string(instance.Missing))
+	if err != nil {
+		return false, fmt.Errorf("delete missing instance record: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("read deleted instance record count: %w", err)
+	}
+	return affected == 1, nil
+}
+
 func (d *Database) GetInstance(ctx context.Context, id string) (instance.Instance, error) {
 	row := d.db.QueryRowContext(ctx, `
         SELECT id, runtime_installation_id, native_id, name, is_default, is_protected,

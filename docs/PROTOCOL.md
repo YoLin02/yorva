@@ -175,7 +175,15 @@ GET    /api/v1/runtimes/{runtimeId}/instances
 POST   /api/v1/runtimes/{runtimeId}/instances
 GET    /api/v1/instances/{instanceId}
 DELETE /api/v1/instances/{instanceId}
+DELETE /api/v1/instances/{instanceId}/record
 ```
+
+The ordinary DELETE removes the Runtime-owned Profile through an Operation and retains a
+`MISSING` YORVA tombstone. The `/record` DELETE is a synchronous local cleanup: it first
+requires a fresh authoritative Runtime readback that still reports the Profile absent,
+then removes only the non-default YORVA tombstone and its dependent management metadata.
+It never invokes Runtime deletion, never accepts `UNKNOWN`, and never removes audit
+Operations.
 
 ### Lifecycle
 

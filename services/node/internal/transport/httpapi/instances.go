@@ -24,6 +24,10 @@ type InstanceInventoryService interface {
 	CancelDelete(context.Context, string) (operation.Operation, error)
 }
 
+type RemovedInstanceRecordService interface {
+	ClearRemovedInstance(context.Context, string) error
+}
+
 type InstanceLifecycleService interface {
 	GetLifecycle(context.Context, string) (app.LifecycleView, error)
 	StartLifecycle(context.Context, string, app.LifecycleAction, string) (app.InstallStartResult, error)
@@ -192,6 +196,20 @@ func deleteInstance(inventory InstanceInventoryService) http.Handler {
 	})
 }
 
+func clearRemovedInstanceRecord(service RemovedInstanceRecordService) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if service == nil {
+			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Removed instance records cannot be cleared.", Retryable: true})
+			return
+		}
+		if err := service.ClearRemovedInstance(r.Context(), r.PathValue("instanceId")); err != nil {
+			writeInstanceError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+}
+
 func getInstanceLifecycle(service InstanceLifecycleService) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if service == nil {
@@ -302,6 +320,8 @@ func writeInstanceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceProtected), Message: "The default instance cannot be deleted.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceConfirmationMismatch):
 		writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorInstanceConfirmationMismatch), Message: "The confirmation name does not match.", Retryable: false})
+	case errors.Is(err, app.ErrInstanceRecordNotRemoved):
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceRecordNotRemoved), Message: "Only a removed instance record can be cleared.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceConflict):
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceConflict), Message: "Another instance operation is already running.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceNotCancellable):

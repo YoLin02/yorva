@@ -496,6 +496,12 @@ export function App() {
     }
   }, [deleteOperationQuery.data?.status, queryClient]);
 
+  const clearRemovedInstance = async (item: import("./api/types").Instance) => {
+    if (!client || item.availability !== "MISSING") return;
+    await client.clearRemovedInstanceRecord(item.instanceId);
+    await queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+  };
+
   let runtimeStartup: HermesRuntimeStartupState | undefined;
   if (defaultRuntimeInstanceId) {
     if (runtimeStartBusy || defaultLifecycleQuery.data?.state === "STOPPED" && !runtimeStartMutation.isError && runtimeStartOperation?.status !== "FAILED" && runtimeStartOperation?.status !== "CANCELLED") {
@@ -555,10 +561,12 @@ export function App() {
     const installBlocking = Boolean(installOperation && (installOperation.status === "PENDING" || installOperation.status === "RUNNING"));
     const prereqBlocking = Boolean(prereqOperation && (prereqOperation.status === "PENDING" || prereqOperation.status === "RUNNING"));
     const showInstallPanel = notInstalled || followedInstallId !== null || installRequestError !== null;
-    content = runtimeManagementOpen && client && instancesQuery.data && instancesQuery.data.instances.length > 0 ? (
+    const currentInstances = instancesQuery.data?.instances.filter((item) => item.availability !== "MISSING") ?? [];
+    const manageableInstances = currentInstances.filter((item) => item.availability === "AVAILABLE");
+    content = runtimeManagementOpen && client && instancesQuery.data && manageableInstances.length > 0 ? (
       <RuntimeManagementPage
         client={client}
-        inventory={instancesQuery.data}
+        inventory={{ ...instancesQuery.data, instances: manageableInstances }}
         copy={copy}
         locale={locale}
         onBack={() => setRuntimeManagementOpen(false)}
@@ -596,10 +604,10 @@ export function App() {
         onConfirmInstall={() => { void startInstall(); }}
         onCancelInstall={() => { void cancelInstall(); }}
         onRetryInstall={retryInstall}
-        instanceCount={instancesQuery.data?.instances.length ?? null}
+        instanceCount={instancesQuery.data ? currentInstances.length : null}
         runtimeStartup={runtimeStartup}
         onOpenInstances={() => setActivePage("instances")}
-        onOpenManagement={instancesQuery.data?.instances.length ? () => setRuntimeManagementOpen(true) : undefined}
+        onOpenManagement={manageableInstances.length ? () => setRuntimeManagementOpen(true) : undefined}
       />
     );
   } else if (activePage === "instances") {
@@ -646,6 +654,7 @@ export function App() {
         onCancelDelete={() => {
           void cancelDelete();
         }}
+        onClearRemoved={clearRemovedInstance}
         client={client}
       />
     );

@@ -302,6 +302,11 @@ export function createDaemonClient(session: DaemonSession) {
         },
         body: JSON.stringify({ confirmationName }),
       }),
+    clearRemovedInstanceRecord: (instanceId: string, signal?: AbortSignal) =>
+      request<void>(`/api/v1/instances/${encodeURIComponent(instanceId)}/record`, {
+        method: "DELETE",
+        signal: withDesktopTimeout(signal),
+      }),
     listModelProviderPresets: (signal?: AbortSignal) =>
       request<ModelProviderPresetList>("/api/v1/runtimes/hermes/model-provider-presets", {
         signal: withDesktopTimeout(signal),

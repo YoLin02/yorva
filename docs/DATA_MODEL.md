@@ -97,6 +97,12 @@ For Hermes, `native_id` is the adapter-owned identifier for the Hermes profile.
 
 `status` is a normalized cached/last-known value. Runtime queries remain authoritative.
 
+`MISSING` rows are retained tombstones so authoritative reconciliation can preserve stable
+identity when a native Profile reappears. They are hidden from the active Desktop inventory
+by default. A user may clear a non-default tombstone only after another fresh Runtime
+readback confirms it remains absent; dependent YORVA management projections are removed by
+foreign-key cascade while durable audit Operations remain intact.
+
 ## 7. `operations`
 
 Durable long-running management operations.

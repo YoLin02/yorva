@@ -144,6 +144,75 @@ func TestListInstancesQueryFailureIsUnknownNotMissing(t *testing.T) {
 	}
 }
 
+func TestClearRemovedInstanceRequiresFreshMissingReadback(t *testing.T) {
+	ctx := context.Background()
+	inventory, source := newTestInventory(t, []ProfileSnapshot{
+		{NativeID: "default", Default: true},
+		{NativeID: "coder", Default: false},
+	}, nil)
+	listed, err := inventory.ListInstances(ctx, "hermes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var coderID string
+	for _, row := range listed.Instances {
+		if row.Name == "coder" {
+			coderID = row.InstanceID
+		}
+	}
+
+	source.setProfiles([]ProfileSnapshot{{NativeID: "default", Default: true}})
+	if _, err := inventory.ListInstances(ctx, "hermes"); err != nil {
+		t.Fatal(err)
+	}
+	if err := inventory.ClearRemovedInstance(ctx, coderID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := inventory.GetInstance(ctx, coderID); !errors.Is(err, ErrInstanceNotFound) {
+		t.Fatalf("cleared record = %v", err)
+	}
+}
+
+func TestClearRemovedInstanceRefusesReappearedOrUnknownProfile(t *testing.T) {
+	ctx := context.Background()
+	inventory, source := newTestInventory(t, []ProfileSnapshot{
+		{NativeID: "default", Default: true},
+		{NativeID: "coder", Default: false},
+	}, nil)
+	listed, err := inventory.ListInstances(ctx, "hermes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var coderID string
+	for _, row := range listed.Instances {
+		if row.Name == "coder" {
+			coderID = row.InstanceID
+		}
+	}
+
+	source.setProfiles([]ProfileSnapshot{{NativeID: "default", Default: true}})
+	if _, err := inventory.ListInstances(ctx, "hermes"); err != nil {
+		t.Fatal(err)
+	}
+	source.setProfiles([]ProfileSnapshot{{NativeID: "default", Default: true}, {NativeID: "coder"}})
+	if err := inventory.ClearRemovedInstance(ctx, coderID); !errors.Is(err, ErrInstanceRecordNotRemoved) {
+		t.Fatalf("reappeared clear = %v", err)
+	}
+
+	source.setProfiles([]ProfileSnapshot{{NativeID: "default", Default: true}})
+	if _, err := inventory.ListInstances(ctx, "hermes"); err != nil {
+		t.Fatal(err)
+	}
+	source.setErr(context.DeadlineExceeded)
+	if err := inventory.ClearRemovedInstance(ctx, coderID); !errors.Is(err, ErrInstanceOperationTimedOut) {
+		t.Fatalf("unknown clear = %v", err)
+	}
+	row, err := inventory.GetInstance(ctx, coderID)
+	if err != nil || row.Availability != instance.Unknown {
+		t.Fatalf("unknown tombstone = %#v %v", row, err)
+	}
+}
+
 func TestListInstancesRejectsUnsupportedRuntime(t *testing.T) {
 	inventory, _ := newTestInventory(t, nil, nil)
 	registry := yorvaruntime.NewRegistry()

@@ -93,6 +93,46 @@ func TestInstanceSnapshotRetainsTombstonesAndIdentity(t *testing.T) {
 	}
 }
 
+func TestDeleteMissingInstanceRecordOnlyDeletesUnprotectedTombstone(t *testing.T) {
+	ctx := context.Background()
+	db := openInstanceTestDB(t)
+	installationID := seedInstallation(t, db)
+	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+	if err := db.ApplyInstanceSnapshot(ctx, installationID, []InstanceSnapshotEntry{
+		{NativeID: "default", Default: true},
+		{NativeID: "demo", Default: false},
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := db.ListInstances(ctx, installationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var defaultID, demoID string
+	for _, row := range rows {
+		if row.NativeID == "default" {
+			defaultID = row.ID
+		} else if row.NativeID == "demo" {
+			demoID = row.ID
+		}
+	}
+	if deleted, err := db.DeleteMissingInstanceRecord(ctx, demoID); err != nil || deleted {
+		t.Fatalf("available record deleted = %t, %v", deleted, err)
+	}
+	if err := db.ApplyInstanceSnapshot(ctx, installationID, []InstanceSnapshotEntry{{NativeID: "default", Default: true}}, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if deleted, err := db.DeleteMissingInstanceRecord(ctx, defaultID); err != nil || deleted {
+		t.Fatalf("protected record deleted = %t, %v", deleted, err)
+	}
+	if deleted, err := db.DeleteMissingInstanceRecord(ctx, demoID); err != nil || !deleted {
+		t.Fatalf("missing record deleted = %t, %v", deleted, err)
+	}
+	if _, err := db.GetInstance(ctx, demoID); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("cleared record = %v", err)
+	}
+}
+
 func TestInstanceUniquenessAndMigrationFromPhase3(t *testing.T) {
 	ctx := context.Background()
 	db := openInstanceTestDB(t)

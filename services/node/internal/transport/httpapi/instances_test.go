@@ -31,6 +31,16 @@ type fakeLifecycleInventory struct {
 	action    app.LifecycleAction
 }
 
+type fakeRemovedInstanceRecordService struct {
+	instanceID string
+	err        error
+}
+
+func (f *fakeRemovedInstanceRecordService) ClearRemovedInstance(_ context.Context, instanceID string) error {
+	f.instanceID = instanceID
+	return f.err
+}
+
 func (f *fakeLifecycleInventory) GetLifecycle(context.Context, string) (app.LifecycleView, error) {
 	return f.view, nil
 }
@@ -146,6 +156,25 @@ func TestListAndGetInstancesContract(t *testing.T) {
 	handler.ServeHTTP(lifeRes, lifeReq)
 	if lifeRes.Code != http.StatusConflict || !strings.Contains(lifeRes.Body.String(), string(yorvaruntime.ErrorCapabilityNotSupported)) {
 		t.Fatalf("lifecycle = %d %s", lifeRes.Code, lifeRes.Body.String())
+	}
+}
+
+func TestClearRemovedInstanceRecordContract(t *testing.T) {
+	service := &fakeRemovedInstanceRecordService{}
+	handler := clearRemovedInstanceRecord(service)
+	request := httptest.NewRequest(http.MethodDelete, "/api/v1/instances/inst_removed/record", nil)
+	request.SetPathValue("instanceId", "inst_removed")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent || service.instanceID != "inst_removed" {
+		t.Fatalf("clear response = %d id=%q body=%s", response.Code, service.instanceID, response.Body.String())
+	}
+
+	service.err = app.ErrInstanceRecordNotRemoved
+	conflict := httptest.NewRecorder()
+	handler.ServeHTTP(conflict, request)
+	if conflict.Code != http.StatusConflict || !strings.Contains(conflict.Body.String(), string(yorvaruntime.ErrorInstanceRecordNotRemoved)) {
+		t.Fatalf("active record response = %d %s", conflict.Code, conflict.Body.String())
 	}
 }
 

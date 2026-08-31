@@ -197,10 +197,12 @@ type Messages = {
     loading: string;
     refresh: string;
     cancelOperation: string;
-    allFilter: string;
+    activeFilter: string;
+    removedFilter: string;
     searchLabel: string;
     searchPlaceholder: string;
     noMatches: string;
+    noRemoved: string;
     totalCount: string;
     lastSynced: string;
     freshnessUnknown: string;
@@ -247,6 +249,11 @@ type Messages = {
     deleteFailed: string;
     cancelDelete: string;
     dismissDelete: string;
+    clearRecordAction: string;
+    clearRecordTitle: string;
+    clearRecordWarning: string;
+    clearRecordRunning: string;
+    clearRecordFailed: string;
     tableInstance: string;
     tableAvailability: string;
     tableLastSynced: string;
@@ -870,10 +877,12 @@ const english: Messages = {
     loading: "Refreshing instance inventory",
     refresh: "Refresh",
     cancelOperation: "Cancel operation",
-    allFilter: "All",
+    activeFilter: "Current",
+    removedFilter: "Removed records",
     searchLabel: "Search instances",
     searchPlaceholder: "Search by name or instance ID",
     noMatches: "No instances match the current filters.",
+    noRemoved: "There are no removed instance records.",
     totalCount: "{count} instances",
     lastSynced: "Last successful sync",
     freshnessUnknown: "The latest Hermes query did not succeed. Showing last known rows as unknown, not deleted.",
@@ -928,6 +937,11 @@ const english: Messages = {
     deleteFailed: "Instance delete failed",
     cancelDelete: "Cancel delete",
     dismissDelete: "Cancel",
+    clearRecordAction: "Clear record",
+    clearRecordTitle: "Clear removed record",
+    clearRecordWarning: "This removes only Yorva's retained instance record and dependent management metadata after Hermes confirms the Profile is still absent. Runtime data and audit history are not deleted.",
+    clearRecordRunning: "Checking and clearing…",
+    clearRecordFailed: "The record could not be cleared. Refresh the authoritative Hermes state and try again.",
     tableInstance: "Instance",
     tableAvailability: "Status",
     tableLastSynced: "Last synced",
@@ -1579,10 +1593,12 @@ const simplifiedChinese: Messages = {
     loading: "正在刷新实例清单",
     refresh: "刷新",
     cancelOperation: "取消操作",
-    allFilter: "全部",
+    activeFilter: "当前实例",
+    removedFilter: "已移除记录",
     searchLabel: "搜索实例",
     searchPlaceholder: "按名称或实例 ID 搜索",
     noMatches: "没有符合当前筛选条件的实例。",
+    noRemoved: "没有已移除的实例记录。",
     totalCount: "共 {count} 个实例",
     lastSynced: "最近一次成功同步",
     freshnessUnknown: "最近一次 Hermes 查询未成功。正在显示上次已知记录，状态为未知，不是已删除。",
@@ -1637,6 +1653,11 @@ const simplifiedChinese: Messages = {
     deleteFailed: "删除实例失败",
     cancelDelete: "取消删除",
     dismissDelete: "取消",
+    clearRecordAction: "清理记录",
+    clearRecordTitle: "清理已移除记录",
+    clearRecordWarning: "Hermes 再次确认该 Profile 仍不存在后，只会清理 YORVA 保留的实例记录及其管理元数据，不会删除 Runtime 数据或审计历史。",
+    clearRecordRunning: "正在确认并清理…",
+    clearRecordFailed: "未能清理记录。请刷新 Hermes 权威状态后重试。",
     tableInstance: "实例",
     tableAvailability: "状态",
     tableLastSynced: "最近同步",

@@ -136,6 +136,11 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/model-profile-applications", requireBearer(token, startModelProfileApplication(sharedModels)))
 	mux.Handle("GET /api/v1/instances/{instanceId}", requireBearer(token, getInstance(instances)))
 	mux.Handle("DELETE /api/v1/instances/{instanceId}", requireBearer(token, deleteInstance(instances)))
+	var removedRecords RemovedInstanceRecordService
+	if service, ok := instances.(RemovedInstanceRecordService); ok {
+		removedRecords = service
+	}
+	mux.Handle("DELETE /api/v1/instances/{instanceId}/record", requireBearer(token, clearRemovedInstanceRecord(removedRecords)))
 	mux.Handle("GET /api/v1/instances/{instanceId}/config", requireBearer(token, getModelConfiguration(models)))
 	mux.Handle("PATCH /api/v1/instances/{instanceId}/config", requireBearer(token, patchModelConfiguration(models)))
 	mux.Handle("POST /api/v1/instances/{instanceId}/model-provider-models", requireBearer(token, fetchModelProviderCatalog(models)))

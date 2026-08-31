@@ -594,6 +594,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/instances/{instanceId}/record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Clear one removed YORVA Instance record
+         * @description Performs a fresh authoritative Runtime readback and deletes only a non-protected MISSING tombstone plus its YORVA-owned dependent metadata. It never deletes a Runtime-owned profile or audit Operations.
+         */
+        delete: operations["clearRemovedInstanceRecord"];
+        /** Validate CORS access for a removed Instance record */
+        options: operations["optionsRemovedInstanceRecord"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/instances/{instanceId}/health": {
         parameters: {
             query?: never;
@@ -3375,6 +3398,48 @@ export interface operations {
         };
     };
     optionsInstance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    clearRemovedInstanceRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The removed YORVA Instance record was cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            405: components["responses"]["MethodNotAllowed"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    optionsRemovedInstanceRecord: {
         parameters: {
             query?: never;
             header?: never;

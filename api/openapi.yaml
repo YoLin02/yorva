@@ -1272,6 +1272,47 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/instances/{instanceId}/record:
+    parameters:
+      - name: instanceId
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      operationId: clearRemovedInstanceRecord
+      summary: Clear one removed YORVA Instance record
+      description: Performs a fresh authoritative Runtime readback and deletes only a non-protected MISSING tombstone plus its YORVA-owned dependent metadata. It never deletes a Runtime-owned profile or audit Operations.
+      tags: [Instances]
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: The removed YORVA Instance record was cleared.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    options:
+      operationId: optionsRemovedInstanceRecord
+      summary: Validate CORS access for a removed Instance record
+      tags: [Instances]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/instances/{instanceId}/health:
     parameters:
       - $ref: "#/components/parameters/InstanceId"

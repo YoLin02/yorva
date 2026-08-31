@@ -1747,6 +1747,15 @@ p {
   display: inline-flex;
 }
 
+.instance-clear-record {
+  color: #c73737;
+}
+
+.instance-clear-record:hover:not(:disabled) {
+  background: #fff3f3;
+  color: #b42323;
+}
+
 .instance-actions-menu {
   position: fixed;
   z-index: 90;
