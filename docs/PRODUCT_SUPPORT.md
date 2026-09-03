@@ -33,9 +33,8 @@ update, diagnostics and release work. It does not by itself make a build public-
 - `0.3.2` is the P7/P8 development starting point. B3 freezes the P8 release candidate
   version; a UI-label-only version change is invalid.
 
-The repository keeps the legacy identifier active until B1 migration protection exists,
-so current P7 data is not made invisible prematurely. Before activating the stable
-identifier, B1 must implement and verify a one-time transition that:
+P8-B1 implements and verifies the following one-time transition, and the stable
+`com.yorva.desktop` identifier is now active:
 
 1. inspects both directories before daemon startup or database mutation;
 2. creates a verified protection copy and same-volume staging copy when the stable
@@ -44,6 +43,10 @@ identifier, B1 must implement and verify a one-time transition that:
 4. preserves the legacy directory as rollback input;
 5. stops with a typed recovery state when both locations contain unconfirmed data;
 6. records source/target identifiers, time and non-secret integrity facts on success.
+
+The legacy directory remains as rollback input after migration and is not automatically
+deleted. When both roots contain unconfirmed data, Desktop stops with
+`PRODUCT_DATA_IDENTITY_CONFLICT` instead of guessing how to merge them.
 
 ## 3. Windows directories and ownership
 

@@ -70,10 +70,17 @@ func TestMigrationsAreIdempotentAndNodeIdentityPersists(t *testing.T) {
 	if err := raw.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&migrations); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if migrations != 16 {
-		t.Fatalf("migration count = %d, want 16", migrations)
+	if migrations != 17 {
+		t.Fatalf("migration count = %d, want 17", migrations)
 	}
-	for _, table := range []string{"schema_migrations", "nodes", "app_settings", "operations", "runtime_installations", "instances", "channel_bindings", "runtime_backups", "managed_skills", "managed_mcp_bindings", "model_provider_connections", "model_profiles", "runtime_model_defaults", "instance_model_bindings"} {
+	var migrationRuns int
+	if err := raw.QueryRow("SELECT COUNT(*) FROM database_migration_history").Scan(&migrationRuns); err != nil {
+		t.Fatalf("count migration history: %v", err)
+	}
+	if migrationRuns != 1 {
+		t.Fatalf("migration history count = %d, want 1 after repeat-safe reopen", migrationRuns)
+	}
+	for _, table := range []string{"schema_migrations", "nodes", "app_settings", "operations", "runtime_installations", "instances", "channel_bindings", "runtime_backups", "managed_skills", "managed_mcp_bindings", "model_provider_connections", "model_profiles", "runtime_model_defaults", "instance_model_bindings", "database_migration_history"} {
 		var count int
 		if err := raw.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", table).Scan(&count); err != nil {
 			t.Fatalf("query table %s: %v", table, err)
@@ -128,7 +135,7 @@ func TestMigration16RepairsDatabaseThatRecordedEarlierVersion15WithoutSharedMode
 			t.Fatalf("repaired table %s count = %d err = %v", table, count, err)
 		}
 	}
-	assertMigrationCount(t, dataDir, 16)
+	assertMigrationCount(t, dataDir, 17)
 }
 
 func assertPragmasSurviveReconnect(t *testing.T, ctx context.Context, db *sql.DB) {

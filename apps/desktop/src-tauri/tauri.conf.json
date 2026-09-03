@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Yorva",
+  "productName": "YORVA",
   "version": "0.3.2",
-  "identifier": "com.yorva.desktop.dev",
+  "identifier": "com.yorva.desktop",
   "build": {
     "beforeDevCommand": "pnpm --dir ../.. build:sidecar && pnpm dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Yorva",
+        "title": "YORVA",
         "width": 1024,
         "height": 680,
         "minWidth": 1024,

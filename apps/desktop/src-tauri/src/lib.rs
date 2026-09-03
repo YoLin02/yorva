@@ -1,6 +1,8 @@
 mod daemon;
 #[cfg(desktop)]
 mod desktop;
+#[cfg(desktop)]
+mod product_data;
 
 use daemon::{
     DaemonLifecycle, daemon_session, discard_skill_import, select_skill_import, start_daemon,
@@ -42,7 +44,10 @@ pub fn run() {
         ])
         .setup(|app| {
             #[cfg(desktop)]
-            desktop::setup(app, desktop::starts_hidden())?;
+            {
+                product_data::migrate_legacy_app_data(app)?;
+                desktop::setup(app, desktop::starts_hidden())?;
+            }
             start_daemon(app.handle());
             Ok(())
         })

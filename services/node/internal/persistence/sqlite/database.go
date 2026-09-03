@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -26,11 +27,19 @@ type Database struct {
 }
 
 func Open(ctx context.Context, dataDir string) (*Database, error) {
+	return openWithMigrationFiles(ctx, dataDir, migrationFiles)
+}
+
+func openWithMigrationFiles(ctx context.Context, dataDir string, files fs.FS) (*Database, error) {
 	if err := os.MkdirAll(dataDir, 0o700); err != nil {
 		return nil, fmt.Errorf("create data directory: %w", err)
 	}
+	if err := recoverInterruptedMigration(dataDir); err != nil {
+		return nil, err
+	}
 
-	dsn := filepath.Join(dataDir, databaseFilename) + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)"
+	databasePath := filepath.Join(dataDir, databaseFilename)
+	dsn := databasePath + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open SQLite: %w", err)
@@ -45,8 +54,43 @@ func Open(ctx context.Context, dataDir string) (*Database, error) {
 	if err := db.PingContext(ctx); err != nil {
 		return closeOnError(fmt.Errorf("connect SQLite: %w", err))
 	}
-	if err := migrate(ctx, db); err != nil {
+	targetVersion, err := latestMigrationVersion(files)
+	if err != nil {
 		return closeOnError(err)
+	}
+	sourceVersion, err := currentMigrationVersion(ctx, db)
+	if err != nil {
+		return closeOnError(err)
+	}
+	if sourceVersion > targetVersion {
+		return closeOnError(newMigrationError(MigrationUnsupported, sourceVersion, targetVersion, errDatabaseNewer))
+	}
+	var run *migrationRun
+	if sourceVersion < targetVersion {
+		run, err = beginMigrationProtection(ctx, db, dataDir, sourceVersion, targetVersion)
+		if err != nil {
+			return closeOnError(err)
+		}
+	}
+	if err := migrate(ctx, db, files); err != nil {
+		_ = db.Close()
+		if run == nil {
+			return nil, err
+		}
+		return nil, failAndRestoreMigration(dataDir, *run, err)
+	}
+	if err := verifyMigratedDatabase(ctx, db, targetVersion); err != nil {
+		_ = db.Close()
+		if run == nil {
+			return nil, err
+		}
+		return nil, failAndRestoreMigration(dataDir, *run, err)
+	}
+	if run != nil {
+		if err := completeMigration(ctx, db, dataDir, *run); err != nil {
+			_ = db.Close()
+			return nil, failAndRestoreMigration(dataDir, *run, err)
+		}
 	}
 
 	return &Database{db: db}, nil
@@ -56,7 +100,7 @@ func (d *Database) Close() error {
 	return d.db.Close()
 }
 
-func migrate(ctx context.Context, db *sql.DB) error {
+func migrate(ctx context.Context, db *sql.DB, files fs.FS) error {
 	if _, err := db.ExecContext(ctx, `
         CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY,
@@ -66,7 +110,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("create schema migration ledger: %w", err)
 	}
 
-	entries, err := fs.Glob(migrationFiles, "migrations/*.sql")
+	entries, err := fs.Glob(files, "migrations/*.sql")
 	if err != nil {
 		return fmt.Errorf("list embedded migrations: %w", err)
 	}
@@ -84,7 +128,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			continue
 		}
 
-		script, err := migrationFiles.ReadFile(path)
+		script, err := fs.ReadFile(files, path)
 		if err != nil {
 			return fmt.Errorf("read migration %d: %w", version, err)
 		}
@@ -105,6 +149,29 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+func latestMigrationVersion(files fs.FS) (int, error) {
+	entries, err := fs.Glob(files, "migrations/*.sql")
+	if err != nil {
+		return 0, fmt.Errorf("list embedded migrations: %w", err)
+	}
+	if len(entries) == 0 {
+		return 0, errors.New("no embedded migrations")
+	}
+	sort.Strings(entries)
+	latest := 0
+	for _, path := range entries {
+		version, err := migrationVersion(path)
+		if err != nil {
+			return 0, err
+		}
+		if version != latest+1 {
+			return 0, fmt.Errorf("migration sequence is not contiguous at %d", version)
+		}
+		latest = version
+	}
+	return latest, nil
 }
 
 func migrationVersion(path string) (int, error) {

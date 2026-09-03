@@ -194,8 +194,7 @@ Tauri
 - 用户支持与恢复文档框架。
 
 B0 冻结结果记录在 `docs/PRODUCT_SUPPORT.zh-CN.md`，英文执行镜像为
-`docs/PRODUCT_SUPPORT.md`。正式 identifier 的激活依赖 B1 先完成受保护的一次性
-旧数据迁移；在此之前继续运行旧 identifier，避免现有 P7 数据提前不可见。
+`docs/PRODUCT_SUPPORT.md`。B1 已完成受保护的一次性旧数据迁移并激活正式 identifier。
 
 直接相关文件预计包括 Tauri config/Cargo/package metadata、DEVELOPMENT、SECURITY、
 DATA_MODEL、发布脚本和本 Phase Spec。B0 不实现更新下载器。
@@ -617,7 +616,7 @@ Phase 8 只有在以下全部成立后才能进入审计：
 | Batch | 状态 | Commit | Gate |
 | --- | --- | --- | --- |
 | P8-B0 | COMPLETE | B0 Batch commit | 中英文产品支持合同、Owner 决策、目录/保留/签名门禁一致性检查通过 |
-| P8-B1 | NOT STARTED | — | — |
+| P8-B1 | COMPLETE | B1 Batch commit | Schema 017；016→017 保护/校验/恢复；identifier 数据迁移；Go/Rust focused Gate 通过 |
 | P8-B2 | NOT STARTED | — | — |
 | P8-B3 | NOT STARTED | — | — |
 | P8-B4 | NOT STARTED | — | — |

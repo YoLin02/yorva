@@ -182,9 +182,8 @@ Freeze:
 - support and recovery documentation structure.
 
 The frozen B0 result is `docs/PRODUCT_SUPPORT.md`, mirrored for Owner review in
-`docs/PRODUCT_SUPPORT.zh-CN.md`. Stable-identifier activation depends on B1 first
-implementing the protected one-time legacy-data transition; until then the legacy
-identifier remains active so current P7 data does not become prematurely invisible.
+`docs/PRODUCT_SUPPORT.zh-CN.md`. B1 has completed the protected one-time legacy-data
+transition and activated the stable identifier.
 
 Gate: configuration/version/identifier consistency, complete ownership table, explicit
 schema-016 migration target, and signing availability recorded truthfully.
@@ -398,7 +397,7 @@ After audit PASS and explicit Owner authorization:
 | Batch | Status | Commit | Gate |
 | --- | --- | --- | --- |
 | P8-B0 | COMPLETE | B0 Batch commit | Bilingual support contract, Owner decisions, directory/retention/signing consistency review passed |
-| P8-B1 | NOT STARTED | — | — |
+| P8-B1 | COMPLETE | B1 Batch commit | Schema 017; protected/verified/recoverable 016→017; identifier data migration; Go/Rust focused Gate passed |
 | P8-B2 | NOT STARTED | — | — |
 | P8-B3 | NOT STARTED | — | — |
 | P8-B4 | NOT STARTED | — | — |

@@ -414,3 +414,10 @@ approved Windows signature policy before execution. The Owner confirmed on 2026-
 that production code-signing material is not currently available. Unsigned builds may be
 internal candidates only; lack of signing must not be hidden by self-signing, disabled
 verification or a public-ready label.
+
+Before applying a pending SQLite migration, yorvad creates a fixed-location consistent
+protection database and records a SHA-256 plus source/target schema in a bounded,
+non-secret state file. Interrupted work restores only from a regular file with the exact
+recorded closed name and digest. Missing, malformed or tampered recovery evidence blocks
+startup with `DATABASE_MIGRATION_RECOVERY_REQUIRED`; it never falls back to deleting the
+database or continuing Runtime mutations.
