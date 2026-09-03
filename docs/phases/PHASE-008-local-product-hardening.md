@@ -1,6 +1,6 @@
 # YORVA Phase 8 — Local Product Hardening MVP
 
-> Status: **DRAFT — OWNER REVIEW; IMPLEMENTATION NOT AUTHORIZED**
+> Status: **APPROVED / IN PROGRESS — B0–B6 IMPLEMENTATION AUTHORIZED**
 > Phase: P8
 > Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus P7 stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc`
 > Planned branch: phase/p8-local-product-hardening
@@ -14,8 +14,8 @@ when wording differs.
 ## 1. Authorization
 
 This Spec translates the Owner-provided MVP-first plan into the current repository
-baseline. It does not authorize implementation by itself. P8-B0 starts only after
-explicit Owner approval.
+baseline. The Owner approved this Spec, B0–B6 ordering and per-Batch automatic commits
+on 2026-09-03.
 
 P8 uses the P7 stability revision `9834a8c`, merged to `main` on 2026-08-31, as its
 code starting point without moving or rewriting the existing Phase 7 baseline tag. The
@@ -65,8 +65,8 @@ phase-007-hermes-runtime-management-completeness-baseline (12b16bc)
 Candidate `9834a8c` passed GitHub CI run `33365096577`, including Web/API, Go race,
 Windows native, Rust and no-bundle build Gates. After merge, final-main CI run
 `33366271630` preserved an initial Windows runner handshake-timeout failure and passed in
-full on attempt 2; Windows MSI run `33366271629` also passed. The P8 branch must contain
-this commit, and implementation still requires explicit Owner approval.
+full on attempt 2; Windows MSI run `33366271629` also passed. The P8 branch contains this
+commit and the Owner has authorized implementation.
 
 Reusable Phase 7 foundations:
 
@@ -96,10 +96,10 @@ P8 gaps:
 - both P8 Specs and `ROADMAP.md` name the same code baseline;
 - the immutable Phase 7 tag remains unchanged and the patch is not represented as a new
   P7 capability;
-- the Owner explicitly approves P8-D1–D9, B0–B6 ordering and automatic Batch commits;
-- before these conditions hold, plan review is allowed but P8 implementation is not.
+- the Owner approved P8-D1–D9, B0–B6 ordering and automatic Batch commits on 2026-09-03;
+- the entry conditions are satisfied and P8-B0 may proceed.
 
-## 4. Proposed Owner decisions
+## 4. Approved Owner decisions
 
 | ID | Decision |
 | --- | --- |
@@ -180,6 +180,11 @@ Freeze:
 - update metadata, package hash/signature and release-source contract;
 - no-telemetry decision;
 - support and recovery documentation structure.
+
+The frozen B0 result is `docs/PRODUCT_SUPPORT.md`, mirrored for Owner review in
+`docs/PRODUCT_SUPPORT.zh-CN.md`. Stable-identifier activation depends on B1 first
+implementing the protected one-time legacy-data transition; until then the legacy
+identifier remains active so current P7 data does not become prematurely invisible.
 
 Gate: configuration/version/identifier consistency, complete ownership table, explicit
 schema-016 migration target, and signing availability recorded truthfully.
@@ -392,7 +397,7 @@ After audit PASS and explicit Owner authorization:
 
 | Batch | Status | Commit | Gate |
 | --- | --- | --- | --- |
-| P8-B0 | NOT STARTED | — | — |
+| P8-B0 | COMPLETE | B0 Batch commit | Bilingual support contract, Owner decisions, directory/retention/signing consistency review passed |
 | P8-B1 | NOT STARTED | — | — |
 | P8-B2 | NOT STARTED | — | — |
 | P8-B3 | NOT STARTED | — | — |
@@ -400,13 +405,17 @@ After audit PASS and explicit Owner authorization:
 | P8-B5 | NOT STARTED | — | — |
 | P8-B6 | NOT STARTED | — | — |
 
-## 14. Owner approval required
+## 14. Owner approval record
 
-Before implementation, the Owner must confirm:
+On 2026-09-03, the Owner confirmed:
 
-1. Windows 10/11 x64 as the sole blocking release target;
-2. no telemetry for MVP;
+1. Windows 10/11 x64 is the sole blocking release target;
+2. MVP telemetry is none;
 3. uninstall preserves all YORVA/Hermes user data by default;
-4. availability of public Windows code-signing material;
-5. four-hour minimum and eight-hour candidate soak;
-6. authorization for B0–B6 implementation and per-Batch automatic commits.
+4. public Windows code-signing material is not currently available, so P8 is capped at
+   internal-candidate status and cannot claim public-release readiness;
+5. the soak minimum is four hours and the final-candidate target is eight hours;
+6. B0–B6 sequential implementation and automatic commits after each passed Batch Gate
+   are authorized.
+
+Push, merge, tag and freeze continue to require explicit Owner authorization.

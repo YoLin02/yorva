@@ -402,3 +402,15 @@ Require explicit security review/ADR before adding:
 - automatic elevated service installation;
 - remote filesystem access;
 - multi-user local daemon access.
+
+## 20. Phase 8 release and privacy contract
+
+Phase 8 uses `PRODUCT_SUPPORT.md` as the Windows product-support contract. The MVP has no
+telemetry and does not upload crash, usage, Runtime or diagnostic data. Diagnostic export
+is local, explicitly user-triggered and limited to a fixed sanitized projection.
+
+YORVA update packages must be checked for fixed origin, size, SHA-256, version and the
+approved Windows signature policy before execution. The Owner confirmed on 2026-09-03
+that production code-signing material is not currently available. Unsigned builds may be
+internal candidates only; lack of signing must not be hidden by self-signing, disabled
+verification or a public-ready label.

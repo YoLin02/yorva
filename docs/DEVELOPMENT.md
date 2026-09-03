@@ -496,7 +496,12 @@ pwsh -NoProfile -File scripts/package-yorva-msi.ps1
 
 Ordinary `pnpm test` / `tauri build --no-bundle` must not download the large archives. Those payloads are gitignored build inputs whose sizes and SHA-256 values are compiled into the Hermes adapter. A missing, wrong-sized, or wrong-hashed payload fails packaging.
 
-Hermes install Operations write redacted JSON lines to `%APPDATA%\com.yorva.desktop.dev\logs\install.ndjson`. Use `correlationId`, `stage` and `errorCode` to locate a failed test. Do not treat this file as an upstream installer transcript.
+Hermes install Operations currently write redacted JSON lines to the P7 development path
+`%APPDATA%\com.yorva.desktop.dev\logs\install.ndjson`. Phase 8 freezes the stable product
+path as `%APPDATA%\com.yorva.desktop\`; the identifier is activated only after the B1
+protected one-time migration is implemented. See `PRODUCT_SUPPORT.md`. Use `correlationId`,
+`stage` and `errorCode` to locate a failed test. Do not treat this file as an upstream
+installer transcript.
 
 
 From the repository root, `pnpm audit --audit-level low` is also a CI gate. CI Actions are pinned to exact commit SHAs with the corresponding major/stable label in a comment. Dependency maintenance updates those pins deliberately: resolve the trusted upstream major tag/branch to a reviewed commit, inspect upstream release notes, replace the SHA, and rerun the full workflow. Do not restore floating action references.

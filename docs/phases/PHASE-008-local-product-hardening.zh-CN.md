@@ -1,6 +1,6 @@
 # YORVA Phase 8 — 本地产品可靠化 MVP
 
-> 状态：**DRAFT — 等待 Owner 审批，尚未授权实现**
+> 状态：**APPROVED / IN PROGRESS — Owner 已授权 B0–B6 实现**
 > 阶段标识：P8
 > 阶段性质：本地产品可靠化与首个正式 Windows MVP
 > 必需基线：phase-007-hermes-runtime-management-completeness-baseline + P7 稳定性修订 `9834a8cb1df9e70502936153943f501ed37cb8fc`
@@ -11,7 +11,7 @@
 ## 0. 阶段授权状态
 
 本文件把 Owner 提供的 MVP-First P8 内容整理为适合当前仓库的可执行计划。
-创建本文件不等于授权实现。只有 Owner 明确批准本 Spec 后，P8-B0 才能开始。
+Owner 已于 2026-09-03 明确批准本 Spec、B0–B6 顺序以及逐 Batch 自动 Commit。
 
 P8 以 2026-08-31 已合并到 `main` 的 P7 稳定性修订 `9834a8c` 为代码起点，
 但不移动或重写既有 Phase 7 冻结标签。该修订只补充 Hermes 检测时的有界自动启动、
@@ -62,8 +62,7 @@ phase-007-hermes-runtime-management-completeness-baseline (12b16bc)
 修订候选 `9834a8c` 已通过 GitHub CI run `33365096577` 的 Web/API、Go race、
 Windows native、Rust 与非 MSI build Gate。合并后的 final-main CI run `33366271630`
 在首次 Windows runner 握手超时后保留失败记录，并由 attempt 2 完整通过；Windows MSI
-run `33366271629` 同时通过。P8 计划分支必须包含该提交，P8 实现仍须由 Owner 批准本
-Spec。
+run `33366271629` 同时通过。P8 实现分支包含该提交，阶段已获得 Owner 授权。
 
 当前可复用基础：
 
@@ -93,13 +92,13 @@ Spec。
 - `main` 包含 P7 稳定性修订 `9834a8c`，且 final-main CI 成功；
 - P8 中英文 Spec 与 `ROADMAP.md` 使用同一代码基线；
 - Phase 7 冻结标签保持不变，修订内容不被错误表述为新 P7 capability；
-- Owner 明确批准 P8-D1–D9、B0–B6 顺序及自动 Commit 方式；
-- 在上述条件满足前，只允许计划审阅，不开始 P8 实现。
+- Owner 已于 2026-09-03 批准 P8-D1–D9、B0–B6 顺序及自动 Commit 方式；
+- 进入条件已经满足，P8-B0 可以开始。
 
 ## 3. P8 产品决策
 
-以下为本 Spec 提议的 P8 决策。Owner 批准本 Spec 时视为同时批准；若 Owner 修改，
-先更新本节和相应 Batch，再开始实现。
+以下决策已由 Owner 于 2026-09-03 批准。后续如需修改，先更新本节和相应 Batch，
+再继续受影响的实现。
 
 | ID | 决策 |
 | --- | --- |
@@ -193,6 +192,10 @@ Tauri
 - 更新来源、签名材料、包哈希和发布元数据合同；
 - 明确 no telemetry；
 - 用户支持与恢复文档框架。
+
+B0 冻结结果记录在 `docs/PRODUCT_SUPPORT.zh-CN.md`，英文执行镜像为
+`docs/PRODUCT_SUPPORT.md`。正式 identifier 的激活依赖 B1 先完成受保护的一次性
+旧数据迁移；在此之前继续运行旧 identifier，避免现有 P7 数据提前不可见。
 
 直接相关文件预计包括 Tauri config/Cargo/package metadata、DEVELOPMENT、SECURITY、
 DATA_MODEL、发布脚本和本 Phase Spec。B0 不实现更新下载器。
@@ -613,7 +616,7 @@ Phase 8 只有在以下全部成立后才能进入审计：
 
 | Batch | 状态 | Commit | Gate |
 | --- | --- | --- | --- |
-| P8-B0 | NOT STARTED | — | — |
+| P8-B0 | COMPLETE | B0 Batch commit | 中英文产品支持合同、Owner 决策、目录/保留/签名门禁一致性检查通过 |
 | P8-B1 | NOT STARTED | — | — |
 | P8-B2 | NOT STARTED | — | — |
 | P8-B3 | NOT STARTED | — | — |
@@ -621,15 +624,16 @@ Phase 8 只有在以下全部成立后才能进入审计：
 | P8-B5 | NOT STARTED | — | — |
 | P8-B6 | NOT STARTED | — | — |
 
-## 15. Owner 审批
+## 15. Owner 审批记录
 
-Owner 审批本 Spec 前需要明确：
+Owner 于 2026-09-03 确认：
 
-1. 是否接受 Windows 10/11 x64 作为唯一阻断发布目标；
-2. 是否接受 MVP 默认无遥测；
-3. 是否接受卸载默认保留全部 YORVA/Hermes 用户数据；
-4. 是否已有可用于公开候选的 Windows 代码签名材料；
-5. 是否接受 4 小时最低、8 小时候选目标的 Soak；
-6. 是否授权 P8 按 B0–B6 顺序实施并在每个 Batch 通过后自动 Commit。
+1. Windows 10/11 x64 是唯一阻断发布目标；
+2. MVP 默认无遥测；
+3. 卸载默认保留全部 YORVA/Hermes 用户数据；
+4. 当前没有可用于公开候选的 Windows 代码签名材料，因此 P8 先以内部候选为上限，
+   不声明公开发布就绪；
+5. 接受 4 小时最低、8 小时候选目标的 Soak；
+6. 授权 P8 按 B0–B6 顺序实施并在每个 Batch 通过后自动 Commit。
 
-在 Owner 明确回复批准前，本文件保持 DRAFT，不开始实现。
+Push、merge、tag、freeze 仍须 Owner 另行明确授权。

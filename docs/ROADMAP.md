@@ -412,7 +412,7 @@ The normal path must not require the user to open a terminal or directly edit Ru
 
 ## Phase 8 — Local product hardening
 
-Status: **DRAFT — OWNER REVIEW; IMPLEMENTATION NOT AUTHORIZED**
+Status: **APPROVED / IN PROGRESS — B0 COMPLETE; B1 NEXT**
 Specs: docs/phases/PHASE-008-local-product-hardening.zh-CN.md (Owner review) and
 docs/phases/PHASE-008-local-product-hardening.md (execution mirror)
 Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus accepted
@@ -422,8 +422,9 @@ Planned branch: phase/p8-local-product-hardening
 The P7 stability handoff adds bounded Hermes launch during detection and authoritative
 removed-Instance record classification/cleanup without moving the frozen P7 tag or
 reopening deferred P7 capabilities. Exact revision CI run `33365096577`, final-main CI
-run `33366271630` attempt 2 and Windows MSI run `33366271629` passed. P8 implementation
-remains blocked until the Owner approves the P8 Spec.
+run `33366271630` attempt 2 and Windows MSI run `33366271629` passed. The Owner approved
+the P8 Spec and B0–B6 execution on 2026-09-03. Production Windows signing material is
+not yet available, so the phase is currently capped at internal-candidate status.
 
 Goal: turn the completed single-Node experience into a dependable public local product before validating additional Runtime or remote-management scope.
 
@@ -436,7 +437,7 @@ Deliverables:
 - macOS/Linux validation where feasible, without weakening the Windows baseline;
 - telemetry decision (`opt-in` or none; separate ADR if introduced);
 - security review and threat-model refresh;
-- signed release pipeline;
+- signing-aware release pipeline; without production signing material, only an internal candidate may pass;
 - user-facing diagnostics/export bundle without secrets;
 - documented support matrix and recovery guidance.
 
