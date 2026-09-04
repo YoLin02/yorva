@@ -14,6 +14,7 @@ const updateMocks = vi.hoisted(() => ({
   cancel: vi.fn(),
   install: vi.fn(),
 }));
+const diagnosticMocks = vi.hoisted(() => ({ export: vi.fn() }));
 
 vi.mock("../api/desktopPreferences", () => ({
   getDesktopPreferences: preferenceMocks.get,
@@ -27,6 +28,11 @@ vi.mock("../api/updates", () => ({
   cancelYorvaUpdate: updateMocks.cancel,
   installYorvaUpdate: updateMocks.install,
   isYorvaUpdateError: (value: unknown) => typeof value === "object" && value !== null && "code" in value,
+}));
+
+vi.mock("../api/diagnostics", () => ({
+  exportDiagnosticBundle: diagnosticMocks.export,
+  isDiagnosticExportError: (value: unknown) => typeof value === "object" && value !== null && "code" in value,
 }));
 
 describe("SettingsView", () => {
@@ -45,6 +51,7 @@ describe("SettingsView", () => {
     updateMocks.download.mockReset();
     updateMocks.cancel.mockReset();
     updateMocks.install.mockReset();
+    diagnosticMocks.export.mockReset().mockResolvedValue(null);
   });
 
   it("switches from general settings to Hermes download sources", () => {
@@ -115,5 +122,27 @@ describe("SettingsView", () => {
     await waitFor(() => expect(updateMocks.download).toHaveBeenCalledTimes(1));
     fireEvent.click(await screen.findByRole("button", { name: /Install and restart/ }));
     await waitFor(() => expect(updateMocks.install).toHaveBeenCalledTimes(1));
+  });
+
+  it("opens diagnostics separately and reports only a completed export", async () => {
+    diagnosticMocks.export.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      fileName: "YORVA-diagnostics-1.zip",
+      sizeBytes: 2048,
+      exportedAtUnixMs: 1_788_500_000_000,
+    });
+    render(<SettingsView copy={messages["zh-CN"]} locale="zh-CN" onLocaleChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "诊断" }));
+    fireEvent.click(screen.getByRole("button", { name: /打开诊断/ }));
+    expect(screen.getByRole("heading", { name: "导出诊断信息" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "诊断" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^导出诊断信息$/ }));
+    await waitFor(() => expect(diagnosticMocks.export).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("诊断包已导出")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^导出诊断信息$/ }));
+    expect(await screen.findByText("诊断包已导出")).toBeInTheDocument();
+    expect(screen.getByText("YORVA-diagnostics-1.zip")).toBeInTheDocument();
   });
 });

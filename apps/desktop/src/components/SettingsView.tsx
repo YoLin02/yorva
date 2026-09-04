@@ -6,6 +6,7 @@ import { IconMonitor, IconMoon, IconSun } from "./ui/icons";
 import type { DaemonClient } from "../api/client";
 import { HermesDownloadSourcesPanel } from "./settings/HermesDownloadSourcesPanel";
 import { YorvaUpdatePanel, YorvaUpdateSummary } from "./settings/YorvaUpdatePanel";
+import { DiagnosticsPanel, DiagnosticsSummary } from "./settings/DiagnosticsPanel";
 
 type SettingsTab = "general" | "advanced" | "diagnostics" | "about";
 
@@ -22,6 +23,7 @@ export function SettingsView({
 }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [updateOpen, setUpdateOpen] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [desktopPreferences, setDesktopPreferenceState] = useState<DesktopPreferences>({
     launchOnLogin: true,
     closeToTray: true,
@@ -60,6 +62,10 @@ export function SettingsView({
 
   if (updateOpen) {
     return <YorvaUpdatePanel copy={copy.settings.updates} onBack={() => setUpdateOpen(false)} />;
+  }
+
+  if (diagnosticsOpen) {
+    return <DiagnosticsPanel copy={copy.settings.diagnostics} locale={locale} onBack={() => setDiagnosticsOpen(false)} />;
   }
 
   return (
@@ -202,6 +208,15 @@ export function SettingsView({
             <p>{copy.settings.updates.aboutDescription}</p>
           </section>
           <YorvaUpdateSummary copy={copy.settings.updates} onOpen={() => setUpdateOpen(true)} />
+        </div>
+      ) : activeTab === "diagnostics" ? (
+        <div
+          id="settings-panel-diagnostics"
+          className="settings-general"
+          role="tabpanel"
+          aria-labelledby="settings-tab-diagnostics"
+        >
+          <DiagnosticsSummary copy={copy.settings.diagnostics} onOpen={() => setDiagnosticsOpen(true)} />
         </div>
       ) : (
         <div

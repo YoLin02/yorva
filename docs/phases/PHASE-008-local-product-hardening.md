@@ -1,6 +1,6 @@
 # YORVA Phase 8 — Local Product Hardening MVP
 
-> Status: **APPROVED / IN PROGRESS — B0–B4 COMPLETE; B5 NEXT**
+> Status: **APPROVED / IN PROGRESS — B0–B5 COMPLETE; B6 NEXT**
 > Phase: P8
 > Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus P7 stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc`
 > Planned branch: phase/p8-local-product-hardening
@@ -401,7 +401,7 @@ After audit PASS and explicit Owner authorization:
 | P8-B2 | COMPLETE | B2 Batch commit | Automated crash/restart, stale-operation and authoritative reconcile checks plus disposable Windows reboot/login smoke passed |
 | P8-B3 | COMPLETE | `56df01f` plus B3 evidence commit | Exact clean-source 0.4.0 MSI; static/negative inspection and disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate passed |
 | P8-B4 | COMPLETE | `8d1b162` + `6a75cde` + B4 evidence commit | Exact clean-source 0.4.0 MSI; signed fixed-source metadata; disposable Windows Happy/Tamper/Interrupted/InstallerFailure Gate passed |
-| P8-B5 | NOT STARTED | — | — |
+| P8-B5 | COMPLETE | B5 Batch commit | Fixed sanitized ZIP schema and bounds; authenticated daemon endpoint; capability-scoped atomic Save As; canary/cleanup/UI/non-MSI Gate passed |
 | P8-B6 | NOT STARTED | — | — |
 
 ## 14. Owner approval record

@@ -21,6 +21,7 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/applog"
 	"github.com/YoLin02/yorva/services/node/internal/bootstrap"
 	"github.com/YoLin02/yorva/services/node/internal/buildinfo"
+	"github.com/YoLin02/yorva/services/node/internal/diagnostics"
 	"github.com/YoLin02/yorva/services/node/internal/domain/node"
 	"github.com/YoLin02/yorva/services/node/internal/events"
 	"github.com/YoLin02/yorva/services/node/internal/install"
@@ -293,7 +294,10 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 		return err
 	}
 	server := &http.Server{
-		Handler:           httpapi.NewHandler(message.Token, localNode, broker, discovery, installs, instances, message.DataDir, sourceSettings),
+		Handler: httpapi.NewHandler(
+			message.Token, localNode, broker, discovery, installs, instances, message.DataDir, sourceSettings,
+			diagnostics.New(localNode, discovery, instances, installs, database, message.DataDir),
+		),
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       30 * time.Second,

@@ -162,6 +162,22 @@ type Messages = {
     closeToTrayDescription: string;
     dataRetention: string;
     dataRetentionDescription: string;
+    diagnostics: {
+      title: string;
+      summary: string;
+      open: string;
+      pageTitle: string;
+      description: string;
+      back: string;
+      export: string;
+      exporting: string;
+      contentsTitle: string;
+      contentsDescription: string;
+      contents: string[];
+      privacy: string;
+      succeeded: string;
+      failed: string;
+    };
     updates: {
       title: string;
       aboutDescription: string;
@@ -873,6 +889,22 @@ const english: Messages = {
     closeToTrayDescription: "Closing the main window keeps Yorva available in the system tray.",
     dataRetention: "Uninstall and local data",
     dataRetentionDescription: "Uninstall removes YORVA program files, shortcuts, and login startup. It preserves YORVA settings, encrypted backups, and every Hermes Runtime and Profile.",
+    diagnostics: {
+      title: "Diagnostics and support",
+      summary: "Export a fixed, sanitized local support bundle without exposing credentials or raw application data.",
+      open: "Open diagnostics",
+      pageTitle: "Export diagnostics",
+      description: "Create a bounded support ZIP from current daemon, Runtime, Instance, operation, schema, and sanitized log summaries.",
+      back: "Diagnostics and support",
+      export: "Export diagnostics",
+      exporting: "Preparing…",
+      contentsTitle: "Included information",
+      contentsDescription: "The archive uses a fixed schema and seven-day log window.",
+      contents: ["Version", "Node summary", "Runtime summary", "Instance summary", "Recent operations", "Schema", "Sanitized logs", "Redaction report"],
+      privacy: "API keys, tokens, channel and MCP credentials, QR and pairing values, cookies, authorization data, environment variables, raw databases, absolute paths, and arbitrary user files are never included.",
+      succeeded: "Diagnostic bundle exported",
+      failed: "The diagnostic bundle could not be exported. No partial file was kept.",
+    },
     updates: {
       title: "YORVA updates",
       aboutDescription: "Local-first Runtime control for supported Windows devices.",
@@ -1640,6 +1672,22 @@ const simplifiedChinese: Messages = {
     closeToTrayDescription: "关闭主窗口后 Yorva 继续在系统托盘中运行。",
     dataRetention: "卸载与本地数据",
     dataRetentionDescription: "卸载会移除 YORVA 程序文件、快捷方式和登录启动项，但会保留 YORVA 设置、加密备份以及全部 Hermes Runtime 和 Profile。",
+    diagnostics: {
+      title: "诊断与支持",
+      summary: "导出固定、已脱敏的本地支持包，不暴露凭据或原始应用数据。",
+      open: "打开诊断",
+      pageTitle: "导出诊断信息",
+      description: "根据当前守护进程、Runtime、实例、操作、数据库版本和脱敏日志摘要生成有界支持 ZIP。",
+      back: "诊断与支持",
+      export: "导出诊断信息",
+      exporting: "正在准备…",
+      contentsTitle: "包含的信息",
+      contentsDescription: "压缩包采用固定结构，日志时间窗口为最近七天。",
+      contents: ["版本", "节点摘要", "Runtime 摘要", "实例摘要", "最近操作", "数据库版本", "脱敏日志", "脱敏报告"],
+      privacy: "API Key、Token、Channel 与 MCP 凭据、二维码与配对值、Cookie、授权信息、环境变量、原始数据库、绝对路径及任意用户文件均不会包含在内。",
+      succeeded: "诊断包已导出",
+      failed: "未能导出诊断包，未保留任何不完整文件。",
+    },
     updates: {
       title: "YORVA 更新",
       aboutDescription: "面向受支持 Windows 设备的本地优先 Runtime 中控。",

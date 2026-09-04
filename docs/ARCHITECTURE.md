@@ -85,6 +85,7 @@ Appropriate responsibilities:
 - OS-specific secure/native integration where needed;
 - secure bootstrap handoff between Desktop and daemon;
 - packaging/updater integration where Tauri owns the concern.
+- capability-scoped Save As for an already-sanitized diagnostic bundle.
 
 Ordinary Runtime business logic belongs in Go, not Rust.
 
@@ -98,6 +99,7 @@ services/node/
 └── internal/
     ├── app/            # use cases
     ├── domain/         # stable YORVA concepts
+    ├── diagnostics/    # fixed sanitized local support projection
     ├── httpapi/        # local HTTP/SSE transport
     ├── operation/      # async operation engine
     ├── persistence/    # SQLite repositories/migrations

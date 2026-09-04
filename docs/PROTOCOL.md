@@ -84,6 +84,19 @@ Suggested prefixes are allowed for diagnostics (`node_`, `op_`, `inst_`) but are
 
 RFC 3339 UTC timestamps.
 
+### Sanitized diagnostic export
+
+`POST /api/v1/diagnostics/bundle` is an authenticated loopback-only exception to the
+ordinary JSON response convention: it returns one complete `application/zip` body. The
+request has no caller-controlled path, source, filter, field list, time range, header or
+environment input. The daemon fixes the archive schema, seven-day log window, record
+limits and two-MiB compressed/uncompressed bounds.
+
+The native Desktop command supplies the in-memory bearer session, opens the platform
+Save As dialog, and publishes the already-complete archive atomically. Dialog cancellation
+is not success. `DIAGNOSTICS_EXPORT_FAILED` is the stable failure code; raw filesystem,
+database, Runtime and compression errors are not returned to React.
+
 ### Pagination
 
 Use cursor pagination only for resources that can grow substantially, such as audit/operation history.

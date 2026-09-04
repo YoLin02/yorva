@@ -33,6 +33,16 @@ pub struct DaemonSession {
     protocol_version: String,
 }
 
+impl DaemonSession {
+    pub(crate) fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    pub(crate) fn token(&self) -> &str {
+        &self.token
+    }
+}
+
 #[derive(Clone, Serialize)]
 pub struct DaemonCommandError {
     pub(crate) code: &'static str,

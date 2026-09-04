@@ -72,3 +72,12 @@ The following are separate configuration pages:
 
 This split changes presentation only. Runtime resources, Operations, credential handling
 and authoritative Hermes read-back remain owned by the existing API and application flow.
+
+## 5. Diagnostics and support
+
+The Settings **Diagnostics** tab is an index row, not the export workflow itself. Its
+action opens a dedicated page with one concise privacy explanation, the fixed content
+categories and one primary **Export diagnostics** action. The page reports a successful
+export only after the native atomic publish returns its filename, size and completion
+time. Closing the Save As dialog leaves the page idle; errors state that no partial file
+was kept and do not expose paths or internal causes.

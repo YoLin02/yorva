@@ -409,6 +409,16 @@ Phase 8 uses `PRODUCT_SUPPORT.md` as the Windows product-support contract. The M
 telemetry and does not upload crash, usage, Runtime or diagnostic data. Diagnostic export
 is local, explicitly user-triggered and limited to a fixed sanitized projection.
 
+The diagnostic archive contains only fixed JSON summaries and an allowlisted projection
+of YORVA's own NDJSON log. Node, Instance, Operation and Profile identifiers are hashed;
+unrecognized log fields are dropped and secret/path-like values are replaced. Provider
+keys, tokens, channel/MCP credentials, QR/pairing values, cookies, authorization data,
+ambient environment, raw SQLite data, absolute paths and arbitrary user files are never
+eligible inputs. The daemon enforces record, age and size limits before returning the
+complete ZIP. Tauri exposes only the fixed export action and an atomic Save As publish,
+not a general read/write API; cancellation and write failure leave no success state or
+partial archive.
+
 YORVA update packages must be checked for fixed origin, size, SHA-256, version and the
 approved Windows signature policy before execution. The Owner confirmed on 2026-09-03
 that production code-signing material is not currently available. Unsigned builds may be

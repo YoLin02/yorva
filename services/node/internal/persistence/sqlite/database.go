@@ -100,6 +100,10 @@ func (d *Database) Close() error {
 	return d.db.Close()
 }
 
+func (d *Database) SchemaVersion(ctx context.Context) (int, error) {
+	return currentMigrationVersion(ctx, d.db)
+}
+
 func migrate(ctx context.Context, db *sql.DB, files fs.FS) error {
 	if _, err := db.ExecContext(ctx, `
         CREATE TABLE IF NOT EXISTS schema_migrations (

@@ -2,6 +2,8 @@ mod daemon;
 #[cfg(desktop)]
 mod desktop;
 #[cfg(desktop)]
+mod diagnostics;
+#[cfg(desktop)]
 mod product_data;
 #[cfg(desktop)]
 mod updater;
@@ -45,6 +47,7 @@ pub fn run() {
             discard_skill_import,
             desktop::desktop_preferences,
             desktop::set_desktop_preferences,
+            diagnostics::export_diagnostic_bundle,
             updater::yorva_update_status,
             updater::check_yorva_update,
             updater::download_yorva_update,
