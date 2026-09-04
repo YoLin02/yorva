@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -118,6 +121,49 @@ func TestRunBootstrapsLoopbackHealthServer(t *testing.T) {
 
 func TestRunStopsWhenParentClosesBootstrapPipe(t *testing.T) {
 	testParentStop(t, func(writer *io.PipeWriter) error { return writer.Close() })
+}
+
+func TestRunRepeatedStartStopDoesNotAccumulateGoroutines(t *testing.T) {
+	isolation := t.TempDir()
+	localAppData := filepath.Join(isolation, "local-app-data")
+	roamingAppData := filepath.Join(isolation, "roaming-app-data")
+	if err := os.MkdirAll(localAppData, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(roamingAppData, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HERMES_HOME", filepath.Join(localAppData, "hermes"))
+	t.Setenv("LOCALAPPDATA", localAppData)
+	t.Setenv("APPDATA", roamingAppData)
+	t.Setenv("PATH", "")
+
+	testParentStop(t, func(writer *io.PipeWriter) error {
+		_, err := io.WriteString(writer, "{\"type\":\"shutdown\"}\n")
+		return err
+	})
+	runtime.GC()
+	baseline := runtime.NumGoroutine()
+
+	for range 12 {
+		testParentStop(t, func(writer *io.PipeWriter) error {
+			_, err := io.WriteString(writer, "{\"type\":\"shutdown\"}\n")
+			return err
+		})
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		runtime.GC()
+		observed := runtime.NumGoroutine()
+		if observed <= baseline+4 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("daemon start/stop goroutines = %d, baseline = %d", observed, baseline)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
 }
 
 func TestRunStopsWhenParentClosesBeforeHandshake(t *testing.T) {
@@ -243,6 +289,9 @@ func testParentStop(t *testing.T, stop func(*io.PipeWriter) error) {
 	)
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
+	defer stdinWriter.Close()
+	defer stdoutReader.Close()
+	defer stdoutWriter.Close()
 	result := make(chan error, 1)
 	go func() {
 		result <- Run(context.Background(), []string{"--bootstrap-stdio"}, Streams{
@@ -252,9 +301,27 @@ func testParentStop(t *testing.T, stop func(*io.PipeWriter) error) {
 	if _, err := fmt.Fprintln(stdinWriter, input); err != nil {
 		t.Fatalf("write bootstrap: %v", err)
 	}
+	type handshakeResult struct {
+		value bootstrap.Handshake
+		err   error
+	}
+	handshakeDone := make(chan handshakeResult, 1)
+	go func() {
+		var value bootstrap.Handshake
+		err := json.NewDecoder(stdoutReader).Decode(&value)
+		handshakeDone <- handshakeResult{value: value, err: err}
+	}()
 	var handshake bootstrap.Handshake
-	if err := json.NewDecoder(stdoutReader).Decode(&handshake); err != nil {
-		t.Fatalf("decode handshake: %v", err)
+	select {
+	case decoded := <-handshakeDone:
+		if decoded.err != nil {
+			t.Fatalf("decode handshake: %v", decoded.err)
+		}
+		handshake = decoded.value
+	case err := <-result:
+		t.Fatalf("daemon exited before handshake: %v", err)
+	case <-time.After(45 * time.Second):
+		t.Fatal("daemon did not produce a handshake before its startup deadline")
 	}
 	streamRequest, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/api/v1/events", handshake.Port), nil)
 	if err != nil {

@@ -6,6 +6,7 @@
 
 This contract freezes the common assumptions for P8 installation, migration, recovery,
 update, diagnostics and release work. It does not by itself make a build public-ready.
+User-facing recovery steps are maintained in `RECOVERY.md`.
 
 ## 1. Support matrix
 

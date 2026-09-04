@@ -1073,7 +1073,7 @@ fn status_from(record: &UpdateRecord) -> UpdateStatus {
 }
 
 fn ensure_update_root(root: &Path) -> Result<(), UpdateCommandError> {
-    if root.exists() {
+    if path_entry_exists(root)? {
         require_directory(root)?;
     } else {
         fs::create_dir_all(root).map_err(|_| UpdateCommandError::state())?;
@@ -1110,7 +1110,7 @@ fn is_reparse_point(_metadata: &fs::Metadata) -> bool {
 }
 
 fn load_record(paths: &UpdatePaths) -> Result<UpdateRecord, UpdateCommandError> {
-    if !paths.state.exists() {
+    if !path_entry_exists(&paths.state)? {
         return Ok(UpdateRecord::default());
     }
     require_regular_file(&paths.state).map_err(|_| UpdateCommandError::state())?;
@@ -1128,26 +1128,81 @@ fn load_record(paths: &UpdatePaths) -> Result<UpdateRecord, UpdateCommandError> 
 
 fn persist_record(paths: &UpdatePaths, record: &UpdateRecord) -> Result<(), UpdateCommandError> {
     require_directory(&paths.root)?;
+    if path_entry_exists(&paths.state)? {
+        require_regular_file(&paths.state).map_err(|_| UpdateCommandError::state())?;
+    }
     let bytes = serde_json::to_vec_pretty(record).map_err(|_| UpdateCommandError::state())?;
     if bytes.len() > MAX_METADATA_BYTES as usize {
         return Err(UpdateCommandError::state());
     }
     let temporary = paths.root.join("state.tmp");
     remove_if_regular(&temporary);
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&temporary)
-        .map_err(|_| UpdateCommandError::state())?;
-    file.write_all(&bytes)
-        .map_err(|_| UpdateCommandError::state())?;
-    file.sync_all().map_err(|_| UpdateCommandError::state())?;
-    drop(file);
-    if paths.state.exists() {
-        require_regular_file(&paths.state).map_err(|_| UpdateCommandError::state())?;
-        fs::remove_file(&paths.state).map_err(|_| UpdateCommandError::state())?;
+    let result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+            .map_err(|_| UpdateCommandError::state())?;
+        file.write_all(&bytes)
+            .map_err(|_| UpdateCommandError::state())?;
+        file.sync_all().map_err(|_| UpdateCommandError::state())?;
+        drop(file);
+        replace_state_file(&temporary, &paths.state).map_err(|_| UpdateCommandError::state())
+    })();
+    if result.is_err() {
+        remove_if_regular(&temporary);
     }
-    fs::rename(temporary, &paths.state).map_err(|_| UpdateCommandError::state())
+    result
+}
+
+#[cfg(windows)]
+fn replace_state_file(source: &Path, destination: &Path) -> io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        REPLACE_FILE_FLAGS, REPLACEFILE_WRITE_THROUGH, ReplaceFileW,
+    };
+    match fs::symlink_metadata(destination) {
+        Ok(metadata)
+            if metadata.is_file()
+                && !metadata.file_type().is_symlink()
+                && !is_reparse_point(&metadata) => {}
+        Ok(_) => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "update state destination changed before publication",
+            ));
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return fs::rename(source, destination);
+        }
+        Err(error) => return Err(error),
+    }
+    let source: Vec<u16> = source.as_os_str().encode_wide().chain(Some(0)).collect();
+    let destination: Vec<u16> = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    let replaced = unsafe {
+        ReplaceFileW(
+            destination.as_ptr(),
+            source.as_ptr(),
+            std::ptr::null(),
+            REPLACEFILE_WRITE_THROUGH as REPLACE_FILE_FLAGS,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        )
+    };
+    if replaced == 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(not(windows))]
+fn replace_state_file(source: &Path, destination: &Path) -> io::Result<()> {
+    fs::rename(source, destination)
 }
 
 fn persist_failure(paths: &UpdatePaths, code: &str) -> Result<(), UpdateCommandError> {
@@ -1157,10 +1212,18 @@ fn persist_failure(paths: &UpdatePaths, code: &str) -> Result<(), UpdateCommandE
     persist_record(paths, &record)
 }
 
+fn path_entry_exists(path: &Path) -> Result<bool, UpdateCommandError> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(_) => Err(UpdateCommandError::state()),
+    }
+}
+
 fn remove_if_regular(path: &Path) {
-    if fs::symlink_metadata(path)
-        .is_ok_and(|metadata| metadata.is_file() && !metadata.file_type().is_symlink())
-    {
+    if fs::symlink_metadata(path).is_ok_and(|metadata| {
+        metadata.is_file() && !metadata.file_type().is_symlink() && !is_reparse_point(&metadata)
+    }) {
         let _ = fs::remove_file(path);
     }
 }
@@ -1188,7 +1251,7 @@ fn remove_existing_regular_file(path: &Path) -> Result<(), UpdateCommandError> {
 }
 
 fn read_installer_result(path: &Path) -> Result<Option<i32>, UpdateCommandError> {
-    if !path.exists() {
+    if !path_entry_exists(path)? {
         return Ok(None);
     }
     require_regular_file(path).map_err(|_| UpdateCommandError::state())?;
@@ -1362,7 +1425,7 @@ mod tests {
     }
 
     #[test]
-    fn state_rejects_symlink_root_and_unknown_schema() {
+    fn state_replacement_is_atomic_and_rejects_unknown_schema() {
         let root = std::env::temp_dir().join(format!("yorva-update-test-{}", unix_millis()));
         let paths = UpdatePaths::at(root.clone()).unwrap();
         let record = UpdateRecord {
@@ -1372,9 +1435,46 @@ mod tests {
         persist_record(&paths, &record).unwrap();
         assert_eq!(load_record(&paths).unwrap().phase, UpdatePhase::Available);
 
+        let replacement = UpdateRecord {
+            phase: UpdatePhase::Downloading,
+            ..UpdateRecord::default()
+        };
+        persist_record(&paths, &replacement).unwrap();
+        assert_eq!(load_record(&paths).unwrap().phase, UpdatePhase::Downloading);
+        assert!(!paths.root.join("state.tmp").exists());
+
         fs::write(&paths.state, br#"{"schemaVersion":2,"phase":"IDLE"}"#).unwrap();
         assert_eq!(load_record(&paths).unwrap_err().code, "UPDATE_STATE_FAILED");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn state_rejects_a_dangling_link_without_creating_temporary_state() {
+        use std::os::unix::fs::symlink;
+
+        let root = std::env::temp_dir().join(format!("yorva-update-link-test-{}", unix_millis()));
+        let paths = UpdatePaths::at(root.clone()).unwrap();
+        symlink(root.join("missing-target"), &paths.state).unwrap();
+        let record = UpdateRecord {
+            phase: UpdatePhase::Available,
+            ..UpdateRecord::default()
+        };
+
+        assert_eq!(load_record(&paths).unwrap_err().code, "UPDATE_STATE_FAILED");
+        assert_eq!(
+            persist_record(&paths, &record).unwrap_err().code,
+            "UPDATE_STATE_FAILED"
+        );
+        assert!(
+            fs::symlink_metadata(&paths.state)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert!(!paths.root.join("state.tmp").exists());
+        fs::remove_file(&paths.state).unwrap();
+        fs::remove_dir(root).unwrap();
     }
 
     #[test]

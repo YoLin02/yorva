@@ -416,8 +416,10 @@ keys, tokens, channel/MCP credentials, QR/pairing values, cookies, authorization
 ambient environment, raw SQLite data, absolute paths and arbitrary user files are never
 eligible inputs. The daemon enforces record, age and size limits before returning the
 complete ZIP. Tauri exposes only the fixed export action and an atomic Save As publish,
-not a general read/write API; cancellation and write failure leave no success state or
-partial archive.
+not a general read/write API. An existing destination must be a regular non-link,
+non-reparse file; dangling links fail closed before a partial is created. Its private
+loopback request disables proxies and redirects so the bearer credential cannot leave the
+daemon endpoint; cancellation and write failure leave no success state or partial archive.
 
 YORVA update packages must be checked for fixed origin, size, SHA-256, version and the
 approved Windows signature policy before execution. The Owner confirmed on 2026-09-03
@@ -440,3 +442,53 @@ non-secret state file. Interrupted work restores only from a regular file with t
 recorded closed name and digest. Missing, malformed or tampered recovery evidence blocks
 startup with `DATABASE_MIGRATION_RECOVERY_REQUIRED`; it never falls back to deleting the
 database or continuing Runtime mutations.
+
+The one-time Desktop product-identity migration uses non-following metadata checks and
+rejects symbolic links, including dangling links, and Windows reparse points at its
+legacy/stable/staging roots, marker, and every copied entry. The updater
+validates `state.json` with non-following metadata before staging, flushes a same-directory
+temporary state record, and atomically replaces the prior state; dangling links fail
+closed without creating temporary state, and an interruption before publication leaves
+the previous durable state rather than an absent-state window.
+
+The Phase 8 stability harness is development qualification code, not a management API or
+shipping Runtime feature. It requires an explicit test-only Hermes executable, creates a
+new absent work root, replaces `LOCALAPPDATA`/`APPDATA` for its child processes, disables
+HTTP proxy use, and talks only to the private loopback bootstrap session it creates. It
+must not discover, copy, mutate, or emit the user's Hermes/YORVA roots or credentials.
+Diagnostic canaries and bootstrap tokens are scanned from every exported archive.
+
+The native Desktop recovery exercise uses Tauri's real Windows Known Folder product-data
+path and therefore runs only in a disposable Windows user profile, VM, or CI runner. It
+requires an explicit disposable-profile acknowledgement and fails before process launch
+if stable or legacy YORVA product data already exists. It replaces only its owned
+Desktop/daemon processes and records `hostRebooted=false`; controlled Windows reboot
+evidence is collected separately inside a disposable guest and never requires rebooting
+the shared development host.
+
+## 21. Phase 8 threat-model refresh
+
+`SECURITY.md` is the authoritative threat model for the local product. Phase 8 adds or
+changes these attack and failure surfaces:
+
+- a legacy product-data tree may contain a junction, symbolic link, or other Windows
+  reparse point intended to escape the migration root;
+- signed update metadata, staged packages, or the durable updater state may be tampered
+  with, redirected, truncated, or interrupted between verification and publication;
+- a system proxy or HTTP redirect may try to move the daemon bearer credential away from
+  the private loopback endpoint during diagnostic export;
+- diagnostic input may contain secrets, absolute paths, unknown structured fields, or
+  enough records to exhaust memory or disk;
+- abnormal Desktop/daemon termination may leave an orphan process, stale bootstrap
+  identity, or UI state that appears recovered before authoritative Runtime readback;
+- a qualification harness may accidentally inherit the user's application roots,
+  credentials, proxy settings, or unrelated process identities.
+
+The corresponding Phase 8 controls are closed-root migration with reparse rejection;
+verified update origin, metadata, digest, version, signature policy, bounded staging and
+atomic durable state replacement; no-proxy/no-redirect authenticated diagnostic export
+with an allowlisted bounded projection; owned-process restart followed by a fresh
+bootstrap handshake and authoritative inventory readback; absent isolated daemon test
+roots; and a fresh disposable Windows profile with exact-candidate process ownership for
+native Desktop recovery. These controls do not alter the existing boundary
+that a fully compromised administrator/root session is out of scope.

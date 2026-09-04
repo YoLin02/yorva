@@ -20,7 +20,12 @@ Hermes and future AI Runtimes
 Runtime Instances
 ```
 
-The accepted local baseline has progressed through Phase 6.5. The next roadmap phase is **Phase 7 — Single-Node Runtime operations completeness**, focused on completing Skills, MCP, backup/restore, Runtime upgrade, health/log visibility and recovery before distributed management is introduced.
+The accepted local baseline has progressed through Phase 7. **Phase 8 — Local product
+hardening** is in progress, focused on Windows installation and update integrity, supported
+data migration, restart recovery, sanitized diagnostics and bounded stability evidence
+before distributed management is introduced. Without production Windows signing material,
+the current phase is capped at an internal candidate and cannot claim public-release
+readiness.
 
 Longer term, the roadmap validates the Runtime abstraction with a real second Runtime before evolving `yorvad` into a headless YORVA Node, then adds multi-Node YORVA Control, Fleet configuration/Desired State and enterprise governance in that order.
 
@@ -46,7 +51,12 @@ docs/               Architecture, Runtime contract, security, roadmap and phase 
 - Tauri CLI 2.11.4
 - Windows C++ build tools and WebView2
 
-The authoritative setup and validation commands are documented in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Product direction is documented in [docs/ROADMAP.md](docs/ROADMAP.md), and architectural boundaries are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/RUNTIME.md](docs/RUNTIME.md).
+The authoritative setup and validation commands are documented in
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Product direction is documented in
+[docs/ROADMAP.md](docs/ROADMAP.md), product support and recovery behavior in
+[docs/PRODUCT_SUPPORT.md](docs/PRODUCT_SUPPORT.md) and [docs/RECOVERY.md](docs/RECOVERY.md),
+and architectural boundaries in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
+[docs/RUNTIME.md](docs/RUNTIME.md).
 
 ## Licensing
 

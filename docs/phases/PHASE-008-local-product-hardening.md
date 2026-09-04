@@ -1,6 +1,6 @@
 # YORVA Phase 8 — Local Product Hardening MVP
 
-> Status: **APPROVED / IN PROGRESS — B0–B5 COMPLETE; B6 NEXT**
+> Status: **APPROVED / IN PROGRESS — B0–B6 LOCAL INTERNAL-CANDIDATE GATE COMPLETE; PUBLIC-RELEASE GATES PENDING**
 > Phase: P8
 > Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus P7 stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc`
 > Planned branch: phase/p8-local-product-hardening
@@ -110,7 +110,7 @@ P8 gaps:
 | P8-D5 | YORVA update uses a complete verifiable installer package, not an incremental patch service. |
 | P8-D6 | MVP telemetry is none. A later opt-in system requires separate Owner approval and security-contract work. |
 | P8-D7 | Diagnostic export uses a fixed sanitized projection plus a Tauri capability-scoped Save As flow, never a generic file API. |
-| P8-D8 | A public-ready candidate requires real signing/provenance evidence. Missing signing material blocks public-release readiness. |
+| P8-D8 | A public-ready candidate requires real signing/provenance evidence. Missing signing material permits completion only as an internal candidate and blocks public-release readiness. |
 | P8-D9 | Each Batch commits automatically after focused verification; milestone push/merge/tag/freeze still requires Owner authority. |
 
 ## 5. Required scope
@@ -307,16 +307,30 @@ final release candidate:
 - reviewed-Preset MCP bind/test/unbind;
 - Channel status;
 - Runtime backup create/verify/delete;
-- Desktop close/reopen and daemon reconnect;
+- Desktop close/reopen, forced daemon termination, bounded daemon replacement and
+  authenticated reconnect;
 - periodic diagnostic export;
-- one controlled Windows reboot/recovery.
+- authoritative state reconciliation after each process-level recovery.
+
+The shared development host is not rebooted during B6. Machine-reboot coverage reuses
+the completed disposable Windows 11 reboot/login evidence from B2; B6 adds repeatable
+process-failure recovery and two isolated four-hour windows without replacing that
+machine-level evidence.
 
 Observe crashes, deadlocks, orphan processes, goroutines/handles/memory/CPU, log/Operation/
 staging growth, stale state and secret leakage.
 
 Release Gate includes dependency/security review, exact-candidate CI/race, signed MSI,
-installer/update/migration/diagnostic/reboot smoke, soak summary, focused independent
+installer/update/migration/diagnostic smoke, the existing disposable reboot smoke, soak
+summary, focused independent
 audit and Owner decision.
+
+The B6 internal-candidate Gate may commit after all P8 behavior/readback/failure/smoke
+checks, the four-hour minimum soak, the complete local Gate, Go race, dependency audit,
+support/recovery documentation, and closure of all Critical/High findings pass. Missing
+remote or signing evidence remains explicit and cannot be recorded as PASS. Exact-commit
+CI, the Windows MSI workflow, production signing, independent audit, Owner authorization,
+merge, final-main CI, tag and freeze remain separate public-release/phase-exit Gates.
 
 ## 8. Dependency order
 
@@ -378,11 +392,15 @@ Stop the affected Batch if:
 - real MSI/update/reboot smoke cannot run;
 - the four-hour minimum soak fails or exposes unexplained crash/deadlock/unbounded growth.
 
-## 12. Exit and freeze
+## 12. Internal candidate, public exit and freeze
 
-P8 enters audit only after support policy, real installation, schema-016 migration,
-crash/reboot recovery, installer lifecycle, one real YORVA update, sanitized diagnostics,
-three-Instance soak, signed candidate and full CI/Windows evidence pass.
+The B6 internal candidate may be committed when its local Gate above passes. That commit
+does not change the phase to COMPLETE/FROZEN and does not claim public-release readiness.
+
+P8 enters its independent public-release audit and phase-exit Gate only after support
+policy, real installation, schema-016 migration, crash/reboot recovery, installer
+lifecycle, one real YORVA update, sanitized diagnostics, three-Instance soak, a
+production-signed candidate, and exact-candidate CI/Windows evidence pass.
 
 After audit PASS and explicit Owner authorization:
 
@@ -396,13 +414,13 @@ After audit PASS and explicit Owner authorization:
 
 | Batch | Status | Commit | Gate |
 | --- | --- | --- | --- |
-| P8-B0 | COMPLETE | B0 Batch commit | Bilingual support contract, Owner decisions, directory/retention/signing consistency review passed |
-| P8-B1 | COMPLETE | B1 Batch commit | Schema 017; protected/verified/recoverable 016→017; identifier data migration; Go/Rust focused Gate passed |
-| P8-B2 | COMPLETE | B2 Batch commit | Automated crash/restart, stale-operation and authoritative reconcile checks plus disposable Windows reboot/login smoke passed |
-| P8-B3 | COMPLETE | `56df01f` plus B3 evidence commit | Exact clean-source 0.4.0 MSI; static/negative inspection and disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate passed |
-| P8-B4 | COMPLETE | `8d1b162` + `6a75cde` + B4 evidence commit | Exact clean-source 0.4.0 MSI; signed fixed-source metadata; disposable Windows Happy/Tamper/Interrupted/InstallerFailure Gate passed |
-| P8-B5 | COMPLETE | B5 Batch commit | Fixed sanitized ZIP schema and bounds; authenticated daemon endpoint; capability-scoped atomic Save As; canary/cleanup/UI/non-MSI Gate passed |
-| P8-B6 | NOT STARTED | — | — |
+| P8-B0 | COMPLETE | `72ec369` | Bilingual support contract, Owner decisions, directory/retention/signing consistency review passed |
+| P8-B1 | COMPLETE | `fc224a8` | Schema 017; protected/verified/recoverable 016→017; identifier data migration; Go/Rust focused Gate passed |
+| P8-B2 | COMPLETE | `3ee4580` | Automated crash/restart, stale-operation and authoritative reconcile checks plus disposable Windows reboot/login smoke passed |
+| P8-B3 | COMPLETE | `56df01f` + `412d3c0` | Exact clean-source 0.4.0 MSI; static/negative inspection and disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate passed |
+| P8-B4 | COMPLETE | `81b4bfa` + `9be7435` + `8d1b162` + `6a75cde` + `7407992` | Exact clean-source 0.4.0 MSI; signed fixed-source metadata; disposable Windows Happy/Tamper/Interrupted/InstallerFailure Gate passed |
+| P8-B5 | COMPLETE | `5ca5f0a` | Fixed sanitized ZIP schema and bounds; authenticated daemon endpoint; capability-scoped atomic Save As; canary/cleanup/UI/non-MSI Gate passed |
+| P8-B6 | COMPLETE — INTERNAL CANDIDATE | this commit | Two complementary four-hour Windows windows, combined bounds analysis, disposable-guest exact-candidate recovery and complete local Gate passed; remote CI, signing and independent audit remain pending |
 
 ## 14. Owner approval record
 
@@ -416,5 +434,9 @@ On 2026-09-03, the Owner confirmed:
 5. the soak minimum is four hours and the final-candidate target is eight hours;
 6. B0–B6 sequential implementation and automatic commits after each passed Batch Gate
    are authorized.
+
+On 2026-09-04, the Owner additionally required B6 not to restart the shared Windows
+host. Process-level crash/reconnect tests and the already completed disposable-Windows
+reboot evidence cover the two recovery layers separately.
 
 Push, merge, tag and freeze continue to require explicit Owner authorization.

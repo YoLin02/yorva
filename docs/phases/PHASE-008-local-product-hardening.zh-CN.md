@@ -1,6 +1,6 @@
 # YORVA Phase 8 — 本地产品可靠化 MVP
 
-> 状态：**APPROVED / IN PROGRESS — B0–B5 已完成；下一批 B6**
+> 状态：**APPROVED / IN PROGRESS — B0–B6 本地内部候选 Gate 已完成；公开发布 Gate 待完成**
 > 阶段标识：P8
 > 阶段性质：本地产品可靠化与首个正式 Windows MVP
 > 必需基线：phase-007-hermes-runtime-management-completeness-baseline + P7 稳定性修订 `9834a8cb1df9e70502936153943f501ed37cb8fc`
@@ -416,11 +416,15 @@ Soak 场景：
 - reviewed-Preset MCP bind/test/unbind；
 - Channel 状态查询；
 - Runtime Backup create/verify/delete；
-- Desktop close/reopen 与 daemon reconnect；
+- Desktop close/reopen、强制终止 daemon、有界重建 daemon 与认证 reconnect；
 - 定期诊断导出；
-- 至少一次受控 Windows reboot/recovery；
+- 每次进程级恢复后的权威状态 reconcile；
 - 4 小时最低 Gate，8 小时作为最终发布候选目标；
 - 72 小时 Soak 延后到 Refinement。
+
+B6 不重启共享开发宿主机。机器级重启覆盖沿用 B2 已完成的 disposable Windows 11
+reboot/login 证据；B6 通过两段相互补充的 4 小时隔离试验反复验证进程故障恢复，
+但不会把进程重启冒充为机器重启证据。
 
 观测项目：
 
@@ -445,15 +449,22 @@ Soak 场景：
 - 独立聚焦审查与 Owner Gate；
 - merge、final-main CI、annotated Phase 8 tag。
 
-B6 Gate：
+B6 内部候选 Gate：
 
 - 所有 P8 功能、read-back、失败和 smoke Gate 通过；
 - 无未解决 Critical/High；
-- 发布签名真实可验证；
 - 支持矩阵和恢复指南完成；
+- 4 小时最低 Soak、本地完整 Gate、Go race 与依赖审计通过；
+- 自动 Commit 后停留在内部候选，不把缺失的远端或签名证据写成 PASS。
+
+公开发布与阶段冻结 Gate：
+
+- 精确 B6 Commit CI 与 Windows MSI workflow 通过；
+- 发布签名真实可验证；
 - 审计 PASS 或 Owner 接受的 PASS WITH CONDITIONS；
 - Owner 明确授权后才 merge/tag/freeze；
-- Commit 后停止，不开始 P9。
+- final-main CI 与 annotated tag 完成后才标记 FROZEN；
+- 停止，不开始 P9。
 
 ## 7. Batch 依赖
 
@@ -587,9 +598,12 @@ P8 继续严格保持：
 - 真实 MSI/update/reboot smoke 无法执行；
 - 4 小时最低 Soak 无法完成或出现未解释 crash/deadlock/无界增长。
 
-## 13. 阶段退出标准
+## 13. 内部候选、公开发布与阶段退出
 
-Phase 8 只有在以下全部成立后才能进入审计：
+B6 本地 Gate 通过后可以提交内部候选。该提交不会把阶段标记为 COMPLETE/FROZEN，
+也不表示公开发布已经就绪。
+
+Phase 8 只有在以下全部成立后，才能进入独立的公开发布审计与阶段退出 Gate：
 
 - 支持矩阵和数据保留策略已冻结；
 - 普通 Windows 用户可以 Fresh Install 并完成首次启动；
@@ -615,13 +629,13 @@ Phase 8 只有在以下全部成立后才能进入审计：
 
 | Batch | 状态 | Commit | Gate |
 | --- | --- | --- | --- |
-| P8-B0 | COMPLETE | B0 Batch commit | 中英文产品支持合同、Owner 决策、目录/保留/签名门禁一致性检查通过 |
-| P8-B1 | COMPLETE | B1 Batch commit | Schema 017；016→017 保护/校验/恢复；identifier 数据迁移；Go/Rust focused Gate 通过 |
-| P8-B2 | COMPLETE | B2 Batch commit | 自动 crash/restart、stale Operation、权威 reconcile 与 disposable Windows reboot/login smoke 全部通过 |
-| P8-B3 | COMPLETE | `56df01f` + B3 证据提交 | 干净源码构建的 0.4.0 精确 MSI；静态/负向检查与 disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate 全部通过 |
-| P8-B4 | COMPLETE | `8d1b162` + `6a75cde` + B4 证据提交 | 精确干净源码 0.4.0 MSI；固定来源签名元数据；disposable Windows Happy/Tamper/Interrupted/InstallerFailure Gate 全部通过 |
-| P8-B5 | COMPLETE | B5 Batch 提交 | 固定脱敏 ZIP 结构与边界；认证 daemon 接口；能力受限的原子另存为；canary、清理、UI 与非 MSI Gate 均通过 |
-| P8-B6 | NOT STARTED | — | — |
+| P8-B0 | COMPLETE | `72ec369` | 中英文产品支持合同、Owner 决策、目录/保留/签名门禁一致性检查通过 |
+| P8-B1 | COMPLETE | `fc224a8` | Schema 017；016→017 保护/校验/恢复；identifier 数据迁移；Go/Rust focused Gate 通过 |
+| P8-B2 | COMPLETE | `3ee4580` | 自动 crash/restart、stale Operation、权威 reconcile 与 disposable Windows reboot/login smoke 全部通过 |
+| P8-B3 | COMPLETE | `56df01f` + `412d3c0` | 干净源码构建的 0.4.0 精确 MSI；静态/负向检查与 disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate 全部通过 |
+| P8-B4 | COMPLETE | `81b4bfa` + `9be7435` + `8d1b162` + `6a75cde` + `7407992` | 精确干净源码 0.4.0 MSI；固定来源签名元数据；disposable Windows Happy/Tamper/Interrupted/InstallerFailure Gate 全部通过 |
+| P8-B5 | COMPLETE | `5ca5f0a` | 固定脱敏 ZIP 结构与边界；认证 daemon 接口；能力受限的原子另存为；canary、清理、UI 与非 MSI Gate 均通过 |
+| P8-B6 | 完成—内部候选 | 本次 Commit | 两段互补的 4 小时 Windows 试验、组合边界分析、disposable guest 精确候选恢复和完整本地 Gate 均通过；远端 CI、签名和独立审计仍待完成 |
 
 ## 15. Owner 审批记录
 
@@ -634,5 +648,9 @@ Owner 于 2026-09-03 确认：
    不声明公开发布就绪；
 5. 接受 4 小时最低、8 小时候选目标的 Soak；
 6. 授权 P8 按 B0–B6 顺序实施并在每个 Batch 通过后自动 Commit。
+
+Owner 于 2026-09-04 追加要求：B6 不得重启共享 Windows 宿主机。进程级
+crash/reconnect 试验与 B2 已完成的 disposable Windows reboot 证据分别覆盖两层恢复
+能力。
 
 Push、merge、tag、freeze 仍须 Owner 另行明确授权。

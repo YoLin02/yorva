@@ -92,15 +92,15 @@ pub fn migrate_legacy_app_data(app: &mut App) -> Result<(), ProductDataError> {
 }
 
 fn migrate_legacy_directory(legacy: &Path, stable: &Path) -> Result<(), ProductDataError> {
-    if !legacy.exists() {
+    if !path_entry_exists(legacy)? {
         return Ok(());
     }
     require_directory(legacy)?;
-    if has_valid_marker(stable)? {
-        return Ok(());
-    }
-    if stable.exists() {
+    if path_entry_exists(stable)? {
         require_directory(stable)?;
+        if has_valid_marker(stable)? {
+            return Ok(());
+        }
         if fs::read_dir(stable)
             .map_err(|error| product_data_error("PRODUCT_DATA_READ_FAILED", error))?
             .next()
@@ -128,7 +128,7 @@ fn migrate_legacy_directory(legacy: &Path, stable: &Path) -> Result<(), ProductD
         )
     })?;
     let staging = parent.join(STAGING_NAME);
-    if staging.exists() {
+    if path_entry_exists(&staging)? {
         require_directory(&staging)?;
         fs::remove_dir_all(&staging)
             .map_err(|error| product_data_error("PRODUCT_DATA_STAGING_FAILED", error))?;
@@ -179,7 +179,10 @@ fn has_valid_marker(stable: &Path) -> Result<bool, ProductDataError> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
         Err(error) => return Err(product_data_error("PRODUCT_DATA_READ_FAILED", error)),
     };
-    if !metadata.file_type().is_file() || metadata.file_type().is_symlink() || metadata.len() > 4096
+    if !metadata.file_type().is_file()
+        || metadata.file_type().is_symlink()
+        || is_reparse_point(&metadata)
+        || metadata.len() > 4096
     {
         return Err(product_data_error(
             "PRODUCT_DATA_MARKER_INVALID",
@@ -222,11 +225,11 @@ fn copy_directory(
         .map_err(|error| product_data_error("PRODUCT_DATA_READ_FAILED", error))?
     {
         let entry = entry.map_err(|error| product_data_error("PRODUCT_DATA_READ_FAILED", error))?;
-        let file_type = entry
-            .file_type()
+        let metadata = fs::symlink_metadata(entry.path())
             .map_err(|error| product_data_error("PRODUCT_DATA_READ_FAILED", error))?;
+        let file_type = metadata.file_type();
         let target = destination.join(entry.file_name());
-        if file_type.is_symlink() {
+        if file_type.is_symlink() || is_reparse_point(&metadata) {
             return Err(product_data_error(
                 "PRODUCT_DATA_SOURCE_UNSAFE",
                 io::Error::new(io::ErrorKind::InvalidData, "legacy data contains a link"),
@@ -247,10 +250,7 @@ fn copy_directory(
                 ),
             ));
         }
-        let source_size = entry
-            .metadata()
-            .map_err(|error| product_data_error("PRODUCT_DATA_READ_FAILED", error))?
-            .len();
+        let source_size = metadata.len();
         let copied = fs::copy(entry.path(), &target)
             .map_err(|error| product_data_error("PRODUCT_DATA_STAGING_FAILED", error))?;
         let target_size = fs::metadata(&target)
@@ -281,7 +281,7 @@ fn copy_directory(
 fn require_directory(path: &Path) -> Result<(), ProductDataError> {
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| product_data_error("PRODUCT_DATA_READ_FAILED", error))?;
-    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+    if !metadata.is_dir() || metadata.file_type().is_symlink() || is_reparse_point(&metadata) {
         return Err(product_data_error(
             "PRODUCT_DATA_SOURCE_UNSAFE",
             io::Error::new(
@@ -293,13 +293,32 @@ fn require_directory(path: &Path) -> Result<(), ProductDataError> {
     Ok(())
 }
 
+fn path_entry_exists(path: &Path) -> Result<bool, ProductDataError> {
+    match fs::symlink_metadata(path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(product_data_error("PRODUCT_DATA_READ_FAILED", error)),
+    }
+}
+
+#[cfg(windows)]
+fn is_reparse_point(metadata: &fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    metadata.file_attributes() & 0x400 != 0
+}
+
+#[cfg(not(windows))]
+fn is_reparse_point(_metadata: &fs::Metadata) -> bool {
+    false
+}
+
 fn product_data_error(code: &'static str, source: io::Error) -> ProductDataError {
     ProductDataError { code, source }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{MIGRATION_MARKER, migrate_legacy_directory};
+    use super::{MIGRATION_MARKER, migrate_legacy_directory, path_entry_exists};
     use std::fs;
 
     #[test]
@@ -354,6 +373,35 @@ mod tests {
 
         assert_eq!(fs::read(stable.join("yorva.db")).unwrap(), b"first");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn path_entry_presence_does_not_require_a_directory() {
+        let root = tempfile_root();
+        let present = root.join("present");
+        let missing = root.join("missing");
+        fs::write(&present, b"present").unwrap();
+
+        assert!(path_entry_exists(&present).unwrap());
+        assert!(!path_entry_exists(&missing).unwrap());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn refuses_a_dangling_legacy_link_instead_of_treating_it_as_absent() {
+        use std::os::unix::fs::symlink;
+
+        let root = tempfile_root();
+        let legacy = root.join("com.yorva.desktop.dev");
+        let stable = root.join("com.yorva.desktop");
+        symlink(root.join("missing-target"), &legacy).unwrap();
+
+        let error = migrate_legacy_directory(&legacy, &stable).unwrap_err();
+        assert_eq!(error.code, "PRODUCT_DATA_SOURCE_UNSAFE");
+        assert!(!stable.exists());
+        fs::remove_file(legacy).unwrap();
+        fs::remove_dir(root).unwrap();
     }
 
     fn tempfile_root() -> std::path::PathBuf {
