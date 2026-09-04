@@ -78,7 +78,7 @@ if (!/^\d+\.\d+\.\d+$/.test(minimumVersion)) fail("invalid minimum version");
 
 const packageRecord = {
   url: qualification
-    ? `https://10.0.2.2:8443/${artifact.fileName}`
+    ? `https://10.0.2.2:18443/${artifact.fileName}`
     : `https://github.com/YoLin02/yorva/releases/download/v${artifact.productVersion}/${artifact.fileName}`,
   sizeBytes: artifact.sizeBytes,
   sha256: artifact.sha256.toUpperCase(),

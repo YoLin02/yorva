@@ -59,7 +59,7 @@ const qualification = spawnSync(process.execPath, [generator,
 ], { encoding: "utf8" });
 if (qualification.status !== 0) throw new Error(qualification.stderr || qualification.stdout);
 const qualificationMetadata = JSON.parse(readFileSync(qualificationOutput, "utf8"));
-if (qualificationMetadata.package.url !== "https://10.0.2.2:8443/YORVA_0.4.0_x64_en-US.msi") {
+if (qualificationMetadata.package.url !== "https://10.0.2.2:18443/YORVA_0.4.0_x64_en-US.msi") {
   throw new Error("qualification metadata did not use the fixed disposable-VM URL");
 }
 console.log("PASS fixed disposable-VM qualification metadata");

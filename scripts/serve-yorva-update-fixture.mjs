@@ -59,7 +59,7 @@ const server = createServer({
   }
 });
 
-server.listen(8443, "0.0.0.0", () => {
+server.listen(18443, "0.0.0.0", () => {
   process.stdout.write(`YORVA_UPDATE_FIXTURE_READY mode=${mode} package=${packageName}\n`);
 });
 

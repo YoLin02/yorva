@@ -23,7 +23,7 @@ use crate::daemon::DaemonLifecycle;
 const METADATA_URL: &str =
     "https://github.com/YoLin02/yorva/releases/latest/download/yorva-update.json";
 #[cfg(feature = "update-qualification")]
-const METADATA_URL: &str = "https://10.0.2.2:8443/yorva-update.json";
+const METADATA_URL: &str = "https://10.0.2.2:18443/yorva-update.json";
 const MAX_METADATA_BYTES: u64 = 64 * 1024;
 const MAX_PACKAGE_BYTES: u64 = 512 * 1024 * 1024;
 const UPDATE_DIRECTORY: &str = "update-staging";
@@ -671,7 +671,7 @@ fn allowed_redirect_target(url: &reqwest::Url) -> bool {
         )
     );
     #[cfg(feature = "update-qualification")]
-    let qualification = url.host_str() == Some("10.0.2.2") && url.port() == Some(8443);
+    let qualification = url.host_str() == Some("10.0.2.2") && url.port() == Some(18443);
     #[cfg(not(feature = "update-qualification"))]
     let qualification = false;
     production || qualification
@@ -752,7 +752,7 @@ fn expected_package_url(version: &str) -> String {
 
 #[cfg(feature = "update-qualification")]
 fn expected_package_url(version: &str) -> String {
-    format!("https://10.0.2.2:8443/YORVA_{version}_x64_en-US.msi")
+    format!("https://10.0.2.2:18443/YORVA_{version}_x64_en-US.msi")
 }
 
 fn compiled_verifying_key() -> Result<VerifyingKey, UpdateCommandError> {
