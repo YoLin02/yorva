@@ -30,8 +30,8 @@ update, diagnostics and release work. It does not by itself make a build public-
 - Desktop package, Tauri bundle, Rust crate, packaged `yorvad`, and MSI ProductVersion
   must describe the same candidate version and are checked by the build Gate.
 - The private repository-root workspace version is not a product version.
-- `0.3.2` is the P7/P8 development starting point. B3 freezes the P8 release candidate
-  version; a UI-label-only version change is invalid.
+- `0.3.2` is the supported P7/P8 upgrade input. B3 freezes `0.4.0` as the P8 internal
+  candidate version; a UI-label-only version change is invalid.
 
 P8-B1 implements and verifies the following one-time transition, and the stable
 `com.yorva.desktop` identifier is now active:

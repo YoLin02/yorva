@@ -1,6 +1,6 @@
 # YORVA Phase 8 — Local Product Hardening MVP
 
-> Status: **APPROVED / IN PROGRESS — B0–B6 IMPLEMENTATION AUTHORIZED**
+> Status: **APPROVED / IN PROGRESS — B0–B3 COMPLETE; B4 NEXT**
 > Phase: P8
 > Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus P7 stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc`
 > Planned branch: phase/p8-local-product-hardening
@@ -399,7 +399,7 @@ After audit PASS and explicit Owner authorization:
 | P8-B0 | COMPLETE | B0 Batch commit | Bilingual support contract, Owner decisions, directory/retention/signing consistency review passed |
 | P8-B1 | COMPLETE | B1 Batch commit | Schema 017; protected/verified/recoverable 016→017; identifier data migration; Go/Rust focused Gate passed |
 | P8-B2 | COMPLETE | B2 Batch commit | Automated crash/restart, stale-operation and authoritative reconcile checks plus disposable Windows reboot/login smoke passed |
-| P8-B3 | NOT STARTED | — | — |
+| P8-B3 | COMPLETE | `56df01f` plus B3 evidence commit | Exact clean-source 0.4.0 MSI; static/negative inspection and disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate passed |
 | P8-B4 | NOT STARTED | — | — |
 | P8-B5 | NOT STARTED | — | — |
 | P8-B6 | NOT STARTED | — | — |

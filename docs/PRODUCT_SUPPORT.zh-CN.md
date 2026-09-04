@@ -29,7 +29,7 @@
 - Desktop package、Tauri bundle、Rust crate、`yorvad` 打包版本和 MSI ProductVersion
   必须来自同一个候选版本并在构建 Gate 中核对。
 - 仓库根目录的私有 workspace package 版本不是产品版本。
-- 当前 `0.3.2` 是 P7/P8 开发起点；P8 正式候选版本在 B3 冻结，不能只修改 UI 文案。
+- `0.3.2` 是 P7/P8 支持的升级输入；B3 已冻结 `0.4.0` 为 P8 内部候选版本，不能只修改 UI 文案。
 
 P8-B1 已实现并验证下述一次性迁移，正式 identifier `com.yorva.desktop` 已激活：
 

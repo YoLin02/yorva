@@ -1,6 +1,6 @@
 # YORVA Phase 8 — 本地产品可靠化 MVP
 
-> 状态：**APPROVED / IN PROGRESS — Owner 已授权 B0–B6 实现**
+> 状态：**APPROVED / IN PROGRESS — B0–B3 已完成；下一批 B4**
 > 阶段标识：P8
 > 阶段性质：本地产品可靠化与首个正式 Windows MVP
 > 必需基线：phase-007-hermes-runtime-management-completeness-baseline + P7 稳定性修订 `9834a8cb1df9e70502936153943f501ed37cb8fc`
@@ -618,7 +618,7 @@ Phase 8 只有在以下全部成立后才能进入审计：
 | P8-B0 | COMPLETE | B0 Batch commit | 中英文产品支持合同、Owner 决策、目录/保留/签名门禁一致性检查通过 |
 | P8-B1 | COMPLETE | B1 Batch commit | Schema 017；016→017 保护/校验/恢复；identifier 数据迁移；Go/Rust focused Gate 通过 |
 | P8-B2 | COMPLETE | B2 Batch commit | 自动 crash/restart、stale Operation、权威 reconcile 与 disposable Windows reboot/login smoke 全部通过 |
-| P8-B3 | NOT STARTED | — | — |
+| P8-B3 | COMPLETE | `56df01f` + B3 证据提交 | 干净源码构建的 0.4.0 精确 MSI；静态/负向检查与 disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate 全部通过 |
 | P8-B4 | NOT STARTED | — | — |
 | P8-B5 | NOT STARTED | — | — |
 | P8-B6 | NOT STARTED | — | — |
