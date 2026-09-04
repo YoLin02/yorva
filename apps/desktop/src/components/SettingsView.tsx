@@ -169,6 +169,11 @@ export function SettingsView({
               <p className="settings-save-error" role="alert">{copy.settings.desktopPreferencesFailed}</p>
             ) : null}
           </section>
+
+          <section className="settings-section" aria-labelledby="data-retention-title">
+            <h2 id="data-retention-title">{copy.settings.dataRetention}</h2>
+            <p>{copy.settings.dataRetentionDescription}</p>
+          </section>
         </div>
       ) : activeTab === "advanced" ? (
         <div

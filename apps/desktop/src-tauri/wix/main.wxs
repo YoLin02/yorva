@@ -1,0 +1,195 @@
+<?if $(sys.BUILDARCH)="x64"?>
+    <?define Win64 = "yes" ?>
+<?else?>
+    <?error YORVA supports only Windows x64 ?>
+<?endif?>
+
+<!--
+  Derived from the Tauri Bundler 2.8.1 WiX template used by CLI 2.11.4.
+  YORVA owns this narrow template so its MSI can be per-user, repairable and
+  explicit about data retention. Keep additions bounded to the B3 contract.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product
+        Id="*"
+        Name="{{product_name}}"
+        UpgradeCode="{{upgrade_code}}"
+        Language="!(loc.TauriLanguage)"
+        Manufacturer="{{manufacturer}}"
+        Version="{{version}}">
+
+        <Package
+            Id="*"
+            Keywords="Installer"
+            InstallerVersion="450"
+            Languages="0"
+            Compressed="yes"
+            InstallScope="perUser"
+            InstallPrivileges="limited"
+            SummaryCodepage="!(loc.TauriCodepage)" />
+
+        <Property Id="REINSTALLMODE" Value="amus" />
+        <Property Id="AUTOLAUNCHAPP" Secure="yes" />
+        <Property Id="LAUNCHAPPARGS" Secure="yes" />
+        <Property Id="ARPCOMMENTS" Value="Uninstall removes YORVA program files, shortcuts and login startup. YORVA user data, encrypted backups, Hermes Runtime and Profiles are preserved." />
+        <SetProperty Id="ARPNOMODIFY" Value="1" After="InstallValidate" Sequence="execute" />
+
+        {{#if allow_downgrades}}
+        <MajorUpgrade Schedule="afterInstallInitialize" AllowDowngrades="yes" />
+        {{else}}
+        <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="!(loc.DowngradeErrorMessage)" AllowSameVersionUpgrades="yes" />
+        {{/if}}
+
+        <InstallExecuteSequence>
+            <RemoveShortcuts>Installed AND NOT UPGRADINGPRODUCTCODE</RemoveShortcuts>
+        </InstallExecuteSequence>
+
+        <Media Id="1" Cabinet="app.cab" EmbedCab="yes" />
+        <Icon Id="ProductIcon" SourceFile="{{icon_path}}" />
+        <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+
+        <Property Id="INSTALLDIR">
+            <RegistrySearch Id="PrevInstallDirNoName" Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}" Type="raw" />
+            <RegistrySearch Id="PrevInstallDirWithName" Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="InstallDir" Type="raw" />
+        </Property>
+
+        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="!(loc.LaunchApp)" />
+        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+        <CustomAction Id="LaunchApplication" Impersonate="yes" FileKey="Path" ExeCommand="[LAUNCHAPPARGS]" Return="asyncNoWait" />
+
+        <UI>
+            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed</Publish>
+            <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
+
+            <Dialog Id="DataRetentionDlg" Width="370" Height="270" Title="[ProductName] Setup">
+                <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="18" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Your local data is preserved" />
+                <Control Id="Rule" Type="Line" X="0" Y="36" Width="370" Height="0" />
+                <Control Id="Body" Type="Text" X="20" Y="58" Width="330" Height="92" NoPrefix="yes" Text="Installing, upgrading or repairing YORVA replaces only program files. Uninstall removes program files, shortcuts and login startup, while preserving YORVA user data, encrypted backups, and every Hermes Runtime and Profile." />
+                <Control Id="Details" Type="Text" X="20" Y="158" Width="330" Height="44" NoPrefix="yes" Text="You can review the same policy later in YORVA Settings and in the installed Data Retention Notice." />
+                <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)">
+                    <Publish Event="NewDialog" Value="WelcomeDlg">1</Publish>
+                </Control>
+                <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)">
+                    <Publish Event="NewDialog" Value="InstallDirDlg">1</Publish>
+                </Control>
+                <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+                    <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+                </Control>
+            </Dialog>
+
+            <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="DataRetentionDlg" Order="2">NOT Installed</Publish>
+            <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="DataRetentionDlg" Order="2">NOT Installed</Publish>
+        </UI>
+        <UIRef Id="WixUI_InstallDir" />
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="DesktopFolder" Name="Desktop">
+                <Component Id="ApplicationShortcutDesktop" Guid="*">
+                    <Shortcut Id="ApplicationDesktopShortcut" Name="{{product_name}}" Description="Runs {{product_name}}" Target="[!Path]" WorkingDirectory="INSTALLDIR" />
+                    <RemoveFolder Id="DesktopShortcutFolder" Directory="DesktopFolder" On="uninstall" />
+                    <RegistryValue Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="Desktop Shortcut" Type="integer" Value="1" KeyPath="yes" />
+                </Component>
+            </Directory>
+            <Directory Id="LocalAppDataFolder">
+                <Directory Id="LocalProgramsFolder" Name="Programs">
+                    <Directory Id="INSTALLDIR" Name="{{product_name}}" />
+                </Directory>
+            </Directory>
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="{{product_name}}" />
+            </Directory>
+        </Directory>
+
+        <DirectoryRef Id="INSTALLDIR">
+            <Component Id="RegistryEntries" Guid="*">
+                <RegistryKey Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}">
+                    <RegistryValue Name="InstallDir" Type="string" Value="[INSTALLDIR]" KeyPath="yes" />
+                </RegistryKey>
+            </Component>
+            <Component Id="LifecycleCleanup" Guid="*">
+                <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="Yorva" Type="string" Value="&quot;[INSTALLDIR]yorva-desktop.exe&quot; --hidden" />
+                <RegistryValue Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="Lifecycle Cleanup" Type="integer" Value="1" KeyPath="yes" />
+            </Component>
+            <Component Id="Path" Guid="{{path_component_guid}}" Win64="$(var.Win64)">
+                <File Id="Path" Source="{{main_binary_path}}" KeyPath="yes" Checksum="yes" />
+            </Component>
+            {{#each binaries as |bin| ~}}
+            <Component Id="{{bin.id}}" Guid="{{bin.guid}}" Win64="$(var.Win64)">
+                <File Id="Bin_{{bin.id}}" Source="{{bin.path}}" KeyPath="yes" />
+            </Component>
+            {{/each~}}
+            {{resources}}
+            <Component Id="CMP_UninstallShortcut" Guid="*">
+                <Shortcut Id="UninstallShortcut" Name="Uninstall {{product_name}}" Description="Uninstalls {{product_name}}" Target="[System64Folder]msiexec.exe" Arguments="/x [ProductCode]" />
+                <RemoveFolder Id="InstalledProgramFolder" Directory="INSTALLDIR" On="uninstall" />
+                <RegistryValue Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="Uninstaller Shortcut" Type="integer" Value="1" KeyPath="yes" />
+            </Component>
+        </DirectoryRef>
+
+        <DirectoryRef Id="ApplicationProgramsFolder">
+            <Component Id="ApplicationShortcut" Guid="*">
+                <Shortcut Id="ApplicationStartMenuShortcut" Name="{{product_name}}" Description="Runs {{product_name}}" Target="[!Path]" Icon="ProductIcon" WorkingDirectory="INSTALLDIR">
+                    <ShortcutProperty Key="System.AppUserModel.ID" Value="{{bundle_id}}" />
+                </Shortcut>
+                <RemoveFolder Id="StartMenuProgramFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+                <RegistryValue Root="HKCU" Key="Software\\{{manufacturer}}\\{{product_name}}" Name="Start Menu Shortcut" Type="integer" Value="1" KeyPath="yes" />
+            </Component>
+        </DirectoryRef>
+
+        <Feature Id="MainProgram" Title="Application" Description="!(loc.InstallAppFeature)" Level="1" ConfigurableDirectory="INSTALLDIR" AllowAdvertise="no" Display="expand" Absent="disallow">
+            <ComponentRef Id="RegistryEntries" />
+            <ComponentRef Id="LifecycleCleanup" />
+            {{#each resource_file_ids as |resource_file_id| ~}}
+            <ComponentRef Id="{{resource_file_id}}" />
+            {{/each~}}
+            <Feature Id="ShortcutsFeature" Title="Shortcuts" Level="1">
+                <ComponentRef Id="Path" />
+                <ComponentRef Id="CMP_UninstallShortcut" />
+                <ComponentRef Id="ApplicationShortcut" />
+                <ComponentRef Id="ApplicationShortcutDesktop" />
+            </Feature>
+            <Feature Id="RuntimeFiles" Title="YORVA Runtime Files" Level="1" Absent="disallow">
+                <ComponentRef Id="Path" />
+                {{#each binaries as |bin| ~}}
+                <ComponentRef Id="{{bin.id}}" />
+                {{/each~}}
+            </Feature>
+        </Feature>
+
+        <Feature Id="External" AllowAdvertise="no" Absent="disallow">
+            {{#each component_group_refs as |id| ~}}
+            <ComponentGroupRef Id="{{id}}" />
+            {{/each~}}
+            {{#each component_refs as |id| ~}}
+            <ComponentRef Id="{{id}}" />
+            {{/each~}}
+            {{#each feature_group_refs as |id| ~}}
+            <FeatureGroupRef Id="{{id}}" />
+            {{/each~}}
+            {{#each feature_refs as |id| ~}}
+            <FeatureRef Id="{{id}}" />
+            {{/each~}}
+            {{#each merge_refs as |id| ~}}
+            <MergeRef Id="{{id}}" />
+            {{/each~}}
+        </Feature>
+
+        {{#if install_webview}}
+        <Property Id="WVRTINSTALLED">
+            <RegistrySearch Id="WVRTInstalledSystem" Root="HKLM" Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" Name="pv" Type="raw" Win64="no" />
+            <RegistrySearch Id="WVRTInstalledUser" Root="HKCU" Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" Name="pv" Type="raw" />
+        </Property>
+        {{#if download_bootstrapper}}
+        <CustomAction Id="DownloadAndInvokeBootstrapper" Directory="INSTALLDIR" Execute="deferred" Impersonate="yes" ExeCommand='powershell.exe -NoProfile -WindowStyle Hidden try [\{] [\[]Net.ServicePointManager[\]]::SecurityProtocol = [\[]Net.SecurityProtocolType[\]]::Tls12 [\}] catch [\{][\}]; Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile "$env:TEMP\MicrosoftEdgeWebview2Setup.exe" ; Start-Process -FilePath "$env:TEMP\MicrosoftEdgeWebview2Setup.exe" -ArgumentList ({{webview_installer_args}} &apos;/install&apos;) -Wait' Return="check" />
+        <InstallExecuteSequence>
+            <Custom Action="DownloadAndInvokeBootstrapper" Before="InstallFinalize"><![CDATA[NOT(REMOVE OR WVRTINSTALLED)]]></Custom>
+        </InstallExecuteSequence>
+        {{/if}}
+        {{/if}}
+
+        <InstallExecuteSequence>
+            <Custom Action="LaunchApplication" After="InstallFinalize">AUTOLAUNCHAPP AND NOT Installed</Custom>
+        </InstallExecuteSequence>
+        <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLDIR]" After="CostFinalize" />
+    </Product>
+</Wix>

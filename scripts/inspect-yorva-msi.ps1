@@ -1,6 +1,7 @@
 param(
     [string]$MsiPath,
     [string]$ExtractedRoot,
+    [string]$ExpectedVersion,
     [switch]$AsLibrary
 )
 
@@ -16,6 +17,12 @@ function Get-YorvaMsiPayloadCatalog {
         @{ Name = "LICENSE"; Size = 1070; SHA256 = "821556E6336796450AB852D375117B48A4887E71D255794FD6318D99982A5AB6" },
         @{ Name = "NODE-LICENSE"; Size = 148217; SHA256 = "8CC9BB466B19FC7E7CC99D03E9DF1132021FDA8B01EEA2624C58BB372DBEF576" },
         @{ Name = "NPM-LICENSE"; Size = 9742; SHA256 = "7610D223851F421D315DF5E77974F1C68A04B97E02060E5BBBCF13D95E3CA257" }
+    )
+}
+
+function Get-YorvaMsiProductResourceCatalog {
+    return @(
+        @{ Name = "DATA_RETENTION.txt"; Size = 1313; SHA256 = "C8A330453B4E794D3B3407D9C5F9D2A0F2463F5711A1B9AE47C12FBB38FDCF0B" }
     )
 }
 
@@ -52,6 +59,96 @@ function Read-MsiFileTable([string]$msi) {
         $rows.Add([pscustomobject]@{ RawName = $raw; Name = $name; Size = [int64]$sizeText })
     }
     return ,$rows.ToArray()
+}
+
+function Read-MsiQuery([string]$msi, [string]$query, [string[]]$columns) {
+    $installer = New-Object -ComObject WindowsInstaller.Installer
+    $database = $installer.GetType().InvokeMember("OpenDatabase", "InvokeMethod", $null, $installer, @((Resolve-Path $msi).Path, 0))
+    $view = $database.GetType().InvokeMember("OpenView", "InvokeMethod", $null, $database, @($query))
+    $null = $view.GetType().InvokeMember("Execute", "InvokeMethod", $null, $view, $null)
+    $rows = [System.Collections.Generic.List[object]]::new()
+    while ($true) {
+        $record = $view.GetType().InvokeMember("Fetch", "InvokeMethod", $null, $view, $null)
+        if ($null -eq $record) {
+            break
+        }
+        $row = [ordered]@{}
+        for ($index = 0; $index -lt $columns.Count; $index++) {
+            $row[$columns[$index]] = [string]$record.GetType().InvokeMember("StringData", "GetProperty", $null, $record, $index + 1)
+        }
+        $rows.Add([pscustomobject]$row)
+    }
+    return ,$rows.ToArray()
+}
+
+function Assert-YorvaMsiLifecycleContract($properties, $directories, $registryRows, $removeRows, $upgradeRows, $customActions, [string]$expectedVersion) {
+    $values = @{}
+    foreach ($row in @($properties)) {
+        $values[[string]$row.Property] = [string]$row.Value
+    }
+    $required = @{
+        ProductName = "YORVA"
+        Manufacturer = "yolin"
+        UpgradeCode = "{E793918B-37EB-5E2F-B866-5FC4AA3AC75A}"
+        REINSTALLMODE = "amus"
+        WixUIRMOption = "UseRM"
+        ARPCOMMENTS = "Uninstall removes YORVA program files, shortcuts and login startup. YORVA user data, encrypted backups, Hermes Runtime and Profiles are preserved."
+    }
+    foreach ($item in $required.GetEnumerator()) {
+        if (-not $values.ContainsKey($item.Key) -or $values[$item.Key] -ne $item.Value) {
+            throw "MSI property $($item.Key) does not match the YORVA lifecycle contract"
+        }
+    }
+    if ($expectedVersion -and $values.ProductVersion -ne $expectedVersion) {
+        throw "MSI ProductVersion $($values.ProductVersion) != $expectedVersion"
+    }
+    if ($values.ContainsKey("ALLUSERS") -and -not [string]::IsNullOrWhiteSpace($values.ALLUSERS)) {
+        throw "MSI must use per-user installation without ALLUSERS"
+    }
+    if ($values.ContainsKey("ARPNOREPAIR")) {
+        throw "MSI must expose Repair instead of setting ARPNOREPAIR"
+    }
+
+    $directoryByID = @{}
+    foreach ($row in @($directories)) {
+        $directoryByID[[string]$row.Directory] = $row
+    }
+    if (-not $directoryByID.ContainsKey("INSTALLDIR") -or $directoryByID.INSTALLDIR.Parent -ne "LocalProgramsFolder") {
+        throw "MSI INSTALLDIR is not under the per-user local Programs folder"
+    }
+    if (-not $directoryByID.ContainsKey("LocalProgramsFolder") -or $directoryByID.LocalProgramsFolder.Parent -ne "LocalAppDataFolder") {
+        throw "MSI local Programs folder is not rooted in LocalAppDataFolder"
+    }
+
+    foreach ($row in @($registryRows)) {
+        if ([string]$row.Root -ne "1") {
+            throw "MSI Registry table writes outside HKCU"
+        }
+    }
+    $loginRegistration = @($registryRows | Where-Object {
+        $_.Root -eq "1" -and
+        $_.Key -eq "Software\Microsoft\Windows\CurrentVersion\Run" -and
+        $_.Name -eq "Yorva" -and
+        $_.Value -eq '"[INSTALLDIR]yorva-desktop.exe" --hidden'
+    })
+    if ($loginRegistration.Count -ne 1) {
+        throw "MSI does not own the exact YORVA per-user login startup value"
+    }
+    foreach ($row in @($removeRows)) {
+        if ([string]$row.Directory -in @("LocalAppDataFolder", "AppDataFolder")) {
+            throw "MSI RemoveFile table targets a user data root"
+        }
+    }
+    $expectedUpgradeCode = "{E793918B-37EB-5E2F-B866-5FC4AA3AC75A}"
+    if (@($upgradeRows).Count -eq 0 -or @($upgradeRows | Where-Object { $_.UpgradeCode -ne $expectedUpgradeCode }).Count -ne 0) {
+        throw "MSI Upgrade table does not exclusively use the stable YORVA UpgradeCode"
+    }
+    foreach ($action in @($customActions)) {
+        $command = [string]$action.Target
+        if ($command -match '(?i)Remove-Item|\brmdir\b|\bdel\s|%APPDATA%|\\hermes') {
+            throw "MSI custom action contains a forbidden data-deletion command"
+        }
+    }
 }
 
 function Assert-ExactMsiIdentities($rows, $catalog) {
@@ -123,6 +220,25 @@ function Assert-ExtractedPayloads([string]$root, $catalog) {
     }
 }
 
+function Assert-ExtractedProductResources([string]$root, $catalog) {
+    foreach ($item in $catalog) {
+        $hits = @(Get-ChildItem -LiteralPath $root -Recurse -File -Force | Where-Object {
+            $_.Name -eq $item.Name -and (($_.DirectoryName -replace '\\', '/') -match '/resources/installer$')
+        })
+        if ($hits.Count -ne 1) {
+            throw "extracted MSI must contain exactly one resources/installer/$($item.Name)"
+        }
+        if ($hits[0].Length -ne $item.Size) {
+            throw "extracted $($item.Name) size $($hits[0].Length) != $($item.Size)"
+        }
+        $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $hits[0].FullName).Hash
+        if ($hash -ne $item.SHA256) {
+            throw "extracted $($item.Name) SHA-256 $hash != $($item.SHA256)"
+        }
+        Write-Host ("product resource {0} {1} {2}" -f $item.Name, $hits[0].Length, $hash)
+    }
+}
+
 function Invoke-MsiAdministrativeExtract([string]$msi, [string]$target) {
     New-Item -ItemType Directory -Force -Path $target | Out-Null
     $process = Start-Process -FilePath "$env:SystemRoot\System32\msiexec.exe" -ArgumentList @("/a", "`"$msi`"", "TARGETDIR=`"$target`"", "/qn") -Wait -PassThru -NoNewWindow
@@ -135,10 +251,12 @@ function Invoke-MsiAdministrativeExtract([string]$msi, [string]$target) {
 function Invoke-YorvaMsiInspection {
     param(
         [string]$MsiPath,
-        [string]$ExtractedRoot
+        [string]$ExtractedRoot,
+        [string]$ExpectedVersion
     )
     $script:InspectionComplete = $false
     $catalog = Get-YorvaMsiPayloadCatalog
+    $productCatalog = Get-YorvaMsiProductResourceCatalog
     $tempRoot = $null
     try {
         if ($ExtractedRoot) {
@@ -146,18 +264,27 @@ function Invoke-YorvaMsiInspection {
                 throw "extracted root not found: $ExtractedRoot"
             }
             Assert-ExtractedPayloads (Resolve-Path $ExtractedRoot).Path $catalog
+            Assert-ExtractedProductResources (Resolve-Path $ExtractedRoot).Path $productCatalog
         } else {
             if (-not $MsiPath -or -not (Test-Path -LiteralPath $MsiPath)) {
                 throw "MSI not found: $MsiPath"
             }
             $resolved = (Resolve-Path $MsiPath).Path
             $rows = Read-MsiFileTable $resolved
-            Assert-ExactMsiIdentities $rows $catalog
+            Assert-ExactMsiIdentities $rows @($catalog + $productCatalog)
+            $properties = Read-MsiQuery $resolved 'SELECT `Property`,`Value` FROM `Property`' @("Property", "Value")
+            $directories = Read-MsiQuery $resolved 'SELECT `Directory`,`Directory_Parent`,`DefaultDir` FROM `Directory`' @("Directory", "Parent", "DefaultDir")
+            $registryRows = Read-MsiQuery $resolved 'SELECT `Registry`,`Root`,`Key`,`Name`,`Value`,`Component_` FROM `Registry`' @("Registry", "Root", "Key", "Name", "Value", "Component")
+            $removeRows = Read-MsiQuery $resolved 'SELECT `FileKey`,`Component_`,`FileName`,`DirProperty`,`InstallMode` FROM `RemoveFile`' @("FileKey", "Component", "FileName", "Directory", "InstallMode")
+            $upgradeRows = Read-MsiQuery $resolved 'SELECT `UpgradeCode`,`VersionMin`,`VersionMax`,`Language`,`Attributes`,`Remove`,`ActionProperty` FROM `Upgrade`' @("UpgradeCode", "VersionMin", "VersionMax", "Language", "Attributes", "Remove", "ActionProperty")
+            $customActions = Read-MsiQuery $resolved 'SELECT `Action`,`Type`,`Source`,`Target` FROM `CustomAction`' @("Action", "Type", "Source", "Target")
+            Assert-YorvaMsiLifecycleContract $properties $directories $registryRows $removeRows $upgradeRows $customActions $ExpectedVersion
             $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("yorva-msi-" + [guid]::NewGuid().ToString("N"))
             New-Item -ItemType Directory -Path $tempRoot | Out-Null
             $extractDir = Join-Path $tempRoot "extract"
             Invoke-MsiAdministrativeExtract $resolved $extractDir
             Assert-ExtractedPayloads $extractDir $catalog
+            Assert-ExtractedProductResources $extractDir $productCatalog
             $msiHash = (Get-FileHash -Algorithm SHA256 -Path $resolved).Hash
             Write-Host ("MSI {0} SHA-256 {1} size {2}" -f (Split-Path $resolved -Leaf), $msiHash, (Get-Item $resolved).Length)
         }
@@ -174,5 +301,5 @@ function Invoke-YorvaMsiInspection {
 }
 
 if (-not $AsLibrary) {
-    Invoke-YorvaMsiInspection -MsiPath $MsiPath -ExtractedRoot $ExtractedRoot
+    Invoke-YorvaMsiInspection -MsiPath $MsiPath -ExtractedRoot $ExtractedRoot -ExpectedVersion $ExpectedVersion
 }

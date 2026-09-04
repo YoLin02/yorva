@@ -1,0 +1,25 @@
+YORVA installation and data retention notice
+
+Installing, upgrading, or repairing YORVA replaces only the application program files.
+
+Uninstall removes YORVA program files, shortcuts, and the YORVA login-start entry. It preserves:
+
+- YORVA settings and management data under %APPDATA%\com.yorva.desktop;
+- encrypted YORVA Runtime backups;
+- Hermes Runtime files, Profiles, sessions, Skills, MCP configuration, and other Hermes-owned data under %LOCALAPPDATA%\hermes;
+- diagnostic bundles saved by the user.
+
+YORVA does not provide a silent "delete all data" uninstall option. Temporary update or backup staging owned by YORVA may be removed after the related operation finishes or fails.
+
+YORVA 安装与数据保留说明
+
+安装、升级或修复 YORVA 只会替换应用程序文件。
+
+卸载会移除 YORVA 程序文件、快捷方式和登录启动项，但会保留：
+
+- %APPDATA%\com.yorva.desktop 下的 YORVA 设置与管理数据；
+- 已加密的 YORVA Runtime 备份；
+- %LOCALAPPDATA%\hermes 下的 Hermes Runtime、Profiles、会话、Skills、MCP 配置和其他由 Hermes 管理的数据；
+- 用户另行保存的诊断包。
+
+YORVA 不提供静默“删除全部数据”的卸载选项。YORVA 自己管理的临时升级或备份暂存文件，可在相关操作完成或失败后清理。

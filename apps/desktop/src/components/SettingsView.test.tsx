@@ -23,6 +23,8 @@ describe("SettingsView", () => {
     render(<SettingsView copy={messages["en-US"]} locale="en-US" onLocaleChange={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "Interface language" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Uninstall and local data" })).toBeInTheDocument();
+    expect(screen.getByText(/preserves YORVA settings, encrypted backups/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Advanced" }));
     expect(screen.getByRole("tab", { name: "Advanced" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("heading", { name: "Interface language" })).not.toBeInTheDocument();

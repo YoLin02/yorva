@@ -160,6 +160,8 @@ type Messages = {
     launchOnLoginDescription: string;
     closeToTray: string;
     closeToTrayDescription: string;
+    dataRetention: string;
+    dataRetentionDescription: string;
     desktopPreferencesFailed: string;
     savedAutomatically: string;
     hermesSourcesTitle: string;
@@ -842,6 +844,8 @@ const english: Messages = {
     launchOnLoginDescription: "The packaged app starts hidden in the system tray without starting a Hermes instance.",
     closeToTray: "Minimize to tray when closing",
     closeToTrayDescription: "Closing the main window keeps Yorva available in the system tray.",
+    dataRetention: "Uninstall and local data",
+    dataRetentionDescription: "Uninstall removes YORVA program files, shortcuts, and login startup. It preserves YORVA settings, encrypted backups, and every Hermes Runtime and Profile.",
     desktopPreferencesFailed: "Yorva could not update the window behavior setting. Please try again.",
     savedAutomatically: "Saved automatically",
     hermesSourcesTitle: "Hermes download sources",
@@ -1560,6 +1564,8 @@ const simplifiedChinese: Messages = {
     launchOnLoginDescription: "安装版将隐藏启动到系统托盘，不会自动启动 Hermes 实例。",
     closeToTray: "关闭时最小化到托盘",
     closeToTrayDescription: "关闭主窗口后 Yorva 继续在系统托盘中运行。",
+    dataRetention: "卸载与本地数据",
+    dataRetentionDescription: "卸载会移除 YORVA 程序文件、快捷方式和登录启动项，但会保留 YORVA 设置、加密备份以及全部 Hermes Runtime 和 Profile。",
     desktopPreferencesFailed: "无法更新窗口行为设置，请重试。",
     savedAutomatically: "已自动保存",
     hermesSourcesTitle: "Hermes 下载与依赖源",
