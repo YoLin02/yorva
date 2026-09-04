@@ -31,6 +31,7 @@ const STATE_FILE: &str = "state.json";
 const PACKAGE_FILE: &str = "candidate.msi";
 const PARTIAL_FILE: &str = "candidate.partial";
 const INSTALLER_RESULT_FILE: &str = "installer.exit";
+const INSTALLER_LOG_FILE: &str = "installer.log";
 const STATE_SCHEMA: u32 = 1;
 const USER_AGENT: &str = "YORVA-Desktop-Updater/1";
 const PRODUCT_NAME: &str = "YORVA";
@@ -226,6 +227,7 @@ struct UpdatePaths {
     package: PathBuf,
     partial: PathBuf,
     installer_result: PathBuf,
+    installer_log: PathBuf,
 }
 
 impl UpdatePaths {
@@ -245,6 +247,7 @@ impl UpdatePaths {
             package: root.join(PACKAGE_FILE),
             partial: root.join(PARTIAL_FILE),
             installer_result: root.join(INSTALLER_RESULT_FILE),
+            installer_log: root.join(INSTALLER_LOG_FILE),
             root,
         })
     }
@@ -360,6 +363,7 @@ fn install_update(
     validate_metadata(&metadata, &compiled_verifying_key()?)?;
     verify_staged_package(&paths.package, &metadata)?;
     remove_existing_regular_file(&paths.installer_result)?;
+    remove_existing_regular_file(&paths.installer_log)?;
 
     record.phase = UpdatePhase::Installing;
     record.error_code = None;
@@ -367,7 +371,11 @@ fn install_update(
     persist_record(paths, &record)?;
 
     daemon.stop();
-    if let Err(error) = launch_installer(&paths.package, &paths.installer_result) {
+    if let Err(error) = launch_installer(
+        &paths.package,
+        &paths.installer_result,
+        &paths.installer_log,
+    ) {
         record.phase = UpdatePhase::Failed;
         record.error_code = Some(error.code.to_owned());
         persist_record(paths, &record)?;
@@ -916,7 +924,11 @@ fn powershell_path() -> Result<PathBuf, UpdateCommandError> {
 }
 
 #[cfg(windows)]
-fn launch_installer(path: &Path, result_path: &Path) -> Result<(), UpdateCommandError> {
+fn launch_installer(
+    path: &Path,
+    result_path: &Path,
+    log_path: &Path,
+) -> Result<(), UpdateCommandError> {
     let executable = windows_system_directory()
         .map_err(|_| UpdateCommandError::install())?
         .join("msiexec.exe");
@@ -926,10 +938,16 @@ fn launch_installer(path: &Path, result_path: &Path) -> Result<(), UpdateCommand
     if application.file_name().and_then(|name| name.to_str()) != Some("yorva-desktop.exe") {
         return Err(UpdateCommandError::install());
     }
+    let parent_process_id = std::process::id().to_string();
     let script = concat!(
-        "& { param($engine,$msi,$app,$result)",
-        "& $engine /i $msi /qn /norestart;",
-        "$code=$LASTEXITCODE;",
+        "& { param($engine,$msi,$app,$result,$log,$parentProcessId)",
+        "for($i=0;$i -lt 120 -and (Get-Process -Id $parentProcessId -ErrorAction SilentlyContinue);$i++){Start-Sleep -Milliseconds 250};",
+        "if(Get-Process -Id $parentProcessId -ErrorAction SilentlyContinue){",
+        "[IO.File]::WriteAllText($result,'1460',[Text.Encoding]::ASCII);",
+        "if([IO.File]::Exists($app)){Start-Process -FilePath $app -ArgumentList '--hidden'};exit 0};",
+        "$quotedMsi='\"'+$msi+'\"';$quotedLog='\"'+$log+'\"';",
+        "$process=Start-Process -FilePath $engine -ArgumentList @('/i',$quotedMsi,'/qn','/norestart','MSIRESTARTMANAGERCONTROL=Disable','/l*v',$quotedLog) -WindowStyle Hidden -Wait -PassThru;",
+        "$code=$process.ExitCode;",
         "[IO.File]::WriteAllText($result,[string]$code,[Text.Encoding]::ASCII);",
         "for($i=0;$i -lt 20 -and -not [IO.File]::Exists($app);$i++){Start-Sleep -Milliseconds 250};",
         "if([IO.File]::Exists($app)){Start-Process -FilePath $app -ArgumentList '--hidden'} }"
@@ -947,6 +965,8 @@ fn launch_installer(path: &Path, result_path: &Path) -> Result<(), UpdateCommand
         .arg(path)
         .arg(application)
         .arg(result_path)
+        .arg(log_path)
+        .arg(parent_process_id)
         .spawn()
         .map(|_| ())
         .map_err(|_| UpdateCommandError::install())
@@ -968,7 +988,11 @@ fn windows_system_directory() -> Result<PathBuf, UpdateCommandError> {
 }
 
 #[cfg(not(windows))]
-fn launch_installer(_path: &Path, _result_path: &Path) -> Result<(), UpdateCommandError> {
+fn launch_installer(
+    _path: &Path,
+    _result_path: &Path,
+    _log_path: &Path,
+) -> Result<(), UpdateCommandError> {
     Err(UpdateCommandError::install())
 }
 
@@ -1145,6 +1169,7 @@ fn cleanup_staging(paths: &UpdatePaths) {
     remove_if_regular(&paths.partial);
     remove_if_regular(&paths.package);
     remove_if_regular(&paths.installer_result);
+    remove_if_regular(&paths.installer_log);
 }
 
 fn remove_existing_regular_file(path: &Path) -> Result<(), UpdateCommandError> {

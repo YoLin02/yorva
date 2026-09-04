@@ -36,12 +36,13 @@ function Add-Pass([string]$name) {
 }
 
 function Get-YorvaVersion {
-    $root = "Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall"
-    $entries = @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue | ForEach-Object {
-        Get-ItemProperty -LiteralPath $_.PSPath
-    } | Where-Object { $_.DisplayName -eq "YORVA" })
-    Assert-Condition ($entries.Count -eq 1) "expected exactly one YORVA uninstall entry"
-    return [string]$entries[0].DisplayVersion
+    $upgradeCode = "{E793918B-37EB-5E2F-B866-5FC4AA3AC75A}"
+    $installer = New-Object -ComObject WindowsInstaller.Installer
+    $products = @($installer.RelatedProducts($upgradeCode) | Where-Object {
+        $installer.ProductInfo([string]$_, "ProductName") -eq "YORVA"
+    })
+    Assert-Condition ($products.Count -eq 1) "expected exactly one installed YORVA product for the fixed UpgradeCode, found $($products.Count)"
+    return [string]$installer.ProductInfo([string]$products[0], "VersionString")
 }
 
 function Get-ExactProcesses([string]$path) {
