@@ -33,6 +33,8 @@ const PARTIAL_FILE: &str = "candidate.partial";
 const INSTALLER_RESULT_FILE: &str = "installer.exit";
 const STATE_SCHEMA: u32 = 1;
 const USER_AGENT: &str = "YORVA-Desktop-Updater/1";
+const PRODUCT_NAME: &str = "YORVA";
+const UPGRADE_CODE: &str = "E793918B-37EB-5E2F-B866-5FC4AA3AC75A";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -826,7 +828,7 @@ fn verify_staged_package(path: &Path, metadata: &UpdateMetadata) -> Result<(), U
     if !digest.eq_ignore_ascii_case(&metadata.package.sha256) {
         return Err(UpdateCommandError::integrity());
     }
-    verify_msi_version(path, &metadata.version)?;
+    verify_msi_identity(path, &metadata.version)?;
     if metadata.package.authenticode_policy == AuthenticodePolicy::Required {
         verify_authenticode(
             path,
@@ -841,27 +843,33 @@ fn verify_staged_package(path: &Path, metadata: &UpdateMetadata) -> Result<(), U
 }
 
 #[cfg(windows)]
-fn verify_msi_version(path: &Path, expected: &str) -> Result<(), UpdateCommandError> {
+fn verify_msi_identity(path: &Path, expected_version: &str) -> Result<(), UpdateCommandError> {
     let script = concat!(
         "& { param($p)",
         "$i=New-Object -ComObject WindowsInstaller.Installer;",
         "$d=$i.GetType().InvokeMember('OpenDatabase','InvokeMethod',$null,$i,@($p,0));",
-        "$v=$d.GetType().InvokeMember('OpenView','InvokeMethod',$null,$d,@(\"SELECT `Value` FROM `Property` WHERE `Property`='ProductVersion'\"));",
+        "foreach($n in @('ProductVersion','ProductName','UpgradeCode')){",
+        "$q=\"SELECT `Value` FROM `Property` WHERE `Property`='$n'\";",
+        "$v=$d.GetType().InvokeMember('OpenView','InvokeMethod',$null,$d,@($q));",
         "$null=$v.GetType().InvokeMember('Execute','InvokeMethod',$null,$v,$null);",
         "$r=$v.GetType().InvokeMember('Fetch','InvokeMethod',$null,$v,$null);",
         "if($null -eq $r){exit 4};",
-        "$r.GetType().InvokeMember('StringData','GetProperty',$null,$r,1) }"
+        "$r.GetType().InvokeMember('StringData','GetProperty',$null,$r,1)} }"
     );
     let output = Command::new(powershell_path()?)
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
         .arg(path)
         .output()
         .map_err(|_| UpdateCommandError::integrity())?;
+    let values = String::from_utf8(output.stdout).map_err(|_| UpdateCommandError::integrity())?;
+    let values = values.lines().map(str::trim).collect::<Vec<_>>();
     if !output.status.success()
-        || String::from_utf8(output.stdout)
-            .map_err(|_| UpdateCommandError::integrity())?
-            .trim()
-            != expected
+        || values.len() != 3
+        || values[0] != expected_version
+        || values[1] != PRODUCT_NAME
+        || !values[2]
+            .trim_matches(['{', '}'])
+            .eq_ignore_ascii_case(UPGRADE_CODE)
     {
         return Err(UpdateCommandError::integrity());
     }
@@ -869,7 +877,7 @@ fn verify_msi_version(path: &Path, expected: &str) -> Result<(), UpdateCommandEr
 }
 
 #[cfg(not(windows))]
-fn verify_msi_version(_path: &Path, _expected: &str) -> Result<(), UpdateCommandError> {
+fn verify_msi_identity(_path: &Path, _expected_version: &str) -> Result<(), UpdateCommandError> {
     Err(UpdateCommandError::integrity())
 }
 

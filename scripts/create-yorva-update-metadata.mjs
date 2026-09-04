@@ -37,7 +37,10 @@ if (args.has("--classification") && !internal) fail("classification must be inte
 if (args.has("--qualification") && !qualification) fail("qualification must be windows-vm");
 
 const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
-if (artifact.schemaVersion !== 1 || artifact.workingTreeDirty !== false || artifact.qualificationBuild === true) {
+const qualificationFixture = artifact.qualificationFixture === true;
+if (artifact.schemaVersion !== 1 || artifact.qualificationBuild === true
+    || (!qualificationFixture && artifact.workingTreeDirty !== false)
+    || (qualificationFixture && !qualification)) {
   fail("update metadata requires a clean-source package artifact");
 }
 if (!/^\d+\.\d+\.\d+$/.test(artifact.productVersion)) fail("invalid artifact product version");
