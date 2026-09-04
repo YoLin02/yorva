@@ -415,6 +415,15 @@ that production code-signing material is not currently available. Unsigned build
 internal candidates only; lack of signing must not be hidden by self-signing, disabled
 verification or a public-ready label.
 
+Update metadata is accepted only after Ed25519 verification with the release key compiled
+into the Desktop. The full MSI is streamed into a bounded YORVA-owned staging directory,
+then its exact length, SHA-256, ProductVersion and declared Authenticode policy are checked.
+The native handoff uses only the resolved Windows system PowerShell and `msiexec` paths,
+closed arguments and YORVA-owned files. It never accepts a caller-provided URL, path,
+command, argument, environment value or header. A qualification-only Cargo feature uses a
+fixed disposable-VM HTTPS origin and test CA; packaging marks it as non-release metadata
+input so it cannot be promoted as a public artifact.
+
 Before applying a pending SQLite migration, yorvad creates a fixed-location consistent
 protection database and records a SHA-256 plus source/target schema in a bounded,
 non-secret state file. Interrupted work restores only from a regular file with the exact

@@ -2,7 +2,9 @@
 # Requires the pinned Hermes source, Node, npm, Python, and license files before Tauri bundling.
 
 [CmdletBinding()]
-param()
+param(
+    [switch]$UpdateQualification
+)
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -90,7 +92,11 @@ try {
     $utf8 = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($configPath, ($config | ConvertTo-Json -Depth 20), $utf8)
     $buildStartedUtc = [DateTime]::UtcNow.AddSeconds(-1)
-    $tauriOutput = @(& pnpm --filter @yorva/desktop tauri build --bundles msi 2>&1)
+    $tauriArguments = @("--filter", "@yorva/desktop", "tauri", "build", "--bundles", "msi")
+    if ($UpdateQualification) {
+        $tauriArguments += @("--features", "update-qualification")
+    }
+    $tauriOutput = @(& pnpm @tauriArguments 2>&1)
     $tauriExitCode = $LASTEXITCODE
     $tauriOutput | ForEach-Object { Write-Host $_ }
     if ($tauriExitCode -ne 0) {
@@ -175,6 +181,7 @@ $summary = [ordered]@{
     sizeBytes = $msi.Length
     sha256 = $msiHash
     signatureStatus = [string]$signature.Status
+    qualificationBuild = [bool]$UpdateQualification
     upgradeCode = "e793918b-37eb-5e2f-b866-5fc4aa3ac75a"
     installScope = "perUser"
     generatedAtUtc = [DateTime]::UtcNow.ToString("O")

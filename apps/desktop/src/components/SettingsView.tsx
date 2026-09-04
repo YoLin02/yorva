@@ -5,6 +5,7 @@ import { messages, supportedLocales } from "../i18n";
 import { IconMonitor, IconMoon, IconSun } from "./ui/icons";
 import type { DaemonClient } from "../api/client";
 import { HermesDownloadSourcesPanel } from "./settings/HermesDownloadSourcesPanel";
+import { YorvaUpdatePanel, YorvaUpdateSummary } from "./settings/YorvaUpdatePanel";
 
 type SettingsTab = "general" | "advanced" | "diagnostics" | "about";
 
@@ -20,6 +21,7 @@ export function SettingsView({
   onLocaleChange: (locale: Locale) => void;
 }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [updateOpen, setUpdateOpen] = useState(false);
   const [desktopPreferences, setDesktopPreferenceState] = useState<DesktopPreferences>({
     launchOnLogin: true,
     closeToTray: true,
@@ -55,6 +57,10 @@ export function SettingsView({
       .catch(() => setDesktopPreferencesFailed(true))
       .finally(() => setDesktopPreferencesBusy(false));
   };
+
+  if (updateOpen) {
+    return <YorvaUpdatePanel copy={copy.settings.updates} onBack={() => setUpdateOpen(false)} />;
+  }
 
   return (
     <div className="settings-page">
@@ -183,6 +189,19 @@ export function SettingsView({
           aria-labelledby="settings-tab-advanced"
         >
           <HermesDownloadSourcesPanel copy={copy} client={client} />
+        </div>
+      ) : activeTab === "about" ? (
+        <div
+          id="settings-panel-about"
+          className="settings-general"
+          role="tabpanel"
+          aria-labelledby="settings-tab-about"
+        >
+          <section className="settings-section" aria-labelledby="about-yorva-title">
+            <h2 id="about-yorva-title">YORVA</h2>
+            <p>{copy.settings.updates.aboutDescription}</p>
+          </section>
+          <YorvaUpdateSummary copy={copy.settings.updates} onOpen={() => setUpdateOpen(true)} />
         </div>
       ) : (
         <div

@@ -84,11 +84,19 @@ as its cleanup root.
   delta patches or a background updater service.
 - Metadata fixes version, package length, SHA-256, signing state and allowed download URL.
 - Origin, length, SHA-256, version and Windows signature policy are checked before launch.
+- Release metadata is authorized by a compiled Ed25519 verification key. Builds without
+  that key keep update actions disabled instead of trusting unsigned metadata.
+- The updater stages only the closed `candidate.partial`, `candidate.msi`, state and
+  installer-result names under YORVA application data. A fixed system PowerShell handoff
+  waits for the fixed system `msiexec`, records its exit status and relaunches YORVA;
+  callers cannot provide a URL, path, executable, argument, environment value or header.
 - The Owner confirmed that Windows code-signing material is not currently available.
   P8 may therefore produce an internal candidate, but cannot claim public-release
   readiness. Self-signing or skipped verification cannot satisfy the Gate.
 - Once production signing material exists, the exact candidate MSI must receive signing,
   provenance, tamper-rejection and installation evidence.
+- The disposable-Windows qualification feature has a separate fixed HTTPS endpoint and
+  test CA, cannot emit public release metadata and is never included in a release build.
 
 ## 6. Privacy and support
 

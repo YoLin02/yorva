@@ -162,6 +162,33 @@ type Messages = {
     closeToTrayDescription: string;
     dataRetention: string;
     dataRetentionDescription: string;
+    updates: {
+      title: string;
+      aboutDescription: string;
+      manage: string;
+      pageTitle: string;
+      description: string;
+      back: string;
+      loading: string;
+      signingUnavailable: string;
+      signingExplanation: string;
+      internalCandidate: string;
+      publicRelease: string;
+      currentVersion: string;
+      status: string;
+      source: string;
+      fixedSource: string;
+      candidate: string;
+      releaseNotes: string;
+      check: string;
+      download: string;
+      install: string;
+      cancel: string;
+      working: string;
+      securityPolicy: string;
+      phases: Record<"IDLE" | "UP_TO_DATE" | "AVAILABLE" | "DOWNLOADING" | "READY_TO_INSTALL" | "INSTALLING" | "POSTCHECK" | "SUCCEEDED" | "FAILED", string>;
+      errors: Record<"UPDATE_METADATA_INVALID" | "UPDATE_SIGNING_UNAVAILABLE" | "UPDATE_VERSION_UNSUPPORTED" | "UPDATE_DOWNLOAD_FAILED" | "UPDATE_CANCELLED" | "UPDATE_INTEGRITY_FAILED" | "UPDATE_INSTALL_FAILED" | "UPDATE_POSTCHECK_FAILED" | "UPDATE_STATE_FAILED", string>;
+    };
     desktopPreferencesFailed: string;
     savedAutomatically: string;
     hermesSourcesTitle: string;
@@ -846,6 +873,53 @@ const english: Messages = {
     closeToTrayDescription: "Closing the main window keeps Yorva available in the system tray.",
     dataRetention: "Uninstall and local data",
     dataRetentionDescription: "Uninstall removes YORVA program files, shortcuts, and login startup. It preserves YORVA settings, encrypted backups, and every Hermes Runtime and Profile.",
+    updates: {
+      title: "YORVA updates",
+      aboutDescription: "Local-first Runtime control for supported Windows devices.",
+      manage: "View updates",
+      pageTitle: "YORVA update",
+      description: "Check, verify, and install a complete YORVA package from the fixed release source.",
+      back: "About YORVA",
+      loading: "Loading update status…",
+      signingUnavailable: "Update verification is unavailable in this build",
+      signingExplanation: "This unsigned internal candidate has no approved release verification key. Update installation remains disabled until a release build injects that public key.",
+      internalCandidate: "Internal candidate",
+      publicRelease: "Signed release",
+      currentVersion: "Installed version",
+      status: "Update status",
+      source: "Release source",
+      fixedSource: "YORVA GitHub Releases (fixed)",
+      candidate: "Available package",
+      releaseNotes: "Release notes",
+      check: "Check for updates",
+      download: "Download and verify",
+      install: "Install and restart",
+      cancel: "Cancel download",
+      working: "Working…",
+      securityPolicy: "YORVA accepts only a fixed HTTPS release URL, a signed metadata envelope, the exact declared size and SHA-256, the expected MSI version, and the declared Windows signing policy.",
+      phases: {
+        IDLE: "Not checked",
+        UP_TO_DATE: "YORVA is up to date",
+        AVAILABLE: "An update is available",
+        DOWNLOADING: "Downloading the complete package",
+        READY_TO_INSTALL: "Verified and ready to install",
+        INSTALLING: "Windows is installing the update",
+        POSTCHECK: "Verifying migration and Runtime state",
+        SUCCEEDED: "Update completed and verified",
+        FAILED: "Update needs attention",
+      },
+      errors: {
+        UPDATE_METADATA_INVALID: "The release information was invalid or did not match YORVA's fixed source.",
+        UPDATE_SIGNING_UNAVAILABLE: "This build has no approved update verification key.",
+        UPDATE_VERSION_UNSUPPORTED: "This version cannot update directly to the selected release.",
+        UPDATE_DOWNLOAD_FAILED: "The complete update package could not be downloaded. The installed version is unchanged.",
+        UPDATE_CANCELLED: "The update download was cancelled. The installed version is unchanged.",
+        UPDATE_INTEGRITY_FAILED: "The package failed signature, size, hash, version, or Windows signing verification and was not opened.",
+        UPDATE_INSTALL_FAILED: "Windows did not complete the update. Restart YORVA to inspect the retained status.",
+        UPDATE_POSTCHECK_FAILED: "The new version started, but migration or Runtime reconciliation did not complete.",
+        UPDATE_STATE_FAILED: "YORVA could not safely read or save the update status.",
+      },
+    },
     desktopPreferencesFailed: "Yorva could not update the window behavior setting. Please try again.",
     savedAutomatically: "Saved automatically",
     hermesSourcesTitle: "Hermes download sources",
@@ -1566,6 +1640,53 @@ const simplifiedChinese: Messages = {
     closeToTrayDescription: "关闭主窗口后 Yorva 继续在系统托盘中运行。",
     dataRetention: "卸载与本地数据",
     dataRetentionDescription: "卸载会移除 YORVA 程序文件、快捷方式和登录启动项，但会保留 YORVA 设置、加密备份以及全部 Hermes Runtime 和 Profile。",
+    updates: {
+      title: "YORVA 更新",
+      aboutDescription: "面向受支持 Windows 设备的本地优先 Runtime 中控。",
+      manage: "查看更新",
+      pageTitle: "YORVA 更新",
+      description: "从固定发布源检查、验证并安装完整的 YORVA 安装包。",
+      back: "关于 YORVA",
+      loading: "正在读取更新状态…",
+      signingUnavailable: "此构建暂不能验证更新",
+      signingExplanation: "当前未签名内部候选没有获批的发布验证公钥。在发布构建注入该公钥前，更新安装保持禁用。",
+      internalCandidate: "内部候选",
+      publicRelease: "已签名发布版",
+      currentVersion: "当前版本",
+      status: "更新状态",
+      source: "发布来源",
+      fixedSource: "YORVA GitHub Releases（固定）",
+      candidate: "可用安装包",
+      releaseNotes: "更新说明",
+      check: "检查更新",
+      download: "下载并验证",
+      install: "安装并重启",
+      cancel: "取消下载",
+      working: "处理中…",
+      securityPolicy: "YORVA 只接受固定 HTTPS 发布地址、已签名元数据、完全一致的大小与 SHA-256、预期 MSI 版本，以及元数据声明的 Windows 签名策略。",
+      phases: {
+        IDLE: "尚未检查",
+        UP_TO_DATE: "YORVA 已是最新版本",
+        AVAILABLE: "发现可用更新",
+        DOWNLOADING: "正在下载完整安装包",
+        READY_TO_INSTALL: "验证完成，可以安装",
+        INSTALLING: "Windows 正在安装更新",
+        POSTCHECK: "正在验证迁移与 Runtime 状态",
+        SUCCEEDED: "更新完成并已验证",
+        FAILED: "更新需要处理",
+      },
+      errors: {
+        UPDATE_METADATA_INVALID: "发布信息无效，或与 YORVA 固定发布源不一致。",
+        UPDATE_SIGNING_UNAVAILABLE: "此构建没有获批的更新验证公钥。",
+        UPDATE_VERSION_UNSUPPORTED: "当前版本不能直接升级到所选版本。",
+        UPDATE_DOWNLOAD_FAILED: "未能下载完整安装包，当前已安装版本没有变化。",
+        UPDATE_CANCELLED: "已取消更新下载，当前已安装版本没有变化。",
+        UPDATE_INTEGRITY_FAILED: "安装包未通过签名、大小、哈希、版本或 Windows 签名验证，因此没有启动。",
+        UPDATE_INSTALL_FAILED: "Windows 未完成更新。请重新启动 YORVA 查看保留的更新状态。",
+        UPDATE_POSTCHECK_FAILED: "新版本已启动，但数据库迁移或 Runtime 权威回读未完成。",
+        UPDATE_STATE_FAILED: "YORVA 无法安全读取或保存更新状态。",
+      },
+    },
     desktopPreferencesFailed: "无法更新窗口行为设置，请重试。",
     savedAutomatically: "已自动保存",
     hermesSourcesTitle: "Hermes 下载与依赖源",

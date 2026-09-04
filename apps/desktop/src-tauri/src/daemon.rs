@@ -195,6 +195,20 @@ impl DaemonLifecycle {
         let _ = self.stop_with_timeout(SHUTDOWN_TIMEOUT);
     }
 
+    pub(crate) fn prepare_start(&self) -> bool {
+        let mut inner = self.lock();
+        if inner.child.is_some()
+            || !matches!(inner.status, StartupStatus::Stopped | StartupStatus::Failed)
+        {
+            return false;
+        }
+        inner.status = StartupStatus::Starting;
+        inner.failure = None;
+        inner.restart_attempted = false;
+        self.changed.notify_all();
+        true
+    }
+
     fn stop_with_timeout(&self, timeout: Duration) -> bool {
         let mut inner = self.lock();
         if inner.child.is_none() {
@@ -237,7 +251,7 @@ impl DaemonLifecycle {
         }
     }
 
-    fn session(&self) -> Result<DaemonSession, DaemonCommandError> {
+    pub(crate) fn session(&self) -> Result<DaemonSession, DaemonCommandError> {
         let inner = self.lock();
         match &inner.status {
             StartupStatus::Ready(session) => Ok(session.clone()),
@@ -928,6 +942,16 @@ mod tests {
         let writes = probe.writes.lock().unwrap();
         assert_eq!(writes.len(), 1);
         assert_eq!(writes[0].as_slice(), SHUTDOWN_MESSAGE);
+    }
+
+    #[test]
+    fn explicit_restart_can_recover_a_stopped_daemon() {
+        let lifecycle = DaemonLifecycle::new();
+        lifecycle.stop();
+
+        assert!(lifecycle.prepare_start());
+        assert!(!lifecycle.prepare_start());
+        assert!(matches!(lifecycle.lock().status, StartupStatus::Starting));
     }
 
     #[test]
