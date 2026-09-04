@@ -45,8 +45,20 @@ pub fn run() {
         .setup(|app| {
             #[cfg(desktop)]
             {
-                product_data::migrate_legacy_app_data(app)?;
                 desktop::setup(app, desktop::starts_hidden())?;
+                if let Err(error) = product_data::migrate_legacy_app_data(app) {
+                    eprintln!(
+                        "{}",
+                        serde_json::json!({
+                            "service": "yorva-desktop",
+                            "event": "product_data_migration_failed",
+                            "errorCode": error.to_string(),
+                        })
+                    );
+                    app.state::<DaemonLifecycle>()
+                        .fail_startup_with(error.command_error());
+                    return Ok(());
+                }
             }
             start_daemon(app.handle());
             Ok(())

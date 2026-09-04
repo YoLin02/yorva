@@ -30,6 +30,21 @@ impl std::error::Error for ProductDataError {
     }
 }
 
+impl ProductDataError {
+    pub fn command_error(&self) -> crate::daemon::DaemonCommandError {
+        let message = if self.code == "PRODUCT_DATA_IDENTITY_CONFLICT" {
+            "YORVA found both legacy and current data. Resolve the data conflict before retrying."
+        } else {
+            "YORVA could not safely prepare the existing product data."
+        };
+        crate::daemon::DaemonCommandError {
+            code: self.code,
+            message,
+            retryable: false,
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ProductIdentityMigration {

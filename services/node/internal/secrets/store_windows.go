@@ -38,10 +38,24 @@ func newStore(root string) (*Store, error) {
 	}
 
 	first := filepath.Join(cleanRoot, secretDirectoryName)
+	dir := filepath.Join(first, secretVersionName)
+	// A product-identity migration copies the directory tree without copying its
+	// Windows ACLs. In that state v1 initially inherits from secrets. Harden the
+	// existing child first; otherwise protecting the parent DACL can remove the
+	// child's inherited ACEs before YORVA can open and secure it.
+	if _, statErr := os.Lstat(dir); statErr == nil {
+		if err := validateDirectoryChainNoFollow(dir); err != nil {
+			return nil, err
+		}
+		if err := ensurePrivateDirectory(dir); err != nil {
+			return nil, err
+		}
+	} else if !errors.Is(statErr, fs.ErrNotExist) {
+		return nil, ErrUnsafeStorage
+	}
 	if err := ensurePrivateDirectory(first); err != nil {
 		return nil, err
 	}
-	dir := filepath.Join(first, secretVersionName)
 	if err := ensurePrivateDirectory(dir); err != nil {
 		return nil, err
 	}

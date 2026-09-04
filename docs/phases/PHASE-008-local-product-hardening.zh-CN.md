@@ -617,7 +617,7 @@ Phase 8 只有在以下全部成立后才能进入审计：
 | --- | --- | --- | --- |
 | P8-B0 | COMPLETE | B0 Batch commit | 中英文产品支持合同、Owner 决策、目录/保留/签名门禁一致性检查通过 |
 | P8-B1 | COMPLETE | B1 Batch commit | Schema 017；016→017 保护/校验/恢复；identifier 数据迁移；Go/Rust focused Gate 通过 |
-| P8-B2 | NOT STARTED | — | — |
+| P8-B2 | COMPLETE | B2 Batch commit | 自动 crash/restart、stale Operation、权威 reconcile 与 disposable Windows reboot/login smoke 全部通过 |
 | P8-B3 | NOT STARTED | — | — |
 | P8-B4 | NOT STARTED | — | — |
 | P8-B5 | NOT STARTED | — | — |

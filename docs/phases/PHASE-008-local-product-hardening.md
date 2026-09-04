@@ -398,7 +398,7 @@ After audit PASS and explicit Owner authorization:
 | --- | --- | --- | --- |
 | P8-B0 | COMPLETE | B0 Batch commit | Bilingual support contract, Owner decisions, directory/retention/signing consistency review passed |
 | P8-B1 | COMPLETE | B1 Batch commit | Schema 017; protected/verified/recoverable 016→017; identifier data migration; Go/Rust focused Gate passed |
-| P8-B2 | NOT STARTED | — | — |
+| P8-B2 | COMPLETE | B2 Batch commit | Automated crash/restart, stale-operation and authoritative reconcile checks plus disposable Windows reboot/login smoke passed |
 | P8-B3 | NOT STARTED | — | — |
 | P8-B4 | NOT STARTED | — | — |
 | P8-B5 | NOT STARTED | — | — |

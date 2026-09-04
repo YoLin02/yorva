@@ -13,6 +13,9 @@ import (
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/bootstrap"
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
+	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
 func TestRunBootstrapsLoopbackHealthServer(t *testing.T) {
@@ -115,6 +118,112 @@ func TestRunBootstrapsLoopbackHealthServer(t *testing.T) {
 
 func TestRunStopsWhenParentClosesBootstrapPipe(t *testing.T) {
 	testParentStop(t, func(writer *io.PipeWriter) error { return writer.Close() })
+}
+
+func TestRunStopsWhenParentClosesBeforeHandshake(t *testing.T) {
+	token := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x2a}, 32))
+	input := fmt.Sprintf(
+		`{"protocolVersion":"1","token":"%s","dataDir":%q}`,
+		token,
+		t.TempDir(),
+	)
+	stdoutReader, stdoutWriter := io.Pipe()
+	stdinReader, stdinWriter := io.Pipe()
+	result := make(chan error, 1)
+	go func() {
+		result <- Run(context.Background(), []string{"--bootstrap-stdio"}, Streams{
+			Stdin: stdinReader, Stdout: stdoutWriter, Stderr: io.Discard,
+		})
+	}()
+	if _, err := fmt.Fprintln(stdinWriter, input); err != nil {
+		t.Fatal(err)
+	}
+	if err := stdinWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-result:
+	case <-time.After(3 * time.Second):
+		t.Fatal("daemon remained alive after its parent closed before handshake")
+	}
+	_ = stdoutReader.Close()
+}
+
+func TestRunRecoversAllManagementOperationFamiliesBeforeHandshake(t *testing.T) {
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := sqlite.Open(ctx, dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	active := []operation.Operation{
+		startupRecoveryOperation("skill-stale", operation.TypeSkillInstall, operation.TargetInstance, "instance-skill", operation.StageSkillProject, now),
+		startupRecoveryOperation("mcp-stale", operation.TypeMCPTest, operation.TargetInstance, "instance-mcp", operation.StageMCPTest, now),
+		startupRecoveryOperation("backup-stale", operation.TypeBackupCreate, operation.TargetRuntimeInstallation, "runtime-backup", operation.StageBackupSnapshot, now),
+		startupRecoveryOperation("upgrade-stale", operation.TypeRuntimeUpgrade, operation.TargetRuntimeInstallation, "runtime-upgrade", operation.StageUpgradeBuild, now),
+	}
+	for _, item := range active {
+		if err := database.CreateOperation(ctx, item); err != nil {
+			_ = database.Close()
+			t.Fatalf("create %s: %v", item.ID, err)
+		}
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	token := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x2a}, 32))
+	input := fmt.Sprintf(`{"protocolVersion":"1","token":"%s","dataDir":%q}`, token, dataDir)
+	stdoutReader, stdoutWriter := io.Pipe()
+	stdinReader, stdinWriter := io.Pipe()
+	defer stdinWriter.Close()
+	runCtx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() {
+		result <- Run(runCtx, []string{"--bootstrap-stdio"}, Streams{Stdin: stdinReader, Stdout: stdoutWriter, Stderr: io.Discard})
+	}()
+	if _, err := fmt.Fprintln(stdinWriter, input); err != nil {
+		t.Fatal(err)
+	}
+	var handshake bootstrap.Handshake
+	if err := json.NewDecoder(stdoutReader).Decode(&handshake); err != nil {
+		t.Fatalf("decode handshake: %v", err)
+	}
+	cancel()
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("daemon did not stop")
+	}
+
+	database, err = sqlite.Open(ctx, dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	for _, item := range active {
+		recovered, err := database.GetOperation(ctx, item.ID)
+		if err != nil {
+			t.Fatalf("read %s: %v", item.ID, err)
+		}
+		if recovered.Status != operation.StatusFailed || recovered.ErrorCode != yorvaruntime.ErrorOperationInterrupted || recovered.CompletedAt == nil {
+			t.Fatalf("recovered %s = %#v", item.ID, recovered)
+		}
+	}
+}
+
+func startupRecoveryOperation(id string, kind operation.Type, targetType operation.TargetType, targetID string, stage operation.Stage, now time.Time) operation.Operation {
+	return operation.Operation{
+		ID: id, Type: kind, TargetType: targetType, TargetID: targetID,
+		Status: operation.StatusRunning, Stage: stage, Message: string(kind),
+		IdempotencyKey: "idem-" + id, CorrelationID: "corr-" + id,
+		CreatedAt: now, StartedAt: &now, UpdatedAt: now,
+	}
 }
 
 func TestRunStopsOnParentShutdownControl(t *testing.T) {

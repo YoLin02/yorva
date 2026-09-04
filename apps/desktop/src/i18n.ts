@@ -35,6 +35,8 @@ type Messages = {
     startingDescription: string;
     connectionUnavailable: string;
     daemonStartFailure: string;
+    productDataConflict: string;
+    productDataPreparationFailure: string;
     nodeReachFailure: string;
     connected: string;
     title: string;
@@ -654,6 +656,8 @@ const english: Messages = {
     startingDescription: "Creating a private Desktop session and checking the local daemon.",
     connectionUnavailable: "Connection unavailable",
     daemonStartFailure: "The local daemon could not start.",
+    productDataConflict: "YORVA found both legacy and current local data. Keep both folders unchanged, then resolve the data conflict before restarting YORVA.",
+    productDataPreparationFailure: "YORVA could not safely prepare the existing local data. Keep the data folders unchanged and retry after checking available disk space and folder permissions.",
     nodeReachFailure: "The local Node could not be reached.",
     connected: "Local node connected",
     title: "Local Node",
@@ -1370,6 +1374,8 @@ const simplifiedChinese: Messages = {
     startingDescription: "正在创建私有桌面会话并检查本地守护进程。",
     connectionUnavailable: "连接不可用",
     daemonStartFailure: "本地守护进程无法启动。",
+    productDataConflict: "YORVA 同时发现旧版和当前版本的本地数据。请保留两个数据文件夹不变，解决数据冲突后再重新启动 YORVA。",
+    productDataPreparationFailure: "YORVA 无法安全准备已有本地数据。请勿移动或删除数据文件夹，检查磁盘空间和文件夹权限后重试。",
     nodeReachFailure: "无法连接本地节点。",
     connected: "本地节点已连接",
     title: "本地节点",

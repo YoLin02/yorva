@@ -485,8 +485,27 @@ The sidecar build is target-aware and writes only ignored build output:
 ```text
 pnpm build:sidecar
 pwsh -NoProfile -File scripts/windows-lifecycle-smoke.ps1
+pwsh -NoProfile -File scripts/windows-desktop-recovery-smoke.ps1
 pnpm --filter @yorva/desktop tauri build --no-bundle
 ```
+
+Phase 8 controlled reboot evidence is a two-step, exact-candidate check. It does not
+initiate a reboot itself:
+
+```text
+pwsh -NoProfile -File scripts/windows-reboot-recovery-smoke.ps1 -Mode Prepare
+# reboot Windows and sign in normally
+pwsh -NoProfile -File scripts/windows-reboot-recovery-smoke.ps1 -Mode Verify
+```
+
+`Prepare` records only candidate paths, SHA-256 digests, a UTC boundary and login-item
+confirmation under the ignored `.tools/p8-reboot-smoke/` directory. `Verify` requires the
+same bytes, one Desktop, one Desktop-owned daemon, a fresh authoritative Runtime/Profile
+reconcile record and single-instance behavior. Ownership must remain stable across a
+continuous window, and a duplicate-launch probe must retain the incumbent daemon PID. It
+does not retain PIDs, Profile names, credentials or raw Runtime configuration. The same
+two-stage script can run inside a disposable Windows VM so the guest reboot boundary is
+tested without rebooting the development host.
 
 Owner test distribution on Windows may also build a user-scope MSI (requires WiX 3 on `PATH` / `WIX`). Demo MSI builds must use the fail-closed packaging entry point, which requires the pinned Hermes source, Node zip, npm tarball, and license files:
 

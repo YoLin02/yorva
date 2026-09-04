@@ -225,6 +225,65 @@ describe("App Desktop navigation and locale", () => {
     expect(await screen.findByText("Yorva is starting Hermes")).toBeInTheDocument();
   });
 
+  it("does not loop after the bounded automatic Hermes start fails", async () => {
+    clientMocks.listHermesInstances.mockResolvedValue({
+      runtimeId: "hermes",
+      runtimeInstallationId: "rtinst_test",
+      freshness: "FRESH",
+      lastSyncedAt: "2026-08-28T00:00:00Z",
+      instances: [{
+        instanceId: "inst_default",
+        runtimeInstallationId: "rtinst_test",
+        name: "default",
+        default: true,
+        protected: true,
+        availability: "AVAILABLE",
+        lastSyncedAt: "2026-08-28T00:00:00Z",
+        createdAt: "2026-08-28T00:00:00Z",
+        updatedAt: "2026-08-28T00:00:00Z",
+        capabilities: { instances: true, lifecycle: true },
+      }],
+      capabilities: { instances: true, lifecycle: true },
+      errorCode: null,
+    });
+    clientMocks.getInstanceLifecycle.mockResolvedValue({
+      state: "STOPPED",
+      activeOperationId: null,
+      observedAt: "2026-08-28T00:00:00Z",
+      errorCode: null,
+    });
+    clientMocks.startInstanceLifecycle.mockRejectedValue(new Error("start failed"));
+
+    renderApp();
+    await screen.findByText("DESKTOP-TEST");
+    fireEvent.click(screen.getByRole("button", { name: "Runtimes" }));
+
+    expect(await screen.findByText("Automatic start failed")).toBeInTheDocument();
+    expect(clientMocks.startInstanceLifecycle).toHaveBeenCalledTimes(1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(clientMocks.startInstanceLifecycle).toHaveBeenCalledTimes(1);
+
+    clientMocks.startInstanceLifecycle.mockResolvedValue({
+      id: "op_runtime_retry",
+      type: "instance.start",
+      targetType: "instance",
+      targetId: "inst_default",
+      status: "PENDING",
+      stage: "preflight",
+      progress: null,
+      message: "start",
+      errorCode: null,
+      retryable: false,
+      correlationId: "cor_runtime_retry",
+      createdAt: "2026-08-28T00:00:00Z",
+      startedAt: null,
+      completedAt: null,
+      updatedAt: "2026-08-28T00:00:00Z",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start again" }));
+    await waitFor(() => expect(clientMocks.startInstanceLifecycle).toHaveBeenCalledTimes(2));
+  });
+
   it("switches language immediately and persists the selection", async () => {
     const first = renderApp();
     await screen.findByText("DESKTOP-TEST");

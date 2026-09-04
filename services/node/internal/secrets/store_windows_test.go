@@ -228,3 +228,35 @@ func TestWindowsStoreAppliesProtectedCurrentUserDACL(t *testing.T) {
 		}
 	}
 }
+
+func TestWindowsStoreHardensPreexistingInheritedMigrationTreeFromChildFirst(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, secretDirectoryName, secretVersionName)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	store, err := New(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.dir != dir {
+		t.Fatalf("store dir = %q", store.dir)
+	}
+	for _, path := range []string{filepath.Dir(dir), dir} {
+		descriptor, err := windows.GetNamedSecurityInfo(
+			path,
+			windows.SE_FILE_OBJECT,
+			windows.DACL_SECURITY_INFORMATION,
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		control, _, err := descriptor.Control()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if control&windows.SE_DACL_PROTECTED == 0 {
+			t.Fatalf("DACL for %s is not protected", filepath.Base(path))
+		}
+	}
+}

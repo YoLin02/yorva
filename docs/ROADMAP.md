@@ -412,7 +412,7 @@ The normal path must not require the user to open a terminal or directly edit Ru
 
 ## Phase 8 — Local product hardening
 
-Status: **APPROVED / IN PROGRESS — B0–B1 COMPLETE; B2 NEXT**
+Status: **APPROVED / IN PROGRESS — B0–B2 COMPLETE; B3 NEXT**
 Specs: docs/phases/PHASE-008-local-product-hardening.zh-CN.md (Owner review) and
 docs/phases/PHASE-008-local-product-hardening.md (execution mirror)
 Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus accepted
