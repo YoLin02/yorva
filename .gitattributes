@@ -8,3 +8,4 @@
 *.yml text eol=lf
 *.md text eol=lf
 *.ps1 text eol=crlf
+apps/desktop/src-tauri/resources/installer/DATA_RETENTION.txt text eol=lf
