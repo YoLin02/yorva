@@ -1,11 +1,13 @@
 # Phase 8 B6 — Stability and Release Gate Evidence
 
-> Date: 2026-09-04–2026-09-05
+> Date: 2026-09-04–2026-09-07
 > Branch: `phase/p8-local-product-hardening`
-> State: **PASS — B6 local internal-candidate Gate complete; public-release Gates pending**
+> State: **AUDIT FAIL — historical local checks passed; B6 Gate reopened on 2026-09-07**
 > Release class ceiling: **internal candidate**
 
-This evidence does not claim public-release readiness, an independent audit, production
+The original implementation evidence below is preserved. The 2026-09-07 audit addendum
+supersedes its completion assessment. This evidence does not claim public-release
+readiness, production
 Windows signing, final-main CI, merge, tag, or freeze.
 
 ## P8 Gate traceability
@@ -13,15 +15,17 @@ Windows signing, final-main CI, merge, tag, or freeze.
 | Requirement | Current evidence | State |
 | --- | --- | --- |
 | P8-D1–D4 support, identity, retention and supported migration | `PRODUCT_SUPPORT.md`, `PRODUCT_SUPPORT.zh-CN.md`, commit `72ec369`, and `PHASE-008-B1-MIGRATION-PROTECTION.md` | COMPLETE |
-| Desktop/daemon/reboot recovery with authoritative reconciliation | `PHASE-008-B2-CRASH-REBOOT-RECOVERY.md` and commit `3ee4580` | COMPLETE |
+| Desktop/daemon/reboot recovery with authoritative reconciliation | Historical B2 scenarios passed; AUDIT-008 HIGH-001 finds readiness does not establish successful inventory readback | REOPENED |
 | Fresh/Upgrade/Repair/Uninstall/Reinstall Windows lifecycle | `PHASE-008-B3-WINDOWS-INSTALLER-LIFECYCLE.md`, commits `56df01f` and `412d3c0` | COMPLETE |
-| P8-D5 complete-package verified YORVA update | `PHASE-008-B4-YORVA-UPDATE.md`, commits `81b4bfa`, `9be7435`, `8d1b162`, `6a75cde`, and `7407992` | COMPLETE — internal candidate |
+| P8-D5 complete-package verified YORVA update | Historical B4 scenarios passed; AUDIT-008 HIGH-001 and MEDIUM-001 require postcheck/download-recovery fixes | REOPENED |
 | P8-D6 telemetry remains absent | support and security contracts plus repository review | COMPLETE |
 | P8-D7 bounded sanitized diagnostics | `PHASE-008-B5-DIAGNOSTICS.md` and commit `5ca5f0a` | COMPLETE |
 | P8-D8 production signature | Owner-confirmed signing material is unavailable | NOT PASS — public release blocked |
-| P8-D9 per-Batch commit discipline | B0–B5 committed; this evidence is included in the authorized B6 automatic Gate commit | COMPLETE for local candidate |
-| Three-Profile 4–8 hour stability and final local candidate Gate | this evidence record | COMPLETE |
-| Exact B6 CI/MSI workflow, independent audit, Owner decision, merge/tag/freeze | requires the final B6 commit and explicit Owner-controlled actions | NOT STARTED |
+| P8-D9 per-Batch commit discipline | B0–B6 implementation committed through `1f2df47`; audit follow-up commit/push authorized on 2026-09-07 | COMPLETE for local candidate |
+| Three-Profile 4–8 hour stability | Retained two-window evidence re-analyzed on 2026-09-07 | PASS for recorded candidate and scenarios |
+| Exact-candidate CI/MSI workflow | `bd07bbd`, CI #93 / MSI #32, details below | PASS |
+| Fresh single-agent internal-candidate audit | `AUDIT-008-local-product-hardening.md`, one HIGH and one MEDIUM | FAIL — B6 blocked |
+| Public audit, production signing, Owner exit decision, merge/final-main/tag/freeze | Internal audit is not a public-release audit; signing and Owner-controlled release actions remain outstanding | NOT PASS / NOT AUTHORIZED |
 
 The P8-D6 source and direct-dependency review found no production telemetry, analytics,
 Sentry, OpenTelemetry, or equivalent sender. `pnpm-lock.yaml` mentions
@@ -283,12 +287,13 @@ The final working-tree Gate passed:
 - exact-candidate disposable Windows Desktop recovery smoke;
 - final sidecar plus non-MSI release Desktop build.
 
-The final focused review found no unresolved Critical or High defect. `cargo audit` exits
+The implementation agent's historical focused review reported no unresolved Critical or
+High defect; AUDIT-008 supersedes that conclusion with HIGH-001. `cargo audit` exits
 zero with the 17 documented allowed maintenance warnings; it reports no newly introduced
 known vulnerability. The Vite chunk-size advisory and Windows linker import-library
 message remain non-blocking build warnings.
 
-## Remaining public-release gates
+## Historical public-release gate status (2026-09-05)
 
 The current phase branch has been added to the Windows MSI workflow trigger, and the
 Windows native CI job now runs the disposable-profile Desktop/daemon recovery smoke after
@@ -298,3 +303,58 @@ signed-MSI/public-release readiness remains blocked by the approved support cont
 single implementation agent performed this focused review; it must not be presented as
 the independent audit required for public release. Merge, tag, freeze, and final-main CI
 require an explicit Owner decision.
+
+## 2026-09-07 — Exact-candidate CI/MSI and independent review addendum
+
+The Owner authorized commit/push on the P8 branch for CI/MSI qualification. Merge, main,
+Release publication, tag and freeze remain outside this authorization.
+
+Reviewed product candidate: `bd07bbdb16deaa6972f491a48b9bb76b231da032`.
+B6 was committed as `1f2df47cdb5acf1b7f24752c34ea51fb1ffdcba4`; `3eccf63` fixes the
+packaged retention file's line endings and `bd07bbd` removes clock-skew dependence from
+the recovery-smoke readiness check. Product behavior is unchanged by those two follow-ups.
+
+| Remote evidence | Result |
+| --- | --- |
+| [CI #93](https://github.com/YoLin02/yorva/actions/runs/34097211094) | SUCCESS, attempt 1, exact `bd07bbd`; 2026-09-07 07:47:27–08:09:29 UTC |
+| Web/API | Typecheck/lint, 146 tests, build, OpenAPI lint/generation/no-drift and dependency audit passed |
+| Go | Race tests, vet, govulncheck and build passed |
+| Windows native | Restore/lifecycle smoke, negative MSI inspection, Rust format/28 tests/audit/Clippy/check, no-bundle build and disposable Desktop recovery passed |
+| [Windows MSI #32](https://github.com/YoLin02/yorva/actions/runs/34097210917) | SUCCESS, attempt 1, exact `bd07bbd`; 07:47:27–07:56:39 UTC |
+| MSI file | `YORVA_0.4.0_x64_en-US.msi`; 149,909,504 bytes; `NotSigned` |
+| MSI SHA-256 (packaging log) | `16DA187D7E27EB07C97C3B9151B904622B229AF07C892DB8C8330009EB6C448A` |
+| [Artifact 10009327513](https://github.com/YoLin02/yorva/actions/runs/34097210917/artifacts/10009327513) | `yorva-msi`; 149,712,583 bytes; not expired when checked; expires 2026-12-06 |
+| Enclosing artifact ZIP digest | `sha256:a46f7e16041abd02f1cb410bc10d71cc3fef05e0edb77dc8bbbbf96241679b70` |
+
+The artifact ZIP digest and MSI file hash describe different objects. The audit verified
+remote job results/logs and artifact metadata; it did not download or reinstall the remote
+MSI. The CI Windows Server 2025 runner is not Windows 10 client qualification. Historical
+Windows 11 guest installer/update/reboot evidence retains its original commit/package
+attribution in B2–B4 and is not relabeled as a new `bd07bbd` MSI installation.
+
+The current stability evidence analyzer was rerun against both retained B6 result roots:
+PASS, 28,802.669 seconds combined, 226 complete samples per window, three Profiles,
+seven pressure reconnects and one continuity PID. The historical no-bundle daemon hash
+still matches the retained candidate; fixture and guest recovery results were checked.
+No new eight-hour run or shared-host reboot was performed.
+
+Fresh focused Go SQLite/diagnostics/HTTP tests, the existing UNKNOWN-inventory regression,
+metadata-generator tests and the MSI inspector positive/17-negative suite also passed.
+These checks do not cover all acceptance failures.
+
+The fresh single-agent report is
+[`AUDIT-008-local-product-hardening.md`](../audits/AUDIT-008-local-product-hardening.md):
+
+- **HIGH-001:** update postcheck accepts daemon availability without successful
+  authoritative Profile inventory readback. An isolated real-daemon probe reproduced
+  an accepted handshake alongside UNKNOWN inventory / INSTANCE_OUTPUT_UNRECOGNIZED;
+  the updater's matching-version success branch does not distinguish that case.
+- **MEDIUM-001:** a process exit during download leaves durable DOWNLOADING without
+  a worker, a startup recovery transition or an enabled retry action in the normal UI.
+
+**Gate: FAIL.** B2/B4 affected recovery cases and the B6 internal-candidate Gate are
+reopened. Historical scenario PASS results remain evidence; they do not establish that
+all mandatory P8 behavior passes. The audit preserves the first pass without product-code
+edits, following AUDIT_STANDARD section 21. Fixes and an affected-dimension R1 audit are
+required before renewed acceptance. Production signing remains independently unavailable,
+and no public readiness, merge, tag, freeze or next-phase authority is implied.

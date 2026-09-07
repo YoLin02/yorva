@@ -1,6 +1,6 @@
 # YORVA Phase 8 — Local Product Hardening MVP
 
-> Status: **APPROVED / IN PROGRESS — B0–B6 LOCAL INTERNAL-CANDIDATE GATE COMPLETE; PUBLIC-RELEASE GATES PENDING**
+> Status: **APPROVED / IN PROGRESS — AUDIT FAIL; B2/B4/B6 GATES REOPENED**
 > Phase: P8
 > Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus P7 stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc`
 > Planned branch: phase/p8-local-product-hardening
@@ -416,11 +416,11 @@ After audit PASS and explicit Owner authorization:
 | --- | --- | --- | --- |
 | P8-B0 | COMPLETE | `72ec369` | Bilingual support contract, Owner decisions, directory/retention/signing consistency review passed |
 | P8-B1 | COMPLETE | `fc224a8` | Schema 017; protected/verified/recoverable 016→017; identifier data migration; Go/Rust focused Gate passed |
-| P8-B2 | COMPLETE | `3ee4580` | Automated crash/restart, stale-operation and authoritative reconcile checks plus disposable Windows reboot/login smoke passed |
+| P8-B2 | REOPENED — AUDIT HIGH-001 | `3ee4580` | Historical crash/restart/reboot scenarios passed; daemon availability does not prove successful authoritative readback |
 | P8-B3 | COMPLETE | `56df01f` + `412d3c0` | Exact clean-source 0.4.0 MSI; static/negative inspection and disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate passed |
-| P8-B4 | COMPLETE | `81b4bfa` + `9be7435` + `8d1b162` + `6a75cde` + `7407992` | Exact clean-source 0.4.0 MSI; signed fixed-source metadata; disposable Windows Happy/Tamper/Interrupted/InstallerFailure Gate passed |
+| P8-B4 | REOPENED — AUDIT HIGH-001 / MEDIUM-001 | `81b4bfa` + `9be7435` + `8d1b162` + `6a75cde` + `7407992` | Historical Happy/Tamper/Interrupted/InstallerFailure scenarios passed; update postcheck and download restart recovery require fixes |
 | P8-B5 | COMPLETE | `5ca5f0a` | Fixed sanitized ZIP schema and bounds; authenticated daemon endpoint; capability-scoped atomic Save As; canary/cleanup/UI/non-MSI Gate passed |
-| P8-B6 | COMPLETE — INTERNAL CANDIDATE | this commit | Two complementary four-hour Windows windows, combined bounds analysis, disposable-guest exact-candidate recovery and complete local Gate passed; remote CI, signing and independent audit remain pending |
+| P8-B6 | BLOCKED — AUDIT FAIL | `1f2df47` + `3eccf63` + `bd07bbd` | Retained eight-hour soak and exact `bd07bbd` CI #93 / MSI #32 passed; fresh AUDIT-008 found one HIGH and one MEDIUM; signing remains unavailable |
 
 ## 14. Owner approval record
 
@@ -439,4 +439,29 @@ On 2026-09-04, the Owner additionally required B6 not to restart the shared Wind
 host. Process-level crash/reconnect tests and the already completed disposable-Windows
 reboot evidence cover the two recovery layers separately.
 
-Push, merge, tag and freeze continue to require explicit Owner authorization.
+On 2026-09-07, the Owner authorized commit/push on the existing P8 branch to obtain
+CI/MSI evidence and close out the internal-candidate review. This does not authorize
+merge/main, tag, freeze, Release publication, a shared-host reboot or use of normal
+Hermes Profiles. Execution remains single-agent.
+
+## 15. Audit closeout — 2026-09-07
+
+Exact candidate `bd07bbdb16deaa6972f491a48b9bb76b231da032` passed
+[CI #93](https://github.com/YoLin02/yorva/actions/runs/34097211094) and
+[Windows MSI #32](https://github.com/YoLin02/yorva/actions/runs/34097210917), attempt 1.
+The MSI is `NotSigned`; its SHA-256 and artifact identity are recorded in
+[evidence/PHASE-008-B6-STABILITY-RELEASE.md](evidence/PHASE-008-B6-STABILITY-RELEASE.md).
+The retained two-window eight-hour soak passed the current evidence analyzer without a
+new long run or host reboot.
+
+The fresh single-agent internal-candidate
+[AUDIT-008](audits/AUDIT-008-local-product-hardening.md) returns **FAIL**.
+HIGH-001 permits update success without successful authoritative Profile readback;
+MEDIUM-001 leaves a process-interrupted download stuck after Desktop restart. B2/B4
+affected cases and the B6 Gate are reopened. The earlier completed scenario results
+remain evidence, but internal-candidate Gate completion is no longer asserted.
+
+This first audit pass changes no product code or acceptance requirement. Accepted fixes
+and affected-dimension re-audit must precede renewed acceptance. Production signing and
+the public-release qualification/Owner/final-main/tag/freeze Gates remain separate and
+unfulfilled. The phase remains IN PROGRESS, with no Phase 9 authority.

@@ -1,5 +1,11 @@
 # Phase 8 B4 — YORVA Update MVP Evidence
 
+> 2026-09-07 audit update: the historical scenario results below remain valid, but
+> the affected Batch Gate is reopened by
+> [AUDIT-008](../audits/AUDIT-008-local-product-hardening.md). Authoritative update
+> postcheck requires correction (HIGH-001); B4 also requires download/process-restart
+> recovery (MEDIUM-001). This record does not establish current Gate completion.
+
 > Date: 2026-09-04
 >
 > Result: **PASS — internal Windows candidate**

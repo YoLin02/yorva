@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phases 1–7 frozen; Phase 8 approved and in progress — B0–B6 local internal-candidate Gate complete; public-release Gates pending
+> Status: Phases 1–7 frozen; Phase 8 approved and in progress — AUDIT-008 FAIL; B2/B4/B6 Gates reopened
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**

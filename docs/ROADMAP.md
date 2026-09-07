@@ -412,7 +412,7 @@ The normal path must not require the user to open a terminal or directly edit Ru
 
 ## Phase 8 — Local product hardening
 
-Status: **APPROVED / IN PROGRESS — B0–B6 LOCAL INTERNAL-CANDIDATE GATE COMPLETE; PUBLIC-RELEASE GATES PENDING**
+Status: **APPROVED / IN PROGRESS — AUDIT FAIL; B2/B4/B6 GATES REOPENED**
 Specs: docs/phases/PHASE-008-local-product-hardening.zh-CN.md (Owner review) and
 docs/phases/PHASE-008-local-product-hardening.md (execution mirror)
 Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus accepted
@@ -424,7 +424,12 @@ removed-Instance record classification/cleanup without moving the frozen P7 tag 
 reopening deferred P7 capabilities. Exact revision CI run `33365096577`, final-main CI
 run `33366271630` attempt 2 and Windows MSI run `33366271629` passed. The Owner approved
 the P8 Spec and B0–B6 execution on 2026-09-03. Production Windows signing material is
-not yet available, so the phase is currently capped at internal-candidate status.
+not yet available, so public release remains blocked. Exact candidate `bd07bbd` passed
+CI #93 and Windows MSI #32 on 2026-09-07. The fresh single-agent
+[AUDIT-008](phases/audits/AUDIT-008-local-product-hardening.md) nevertheless returns FAIL:
+update success lacks authoritative readback (HIGH-001), and interrupted download state
+cannot recover after Desktop restart (MEDIUM-001). B2/B4 affected cases and the B6
+internal-candidate Gate are reopened; the historical eight-hour soak remains valid.
 
 Goal: turn the completed single-Node experience into a dependable public local product before validating additional Runtime or remote-management scope.
 

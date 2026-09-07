@@ -1,6 +1,6 @@
 # YORVA Phase 8 — 本地产品可靠化 MVP
 
-> 状态：**APPROVED / IN PROGRESS — B0–B6 本地内部候选 Gate 已完成；公开发布 Gate 待完成**
+> 状态：**APPROVED / IN PROGRESS — AUDIT FAIL；B2/B4/B6 Gate 重新打开**
 > 阶段标识：P8
 > 阶段性质：本地产品可靠化与首个正式 Windows MVP
 > 必需基线：phase-007-hermes-runtime-management-completeness-baseline + P7 稳定性修订 `9834a8cb1df9e70502936153943f501ed37cb8fc`
@@ -631,11 +631,11 @@ Phase 8 只有在以下全部成立后，才能进入独立的公开发布审计
 | --- | --- | --- | --- |
 | P8-B0 | COMPLETE | `72ec369` | 中英文产品支持合同、Owner 决策、目录/保留/签名门禁一致性检查通过 |
 | P8-B1 | COMPLETE | `fc224a8` | Schema 017；016→017 保护/校验/恢复；identifier 数据迁移；Go/Rust focused Gate 通过 |
-| P8-B2 | COMPLETE | `3ee4580` | 自动 crash/restart、stale Operation、权威 reconcile 与 disposable Windows reboot/login smoke 全部通过 |
+| P8-B2 | 重新打开—AUDIT HIGH-001 | `3ee4580` | 历史 crash/restart/reboot 场景通过；daemon 可连接尚不能证明权威回读成功 |
 | P8-B3 | COMPLETE | `56df01f` + `412d3c0` | 干净源码构建的 0.4.0 精确 MSI；静态/负向检查与 disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate 全部通过 |
-| P8-B4 | COMPLETE | `81b4bfa` + `9be7435` + `8d1b162` + `6a75cde` + `7407992` | 精确干净源码 0.4.0 MSI；固定来源签名元数据；disposable Windows Happy/Tamper/Interrupted/InstallerFailure Gate 全部通过 |
+| P8-B4 | 重新打开—AUDIT HIGH-001 / MEDIUM-001 | `81b4bfa` + `9be7435` + `8d1b162` + `6a75cde` + `7407992` | 历史 Happy/Tamper/Interrupted/InstallerFailure 场景通过；更新后置检查和下载重启恢复需要修复 |
 | P8-B5 | COMPLETE | `5ca5f0a` | 固定脱敏 ZIP 结构与边界；认证 daemon 接口；能力受限的原子另存为；canary、清理、UI 与非 MSI Gate 均通过 |
-| P8-B6 | 完成—内部候选 | 本次 Commit | 两段互补的 4 小时 Windows 试验、组合边界分析、disposable guest 精确候选恢复和完整本地 Gate 均通过；远端 CI、签名和独立审计仍待完成 |
+| P8-B6 | 阻断—AUDIT FAIL | `1f2df47` + `3eccf63` + `bd07bbd` | 保留的八小时 Soak 与精确 `bd07bbd` CI #93 / MSI #32 通过；新审计 AUDIT-008 发现一项 HIGH、一项 MEDIUM；生产签名仍不可用 |
 
 ## 15. Owner 审批记录
 
@@ -653,4 +653,26 @@ Owner 于 2026-09-04 追加要求：B6 不得重启共享 Windows 宿主机。�
 crash/reconnect 试验与 B2 已完成的 disposable Windows reboot 证据分别覆盖两层恢复
 能力。
 
-Push、merge、tag、freeze 仍须 Owner 另行明确授权。
+Owner 于 2026-09-07 授权在现有 P8 分支 Commit/Push，以取得 CI/MSI 证据并完成内部候选
+收尾审查。该授权不包含 merge/main、tag、freeze、发布 Release、重启共享宿主机或使用
+日常 Hermes Profile；继续采用单智能体。
+
+## 16. 审计收尾记录 — 2026-09-07
+
+精确候选 `bd07bbdb16deaa6972f491a48b9bb76b231da032` 的
+[CI #93](https://github.com/YoLin02/yorva/actions/runs/34097211094) 与
+[Windows MSI #32](https://github.com/YoLin02/yorva/actions/runs/34097210917)
+均在 attempt 1 通过。MSI 为 `NotSigned`，SHA-256 和 artifact 标识见
+[evidence/PHASE-008-B6-STABILITY-RELEASE.md](evidence/PHASE-008-B6-STABILITY-RELEASE.md)。
+保留的两段四小时 Soak（合计约八小时）已由当前证据分析器复核通过；本轮没有重新跑长时试验，也没有
+重启宿主机。
+
+新任务中的单智能体内部候选审计
+[AUDIT-008](audits/AUDIT-008-local-product-hardening.md) 结论为 **FAIL**：
+HIGH-001 指出权威 Profile 回读失败仍可能被判定更新成功；MEDIUM-001 指出下载进程中断
+后重启 Desktop 会持续停在 DOWNLOADING。B2/B4 受影响场景与 B6 Gate 重新打开。
+历史已通过场景继续保留为证据，但不再宣称内部候选 Gate 已完成。
+
+首轮审计不修改产品代码或验收标准。发现项须经修复与受影响维度复审后才可重新验收。
+生产签名、公开发布资格、Owner 决策、final-main、tag 和 freeze 仍是单独且未完成的门禁。
+阶段保持 IN PROGRESS，不得进入 P9。
