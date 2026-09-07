@@ -146,8 +146,7 @@ eight-hour B6 pressure/continuity evidence was rechecked by the original audit; 
 remediation does not rerun or expand that workload claim. Its management Operations,
 diagnostic workload and Runtime fixture paths are unchanged by the updater fixes.
 
-The original FAIL audit remains immutable. A fresh review must evaluate this actual
-candidate and completed results before closing the findings. Owner Amendment 008A1
+The original FAIL audit remains immutable. [AUDIT-008R1](../audits/AUDIT-008R1-local-product-hardening.md) reviews the actual candidate and completed results and closes both findings. [Sanitized guest serial evidence](PHASE-008R1-WINDOWS-UPDATE.json) preserves the passing checks and source log hashes. Owner Amendment 008A1
 permits internal phase freeze without production signing material; production signing
 and the public Windows qualification matrix still precede public-release readiness.
 No Release publication, Phase 9, host reboot, normal-profile mutation or subagents are
