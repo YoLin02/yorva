@@ -93,3 +93,9 @@ jobs:
       - run: cargo check --locked
         working-directory: apps/desktop/src-tauri
       - run: pnpm --filter @yorva/desktop tauri build --no-bundle
+      - name: Exercise isolated Desktop and daemon recovery
+        run: >-
+          pwsh -NoProfile -File scripts/windows-desktop-recovery-smoke.ps1
+          -DesktopPath apps/desktop/src-tauri/target/release/yorva-desktop.exe
+          -DaemonPath apps/desktop/src-tauri/target/release/yorvad.exe
+          -DisposableUserProfile

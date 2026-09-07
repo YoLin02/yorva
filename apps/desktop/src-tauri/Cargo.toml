@@ -1,6 +1,6 @@
 [package]
 name = "yorva-desktop"
-version = "0.3.2"
+version = "0.4.0"
 description = "YORVA local-first desktop shell"
 authors = ["yolin"]
 edition = "2024"
@@ -10,21 +10,31 @@ rust-version = "1.88"
 name = "yorva_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+update-qualification = []
+
 [build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 base64 = "0.22"
+ed25519-dalek = "2.2"
 getrandom = "0.4"
+reqwest = { version = "0.13.4", features = ["blocking"] }
 rfd = "0.15"
+semver = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 tauri = { version = "2.11.5", features = ["tray-icon"] }
 tauri-plugin-shell = "2.3.5"
 
 [target.'cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))'.dependencies]
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-single-instance = "2.4.3"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_System_SystemInformation"] }
 
 [profile.release]
 panic = "abort"

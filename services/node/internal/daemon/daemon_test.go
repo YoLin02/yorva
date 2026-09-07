@@ -9,10 +9,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	"github.com/YoLin02/yorva/services/node/internal/bootstrap"
+	"github.com/YoLin02/yorva/services/node/internal/domain/operation"
+	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
+	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
 
 func TestRunBootstrapsLoopbackHealthServer(t *testing.T) {
@@ -117,6 +123,155 @@ func TestRunStopsWhenParentClosesBootstrapPipe(t *testing.T) {
 	testParentStop(t, func(writer *io.PipeWriter) error { return writer.Close() })
 }
 
+func TestRunRepeatedStartStopDoesNotAccumulateGoroutines(t *testing.T) {
+	isolation := t.TempDir()
+	localAppData := filepath.Join(isolation, "local-app-data")
+	roamingAppData := filepath.Join(isolation, "roaming-app-data")
+	if err := os.MkdirAll(localAppData, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(roamingAppData, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HERMES_HOME", filepath.Join(localAppData, "hermes"))
+	t.Setenv("LOCALAPPDATA", localAppData)
+	t.Setenv("APPDATA", roamingAppData)
+	t.Setenv("PATH", "")
+
+	testParentStop(t, func(writer *io.PipeWriter) error {
+		_, err := io.WriteString(writer, "{\"type\":\"shutdown\"}\n")
+		return err
+	})
+	runtime.GC()
+	baseline := runtime.NumGoroutine()
+
+	for range 12 {
+		testParentStop(t, func(writer *io.PipeWriter) error {
+			_, err := io.WriteString(writer, "{\"type\":\"shutdown\"}\n")
+			return err
+		})
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		runtime.GC()
+		observed := runtime.NumGoroutine()
+		if observed <= baseline+4 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("daemon start/stop goroutines = %d, baseline = %d", observed, baseline)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+}
+
+func TestRunStopsWhenParentClosesBeforeHandshake(t *testing.T) {
+	token := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x2a}, 32))
+	input := fmt.Sprintf(
+		`{"protocolVersion":"1","token":"%s","dataDir":%q}`,
+		token,
+		t.TempDir(),
+	)
+	stdoutReader, stdoutWriter := io.Pipe()
+	stdinReader, stdinWriter := io.Pipe()
+	result := make(chan error, 1)
+	go func() {
+		result <- Run(context.Background(), []string{"--bootstrap-stdio"}, Streams{
+			Stdin: stdinReader, Stdout: stdoutWriter, Stderr: io.Discard,
+		})
+	}()
+	if _, err := fmt.Fprintln(stdinWriter, input); err != nil {
+		t.Fatal(err)
+	}
+	if err := stdinWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-result:
+	case <-time.After(3 * time.Second):
+		t.Fatal("daemon remained alive after its parent closed before handshake")
+	}
+	_ = stdoutReader.Close()
+}
+
+func TestRunRecoversAllManagementOperationFamiliesBeforeHandshake(t *testing.T) {
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := sqlite.Open(ctx, dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	active := []operation.Operation{
+		startupRecoveryOperation("skill-stale", operation.TypeSkillInstall, operation.TargetInstance, "instance-skill", operation.StageSkillProject, now),
+		startupRecoveryOperation("mcp-stale", operation.TypeMCPTest, operation.TargetInstance, "instance-mcp", operation.StageMCPTest, now),
+		startupRecoveryOperation("backup-stale", operation.TypeBackupCreate, operation.TargetRuntimeInstallation, "runtime-backup", operation.StageBackupSnapshot, now),
+		startupRecoveryOperation("upgrade-stale", operation.TypeRuntimeUpgrade, operation.TargetRuntimeInstallation, "runtime-upgrade", operation.StageUpgradeBuild, now),
+	}
+	for _, item := range active {
+		if err := database.CreateOperation(ctx, item); err != nil {
+			_ = database.Close()
+			t.Fatalf("create %s: %v", item.ID, err)
+		}
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	token := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x2a}, 32))
+	input := fmt.Sprintf(`{"protocolVersion":"1","token":"%s","dataDir":%q}`, token, dataDir)
+	stdoutReader, stdoutWriter := io.Pipe()
+	stdinReader, stdinWriter := io.Pipe()
+	defer stdinWriter.Close()
+	runCtx, cancel := context.WithCancel(context.Background())
+	result := make(chan error, 1)
+	go func() {
+		result <- Run(runCtx, []string{"--bootstrap-stdio"}, Streams{Stdin: stdinReader, Stdout: stdoutWriter, Stderr: io.Discard})
+	}()
+	if _, err := fmt.Fprintln(stdinWriter, input); err != nil {
+		t.Fatal(err)
+	}
+	var handshake bootstrap.Handshake
+	if err := json.NewDecoder(stdoutReader).Decode(&handshake); err != nil {
+		t.Fatalf("decode handshake: %v", err)
+	}
+	cancel()
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("daemon did not stop")
+	}
+
+	database, err = sqlite.Open(ctx, dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	for _, item := range active {
+		recovered, err := database.GetOperation(ctx, item.ID)
+		if err != nil {
+			t.Fatalf("read %s: %v", item.ID, err)
+		}
+		if recovered.Status != operation.StatusFailed || recovered.ErrorCode != yorvaruntime.ErrorOperationInterrupted || recovered.CompletedAt == nil {
+			t.Fatalf("recovered %s = %#v", item.ID, recovered)
+		}
+	}
+}
+
+func startupRecoveryOperation(id string, kind operation.Type, targetType operation.TargetType, targetID string, stage operation.Stage, now time.Time) operation.Operation {
+	return operation.Operation{
+		ID: id, Type: kind, TargetType: targetType, TargetID: targetID,
+		Status: operation.StatusRunning, Stage: stage, Message: string(kind),
+		IdempotencyKey: "idem-" + id, CorrelationID: "corr-" + id,
+		CreatedAt: now, StartedAt: &now, UpdatedAt: now,
+	}
+}
+
 func TestRunStopsOnParentShutdownControl(t *testing.T) {
 	testParentStop(t, func(writer *io.PipeWriter) error {
 		_, err := io.WriteString(writer, "{\"type\":\"shutdown\"}\n")
@@ -134,6 +289,9 @@ func testParentStop(t *testing.T, stop func(*io.PipeWriter) error) {
 	)
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
+	defer stdinWriter.Close()
+	defer stdoutReader.Close()
+	defer stdoutWriter.Close()
 	result := make(chan error, 1)
 	go func() {
 		result <- Run(context.Background(), []string{"--bootstrap-stdio"}, Streams{
@@ -143,9 +301,27 @@ func testParentStop(t *testing.T, stop func(*io.PipeWriter) error) {
 	if _, err := fmt.Fprintln(stdinWriter, input); err != nil {
 		t.Fatalf("write bootstrap: %v", err)
 	}
+	type handshakeResult struct {
+		value bootstrap.Handshake
+		err   error
+	}
+	handshakeDone := make(chan handshakeResult, 1)
+	go func() {
+		var value bootstrap.Handshake
+		err := json.NewDecoder(stdoutReader).Decode(&value)
+		handshakeDone <- handshakeResult{value: value, err: err}
+	}()
 	var handshake bootstrap.Handshake
-	if err := json.NewDecoder(stdoutReader).Decode(&handshake); err != nil {
-		t.Fatalf("decode handshake: %v", err)
+	select {
+	case decoded := <-handshakeDone:
+		if decoded.err != nil {
+			t.Fatalf("decode handshake: %v", decoded.err)
+		}
+		handshake = decoded.value
+	case err := <-result:
+		t.Fatalf("daemon exited before handshake: %v", err)
+	case <-time.After(45 * time.Second):
+		t.Fatal("daemon did not produce a handshake before its startup deadline")
 	}
 	streamRequest, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/api/v1/events", handshake.Port), nil)
 	if err != nil {

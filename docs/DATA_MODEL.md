@@ -461,3 +461,25 @@ On startup and explicit refresh:
 - destructive changes require explicit data migration;
 - backup critical local metadata before risky migration;
 - schema version is not inferred from application version.
+
+Phase 8 schema 017 adds `database_migration_history`:
+
+```text
+id                    INTEGER PRIMARY KEY AUTOINCREMENT
+source_version        INTEGER NOT NULL
+target_version        INTEGER NOT NULL
+protection_sha256     TEXT NOT NULL
+state                 TEXT NOT NULL  -- SUCCEEDED
+started_at            TEXT NOT NULL
+completed_at          TEXT NOT NULL
+```
+
+When an existing versioned database has pending migrations, startup first creates a
+consistent SQLite protection file under the fixed YORVA `migration-protections`
+directory and records its SHA-256 in a bounded sidecar state file. Migration success is
+accepted only after the ledger reaches the embedded target, `quick_check` succeeds and
+`foreign_key_check` is empty. A failed or interrupted migration restores the verified
+source database; a missing or tampered protection file produces
+`DATABASE_MIGRATION_RECOVERY_REQUIRED` and prevents daemon readiness. Only the three
+newest files matching YORVA's closed protection filename are retained; unknown files are
+never removed.

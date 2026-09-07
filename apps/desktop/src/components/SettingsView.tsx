@@ -5,6 +5,8 @@ import { messages, supportedLocales } from "../i18n";
 import { IconMonitor, IconMoon, IconSun } from "./ui/icons";
 import type { DaemonClient } from "../api/client";
 import { HermesDownloadSourcesPanel } from "./settings/HermesDownloadSourcesPanel";
+import { YorvaUpdatePanel, YorvaUpdateSummary } from "./settings/YorvaUpdatePanel";
+import { DiagnosticsPanel, DiagnosticsSummary } from "./settings/DiagnosticsPanel";
 
 type SettingsTab = "general" | "advanced" | "diagnostics" | "about";
 
@@ -20,6 +22,8 @@ export function SettingsView({
   onLocaleChange: (locale: Locale) => void;
 }) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [desktopPreferences, setDesktopPreferenceState] = useState<DesktopPreferences>({
     launchOnLogin: true,
     closeToTray: true,
@@ -55,6 +59,14 @@ export function SettingsView({
       .catch(() => setDesktopPreferencesFailed(true))
       .finally(() => setDesktopPreferencesBusy(false));
   };
+
+  if (updateOpen) {
+    return <YorvaUpdatePanel copy={copy.settings.updates} onBack={() => setUpdateOpen(false)} />;
+  }
+
+  if (diagnosticsOpen) {
+    return <DiagnosticsPanel copy={copy.settings.diagnostics} locale={locale} onBack={() => setDiagnosticsOpen(false)} />;
+  }
 
   return (
     <div className="settings-page">
@@ -169,6 +181,11 @@ export function SettingsView({
               <p className="settings-save-error" role="alert">{copy.settings.desktopPreferencesFailed}</p>
             ) : null}
           </section>
+
+          <section className="settings-section" aria-labelledby="data-retention-title">
+            <h2 id="data-retention-title">{copy.settings.dataRetention}</h2>
+            <p>{copy.settings.dataRetentionDescription}</p>
+          </section>
         </div>
       ) : activeTab === "advanced" ? (
         <div
@@ -178,6 +195,28 @@ export function SettingsView({
           aria-labelledby="settings-tab-advanced"
         >
           <HermesDownloadSourcesPanel copy={copy} client={client} />
+        </div>
+      ) : activeTab === "about" ? (
+        <div
+          id="settings-panel-about"
+          className="settings-general"
+          role="tabpanel"
+          aria-labelledby="settings-tab-about"
+        >
+          <section className="settings-section" aria-labelledby="about-yorva-title">
+            <h2 id="about-yorva-title">YORVA</h2>
+            <p>{copy.settings.updates.aboutDescription}</p>
+          </section>
+          <YorvaUpdateSummary copy={copy.settings.updates} onOpen={() => setUpdateOpen(true)} />
+        </div>
+      ) : activeTab === "diagnostics" ? (
+        <div
+          id="settings-panel-diagnostics"
+          className="settings-general"
+          role="tabpanel"
+          aria-labelledby="settings-tab-diagnostics"
+        >
+          <DiagnosticsSummary copy={copy.settings.diagnostics} onOpen={() => setDiagnosticsOpen(true)} />
         </div>
       ) : (
         <div

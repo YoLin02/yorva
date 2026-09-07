@@ -230,5 +230,5 @@ func TestRuntimeBackupMigrationPreservesLegacyInstanceRows(t *testing.T) {
 	if runtimeRows != 0 {
 		t.Fatalf("legacy rows were reinterpreted: runtime backup count = %d", runtimeRows)
 	}
-	assertMigrationCount(t, dir, 16)
+	assertMigrationCount(t, dir, 17)
 }

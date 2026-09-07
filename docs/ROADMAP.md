@@ -365,6 +365,16 @@ evidence remained the active freeze blockers until both subsequently passed for 
 [`33050692156`](https://github.com/YoLin02/yorva/actions/runs/33050692156) before the
 formal baseline was frozen.
 
+Post-freeze stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc`
+was fast-forwarded to `main` on 2026-08-31. It adds bounded Hermes launch during
+detection, separates removed Instance records from the active inventory, and closes the
+authenticated cleanup route after authoritative absence readback. Exact revision CI run
+[`33365096577`](https://github.com/YoLin02/yorva/actions/runs/33365096577) passed. Final-main
+CI run [`33366271630`](https://github.com/YoLin02/yorva/actions/runs/33366271630) retained
+an initial Windows handshake-timeout failure and passed on attempt 2; Windows MSI run
+[`33366271629`](https://github.com/YoLin02/yorva/actions/runs/33366271629) passed. The
+original Phase 7 baseline tag remains immutable and is not moved by this corrective patch.
+
 Goal: complete the local, terminal-free operating loop for multiple Runtime Instances on one machine before adding distributed management.
 
 Candidate deliverables:
@@ -402,6 +412,29 @@ The normal path must not require the user to open a terminal or directly edit Ru
 
 ## Phase 8 — Local product hardening
 
+Status: **PASSED — AUDIT-008R1 PASS; FINAL-MAIN / FREEZE PENDING**
+Specs: docs/phases/PHASE-008-local-product-hardening.zh-CN.md (Owner review) and
+docs/phases/PHASE-008-local-product-hardening.md (execution mirror)
+Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus accepted
+P7 stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc` on `main`
+Planned branch: phase/p8-local-product-hardening
+
+The P7 stability handoff adds bounded Hermes launch during detection and authoritative
+removed-Instance record classification/cleanup without moving the frozen P7 tag or
+reopening deferred P7 capabilities. Exact revision CI run `33365096577`, final-main CI
+run `33366271630` attempt 2 and Windows MSI run `33366271629` passed. The Owner approved
+the P8 Spec and B0–B6 execution on 2026-09-03. Production Windows signing material is
+not yet available, so public release remains blocked. Owner Amendment 008A1 removes obtaining/generating that material from the internal P8 freeze prerequisites. Exact candidate `bd07bbd` passed
+CI #93 and Windows MSI #32 on 2026-09-07. The fresh single-agent
+[AUDIT-008](phases/audits/AUDIT-008-local-product-hardening.md) nevertheless returns FAIL:
+update success lacks authoritative readback (HIGH-001), and interrupted download state
+cannot recover after Desktop restart (MEDIUM-001). B2/B4 affected cases and the B6
+internal-candidate Gate were reopened; the historical eight-hour soak remains valid.
+Remediation candidate `43ac291` now passes CI #96 / MSI #35 and all three new Windows
+update scenarios. [AUDIT-008R1](phases/audits/AUDIT-008R1-local-product-hardening.md)
+returns PASS and closes both findings. Main integration and internal freeze are authorized
+under Amendment 008A1 after final-main checks and the annotated phase tag.
+
 Goal: turn the completed single-Node experience into a dependable public local product before validating additional Runtime or remote-management scope.
 
 Deliverables:
@@ -413,9 +446,13 @@ Deliverables:
 - macOS/Linux validation where feasible, without weakening the Windows baseline;
 - telemetry decision (`opt-in` or none; separate ADR if introduced);
 - security review and threat-model refresh;
-- signed release pipeline;
+- signing-aware release pipeline; without production signing material, only an internal candidate may pass;
 - user-facing diagnostics/export bundle without secrets;
 - documented support matrix and recovery guidance.
+
+The P8 update deliverable updates YORVA Desktop/yorvad and supported local schema through
+a complete verified installer. It does not reopen the managed Hermes Upgrade/Rollback
+deferred by Phase 7 Amendment 007A1.
 
 Exit criteria:
 

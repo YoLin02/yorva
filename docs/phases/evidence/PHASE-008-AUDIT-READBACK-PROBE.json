@@ -1,0 +1,30 @@
+{
+  "candidateCommit": "bd07bbdb16deaa6972f491a48b9bb76b231da032",
+  "daemonSha256": "44CDA742CA1BCA45C74A082296B8B7EF3BE9EC438717E0B3A9F8F65B10D068F2",
+  "fixtureSha256": "E39170C4CBB92AF67B3EE1DE93C79465A3B10DE874EFC216EB762809E715537E",
+  "hostRebooted": false,
+  "results": [
+    {
+      "scenario": "normal",
+      "handshakeAccepted": true,
+      "nodeVersion": "0.0.0-dev",
+      "inventoryFreshness": "FRESH",
+      "inventoryErrorCode": null,
+      "instanceCount": 1,
+      "availability": [
+        "AVAILABLE"
+      ]
+    },
+    {
+      "scenario": "failed-profile-readback",
+      "handshakeAccepted": true,
+      "nodeVersion": "0.0.0-dev",
+      "inventoryFreshness": "UNKNOWN",
+      "inventoryErrorCode": "INSTANCE_OUTPUT_UNRECOGNIZED",
+      "instanceCount": 1,
+      "availability": [
+        "UNKNOWN"
+      ]
+    }
+  ]
+}

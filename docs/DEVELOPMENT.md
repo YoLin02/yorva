@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phases 1–5 frozen; Phase 6 implementation candidate complete with audit and owner-authenticated channel smoke pending; Phase 3 amendment 003A7 in implementation
+> Status: Phases 1–7 frozen; Phase 8 PASSED — AUDIT-008R1 PASS; final-main verification and internal freeze pending
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**
@@ -485,8 +485,70 @@ The sidecar build is target-aware and writes only ignored build output:
 ```text
 pnpm build:sidecar
 pwsh -NoProfile -File scripts/windows-lifecycle-smoke.ps1
+pwsh -NoProfile -File scripts/windows-desktop-recovery-smoke.ps1 -DisposableUserProfile
 pnpm --filter @yorva/desktop tauri build --no-bundle
 ```
+
+The Desktop recovery smoke must run only in a disposable Windows user profile, VM or CI
+runner and requires the explicit `-DisposableUserProfile` acknowledgement. Tauri resolves
+its product-data directory through the Windows Known Folder API, so changing child
+`APPDATA`/`LOCALAPPDATA` variables is not an isolation boundary. The smoke fails before
+launch if stable or legacy YORVA product data already exists in that profile. It exercises
+an unexpected daemon exit, the one bounded automatic replacement, single-instance
+enforcement, Desktop close/reopen and final no-process ownership. `HERMES_HOME` still uses
+a fresh work root and the child `PATH` is restricted to Windows system directories.
+
+Phase 8 controlled reboot evidence is a two-step, exact-candidate check. It does not
+initiate a reboot itself:
+
+```text
+pwsh -NoProfile -File scripts/windows-reboot-recovery-smoke.ps1 -Mode Prepare
+# reboot Windows and sign in normally
+pwsh -NoProfile -File scripts/windows-reboot-recovery-smoke.ps1 -Mode Verify
+```
+
+`Prepare` records only candidate paths, SHA-256 digests, a UTC boundary and login-item
+confirmation under the ignored `.tools/p8-reboot-smoke/` directory. `Verify` requires the
+same bytes, one Desktop, one Desktop-owned daemon, a fresh authoritative Runtime/Profile
+reconcile record and single-instance behavior. Ownership must remain stable across a
+continuous window, and a duplicate-launch probe must retain the incumbent daemon PID. It
+does not retain PIDs, Profile names, credentials or raw Runtime configuration. The same
+two-stage script can run inside a disposable Windows VM so the guest reboot boundary is
+tested without rebooting the development host.
+
+Phase 8 stability qualification uses a test-only Hermes CLI fixture and a fresh isolated
+work root. Build the fixture outside tracked source and pass both executables explicitly:
+
+```text
+cd services/node
+go build -o ../../.tools/p8-soak/hermes-p8.exe ./internal/runtime/hermes/testdata/p8hermes
+cd ../..
+pwsh -NoProfile -File scripts/windows-stability-soak.ps1 `
+  -SidecarPath apps/desktop/src-tauri/target/release/yorvad.exe `
+  -HermesFixturePath .tools/p8-soak/hermes-p8.exe `
+  -WorkRoot .tools/p8-soak/qualification-<candidate>
+```
+
+The default four-hour run exercises three Profiles, lifecycle waves, model readback,
+managed Skill and reviewed-Preset MCP lifecycles, Channel reads, encrypted Backup,
+diagnostics, and bounded daemon reconnects. Child `APPDATA`/`LOCALAPPDATA`, database,
+Hermes home, credentials and artifacts remain below the new ignored work root. The script
+continuously drains bounded daemon output, scans all session tokens and test credentials,
+and records `hostRebooted=false`. It is process-recovery evidence and does not replace the
+separate disposable-guest Windows reboot Gate above.
+
+After both the reconnect-pressure and single-daemon continuity windows finish, validate
+their durable summaries and complete sample series together:
+
+```text
+pwsh -NoProfile -File scripts/windows-stability-evidence.ps1 `
+  -ReconnectPressureRoot .tools/p8-soak/qualification-<pressure> `
+  -SingleDaemonContinuityRoot .tools/p8-soak/qualification-<continuity>
+```
+
+The analyzer requires three Profiles, two four-hour windows, at least three daemon
+replacements in the pressure window, exactly one daemon identity in the continuity
+window, bounded storage/process peaks, and bounded first-versus-last resource medians.
 
 Owner test distribution on Windows may also build a user-scope MSI (requires WiX 3 on `PATH` / `WIX`). Demo MSI builds must use the fail-closed packaging entry point, which requires the pinned Hermes source, Node zip, npm tarball, and license files:
 
@@ -496,7 +558,12 @@ pwsh -NoProfile -File scripts/package-yorva-msi.ps1
 
 Ordinary `pnpm test` / `tauri build --no-bundle` must not download the large archives. Those payloads are gitignored build inputs whose sizes and SHA-256 values are compiled into the Hermes adapter. A missing, wrong-sized, or wrong-hashed payload fails packaging.
 
-Hermes install Operations write redacted JSON lines to `%APPDATA%\com.yorva.desktop.dev\logs\install.ndjson`. Use `correlationId`, `stage` and `errorCode` to locate a failed test. Do not treat this file as an upstream installer transcript.
+Hermes install Operations write redacted JSON lines to the stable product path
+`%APPDATA%\com.yorva.desktop\logs\install.ndjson`. Phase 8 B1 copies a valid P7
+`%APPDATA%\com.yorva.desktop.dev\` source through same-volume staging before daemon
+startup and preserves the legacy directory as rollback input. See `PRODUCT_SUPPORT.md`.
+Use `correlationId`, `stage` and `errorCode` to locate a failed test. Do not treat this
+file as an upstream installer transcript.
 
 
 From the repository root, `pnpm audit --audit-level low` is also a CI gate. CI Actions are pinned to exact commit SHAs with the corresponding major/stable label in a comment. Dependency maintenance updates those pins deliberately: resolve the trusted upstream major tag/branch to a reviewed commit, inspect upstream release notes, replace the SHA, and rerun the full workflow. Do not restore floating action references.

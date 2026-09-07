@@ -52,8 +52,13 @@ type RuntimeWarningResponse struct {
 	Message string `json:"message"`
 }
 
-func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService, instances InstanceInventoryService, dataDir string, sourceSettings HermesDownloadSourceSettingsService) http.Handler {
+func NewHandler(token string, localNode node.Node, broker *events.Broker, runtimes RuntimeDiscoveryService, installs RuntimeInstallService, instances InstanceInventoryService, dataDir string, sourceSettings HermesDownloadSourceSettingsService, diagnosticServices ...DiagnosticBundleService) http.Handler {
 	mux := http.NewServeMux()
+	var diagnosticService DiagnosticBundleService
+	if len(diagnosticServices) > 0 {
+		diagnosticService = diagnosticServices[0]
+	}
+	recovery, _ := instances.(NodeRecoveryService)
 	models, _ := instances.(ModelConfigurationService)
 	sharedModels, _ := instances.(SharedModelService)
 	lifecycle, _ := instances.(InstanceLifecycleService)
@@ -103,7 +108,9 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(localNode)
 	})))
+	mux.Handle("GET /api/v1/node/recovery", requireBearer(token, getNodeRecovery(recovery, localNode.NodeVersion)))
 	mux.Handle("GET /api/v1/events", requireBearer(token, eventStream(broker, 15*time.Second)))
+	mux.Handle("POST /api/v1/diagnostics/bundle", requireBearer(token, exportDiagnosticBundle(diagnosticService)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeKind}/detect", requireBearer(token, detectRuntime(runtimes)))
 	mux.Handle("POST /api/v1/runtimes/hermes/install", requireBearer(token, startHermesInstall(installs)))
 	mux.Handle("GET /api/v1/runtimes/hermes/prerequisites", requireBearer(token, getHermesPrerequisites(installs)))
@@ -222,8 +229,10 @@ func routeContract(next http.Handler) http.Handler {
 
 func allowedMethods(path string) (string, bool) {
 	switch path {
-	case "/api/v1/health", "/api/v1/node", "/api/v1/events":
+	case "/api/v1/health", "/api/v1/node", "/api/v1/node/recovery", "/api/v1/events":
 		return "GET, OPTIONS", true
+	case "/api/v1/diagnostics/bundle":
+		return "POST, OPTIONS", true
 	case "/api/v1/operations":
 		return "GET, OPTIONS", true
 	case "/api/v1/runtimes/hermes/install":

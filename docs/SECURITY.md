@@ -402,3 +402,108 @@ Require explicit security review/ADR before adding:
 - automatic elevated service installation;
 - remote filesystem access;
 - multi-user local daemon access.
+
+## 20. Phase 8 release and privacy contract
+
+Phase 8 uses `PRODUCT_SUPPORT.md` as the Windows product-support contract. The MVP has no
+telemetry and does not upload crash, usage, Runtime or diagnostic data. Diagnostic export
+is local, explicitly user-triggered and limited to a fixed sanitized projection.
+
+The diagnostic archive contains only fixed JSON summaries and an allowlisted projection
+of YORVA's own NDJSON log. Node, Instance, Operation and Profile identifiers are hashed;
+unrecognized log fields are dropped and secret/path-like values are replaced. Provider
+keys, tokens, channel/MCP credentials, QR/pairing values, cookies, authorization data,
+ambient environment, raw SQLite data, absolute paths and arbitrary user files are never
+eligible inputs. The daemon enforces record, age and size limits before returning the
+complete ZIP. Tauri exposes only the fixed export action and an atomic Save As publish,
+not a general read/write API. An existing destination must be a regular non-link,
+non-reparse file; dangling links fail closed before a partial is created. Its private
+loopback request disables proxies and redirects so the bearer credential cannot leave the
+daemon endpoint; cancellation and write failure leave no success state or partial archive.
+
+YORVA update packages must be checked for fixed origin, size, SHA-256, version and the
+approved Windows signature policy before execution. The Owner confirmed on 2026-09-03
+that production code-signing material is not currently available. Unsigned builds may be
+internal candidates only; lack of signing must not be hidden by self-signing, disabled
+verification or a public-ready label.
+
+Update metadata is accepted only after Ed25519 verification with the release key compiled
+into the Desktop. The full MSI is streamed into a bounded YORVA-owned staging directory,
+then its exact length, SHA-256, ProductVersion and declared Authenticode policy are checked.
+The native handoff uses only the resolved Windows system PowerShell and `msiexec` paths,
+closed arguments and YORVA-owned files. It never accepts a caller-provided URL, path,
+command, argument, environment value or header. A qualification-only Cargo feature uses a
+fixed disposable-VM HTTPS origin and test CA; packaging marks it as non-release metadata
+input so it cannot be promoted as a public artifact.
+
+Before applying a pending SQLite migration, yorvad creates a fixed-location consistent
+protection database and records a SHA-256 plus source/target schema in a bounded,
+non-secret state file. Interrupted work restores only from a regular file with the exact
+recorded closed name and digest. Missing, malformed or tampered recovery evidence blocks
+startup with `DATABASE_MIGRATION_RECOVERY_REQUIRED`; it never falls back to deleting the
+database or continuing Runtime mutations.
+
+The one-time Desktop product-identity migration uses non-following metadata checks and
+rejects symbolic links, including dangling links, and Windows reparse points at its
+legacy/stable/staging roots, marker, and every copied entry. The updater
+validates `state.json` with non-following metadata before staging, flushes a same-directory
+temporary state record, and atomically replaces the prior state; dangling links fail
+closed without creating temporary state, and an interruption before publication leaves
+the previous durable state rather than an absent-state window.
+
+The Phase 8 stability harness is development qualification code, not a management API or
+shipping Runtime feature. It requires an explicit test-only Hermes executable, creates a
+new absent work root, replaces `LOCALAPPDATA`/`APPDATA` for its child processes, disables
+HTTP proxy use, and talks only to the private loopback bootstrap session it creates. It
+must not discover, copy, mutate, or emit the user's Hermes/YORVA roots or credentials.
+Diagnostic canaries and bootstrap tokens are scanned from every exported archive.
+
+The native Desktop recovery exercise uses Tauri's real Windows Known Folder product-data
+path and therefore runs only in a disposable Windows user profile, VM, or CI runner. It
+requires an explicit disposable-profile acknowledgement and fails before process launch
+if stable or legacy YORVA product data already exists. It replaces only its owned
+Desktop/daemon processes and records `hostRebooted=false`; controlled Windows reboot
+evidence is collected separately inside a disposable guest and never requires rebooting
+the shared development host.
+
+## 21. Phase 8 threat-model refresh
+
+`SECURITY.md` is the authoritative threat model for the local product. Phase 8 adds or
+changes these attack and failure surfaces:
+
+- a legacy product-data tree may contain a junction, symbolic link, or other Windows
+  reparse point intended to escape the migration root;
+- signed update metadata, staged packages, or the durable updater state may be tampered
+  with, redirected, truncated, or interrupted between verification and publication;
+- a system proxy or HTTP redirect may try to move the daemon bearer credential away from
+  the private loopback endpoint during diagnostic export;
+- diagnostic input may contain secrets, absolute paths, unknown structured fields, or
+  enough records to exhaust memory or disk;
+- abnormal Desktop/daemon termination may leave an orphan process, stale bootstrap
+  identity, or UI state that appears recovered before authoritative Runtime readback;
+- a qualification harness may accidentally inherit the user's application roots,
+  credentials, proxy settings, or unrelated process identities.
+
+The corresponding Phase 8 controls are closed-root migration with reparse rejection;
+verified update origin, metadata, digest, version, signature policy, bounded staging and
+atomic durable state replacement; no-proxy/no-redirect authenticated diagnostic export
+with an allowlisted bounded projection; owned-process restart followed by a fresh
+bootstrap handshake and authoritative inventory readback; absent isolated daemon test
+roots; and a fresh disposable Windows profile with exact-candidate process ownership for
+native Desktop recovery. These controls do not alter the existing boundary
+that a fully compromised administrator/root session is out of scope.
+
+### Phase 8 audit remediation — 2026-09-07
+
+Updater postcheck uses authenticated `GET /api/v1/node/recovery`, with proxy forwarding
+and redirects disabled and a bounded response. The daemon performs current authoritative
+readback; native code requires READY, no reported error and an exact daemon/Desktop
+version match. A valid bootstrap handshake alongside UNKNOWN inventory cannot be reported
+as update success. Runtime failure retains the queryable management/diagnostics surface.
+
+Interrupted download recovery uses the download mutex to establish that no worker still
+owns the state. Only fixed regular partial/package files under the validated updater root
+may be cleaned; the failed record and verified-metadata candidate are retained for retry.
+Owner Amendment 008A1 removes production-signing availability from the P8 internal freeze
+prerequisites. It does not disable package/metadata verification or authorize an unsigned
+public release; production signing remains a separate public-release requirement.

@@ -20,6 +20,57 @@ function Assert-Throws([string]$name, [scriptblock]$body, [string]$want) {
 
 $catalog = Get-YorvaMsiPayloadCatalog
 
+function New-LifecycleProperties {
+    return @(
+        [pscustomobject]@{ Property = "ProductName"; Value = "YORVA" },
+        [pscustomobject]@{ Property = "Manufacturer"; Value = "yolin" },
+        [pscustomobject]@{ Property = "UpgradeCode"; Value = "{E793918B-37EB-5E2F-B866-5FC4AA3AC75A}" },
+        [pscustomobject]@{ Property = "ProductVersion"; Value = "0.3.2" },
+        [pscustomobject]@{ Property = "REINSTALLMODE"; Value = "amus" },
+        [pscustomobject]@{ Property = "WixUIRMOption"; Value = "UseRM" },
+        [pscustomobject]@{ Property = "ARPCOMMENTS"; Value = "Uninstall removes YORVA program files, shortcuts and login startup. YORVA user data, encrypted backups, Hermes Runtime and Profiles are preserved." }
+    )
+}
+
+$lifecycleDirectories = @(
+    [pscustomobject]@{ Directory = "LocalProgramsFolder"; Parent = "LocalAppDataFolder"; DefaultDir = "Programs" },
+    [pscustomobject]@{ Directory = "INSTALLDIR"; Parent = "LocalProgramsFolder"; DefaultDir = "YORVA" }
+)
+$lifecycleRegistry = @(
+    [pscustomobject]@{ Root = "1"; Key = "Software\yolin\YORVA"; Name = "InstallDir"; Value = "[INSTALLDIR]" },
+    [pscustomobject]@{ Root = "1"; Key = "Software\Microsoft\Windows\CurrentVersion\Run"; Name = "Yorva"; Value = '"[INSTALLDIR]yorva-desktop.exe" --hidden' }
+)
+$lifecycleRemove = @([pscustomobject]@{ Directory = "INSTALLDIR" })
+$lifecycleUpgrade = @([pscustomobject]@{ UpgradeCode = "{E793918B-37EB-5E2F-B866-5FC4AA3AC75A}" })
+$lifecycleActions = @([pscustomobject]@{ Target = "[LAUNCHAPPARGS]" })
+
+Assert-YorvaMsiLifecycleContract (New-LifecycleProperties) $lifecycleDirectories $lifecycleRegistry $lifecycleRemove $lifecycleUpgrade $lifecycleActions "0.3.2"
+Write-Host "PASS per-user repairable lifecycle contract"
+
+Assert-Throws "per-machine package" {
+    Assert-YorvaMsiLifecycleContract @((New-LifecycleProperties) + [pscustomobject]@{ Property = "ALLUSERS"; Value = "1" }) $lifecycleDirectories $lifecycleRegistry $lifecycleRemove $lifecycleUpgrade $lifecycleActions "0.3.2"
+} "per-user installation"
+
+Assert-Throws "repair hidden" {
+    Assert-YorvaMsiLifecycleContract @((New-LifecycleProperties) + [pscustomobject]@{ Property = "ARPNOREPAIR"; Value = "1" }) $lifecycleDirectories $lifecycleRegistry $lifecycleRemove $lifecycleUpgrade $lifecycleActions "0.3.2"
+} "expose Repair"
+
+Assert-Throws "unstable upgrade identity" {
+    Assert-YorvaMsiLifecycleContract (New-LifecycleProperties) $lifecycleDirectories $lifecycleRegistry $lifecycleRemove @([pscustomobject]@{ UpgradeCode = "{00000000-0000-0000-0000-000000000000}" }) $lifecycleActions "0.3.2"
+} "stable YORVA UpgradeCode"
+
+Assert-Throws "user data removal" {
+    Assert-YorvaMsiLifecycleContract (New-LifecycleProperties) $lifecycleDirectories $lifecycleRegistry @([pscustomobject]@{ Directory = "AppDataFolder" }) $lifecycleUpgrade $lifecycleActions "0.3.2"
+} "user data root"
+
+Assert-Throws "login startup retained" {
+    Assert-YorvaMsiLifecycleContract (New-LifecycleProperties) $lifecycleDirectories @([pscustomobject]@{ Root = "1"; Key = "Software\yolin\YORVA"; Name = "InstallDir"; Value = "[INSTALLDIR]" }) $lifecycleRemove $lifecycleUpgrade $lifecycleActions "0.3.2"
+} "login startup value"
+
+Assert-Throws "deletion custom action" {
+    Assert-YorvaMsiLifecycleContract (New-LifecycleProperties) $lifecycleDirectories $lifecycleRegistry $lifecycleRemove $lifecycleUpgrade @([pscustomobject]@{ Target = "powershell Remove-Item $env:APPDATA" }) "0.3.2"
+} "forbidden data-deletion"
+
 Assert-Throws "missing Hermes LICENSE" {
     $rows = @(
         [pscustomobject]@{ Name = "hermes-agent-a0ca7c19204e514f9590ce3b812e029b315ab9e9.zip"; Size = 73798347 },

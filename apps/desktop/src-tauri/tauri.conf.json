@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Yorva",
-  "version": "0.3.2",
-  "identifier": "com.yorva.desktop.dev",
+  "productName": "YORVA",
+  "version": "0.4.0",
+  "identifier": "com.yorva.desktop",
   "build": {
     "beforeDevCommand": "pnpm --dir ../.. build:sidecar && pnpm dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Yorva",
+        "title": "YORVA",
         "width": 1024,
         "height": 680,
         "minWidth": 1024,
@@ -30,6 +30,8 @@
     "targets": ["msi"],
     "publisher": "yolin",
     "copyright": "yolin",
+    "shortDescription": "Local-first AI Runtime control center",
+    "longDescription": "YORVA manages local AI Runtime instances and preserves user-owned Runtime data when the application is repaired or uninstalled.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -37,12 +39,18 @@
       "icons/icon.ico"
     ],
     "windows": {
+      "allowDowngrades": false,
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
+      },
+      "wix": {
+        "upgradeCode": "e793918b-37eb-5e2f-b866-5fc4aa3ac75a",
+        "template": "wix/main.wxs"
       }
     },
     "externalBin": ["binaries/yorvad"],
     "resources": [
+      "resources/installer/DATA_RETENTION.txt",
       "resources/hermes/source/LICENSE",
       "resources/hermes/source/NODE-LICENSE",
       "resources/hermes/source/NPM-LICENSE"

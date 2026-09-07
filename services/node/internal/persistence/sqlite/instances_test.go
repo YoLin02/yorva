@@ -217,7 +217,7 @@ func TestInstancesMigrateFromPhase3Schema(t *testing.T) {
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationCount(t, dir, 16)
+	assertMigrationCount(t, dir, 17)
 	raw, err := sql.Open("sqlite", filepath.Join(dir, databaseFilename)+"?_pragma=foreign_keys(1)")
 	if err != nil {
 		t.Fatal(err)

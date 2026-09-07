@@ -7,6 +7,10 @@ const sessionMocks = vi.hoisted(() => ({
   getDaemonSession: vi.fn(),
 }));
 
+const eventMocks = vi.hoisted(() => ({
+  listen: vi.fn(),
+}));
+
 const clientMocks = vi.hoisted(() => ({
   getNode: vi.fn(),
   detectHermes: vi.fn(),
@@ -20,6 +24,10 @@ vi.mock("./api/session", () => ({
     typeof error === "object" &&
     error !== null &&
     (error as { code?: string }).code === "DAEMON_NOT_READY",
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: eventMocks.listen,
 }));
 
 vi.mock("./api/client", async () => {
@@ -73,6 +81,7 @@ describe("App daemon startup", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     sessionMocks.getDaemonSession.mockReset();
+    eventMocks.listen.mockReset().mockResolvedValue(vi.fn());
     clientMocks.getNode.mockReset();
     clientMocks.getNode.mockResolvedValue(node);
     clientMocks.detectHermes.mockReset();
@@ -97,6 +106,7 @@ describe("App daemon startup", () => {
   });
 
   afterEach(() => {
+    delete (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
     vi.useRealTimers();
   });
 
@@ -141,6 +151,49 @@ describe("App daemon startup", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("The local daemon could not start.");
     expect(screen.queryByText(/C:\\|spawn|token|stack/i)).not.toBeInTheDocument();
+    expect(sessionMocks.getDaemonSession).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders actionable guidance for a product data identity conflict", async () => {
+    sessionMocks.getDaemonSession.mockRejectedValueOnce({
+      code: "PRODUCT_DATA_IDENTITY_CONFLICT",
+      message: "native details are intentionally not displayed",
+      retryable: false,
+    });
+
+    renderApp();
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "YORVA found both legacy and current local data",
+    );
+    expect(screen.queryByText(/native details/i)).not.toBeInTheDocument();
+  });
+
+  it("replaces the cached daemon session after a native restart handshake", async () => {
+    (window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {};
+    let sessionChanged: (() => void) | undefined;
+    eventMocks.listen.mockImplementation((_event: string, handler: () => void) => {
+      sessionChanged = handler;
+      return Promise.resolve(vi.fn());
+    });
+    sessionMocks.getDaemonSession
+      .mockResolvedValueOnce(session)
+      .mockResolvedValueOnce({ ...session, baseUrl: "http://127.0.0.1:49153", token: "replacement-token" });
+
+    renderApp();
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+    expect(eventMocks.listen).toHaveBeenCalledWith("daemon-session-changed", expect.any(Function));
+    expect(sessionMocks.getDaemonSession).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      sessionChanged?.();
+      await vi.runAllTimersAsync();
+    });
     expect(sessionMocks.getDaemonSession).toHaveBeenCalledTimes(2);
   });
 });

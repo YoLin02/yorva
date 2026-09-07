@@ -37,15 +37,22 @@ function Start-SmokeDaemon([string]$dataDir) {
         token = New-SessionToken
         dataDir = $dataDir
     } | ConvertTo-Json -Compress
-    $process.StandardInput.WriteLine($bootstrap)
-    $process.StandardInput.Flush()
+    Write-ControlLine $process $bootstrap
 
     $handshakeTask = $process.StandardOutput.ReadLineAsync()
-    if (-not $handshakeTask.Wait([TimeSpan]::FromSeconds(10))) {
+    if (-not $handshakeTask.Wait([TimeSpan]::FromSeconds(45))) {
         $process.Kill()
         throw "Timed out waiting for the yorvad handshake."
     }
-    $handshake = $handshakeTask.Result | ConvertFrom-Json
+    $handshakeLine = $handshakeTask.Result
+    if ([string]::IsNullOrWhiteSpace($handshakeLine)) {
+        $stderr = $process.StandardError.ReadToEnd()
+        if (-not $process.HasExited) {
+            $process.Kill()
+        }
+        throw "yorvad exited before the handshake: $stderr"
+    }
+    $handshake = $handshakeLine | ConvertFrom-Json
     if ($handshake.protocolVersion -ne "1" -or $handshake.pid -ne $process.Id -or $handshake.port -le 0) {
         $process.Kill()
         throw "Invalid yorvad handshake."
@@ -57,6 +64,12 @@ function Start-SmokeDaemon([string]$dataDir) {
         throw "yorvad health check failed."
     }
     return $process
+}
+
+function Write-ControlLine([System.Diagnostics.Process]$process, [string]$line) {
+    $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($line + "`n")
+    $process.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
+    $process.StandardInput.BaseStream.Flush()
 }
 
 function Wait-GracefulExit([System.Diagnostics.Process]$process, [string]$scenario) {
@@ -77,14 +90,32 @@ $processes = [System.Collections.Generic.List[System.Diagnostics.Process]]::new(
 try {
     $shutdownProcess = Start-SmokeDaemon (Join-Path $tempRoot "shutdown")
     $processes.Add($shutdownProcess)
-    $shutdownProcess.StandardInput.WriteLine('{"type":"shutdown"}')
-    $shutdownProcess.StandardInput.Flush()
+    Write-ControlLine $shutdownProcess '{"type":"shutdown"}'
     Wait-GracefulExit $shutdownProcess "shutdown control"
 
-    $eofProcess = Start-SmokeDaemon (Join-Path $tempRoot "parent-eof")
+    $reopenData = Join-Path $tempRoot "desktop-reopen"
+    $eofProcess = Start-SmokeDaemon $reopenData
     $processes.Add($eofProcess)
     $eofProcess.StandardInput.Close()
     Wait-GracefulExit $eofProcess "parent stdin EOF"
+
+    $reopenedProcess = Start-SmokeDaemon $reopenData
+    $processes.Add($reopenedProcess)
+    Write-ControlLine $reopenedProcess '{"type":"shutdown"}'
+    Wait-GracefulExit $reopenedProcess "Desktop reopen"
+
+    $restartData = Join-Path $tempRoot "daemon-restart"
+    $crashedProcess = Start-SmokeDaemon $restartData
+    $processes.Add($crashedProcess)
+    $crashedProcess.Kill()
+    if (-not $crashedProcess.WaitForExit(5000)) {
+        throw "Killed yorvad did not terminate."
+    }
+
+    $restartedProcess = Start-SmokeDaemon $restartData
+    $processes.Add($restartedProcess)
+    Write-ControlLine $restartedProcess '{"type":"shutdown"}'
+    Wait-GracefulExit $restartedProcess "daemon crash restart"
 
     Write-Output "Windows lifecycle smoke: PASS"
 }

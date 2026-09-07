@@ -8,14 +8,17 @@ use std::{
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::{
     ShellExt,
     process::{CommandChild, CommandEvent},
 };
 
 const PROTOCOL_VERSION: &str = "1";
-const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
+// Startup includes database recovery and one bounded Runtime discovery/reconcile pass.
+// Runtime discovery owns a 35-second deadline, so the Desktop must not abandon the
+// daemon while that qualified recovery work is still inside its own bound.
+const STARTUP_TIMEOUT: Duration = Duration::from_secs(45);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(3);
 const MAX_SKILL_IMPORT_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_SKILL_IMPORT_ENTRIES: usize = 160;
@@ -30,11 +33,21 @@ pub struct DaemonSession {
     protocol_version: String,
 }
 
+impl DaemonSession {
+    pub(crate) fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    pub(crate) fn token(&self) -> &str {
+        &self.token
+    }
+}
+
 #[derive(Clone, Serialize)]
 pub struct DaemonCommandError {
-    code: &'static str,
-    message: &'static str,
-    retryable: bool,
+    pub(crate) code: &'static str,
+    pub(crate) message: &'static str,
+    pub(crate) retryable: bool,
 }
 
 enum StartupStatus {
@@ -65,6 +78,8 @@ impl ChildControl for CommandChild {
 struct LifecycleInner {
     status: StartupStatus,
     child: Option<Box<dyn ChildControl>>,
+    failure: Option<DaemonCommandError>,
+    restart_attempted: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -85,6 +100,8 @@ impl DaemonLifecycle {
             inner: Mutex::new(LifecycleInner {
                 status: StartupStatus::Starting,
                 child: None,
+                failure: None,
+                restart_attempted: false,
             }),
             changed: Condvar::new(),
         }
@@ -114,7 +131,24 @@ impl DaemonLifecycle {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn set_test_session(&self, base_url: &str, token: &str) {
+        self.set_ready(DaemonSession {
+            base_url: base_url.to_owned(),
+            token: token.to_owned(),
+            protocol_version: PROTOCOL_VERSION.to_owned(),
+        });
+    }
+
     fn fail_startup(&self) {
+        self.fail_startup_with(DaemonCommandError {
+            code: "DAEMON_STARTUP_FAILED",
+            message: STARTUP_FAILED_MESSAGE,
+            retryable: false,
+        });
+    }
+
+    pub(crate) fn fail_startup_with(&self, failure: DaemonCommandError) {
         let child = {
             let mut inner = self.lock();
             if matches!(
@@ -124,6 +158,7 @@ impl DaemonLifecycle {
                 return;
             }
             inner.status = StartupStatus::Failed;
+            inner.failure = Some(failure);
             self.changed.notify_all();
             inner.child.take()
         };
@@ -155,22 +190,42 @@ impl DaemonLifecycle {
         }
     }
 
-    fn process_terminated(&self) {
+    fn process_terminated(&self) -> bool {
         let mut inner = self.lock();
         inner.child.take();
-        inner.status = if matches!(
+        let restart = matches!(inner.status, StartupStatus::Ready(_)) && !inner.restart_attempted;
+        if restart {
+            inner.status = StartupStatus::Starting;
+            inner.failure = None;
+            inner.restart_attempted = true;
+        } else if matches!(
             inner.status,
             StartupStatus::Stopping | StartupStatus::Stopped
         ) {
-            StartupStatus::Stopped
+            inner.status = StartupStatus::Stopped;
         } else {
-            StartupStatus::Failed
-        };
+            inner.status = StartupStatus::Failed;
+        }
         self.changed.notify_all();
+        restart
     }
 
     pub fn stop(&self) {
         let _ = self.stop_with_timeout(SHUTDOWN_TIMEOUT);
+    }
+
+    pub(crate) fn prepare_start(&self) -> bool {
+        let mut inner = self.lock();
+        if inner.child.is_some()
+            || !matches!(inner.status, StartupStatus::Stopped | StartupStatus::Failed)
+        {
+            return false;
+        }
+        inner.status = StartupStatus::Starting;
+        inner.failure = None;
+        inner.restart_attempted = false;
+        self.changed.notify_all();
+        true
     }
 
     fn stop_with_timeout(&self, timeout: Duration) -> bool {
@@ -215,19 +270,20 @@ impl DaemonLifecycle {
         }
     }
 
-    fn session(&self) -> Result<DaemonSession, DaemonCommandError> {
-        match &self.lock().status {
+    pub(crate) fn session(&self) -> Result<DaemonSession, DaemonCommandError> {
+        let inner = self.lock();
+        match &inner.status {
             StartupStatus::Ready(session) => Ok(session.clone()),
             StartupStatus::Starting | StartupStatus::Stopping => Err(DaemonCommandError {
                 code: "DAEMON_NOT_READY",
                 message: "The local daemon is still starting.",
                 retryable: true,
             }),
-            StartupStatus::Failed => Err(DaemonCommandError {
+            StartupStatus::Failed => Err(inner.failure.clone().unwrap_or(DaemonCommandError {
                 code: "DAEMON_STARTUP_FAILED",
                 message: STARTUP_FAILED_MESSAGE,
                 retryable: false,
-            }),
+            })),
             StartupStatus::Stopped => Err(DaemonCommandError {
                 code: "DAEMON_NOT_READY",
                 message: "The local daemon is stopped.",
@@ -504,25 +560,29 @@ fn try_start_daemon(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 
     let event_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let lifecycle = event_handle.state::<DaemonLifecycle>();
         let mut handshake_complete = false;
         while let Some(event) = events.recv().await {
             match event {
                 CommandEvent::Stdout(line) if !handshake_complete => {
-                    if let Err(error) =
-                        accept_handshake(&lifecycle, &line, child_pid, token.clone())
-                    {
+                    if let Err(error) = accept_handshake(
+                        &event_handle.state::<DaemonLifecycle>(),
+                        &line,
+                        child_pid,
+                        token.clone(),
+                    ) {
                         log_diagnostic("daemon_handshake_rejected", &error);
+                        event_handle.state::<DaemonLifecycle>().fail_startup();
                         return;
                     }
                     handshake_complete = true;
+                    let _ = event_handle.emit("daemon-session-changed", ());
                 }
                 CommandEvent::Stdout(_) => {
                     log_diagnostic(
                         "daemon_stdout_contract_violation",
                         "unexpected stdout after handshake",
                     );
-                    lifecycle.fail_startup();
+                    event_handle.state::<DaemonLifecycle>().fail_startup();
                     return;
                 }
                 CommandEvent::Stderr(line) => {
@@ -530,7 +590,7 @@ fn try_start_daemon(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 CommandEvent::Error(error) => {
                     log_diagnostic("daemon_process_error", &error);
-                    lifecycle.fail_startup();
+                    event_handle.state::<DaemonLifecycle>().fail_startup();
                     return;
                 }
                 CommandEvent::Terminated(payload) => {
@@ -538,14 +598,25 @@ fn try_start_daemon(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                         "daemon_process_terminated",
                         &format!("exit_code={:?}", payload.code),
                     );
-                    lifecycle.process_terminated();
+                    let should_restart =
+                        event_handle.state::<DaemonLifecycle>().process_terminated();
+                    if should_restart {
+                        log_diagnostic(
+                            "daemon_bounded_restart",
+                            "restarting once after unexpected termination",
+                        );
+                        if let Err(error) = try_start_daemon(&event_handle) {
+                            log_diagnostic("daemon_restart_failed", &error.to_string());
+                            event_handle.state::<DaemonLifecycle>().fail_startup();
+                        }
+                    }
                     return;
                 }
                 _ => {}
             }
         }
         log_diagnostic("daemon_event_channel_closed", "sidecar event stream ended");
-        lifecycle.fail_startup();
+        event_handle.state::<DaemonLifecycle>().fail_startup();
     });
 
     let timeout_handle = app.clone();
@@ -817,6 +888,63 @@ mod tests {
     }
 
     #[test]
+    fn typed_startup_failure_preserves_safe_error_contract() {
+        let lifecycle = DaemonLifecycle::new();
+        lifecycle.fail_startup_with(DaemonCommandError {
+            code: "PRODUCT_DATA_IDENTITY_CONFLICT",
+            message: "Resolve the product data conflict before retrying.",
+            retryable: false,
+        });
+        let error = match lifecycle.session() {
+            Ok(_) => panic!("failure state must be queryable"),
+            Err(error) => error,
+        };
+        assert_eq!(error.code, "PRODUCT_DATA_IDENTITY_CONFLICT");
+        assert_eq!(
+            error.message,
+            "Resolve the product data conflict before retrying."
+        );
+        assert!(!error.retryable);
+    }
+
+    #[test]
+    fn unexpected_ready_process_exit_allows_only_one_bounded_restart() {
+        let lifecycle = DaemonLifecycle::new();
+        let (first_child, _) = FakeChild::new(false);
+        lifecycle.set_child(Box::new(first_child));
+        accept_handshake(
+            &lifecycle,
+            br#"{"protocolVersion":"1","port":49152,"pid":123}"#,
+            123,
+            "first-token".into(),
+        )
+        .expect("first handshake should succeed");
+
+        assert!(lifecycle.process_terminated());
+        let restarting = match lifecycle.session() {
+            Ok(_) => panic!("restart must not expose stale session"),
+            Err(error) => error,
+        };
+        assert_eq!(restarting.code, "DAEMON_NOT_READY");
+
+        let (second_child, _) = FakeChild::new(false);
+        lifecycle.set_child(Box::new(second_child));
+        accept_handshake(
+            &lifecycle,
+            br#"{"protocolVersion":"1","port":49153,"pid":124}"#,
+            124,
+            "second-token".into(),
+        )
+        .expect("restart handshake should succeed");
+        assert!(!lifecycle.process_terminated());
+        let failed = match lifecycle.session() {
+            Ok(_) => panic!("second exit must be terminal"),
+            Err(error) => error,
+        };
+        assert_eq!(failed.code, "DAEMON_STARTUP_FAILED");
+    }
+
+    #[test]
     fn graceful_stop_sends_control_record_and_observes_termination() {
         let lifecycle = Arc::new(DaemonLifecycle::new());
         let (child, probe) = FakeChild::new(false);
@@ -833,6 +961,16 @@ mod tests {
         let writes = probe.writes.lock().unwrap();
         assert_eq!(writes.len(), 1);
         assert_eq!(writes[0].as_slice(), SHUTDOWN_MESSAGE);
+    }
+
+    #[test]
+    fn explicit_restart_can_recover_a_stopped_daemon() {
+        let lifecycle = DaemonLifecycle::new();
+        lifecycle.stop();
+
+        assert!(lifecycle.prepare_start());
+        assert!(!lifecycle.prepare_start());
+        assert!(matches!(lifecycle.lock().status, StartupStatus::Starting));
     }
 
     #[test]

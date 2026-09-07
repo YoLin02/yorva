@@ -84,6 +84,19 @@ Suggested prefixes are allowed for diagnostics (`node_`, `op_`, `inst_`) but are
 
 RFC 3339 UTC timestamps.
 
+### Sanitized diagnostic export
+
+`POST /api/v1/diagnostics/bundle` is an authenticated loopback-only exception to the
+ordinary JSON response convention: it returns one complete `application/zip` body. The
+request has no caller-controlled path, source, filter, field list, time range, header or
+environment input. The daemon fixes the archive schema, seven-day log window, record
+limits and two-MiB compressed/uncompressed bounds.
+
+The native Desktop command supplies the in-memory bearer session, opens the platform
+Save As dialog, and publishes the already-complete archive atomically. Dialog cancellation
+is not success. `DIAGNOSTICS_EXPORT_FAILED` is the stable failure code; raw filesystem,
+database, Runtime and compression errors are not returned to React.
+
 ### Pagination
 
 Use cursor pagination only for resources that can grow substantially, such as audit/operation history.
@@ -674,3 +687,30 @@ Cloud envelope uses `protocolVersion`.
 Breaking changes require a protocol version change and migration/compatibility plan.
 
 Runtime adapter version compatibility is separate from YORVA protocol compatibility.
+
+## 17. Local recovery postcheck (Phase 8)
+
+`GET /api/v1/node/recovery` uses the ordinary private loopback bearer session. It is
+available only after database migration and startup journal/Operation recovery. Each
+request runs a fresh, cancellable Runtime/Instance check with a 35-second deadline; it
+returns `state`, `nodeVersion` and nullable stable `errorCode`, never raw internal errors.
+
+`READY` requires successful authoritative inventory readback. `UNKNOWN`, failed discovery,
+and unsupported/broken Runtime state return `RECOVERY_REQUIRED`, while management and
+diagnostics remain queryable. A fresh Node with no accepted installation can be READY
+when no Runtime is installed; loss of a previously accepted Runtime cannot take that path.
+An internal check failure returns HTTP 503 / `NODE_RECOVERY_FAILED`.
+
+The native updater checks this endpoint through a bounded, non-proxy, non-redirect
+request and requires the daemon version to match the installed Desktop version before
+reporting `SUCCEEDED`. Merely acquiring a daemon session does not satisfy the update Gate.
+A rejected postcheck persists `FAILED` / `UPDATE_POSTCHECK_FAILED`.
+
+When Desktop restarts after an interrupted download, reconciliation acquires the same
+mutex held by the complete download workflow, persists `FAILED` / `UPDATE_DOWNLOAD_FAILED`
+for an abandoned `DOWNLOADING` record and removes only its fixed regular staging files.
+The candidate remains available for a new verified download. A status query cannot reset
+a live download while its worker owns the mutex; it returns the persisted progress without
+waiting for that workflow. Native status reconciliation runs off the UI thread. The UI
+offers cancellation while its download request is pending and refreshes persisted state
+after a failed or cancelled request so the verified-download retry remains available.

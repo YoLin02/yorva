@@ -21,6 +21,7 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/applog"
 	"github.com/YoLin02/yorva/services/node/internal/bootstrap"
 	"github.com/YoLin02/yorva/services/node/internal/buildinfo"
+	"github.com/YoLin02/yorva/services/node/internal/diagnostics"
 	"github.com/YoLin02/yorva/services/node/internal/domain/node"
 	"github.com/YoLin02/yorva/services/node/internal/events"
 	"github.com/YoLin02/yorva/services/node/internal/install"
@@ -77,16 +78,31 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 
 	logger, closeLog := applog.New(streams.Stderr, message.DataDir)
 	defer closeLog()
-	registry := yorvaruntime.NewRegistry()
-	database, err := sqlite.Open(ctx, message.DataDir)
-	if err != nil {
-		return fmt.Errorf("initialize database: %w", err)
-	}
-	defer database.Close()
 	destinationGrants, err := backupmanagement.NewDestinationRegistry(message.Token)
 	if err != nil {
 		return fmt.Errorf("initialize native backup destination authority: %w", err)
 	}
+	requestCtx, cancelRequests := context.WithCancel(ctx)
+	defer cancelRequests()
+	parentDone := make(chan error, 1)
+	go func() {
+		parentDone <- monitorParent(stdin, streams.Stdout, destinationGrants)
+		cancelRequests()
+	}()
+	parentFinished := false
+	defer func() {
+		_ = streams.Stdin.Close()
+		if !parentFinished {
+			<-parentDone
+		}
+	}()
+
+	registry := yorvaruntime.NewRegistry()
+	database, err := sqlite.Open(requestCtx, message.DataDir)
+	if err != nil {
+		return fmt.Errorf("initialize database: %w", err)
+	}
+	defer database.Close()
 	mcpManager, err := hermes.NewProductionProfileMCPManager()
 	if err != nil {
 		return fmt.Errorf("initialize YORVA MCP test server: %w", err)
@@ -99,7 +115,7 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	}
 	var sharedModelSecrets app.ModelSecretStore
 	if runtime.GOOS == "windows" {
-		if recoverErr := hermes.RecoverInterruptedRestores(ctx); recoverErr != nil {
+		if recoverErr := hermes.RecoverInterruptedRestores(requestCtx); recoverErr != nil {
 			return fmt.Errorf("recover interrupted Hermes Restore: %w", recoverErr)
 		}
 		secretStore, secretErr := secrets.New(message.DataDir)
@@ -162,7 +178,7 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	if err != nil {
 		return fmt.Errorf("resolve hostname: %w", err)
 	}
-	localNode, err := database.LoadOrCreateNode(ctx, node.LocalMetadata{
+	localNode, err := database.LoadOrCreateNode(requestCtx, node.LocalMetadata{
 		Name:         hostname,
 		Hostname:     hostname,
 		Platform:     runtime.GOOS,
@@ -184,8 +200,6 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 		return err
 	}
 
-	requestCtx, cancelRequests := context.WithCancel(context.Background())
-	defer cancelRequests()
 	discovery := app.NewRuntimeDiscovery(registry, logger)
 	sourceSettings := downloadsources.NewService(database)
 	host := hermes.NewHostInstaller(message.DataDir).WithLogger(logger).WithEmbeddedSource(message.HermesEmbeddedSourcePath).WithEmbeddedPython(message.HermesPythonArchivePath).WithDownloadSources(sourceSettings)
@@ -196,34 +210,98 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 		logger.Error("managed Hermes root is unavailable", "error", err, "gate", installGate.Get())
 	} else {
 		managedRoot = root
-		if _, recErr := install.Recover(context.Background(), root, installGate); recErr != nil {
+		if _, recErr := install.Recover(requestCtx, root, installGate); recErr != nil {
 			logger.Error("install recovery failed", "error", recErr, "gate", installGate.Get())
 		}
 	}
 	nodeHost := hermes.NewNodeHost(message.DataDir, message.HermesNodeArchivePath, message.HermesNpmArchivePath).WithDownloadSources(sourceSettings)
 	broker := events.NewBroker()
 	installs := app.NewRuntimeInstall(discovery, database).WithLogger(logger).WithHost(host, database, localNode.ID).WithPrerequisite(app.HermesPrerequisiteHost{Host: nodeHost}).WithEvents(broker).WithInstallGate(installGate).WithManagedRoot(managedRoot)
-	if _, err := installs.InterruptStale(ctx); err != nil {
-		logger.Warn("failed to interrupt stale install operations", "error", err)
+	if _, err := installs.InterruptStale(requestCtx); err != nil {
+		return fmt.Errorf("recover stale install operations: %w", err)
 	}
 	instances := app.NewInstanceInventory(discovery, database, app.HermesProfileSource{}, localNode.ID).WithMutator(app.HermesProfileSource{}).WithEvents(broker).WithModelSecrets(sharedModelSecrets)
-	if _, err := instances.RecoverStale(ctx); err != nil {
-		logger.Warn("failed to recover stale instance operations", "error", err)
+	if _, err := instances.RecoverStale(requestCtx); err != nil {
+		return fmt.Errorf("recover stale instance operations: %w", err)
 	}
-	if _, err := instances.RecoverModelValidations(ctx); err != nil {
-		logger.Warn("failed to recover stale model validation operations", "error", err)
+	if _, err := instances.RecoverModelValidations(requestCtx); err != nil {
+		return fmt.Errorf("recover stale model validation operations: %w", err)
 	}
-	if _, err := instances.RecoverModelProfileApplications(ctx); err != nil {
-		logger.Warn("failed to recover stale model profile applications", "error", err)
+	if _, err := instances.RecoverModelProfileApplications(requestCtx); err != nil {
+		return fmt.Errorf("recover stale model profile applications: %w", err)
 	}
-	if _, err := instances.RecoverLifecycle(ctx); err != nil {
-		logger.Warn("failed to recover stale lifecycle operations", "error", err)
+	if _, err := instances.RecoverLifecycle(requestCtx); err != nil {
+		return fmt.Errorf("recover stale lifecycle operations: %w", err)
 	}
-	if _, err := instances.RecoverChannels(ctx); err != nil {
-		logger.Warn("failed to recover stale channel operations", "error", err)
+	if _, err := instances.RecoverChannels(requestCtx); err != nil {
+		return fmt.Errorf("recover stale channel operations: %w", err)
+	}
+	managedSkills, err := instances.NewManagementSkills(message.DataDir)
+	if err != nil {
+		return fmt.Errorf("initialize Skill recovery: %w", err)
+	}
+	if _, err := managedSkills.RecoverInterrupted(requestCtx); err != nil {
+		return fmt.Errorf("recover stale Skill operations: %w", err)
+	}
+	managedMCP, err := instances.NewMCPManagement()
+	if err != nil {
+		return fmt.Errorf("initialize MCP recovery: %w", err)
+	}
+	if _, err := managedMCP.RecoverInterrupted(requestCtx); err != nil {
+		return fmt.Errorf("recover stale MCP operations: %w", err)
+	}
+	managedBackups, err := instances.NewBackupManagement()
+	if err != nil {
+		return fmt.Errorf("initialize backup recovery: %w", err)
+	}
+	if _, err := managedBackups.RecoverInterrupted(requestCtx); err != nil {
+		return fmt.Errorf("recover stale backup operations: %w", err)
+	}
+	managedUpgrade, err := instances.NewManagementUpgrade()
+	if err != nil {
+		return fmt.Errorf("initialize Runtime management recovery: %w", err)
+	}
+	if _, err := managedUpgrade.RecoverInterrupted(requestCtx); err != nil {
+		return fmt.Errorf("recover stale Runtime management operations: %w", err)
+	}
+
+	// Reconcile live Runtime/Profile inventory before advertising daemon readiness.
+	// A non-supported detection result remains a truthful, queryable Runtime state and
+	// does not prevent local YORVA management from starting.
+	detected, detectErr := discovery.Detect(requestCtx, hermes.Kind)
+	if detectErr != nil {
+		logger.Warn("startup Runtime discovery did not complete", "error", detectErr)
+	} else if detected.State == yorvaruntime.DiscoverySupported && detected.Selected != nil {
+		listed, err := instances.ListInstances(requestCtx, string(hermes.Kind))
+		if err != nil {
+			return fmt.Errorf("reconcile startup Instance inventory: %w", err)
+		}
+		if listed.Freshness != "FRESH" || listed.ErrorCode != "" {
+			logger.Warn("startup Instance inventory requires recovery", "errorCode", listed.ErrorCode)
+		} else {
+			logger.Info("startup Instance inventory reconciled",
+				"instanceCount", len(listed.Instances),
+				"freshness", listed.Freshness,
+			)
+		}
+	}
+	select {
+	case parentErr := <-parentDone:
+		parentFinished = true
+		if parentErr != nil {
+			logger.Warn("parent control channel ended during startup", "error", parentErr)
+		}
+		return nil
+	default:
+	}
+	if err := requestCtx.Err(); err != nil {
+		return err
 	}
 	server := &http.Server{
-		Handler:           httpapi.NewHandler(message.Token, localNode, broker, discovery, installs, instances, message.DataDir, sourceSettings),
+		Handler: httpapi.NewHandler(
+			message.Token, localNode, broker, discovery, installs, instances, message.DataDir, sourceSettings,
+			diagnostics.New(localNode, discovery, instances, installs, database, message.DataDir),
+		),
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       30 * time.Second,
@@ -236,18 +314,6 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	}); err != nil {
 		return err
 	}
-
-	parentDone := make(chan error, 1)
-	go func() {
-		parentDone <- monitorParent(stdin, streams.Stdout, destinationGrants)
-	}()
-	parentFinished := false
-	defer func() {
-		_ = streams.Stdin.Close()
-		if !parentFinished {
-			<-parentDone
-		}
-	}()
 
 	serveErr := make(chan error, 1)
 	go func() {

@@ -35,6 +35,8 @@ type Messages = {
     startingDescription: string;
     connectionUnavailable: string;
     daemonStartFailure: string;
+    productDataConflict: string;
+    productDataPreparationFailure: string;
     nodeReachFailure: string;
     connected: string;
     title: string;
@@ -158,6 +160,51 @@ type Messages = {
     launchOnLoginDescription: string;
     closeToTray: string;
     closeToTrayDescription: string;
+    dataRetention: string;
+    dataRetentionDescription: string;
+    diagnostics: {
+      title: string;
+      summary: string;
+      open: string;
+      pageTitle: string;
+      description: string;
+      back: string;
+      export: string;
+      exporting: string;
+      contentsTitle: string;
+      contentsDescription: string;
+      contents: string[];
+      privacy: string;
+      succeeded: string;
+      failed: string;
+    };
+    updates: {
+      title: string;
+      aboutDescription: string;
+      manage: string;
+      pageTitle: string;
+      description: string;
+      back: string;
+      loading: string;
+      signingUnavailable: string;
+      signingExplanation: string;
+      internalCandidate: string;
+      publicRelease: string;
+      currentVersion: string;
+      status: string;
+      source: string;
+      fixedSource: string;
+      candidate: string;
+      releaseNotes: string;
+      check: string;
+      download: string;
+      install: string;
+      cancel: string;
+      working: string;
+      securityPolicy: string;
+      phases: Record<"IDLE" | "UP_TO_DATE" | "AVAILABLE" | "DOWNLOADING" | "READY_TO_INSTALL" | "INSTALLING" | "POSTCHECK" | "SUCCEEDED" | "FAILED", string>;
+      errors: Record<"UPDATE_METADATA_INVALID" | "UPDATE_SIGNING_UNAVAILABLE" | "UPDATE_VERSION_UNSUPPORTED" | "UPDATE_DOWNLOAD_FAILED" | "UPDATE_CANCELLED" | "UPDATE_INTEGRITY_FAILED" | "UPDATE_INSTALL_FAILED" | "UPDATE_POSTCHECK_FAILED" | "UPDATE_STATE_FAILED", string>;
+    };
     desktopPreferencesFailed: string;
     savedAutomatically: string;
     hermesSourcesTitle: string;
@@ -654,6 +701,8 @@ const english: Messages = {
     startingDescription: "Creating a private Desktop session and checking the local daemon.",
     connectionUnavailable: "Connection unavailable",
     daemonStartFailure: "The local daemon could not start.",
+    productDataConflict: "YORVA found both legacy and current local data. Keep both folders unchanged, then resolve the data conflict before restarting YORVA.",
+    productDataPreparationFailure: "YORVA could not safely prepare the existing local data. Keep the data folders unchanged and retry after checking available disk space and folder permissions.",
     nodeReachFailure: "The local Node could not be reached.",
     connected: "Local node connected",
     title: "Local Node",
@@ -838,6 +887,71 @@ const english: Messages = {
     launchOnLoginDescription: "The packaged app starts hidden in the system tray without starting a Hermes instance.",
     closeToTray: "Minimize to tray when closing",
     closeToTrayDescription: "Closing the main window keeps Yorva available in the system tray.",
+    dataRetention: "Uninstall and local data",
+    dataRetentionDescription: "Uninstall removes YORVA program files, shortcuts, and login startup. It preserves YORVA settings, encrypted backups, and every Hermes Runtime and Profile.",
+    diagnostics: {
+      title: "Diagnostics and support",
+      summary: "Export a fixed, sanitized local support bundle without exposing credentials or raw application data.",
+      open: "Open diagnostics",
+      pageTitle: "Export diagnostics",
+      description: "Create a bounded support ZIP from current daemon, Runtime, Instance, operation, schema, and sanitized log summaries.",
+      back: "Diagnostics and support",
+      export: "Export diagnostics",
+      exporting: "Preparing…",
+      contentsTitle: "Included information",
+      contentsDescription: "The archive uses a fixed schema and seven-day log window.",
+      contents: ["Version", "Node summary", "Runtime summary", "Instance summary", "Recent operations", "Schema", "Sanitized logs", "Redaction report"],
+      privacy: "API keys, tokens, channel and MCP credentials, QR and pairing values, cookies, authorization data, environment variables, raw databases, absolute paths, and arbitrary user files are never included.",
+      succeeded: "Diagnostic bundle exported",
+      failed: "The diagnostic bundle could not be exported. No partial file was kept.",
+    },
+    updates: {
+      title: "YORVA updates",
+      aboutDescription: "Local-first Runtime control for supported Windows devices.",
+      manage: "View updates",
+      pageTitle: "YORVA update",
+      description: "Check, verify, and install a complete YORVA package from the fixed release source.",
+      back: "About YORVA",
+      loading: "Loading update status…",
+      signingUnavailable: "Update verification is unavailable in this build",
+      signingExplanation: "This unsigned internal candidate has no approved release verification key. Update installation remains disabled until a release build injects that public key.",
+      internalCandidate: "Internal candidate",
+      publicRelease: "Signed release",
+      currentVersion: "Installed version",
+      status: "Update status",
+      source: "Release source",
+      fixedSource: "YORVA GitHub Releases (fixed)",
+      candidate: "Available package",
+      releaseNotes: "Release notes",
+      check: "Check for updates",
+      download: "Download and verify",
+      install: "Install and restart",
+      cancel: "Cancel download",
+      working: "Working…",
+      securityPolicy: "YORVA accepts only a fixed HTTPS release URL, a signed metadata envelope, the exact declared size and SHA-256, the expected MSI version, and the declared Windows signing policy.",
+      phases: {
+        IDLE: "Not checked",
+        UP_TO_DATE: "YORVA is up to date",
+        AVAILABLE: "An update is available",
+        DOWNLOADING: "Downloading the complete package",
+        READY_TO_INSTALL: "Verified and ready to install",
+        INSTALLING: "Windows is installing the update",
+        POSTCHECK: "Verifying migration and Runtime state",
+        SUCCEEDED: "Update completed and verified",
+        FAILED: "Update needs attention",
+      },
+      errors: {
+        UPDATE_METADATA_INVALID: "The release information was invalid or did not match YORVA's fixed source.",
+        UPDATE_SIGNING_UNAVAILABLE: "This build has no approved update verification key.",
+        UPDATE_VERSION_UNSUPPORTED: "This version cannot update directly to the selected release.",
+        UPDATE_DOWNLOAD_FAILED: "The complete update package could not be downloaded. The installed version is unchanged.",
+        UPDATE_CANCELLED: "The update download was cancelled. The installed version is unchanged.",
+        UPDATE_INTEGRITY_FAILED: "The package failed signature, size, hash, version, or Windows signing verification and was not opened.",
+        UPDATE_INSTALL_FAILED: "Windows did not complete the update. Restart YORVA to inspect the retained status.",
+        UPDATE_POSTCHECK_FAILED: "The new version started, but migration or Runtime reconciliation did not complete.",
+        UPDATE_STATE_FAILED: "YORVA could not safely read or save the update status.",
+      },
+    },
     desktopPreferencesFailed: "Yorva could not update the window behavior setting. Please try again.",
     savedAutomatically: "Saved automatically",
     hermesSourcesTitle: "Hermes download sources",
@@ -1370,6 +1484,8 @@ const simplifiedChinese: Messages = {
     startingDescription: "正在创建私有桌面会话并检查本地守护进程。",
     connectionUnavailable: "连接不可用",
     daemonStartFailure: "本地守护进程无法启动。",
+    productDataConflict: "YORVA 同时发现旧版和当前版本的本地数据。请保留两个数据文件夹不变，解决数据冲突后再重新启动 YORVA。",
+    productDataPreparationFailure: "YORVA 无法安全准备已有本地数据。请勿移动或删除数据文件夹，检查磁盘空间和文件夹权限后重试。",
     nodeReachFailure: "无法连接本地节点。",
     connected: "本地节点已连接",
     title: "本地节点",
@@ -1554,6 +1670,71 @@ const simplifiedChinese: Messages = {
     launchOnLoginDescription: "安装版将隐藏启动到系统托盘，不会自动启动 Hermes 实例。",
     closeToTray: "关闭时最小化到托盘",
     closeToTrayDescription: "关闭主窗口后 Yorva 继续在系统托盘中运行。",
+    dataRetention: "卸载与本地数据",
+    dataRetentionDescription: "卸载会移除 YORVA 程序文件、快捷方式和登录启动项，但会保留 YORVA 设置、加密备份以及全部 Hermes Runtime 和 Profile。",
+    diagnostics: {
+      title: "诊断与支持",
+      summary: "导出固定、已脱敏的本地支持包，不暴露凭据或原始应用数据。",
+      open: "打开诊断",
+      pageTitle: "导出诊断信息",
+      description: "根据当前守护进程、Runtime、实例、操作、数据库版本和脱敏日志摘要生成有界支持 ZIP。",
+      back: "诊断与支持",
+      export: "导出诊断信息",
+      exporting: "正在准备…",
+      contentsTitle: "包含的信息",
+      contentsDescription: "压缩包采用固定结构，日志时间窗口为最近七天。",
+      contents: ["版本", "节点摘要", "Runtime 摘要", "实例摘要", "最近操作", "数据库版本", "脱敏日志", "脱敏报告"],
+      privacy: "API Key、Token、Channel 与 MCP 凭据、二维码与配对值、Cookie、授权信息、环境变量、原始数据库、绝对路径及任意用户文件均不会包含在内。",
+      succeeded: "诊断包已导出",
+      failed: "未能导出诊断包，未保留任何不完整文件。",
+    },
+    updates: {
+      title: "YORVA 更新",
+      aboutDescription: "面向受支持 Windows 设备的本地优先 Runtime 中控。",
+      manage: "查看更新",
+      pageTitle: "YORVA 更新",
+      description: "从固定发布源检查、验证并安装完整的 YORVA 安装包。",
+      back: "关于 YORVA",
+      loading: "正在读取更新状态…",
+      signingUnavailable: "此构建暂不能验证更新",
+      signingExplanation: "当前未签名内部候选没有获批的发布验证公钥。在发布构建注入该公钥前，更新安装保持禁用。",
+      internalCandidate: "内部候选",
+      publicRelease: "已签名发布版",
+      currentVersion: "当前版本",
+      status: "更新状态",
+      source: "发布来源",
+      fixedSource: "YORVA GitHub Releases（固定）",
+      candidate: "可用安装包",
+      releaseNotes: "更新说明",
+      check: "检查更新",
+      download: "下载并验证",
+      install: "安装并重启",
+      cancel: "取消下载",
+      working: "处理中…",
+      securityPolicy: "YORVA 只接受固定 HTTPS 发布地址、已签名元数据、完全一致的大小与 SHA-256、预期 MSI 版本，以及元数据声明的 Windows 签名策略。",
+      phases: {
+        IDLE: "尚未检查",
+        UP_TO_DATE: "YORVA 已是最新版本",
+        AVAILABLE: "发现可用更新",
+        DOWNLOADING: "正在下载完整安装包",
+        READY_TO_INSTALL: "验证完成，可以安装",
+        INSTALLING: "Windows 正在安装更新",
+        POSTCHECK: "正在验证迁移与 Runtime 状态",
+        SUCCEEDED: "更新完成并已验证",
+        FAILED: "更新需要处理",
+      },
+      errors: {
+        UPDATE_METADATA_INVALID: "发布信息无效，或与 YORVA 固定发布源不一致。",
+        UPDATE_SIGNING_UNAVAILABLE: "此构建没有获批的更新验证公钥。",
+        UPDATE_VERSION_UNSUPPORTED: "当前版本不能直接升级到所选版本。",
+        UPDATE_DOWNLOAD_FAILED: "未能下载完整安装包，当前已安装版本没有变化。",
+        UPDATE_CANCELLED: "已取消更新下载，当前已安装版本没有变化。",
+        UPDATE_INTEGRITY_FAILED: "安装包未通过签名、大小、哈希、版本或 Windows 签名验证，因此没有启动。",
+        UPDATE_INSTALL_FAILED: "Windows 未完成更新。请重新启动 YORVA 查看保留的更新状态。",
+        UPDATE_POSTCHECK_FAILED: "新版本已启动，但数据库迁移或 Runtime 权威回读未完成。",
+        UPDATE_STATE_FAILED: "YORVA 无法安全读取或保存更新状态。",
+      },
+    },
     desktopPreferencesFailed: "无法更新窗口行为设置，请重试。",
     savedAutomatically: "已自动保存",
     hermesSourcesTitle: "Hermes 下载与依赖源",

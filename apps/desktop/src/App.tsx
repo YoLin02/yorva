@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listen } from "@tauri-apps/api/event";
 import { createDaemonClient } from "./api/client";
 import { YorvaApiError } from "./api/client";
 import type { InstallRequestError } from "./installDiagnostic";
@@ -21,6 +22,19 @@ import { InstancesPage } from "./pages/InstancesPage";
 import { RuntimePage } from "./pages/RuntimePage";
 import { RuntimeManagementPage } from "./pages/RuntimeManagementPage";
 import { SettingsPage } from "./pages/SettingsPage";
+
+function daemonStartupFailureMessage(error: unknown, copy: (typeof messages)[Locale]): string {
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? (error as { code?: unknown }).code
+    : undefined;
+  if (code === "PRODUCT_DATA_IDENTITY_CONFLICT") {
+    return copy.node.productDataConflict;
+  }
+  if (typeof code === "string" && code.startsWith("PRODUCT_DATA_")) {
+    return copy.node.productDataPreparationFailure;
+  }
+  return copy.node.daemonStartFailure;
+}
 
 export function App() {
   const queryClient = useQueryClient();
@@ -55,6 +69,26 @@ export function App() {
     retry: (_failures, error) => isDaemonNotReady(error),
     retryDelay: 200,
   });
+  useEffect(() => {
+    if (!("__TAURI_INTERNALS__" in window)) {
+      return;
+    }
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen("daemon-session-changed", () => {
+      void queryClient.invalidateQueries({ queryKey: ["daemon-session"] });
+    }).then((stopListening) => {
+      if (disposed) {
+        stopListening();
+      } else {
+        unlisten = stopListening;
+      }
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [queryClient]);
   const client = useMemo(
     () => (sessionQuery.data ? createDaemonClient(sessionQuery.data) : undefined),
     [sessionQuery.data],
@@ -523,7 +557,7 @@ export function App() {
   } else if (sessionQuery.isError) {
     content = (
       <DashboardPage
-        nodeState={{ kind: "failure", message: copy.node.daemonStartFailure }}
+        nodeState={{ kind: "failure", message: daemonStartupFailureMessage(sessionQuery.error, copy) }}
         discoveryState={discoveryState}
         copy={copy}
         locale={locale}
