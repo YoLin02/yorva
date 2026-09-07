@@ -127,3 +127,14 @@ download bounds, cryptographic verification, deterministic installer handoff,
 post-install migration/reconcile and fail-closed negative paths are all exercised.
 Public release readiness remains intentionally blocked on production Windows
 signing material; B4 does not weaken that P8 decision.
+
+## R1 acceptance — 2026-09-07
+
+The historical AUDIT-008 FAIL and its source evidence remain unchanged.
+[AUDIT-008R1](../audits/AUDIT-008R1-local-product-hardening.md) now returns **PASS** for
+`43ac29152d3de1fa227937f35ccdd12908bac976`, closing both original findings.
+[Remediation evidence](PHASE-008R1-REMEDIATION.md) includes CI #96 / Windows MSI #35,
+real installed-version/failed-readback rejection and download-process-crash/restart/retry.
+All three new Windows update scenarios pass. The retained eight-hour B6 workload was
+not rerun. The internal candidate is accepted under Owner Amendment 008A1; final-main
+CI/package/update checks and the annotated tag still precede formal freeze.

@@ -1,0 +1,47 @@
+{
+  "candidateCommit": "43ac29152d3de1fa227937f35ccdd12908bac976",
+  "daemonSha256": "1B4FEA45431246841C3E74AD02D0079B232EA67F4F2842546E53738F7059FBB3",
+  "fixtureSha256": "E39170C4CBB92AF67B3EE1DE93C79465A3B10DE874EFC216EB762809E715537E",
+  "hostRebooted": false,
+  "results": [
+    {
+      "recoveryState": "READY",
+      "recoveryErrorCode": null,
+      "scenario": "normal",
+      "handshakeAccepted": true,
+      "nodeVersion": "0.4.0",
+      "inventoryFreshness": "FRESH",
+      "inventoryErrorCode": null,
+      "instanceCount": 1,
+      "availability": [
+        "AVAILABLE"
+      ]
+    },
+    {
+      "recoveryState": "RECOVERY_REQUIRED",
+      "recoveryErrorCode": "INSTANCE_OUTPUT_UNRECOGNIZED",
+      "scenario": "failed-profile-readback",
+      "handshakeAccepted": true,
+      "nodeVersion": "0.4.0",
+      "inventoryFreshness": "UNKNOWN",
+      "inventoryErrorCode": "INSTANCE_OUTPUT_UNRECOGNIZED",
+      "instanceCount": 1,
+      "availability": [
+        "UNKNOWN"
+      ]
+    },
+    {
+      "recoveryState": "READY",
+      "recoveryErrorCode": null,
+      "scenario": "repaired-profile-readback",
+      "handshakeAccepted": true,
+      "nodeVersion": "0.4.0",
+      "inventoryFreshness": "FRESH",
+      "inventoryErrorCode": null,
+      "instanceCount": 1,
+      "availability": [
+        "AVAILABLE"
+      ]
+    }
+  ]
+}

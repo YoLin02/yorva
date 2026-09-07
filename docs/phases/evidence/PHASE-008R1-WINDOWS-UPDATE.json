@@ -1,0 +1,52 @@
+{
+  "candidateCommit": "43ac29152d3de1fa227937f35ccdd12908bac976",
+  "guestOS": "Windows 11 Enterprise Evaluation 25H2 x64",
+  "integrity": "medium",
+  "hostRebooted": false,
+  "ordinaryCandidateQualificationFeature": false,
+  "candidateMsiSha256": "050DEF649F8E2AB10DEEB60A5C7E9A07392F4A8B1E8E7BC286D53852A41DA711",
+  "qualificationBaselineMsiSha256": "B0311884F856C56B14C339394AC112460561F7CF64F7310361D45B4231E908C0",
+  "scenarios": [
+    {
+      "scenario": "Happy",
+      "result": "PASS",
+      "serialSha256": "EF87FCCB715C4CFE587943A2AD79D4232F572014501AF5FBCE1544A94410DF9F",
+      "serialExcerpt": [
+        "2026-09-07T09:15:21.9527242Z YORVA_B4_OUTPUT PASS non-elevated-user-context",
+        "2026-09-07T09:15:21.9911104Z YORVA_B4_OUTPUT PASS baseline-install",
+        "2026-09-07T09:15:22.0269118Z YORVA_B4_OUTPUT PASS older-to-candidate-update",
+        "2026-09-07T09:15:22.0607203Z YORVA_B4_OUTPUT PASS installed-version-readback",
+        "2026-09-07T09:15:22.0946530Z YORVA_B4_OUTPUT PASS runtime-instance-authoritative-readback",
+        "2026-09-07T09:15:22.1675444Z YORVA_B4_UPDATE_PASS Happy"
+      ]
+    },
+    {
+      "scenario": "ReconcileFailure",
+      "result": "PASS",
+      "serialSha256": "A4A16C697031219F70CD09049BFE83CFE73F90B56DD68E8FA341BBDA64EB0B41",
+      "serialExcerpt": [
+        "2026-09-07T09:19:28.9671749Z YORVA_B4_OUTPUT PASS non-elevated-user-context",
+        "2026-09-07T09:19:29.0031672Z YORVA_B4_OUTPUT PASS baseline-install",
+        "2026-09-07T09:19:29.0371469Z YORVA_B4_OUTPUT PASS matching-version-failed-readback-rejected",
+        "2026-09-07T09:19:29.0708372Z YORVA_B4_OUTPUT PASS recovery-failure-management-remains-available",
+        "2026-09-07T09:19:29.1400628Z YORVA_B4_UPDATE_PASS ReconcileFailure"
+      ]
+    },
+    {
+      "scenario": "DownloadCrash",
+      "result": "PASS",
+      "serialSha256": "75D36B85CC50AEB58CCF76F3699D5FA6D7AA3CB2891BC6FEAC0D67F0D5B6E6AB",
+      "serialExcerpt": [
+        "2026-09-07T09:24:16.8162004Z YORVA_B4_OUTPUT PASS non-elevated-user-context",
+        "2026-09-07T09:24:16.8536548Z YORVA_B4_OUTPUT PASS baseline-install",
+        "2026-09-07T09:24:16.8850655Z YORVA_B4_OUTPUT PASS download-process-interrupted",
+        "2026-09-07T09:24:16.9205279Z YORVA_B4_OUTPUT PASS download-restart-old-version-usable",
+        "2026-09-07T09:24:16.9382722Z YORVA_B4_OUTPUT PASS older-to-candidate-update",
+        "2026-09-07T09:24:16.9711614Z YORVA_B4_OUTPUT PASS installed-version-readback",
+        "2026-09-07T09:24:17.0049545Z YORVA_B4_OUTPUT PASS runtime-instance-authoritative-readback",
+        "2026-09-07T09:24:17.0391887Z YORVA_B4_OUTPUT PASS download-retry-verified-update",
+        "2026-09-07T09:24:17.1129966Z YORVA_B4_UPDATE_PASS DownloadCrash"
+      ]
+    }
+  ]
+}

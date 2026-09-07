@@ -1,6 +1,6 @@
 # YORVA Phase 8 — 本地产品可靠化 MVP
 
-> 状态：**APPROVED / IN PROGRESS — AUDIT FAIL；B2/B4/B6 Gate 重新打开**
+> 状态：**PASSED — AUDIT-008R1 PASS；等待 final-main / freeze**
 > 阶段标识：P8
 > 阶段性质：本地产品可靠化与首个正式 Windows MVP
 > 必需基线：phase-007-hermes-runtime-management-completeness-baseline + P7 稳定性修订 `9834a8cb1df9e70502936153943f501ed37cb8fc`
@@ -633,11 +633,11 @@ Phase 8 在以下全部成立后进入内部候选审计与阶段退出 Gate；�
 | --- | --- | --- | --- |
 | P8-B0 | COMPLETE | `72ec369` | 中英文产品支持合同、Owner 决策、目录/保留/签名门禁一致性检查通过 |
 | P8-B1 | COMPLETE | `fc224a8` | Schema 017；016→017 保护/校验/恢复；identifier 数据迁移；Go/Rust focused Gate 通过 |
-| P8-B2 | 重新打开—AUDIT HIGH-001 | `3ee4580` | 历史 crash/restart/reboot 场景通过；daemon 可连接尚不能证明权威回读成功 |
+| P8-B2 | COMPLETE — R1 PASS | `3ee4580` + `ef7eaba` + `43ac291` | 历史 reboot/recovery、实时 READY/UNKNOWN/READY，以及实际安装后回读失败拒绝假成功均通过 |
 | P8-B3 | COMPLETE | `56df01f` + `412d3c0` | 干净源码构建的 0.4.0 精确 MSI；静态/负向检查与 disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate 全部通过 |
-| P8-B4 | 重新打开—AUDIT HIGH-001 / MEDIUM-001 | `81b4bfa` + `9be7435` + `8d1b162` + `6a75cde` + `7407992` | 历史 Happy/Tamper/Interrupted/InstallerFailure 场景通过；更新后置检查和下载重启恢复需要修复 |
+| P8-B4 | COMPLETE — R1 PASS | `6a75cde` + `ef7eaba` + `43ac291` | 保留篡改/网络中断/安装失败证据；精确源码 Happy、ReconcileFailure、DownloadCrash/重试全部通过 |
 | P8-B5 | COMPLETE | `5ca5f0a` | 固定脱敏 ZIP 结构与边界；认证 daemon 接口；能力受限的原子另存为；canary、清理、UI 与非 MSI Gate 均通过 |
-| P8-B6 | 阻断—AUDIT FAIL | `1f2df47` + `3eccf63` + `bd07bbd` | 保留的八小时 Soak 与精确 `bd07bbd` CI #93 / MSI #32 通过；新审计 AUDIT-008 发现一项 HIGH、一项 MEDIUM；生产签名仍不可用 |
+| P8-B6 | COMPLETE — 内部候选 Gate PASS | `43ac291` + R1 审计/证据 | 保留八小时 Soak、CI #96 / MSI #35、Windows 更新验证及 AUDIT-008R1 PASS；final-main/tag 待完成 |
 
 ## 15. Owner 审批记录
 
@@ -687,3 +687,14 @@ Owner 于 2026-09-07 审阅 AUDIT-008 后，要求修复问题、完成提交并
 同日较早的仅 Commit/Push 授权限制对受治理的阶段冻结操作已被本授权取代。
 公开发布 Release、进入 P9、重启宿主机及修改日常 Profile 仍不在范围内。
 两项发现仍须修复、验证并完成 R1 复审。
+
+## 18. 修复与 R1 验收 — 2026-09-07
+
+[AUDIT-008R1](audits/AUDIT-008R1-local-product-hardening.md) 对精确产品候选
+`43ac29152d3de1fa227937f35ccdd12908bac976` 给出 PASS，关闭 HIGH-001 与 MEDIUM-001。
+原 FAIL 审计及上方较早状态记录保留为历史；B2/B4/B6 内部候选 Gate 重新验收通过。
+[R1 证据](evidence/PHASE-008R1-REMEDIATION.md) 记录精确源码 CI/MSI、实际安装后回读失败
+拒绝假成功，以及下载进程中断后恢复旧版本、重试更新成功。Owner Amendment 008A1
+授权 final-main 门禁通过后的合入、标签与冻结。目前状态为 PASSED，等待 final-main
+CI/MSI/update 与 annotated baseline tag。生产签名材料不再是内部冻结前置条件；
+本记录不授权发布公开 Release 或开始 P9。

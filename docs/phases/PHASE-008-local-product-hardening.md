@@ -1,6 +1,6 @@
 # YORVA Phase 8 — Local Product Hardening MVP
 
-> Status: **APPROVED / IN PROGRESS — AUDIT FAIL; B2/B4/B6 GATES REOPENED**
+> Status: **PASSED — AUDIT-008R1 PASS; FINAL-MAIN / FREEZE PENDING**
 > Phase: P8
 > Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus P7 stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc`
 > Planned branch: phase/p8-local-product-hardening
@@ -421,11 +421,11 @@ After audit PASS and explicit Owner authorization:
 | --- | --- | --- | --- |
 | P8-B0 | COMPLETE | `72ec369` | Bilingual support contract, Owner decisions, directory/retention/signing consistency review passed |
 | P8-B1 | COMPLETE | `fc224a8` | Schema 017; protected/verified/recoverable 016→017; identifier data migration; Go/Rust focused Gate passed |
-| P8-B2 | REOPENED — AUDIT HIGH-001 | `3ee4580` | Historical crash/restart/reboot scenarios passed; daemon availability does not prove successful authoritative readback |
+| P8-B2 | COMPLETE — R1 PASS | `3ee4580` + `ef7eaba` + `43ac291` | Historical reboot/recovery plus live READY/UNKNOWN/READY and installed-candidate failed-readback rejection pass |
 | P8-B3 | COMPLETE | `56df01f` + `412d3c0` | Exact clean-source 0.4.0 MSI; static/negative inspection and disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate passed |
-| P8-B4 | REOPENED — AUDIT HIGH-001 / MEDIUM-001 | `81b4bfa` + `9be7435` + `8d1b162` + `6a75cde` + `7407992` | Historical Happy/Tamper/Interrupted/InstallerFailure scenarios passed; update postcheck and download restart recovery require fixes |
+| P8-B4 | COMPLETE — R1 PASS | `6a75cde` + `ef7eaba` + `43ac291` | Retained tamper/interruption/installer-failure evidence; exact-source Happy, ReconcileFailure and DownloadCrash/retry pass |
 | P8-B5 | COMPLETE | `5ca5f0a` | Fixed sanitized ZIP schema and bounds; authenticated daemon endpoint; capability-scoped atomic Save As; canary/cleanup/UI/non-MSI Gate passed |
-| P8-B6 | BLOCKED — AUDIT FAIL | `1f2df47` + `3eccf63` + `bd07bbd` | Retained eight-hour soak and exact `bd07bbd` CI #93 / MSI #32 passed; fresh AUDIT-008 found one HIGH and one MEDIUM; signing remains unavailable |
+| P8-B6 | COMPLETE — INTERNAL GATE PASS | `43ac291` + R1 audit/evidence | Eight-hour retained soak, exact CI #96 / MSI #35, Windows update qualification and AUDIT-008R1 PASS; final-main/tag remain |
 
 ## 14. Owner approval record
 
@@ -480,3 +480,15 @@ signing material as a P8 prerequisite. See
 The earlier same-day commit/push-only limitation is superseded for the governed phase
 freeze actions. Public Release publication, Phase 9, host reboot and normal-profile
 mutation remain outside scope. Both findings still require fixes, verification and R1.
+
+## 17. Remediation and R1 acceptance — 2026-09-07
+
+[AUDIT-008R1](audits/AUDIT-008R1-local-product-hardening.md) returns PASS for exact product
+candidate `43ac29152d3de1fa227937f35ccdd12908bac976`, closing HIGH-001 and MEDIUM-001.
+The original FAIL audit and earlier status records above remain historical. B2/B4/B6
+are accepted again as the internal candidate. [R1 evidence](evidence/PHASE-008R1-REMEDIATION.md)
+records exact-source CI/MSI, real failed-readback rejection and download-crash/retry success.
+Owner Amendment 008A1 authorizes main integration and freeze after final-main Gates.
+Current state is PASSED, pending final-main CI/MSI/update and annotated baseline tag.
+No production signing material is required for this internal phase freeze; no public
+Release or Phase 9 work is authorized.

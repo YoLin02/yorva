@@ -113,3 +113,14 @@ The first disposable attempt also exposed that a two-second process snapshot cou
 with the one permitted cold-start daemon replacement. The smoke now requires continuous
 single Desktop-owned daemon stability, reports exact process relationships on timeout, and
 after the duplicate-launch probe requires the original daemon PID to remain authoritative.
+
+## R1 acceptance — 2026-09-07
+
+The historical AUDIT-008 FAIL and its source evidence remain unchanged.
+[AUDIT-008R1](../audits/AUDIT-008R1-local-product-hardening.md) now returns **PASS** for
+`43ac29152d3de1fa227937f35ccdd12908bac976`, closing both original findings.
+[Remediation evidence](PHASE-008R1-REMEDIATION.md) includes CI #96 / Windows MSI #35,
+real installed-version/failed-readback rejection and download-process-crash/restart/retry.
+All three new Windows update scenarios pass. The retained eight-hour B6 workload was
+not rerun. The internal candidate is accepted under Owner Amendment 008A1; final-main
+CI/package/update checks and the annotated tag still precede formal freeze.
