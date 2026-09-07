@@ -72,23 +72,33 @@ function Wait-ExactProcessReplacement([string]$executable, [uint32]$previousProc
     throw "Timed out waiting for the exact replacement process for $executable."
 }
 
-function Wait-DaemonReady([int64]$afterUnixMilliseconds, [int]$timeoutSeconds) {
+function Get-DaemonReadyCount {
+    if (-not (Test-Path -LiteralPath $diagnosticLog -PathType Leaf)) {
+        return 0
+    }
+    return @(
+        Get-Content -LiteralPath $diagnosticLog -Tail 500 | ForEach-Object {
+            try { $_ | ConvertFrom-Json } catch { $null }
+        } | Where-Object {
+            $_ -and $_.msg -eq "daemon listening"
+        }
+    ).Count
+}
+
+function Wait-DaemonReady([int]$previousReadyCount, [int]$timeoutSeconds) {
     $deadline = [DateTime]::UtcNow.AddSeconds($timeoutSeconds)
     do {
-        if (Test-Path -LiteralPath $diagnosticLog -PathType Leaf) {
-            $ready = @(Get-Content -LiteralPath $diagnosticLog -Tail 500 | ForEach-Object {
-                try { $_ | ConvertFrom-Json } catch { $null }
-            } | Where-Object {
-                $_ -and $_.msg -eq "daemon listening" -and
-                [DateTimeOffset]::Parse([string]$_.time).ToUnixTimeMilliseconds() -ge $afterUnixMilliseconds
-            })
-            if ($ready.Count -gt 0) {
-                return
-            }
+        if ((Get-DaemonReadyCount) -gt $previousReadyCount) {
+            return
         }
         Start-Sleep -Milliseconds 250
     } while ([DateTime]::UtcNow -lt $deadline)
-    throw "Timed out waiting for the authenticated daemon readiness record."
+    $readyCount = Get-DaemonReadyCount
+    $logExists = Test-Path -LiteralPath $diagnosticLog -PathType Leaf
+    $logBytes = if ($logExists) { (Get-Item -LiteralPath $diagnosticLog).Length } else { 0 }
+    $daemonCount = @(Get-ExactProcesses $daemon).Count
+    $desktopCount = @(Get-ExactProcesses $desktop).Count
+    throw "Timed out waiting for a new authenticated daemon readiness record (previous=$previousReadyCount current=$readyCount logExists=$logExists logBytes=$logBytes daemonProcesses=$daemonCount desktopProcesses=$desktopCount)."
 }
 
 function Start-SmokeDesktop {
@@ -115,19 +125,19 @@ try {
         throw "The exact candidate is already running; refusing to mix smoke ownership."
     }
 
-    $firstStartBoundary = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $firstReadyCount = Get-DaemonReadyCount
     $firstDesktop = Start-SmokeDesktop
     [void]$ownedDesktopIds.Add([uint32]$firstDesktop.Id)
     [void](Wait-ExactProcessCount $desktop 1 10)
     [void](Wait-ExactProcessCount $daemon 1 50)
-    Wait-DaemonReady $firstStartBoundary 50
+    Wait-DaemonReady $firstReadyCount 50
     $firstDaemon = (Wait-ExactProcessCount $daemon 1 10)[0]
     [void]$ownedDaemonIds.Add([uint32]$firstDaemon.ProcessId)
 
-    $restartBoundary = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $restartReadyCount = Get-DaemonReadyCount
     Stop-Process -Id $firstDaemon.ProcessId -Force
     $restartedDaemon = Wait-ExactProcessReplacement $daemon $firstDaemon.ProcessId 50
-    Wait-DaemonReady $restartBoundary 50
+    Wait-DaemonReady $restartReadyCount 50
     $restartedDaemon = (Wait-ExactProcessCount $daemon 1 10)[0]
     if ($restartedDaemon.ProcessId -eq $firstDaemon.ProcessId) {
         throw "The daemon identity did not change after the forced crash."
@@ -147,11 +157,11 @@ try {
     [void](Wait-ExactProcessCount $desktop 0 10)
     [void](Wait-ExactProcessCount $daemon 0 10)
 
-    $reopenBoundary = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $reopenReadyCount = Get-DaemonReadyCount
     $reopenedDesktop = Start-SmokeDesktop
     [void]$ownedDesktopIds.Add([uint32]$reopenedDesktop.Id)
     [void](Wait-ExactProcessCount $daemon 1 50)
-    Wait-DaemonReady $reopenBoundary 50
+    Wait-DaemonReady $reopenReadyCount 50
     $reopenedDaemon = (Wait-ExactProcessCount $daemon 1 10)[0]
     [void]$ownedDaemonIds.Add([uint32]$reopenedDaemon.ProcessId)
     [void](Wait-ExactProcessCount $desktop 1 10)
