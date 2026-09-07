@@ -492,3 +492,18 @@ bootstrap handshake and authoritative inventory readback; absent isolated daemon
 roots; and a fresh disposable Windows profile with exact-candidate process ownership for
 native Desktop recovery. These controls do not alter the existing boundary
 that a fully compromised administrator/root session is out of scope.
+
+### Phase 8 audit remediation — 2026-09-07
+
+Updater postcheck uses authenticated `GET /api/v1/node/recovery`, with proxy forwarding
+and redirects disabled and a bounded response. The daemon performs current authoritative
+readback; native code requires READY, no reported error and an exact daemon/Desktop
+version match. A valid bootstrap handshake alongside UNKNOWN inventory cannot be reported
+as update success. Runtime failure retains the queryable management/diagnostics surface.
+
+Interrupted download recovery uses the download mutex to establish that no worker still
+owns the state. Only fixed regular partial/package files under the validated updater root
+may be cleaned; the failed record and verified-metadata candidate are retained for retry.
+Owner Amendment 008A1 removes production-signing availability from the P8 internal freeze
+prerequisites. It does not disable package/metadata verification or authorize an unsigned
+public release; production signing remains a separate public-release requirement.

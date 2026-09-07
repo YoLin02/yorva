@@ -24,7 +24,7 @@ try {
     $output = & (Join-Path $PayloadRoot "windows-yorva-update-smoke.ps1") `
         -BaselineMsi (Join-Path $PayloadRoot "YORVA_0.3.2_x64_en-US.msi") `
         -HermesFixturePath (Join-Path $PayloadRoot "hermes.exe") `
-        -Scenario $Scenario `
+        -Scenario $Scenario -DisposableWindowsProfile `
         -EvidencePath $evidence 2>&1
     $output | ForEach-Object { Write-Serial "YORVA_B4_OUTPUT $_" }
     if (-not (Test-Path -LiteralPath $evidence -PathType Leaf)) {

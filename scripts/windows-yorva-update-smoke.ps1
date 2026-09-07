@@ -3,8 +3,9 @@ param(
     [string]$BaselineMsi,
     [Parameter(Mandatory = $true)]
     [string]$HermesFixturePath,
-    [ValidateSet("Happy", "Tamper", "Interrupted", "InstallerFailure")]
+    [ValidateSet("Happy", "Tamper", "Interrupted", "InstallerFailure", "ReconcileFailure", "DownloadCrash")]
     [string]$Scenario,
+    [switch]$DisposableWindowsProfile,
     [string]$EvidencePath = (Join-Path $env:TEMP "yorva-update-smoke.json")
 )
 
@@ -17,6 +18,10 @@ $daemonPath = Join-Path $installRoot "yorvad.exe"
 $appDataRoot = Join-Path $env:APPDATA "com.yorva.desktop"
 $updateState = Join-Path $appDataRoot "update-staging\state.json"
 $hermesRoot = Join-Path $env:LOCALAPPDATA "hermes"
+if (-not $DisposableWindowsProfile) { throw "update smoke requires an explicitly disposable Windows profile" }
+foreach ($root in @($appDataRoot, (Join-Path $env:APPDATA "com.yorva.desktop.dev"), $hermesRoot, $installRoot)) {
+    if (Test-Path -LiteralPath $root) { throw "disposable update smoke refuses existing product or Runtime data" }
+}
 $result = [ordered]@{
     schemaVersion = 1
     scenario = $Scenario
@@ -70,6 +75,28 @@ function Wait-UpdateTerminal([int]$timeoutSeconds) {
     throw "update did not reach a terminal state"
 }
 
+function Wait-Downloading([int]$timeoutSeconds) {
+    $deadline = [DateTime]::UtcNow.AddSeconds($timeoutSeconds)
+    $partial = Join-Path $appDataRoot "update-staging\candidate.partial"
+    do {
+        if ((Test-Path -LiteralPath $updateState -PathType Leaf) -and (Test-Path -LiteralPath $partial -PathType Leaf)) {
+            $state = Get-Content -LiteralPath $updateState -Raw | ConvertFrom-Json
+            if ($state.phase -eq "DOWNLOADING" -and (Get-Item -LiteralPath $partial).Length -gt 0) { return }
+        }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "download did not expose an in-progress partial package"
+}
+
+function Stop-ExactDesktop {
+    foreach ($owned in @(Get-ExactProcesses $desktopPath)) { Stop-Process -Id $owned.ProcessId -Force -ErrorAction Stop }
+    $deadline = [DateTime]::UtcNow.AddSeconds(15)
+    do {
+        if (@(Get-ExactProcesses $desktopPath).Count -eq 0 -and @(Get-ExactProcesses $daemonPath).Count -eq 0) { return }
+        Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "owned Desktop/daemon processes did not stop"
+}
 function Wait-Reconcile([int]$timeoutSeconds) {
     $logPath = Join-Path $appDataRoot "logs\install.ndjson"
     $deadline = [DateTime]::UtcNow.AddSeconds($timeoutSeconds)
@@ -102,12 +129,33 @@ Copy-Item -LiteralPath $hermesFixture -Destination (Join-Path $hermesRoot "bin\h
 [System.IO.File]::WriteAllText((Join-Path $hermesRoot "profiles\sentinel\profile.txt"), "hermes-profile", [Text.UTF8Encoding]::new($false))
 [System.IO.File]::WriteAllText((Join-Path $appDataRoot "update-sentinel.txt"), "yorva-data", [Text.UTF8Encoding]::new($false))
 
+if ($Scenario -eq "ReconcileFailure") {
+    [IO.Directory]::CreateDirectory((Join-Path $hermesRoot "profiles\invalid profile")) | Out-Null
+}
 Start-Process -FilePath $desktopPath -ArgumentList @('--hidden', '--qualify-fixed-update') -WindowStyle Hidden | Out-Null
+if ($Scenario -eq "DownloadCrash") {
+    Wait-Downloading 180
+    Stop-ExactDesktop
+    $interrupted = Get-Content -LiteralPath $updateState -Raw | ConvertFrom-Json
+    Assert-Condition ($interrupted.phase -eq "DOWNLOADING") "process exit did not preserve the interrupted download state"
+    Add-Pass "download-process-interrupted"
+    Start-Process -FilePath $desktopPath -ArgumentList @('--hidden') -WindowStyle Hidden | Out-Null
+    $recovered = Wait-UpdateTerminal 60
+    Assert-Condition ($recovered.phase -eq "FAILED" -and $recovered.errorCode -eq "UPDATE_DOWNLOAD_FAILED") "abandoned download did not become a retryable failure"
+    Assert-Condition ($null -ne $recovered.metadata) "download recovery lost its candidate"
+    Assert-Condition (-not (Test-Path -LiteralPath (Join-Path $appDataRoot "update-staging\candidate.partial"))) "download recovery retained a partial package"
+    Assert-Condition ((Get-YorvaVersion) -eq "0.3.2") "interrupted download replaced the installed product"
+    Wait-Reconcile 120
+    Add-Pass "download-restart-old-version-usable"
+    Stop-ExactDesktop
+    Start-Process -FilePath $desktopPath -ArgumentList @('--hidden', '--qualify-fixed-update') -WindowStyle Hidden | Out-Null
+    Wait-Downloading 180
+}
 $terminal = Wait-UpdateTerminal 360
 Assert-Condition ((Get-Content -LiteralPath (Join-Path $appDataRoot "update-sentinel.txt") -Raw) -eq "yorva-data") "YORVA data sentinel changed"
 Assert-Condition ((Get-Content -LiteralPath (Join-Path $hermesRoot "profiles\sentinel\profile.txt") -Raw) -eq "hermes-profile") "Hermes data sentinel changed"
 
-if ($Scenario -eq "Happy") {
+if ($Scenario -in @("Happy", "DownloadCrash")) {
     Assert-Condition ($terminal.phase -eq "SUCCEEDED") "happy update ended in $($terminal.phase)"
     Assert-Condition ([string]::IsNullOrEmpty([string]$terminal.errorCode)) "happy update retained an error"
     Assert-Condition ((Get-YorvaVersion) -eq "0.4.0") "candidate version was not installed"
@@ -117,6 +165,14 @@ if ($Scenario -eq "Happy") {
     Add-Pass "older-to-candidate-update"
     Add-Pass "installed-version-readback"
     Add-Pass "runtime-instance-authoritative-readback"
+    if ($Scenario -eq "DownloadCrash") { Add-Pass "download-retry-verified-update" }
+} elseif ($Scenario -eq "ReconcileFailure") {
+    Assert-Condition ($terminal.phase -eq "FAILED" -and $terminal.errorCode -eq "UPDATE_POSTCHECK_FAILED") "failed authoritative readback was reported as update success"
+    Assert-Condition ((Get-YorvaVersion) -eq "0.4.0") "postcheck failure did not test the installed candidate"
+    Assert-Condition (@(Get-ExactProcesses $desktopPath).Count -gt 0) "candidate Desktop is not queryable"
+    Assert-Condition (@(Get-ExactProcesses $daemonPath).Count -gt 0) "candidate daemon is not queryable"
+    Add-Pass "matching-version-failed-readback-rejected"
+    Add-Pass "recovery-failure-management-remains-available"
 } else {
     $expectedError = if ($Scenario -eq "InstallerFailure") { "UPDATE_INSTALL_FAILED" } elseif ($Scenario -eq "Tamper") { "UPDATE_INTEGRITY_FAILED" } else { "UPDATE_DOWNLOAD_FAILED" }
     Assert-Condition ($terminal.phase -eq "FAILED") "$Scenario did not fail closed"

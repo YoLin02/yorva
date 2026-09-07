@@ -60,8 +60,12 @@ underlying disk-space or permission problem is corrected.
 
 ## 5. Interrupted update
 
-- Reopen the installed YORVA version. The updater uses only its fixed state and staging
-  files and performs a post-install version/reconciliation check.
+- Reopen the installed YORVA version. If a download was interrupted by process exit,
+  it becomes a retryable download failure and keeps the candidate; use Download and
+  verify again. Only updater-owned partial/package staging files are cleaned.
+- After installation, the updater checks the running daemon version and fresh Runtime/
+  Instance recovery. A usable daemon with failed readback reports UPDATE_POSTCHECK_FAILED;
+  use the management/diagnostic pages to investigate rather than assuming the update passed.
 - Never execute a `.partial` file or an installer copied from update staging.
 - If YORVA reports metadata, integrity, signature, installer, or postcheck failure, retain
   the stable error code and diagnostic bundle. Retry only through the YORVA update page.

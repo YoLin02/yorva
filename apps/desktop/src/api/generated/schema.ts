@@ -40,6 +40,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/node/recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check live local recovery postconditions
+         * @description Available after startup migration and journal recovery. Performs bounded authoritative Runtime and Instance readback; daemon connectivity alone is not recovery success. A fresh Node with no accepted Runtime may be READY without an installed Runtime.
+         */
+        get: operations["getNodeRecovery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** Validate CORS access for the recovery endpoint */
+        options: operations["optionsNodeRecovery"];
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/diagnostics/bundle": {
         parameters: {
             query?: never;
@@ -1398,6 +1419,13 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        NodeRecovery: {
+            /** @enum {string} */
+            state: "READY" | "RECOVERY_REQUIRED";
+            nodeVersion: string;
+            /** @description Stable Runtime/Instance failure code; null on successful recovery. */
+            errorCode: string | null;
+        };
         RuntimeDiscovery: {
             /** @enum {string} */
             runtimeKind: "hermes";
@@ -2043,6 +2071,52 @@ export interface operations {
         };
     };
     optionsNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["PreflightAccepted"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getNodeRecovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current recovery state and running daemon version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodeRecovery"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            405: components["responses"]["MethodNotAllowed"];
+            /** @description The bounded recovery check could not complete (NODE_RECOVERY_FAILED). */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    optionsNodeRecovery: {
         parameters: {
             query?: never;
             header?: never;

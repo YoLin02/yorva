@@ -95,3 +95,10 @@ P8-B1 已实现并验证下述一次性迁移，正式 identifier `com.yorva.des
 | 开发构建 | 可用于本地开发，不构成安装、迁移或升级证据。 |
 | 内部候选 | B0–B6 功能和测试通过，但缺少正式 Windows 签名材料。 |
 | 公开发布就绪 | B0–B6、独立审计、精确候选 CI、真实 MSI 生命周期、正式签名和 Owner Gate 全部通过。 |
+
+## 8. 阶段冻结与公开发布（Owner Amendment 008A1）
+
+Owner 于 2026-09-07 明确移除“准备或生成生产签名材料”这一 P8 内部阶段冻结前置条件。
+其余技术、审计和 final-main 门禁通过后，P8 可以内部候选身份冻结。公开发布分类及其
+签名/来源/完整性要求保持不变；阶段冻结不表示公开发布就绪。修订见
+`phases/amendments/AMENDMENT-008A1-internal-freeze-signing-boundary.md`。

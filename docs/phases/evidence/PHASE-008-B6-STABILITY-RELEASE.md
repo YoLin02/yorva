@@ -358,3 +358,13 @@ all mandatory P8 behavior passes. The audit preserves the first pass without pro
 edits, following AUDIT_STANDARD section 21. Fixes and an affected-dimension R1 audit are
 required before renewed acceptance. Production signing remains independently unavailable,
 and no public readiness, merge, tag, freeze or next-phase authority is implied.
+
+## Owner-authorized remediation and internal freeze — 2026-09-07
+
+The Owner accepted remediation of AUDIT-008 and authorized commit/push and governed P8
+baseline freeze. [Amendment 008A1](../amendments/AMENDMENT-008A1-internal-freeze-signing-boundary.md)
+removes production signing material generation/availability from that internal freeze
+Gate, while retaining every existing metadata/package verification control and public
+signing requirement. The earlier same-day statement that merge/tag/freeze was unauthorized
+is historical. Technical fixes and R1 verification are in progress; no new PASS is claimed
+by this authorization record alone.

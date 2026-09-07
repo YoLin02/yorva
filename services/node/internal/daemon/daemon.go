@@ -276,10 +276,14 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 		if err != nil {
 			return fmt.Errorf("reconcile startup Instance inventory: %w", err)
 		}
-		logger.Info("startup Instance inventory reconciled",
-			"instanceCount", len(listed.Instances),
-			"freshness", listed.Freshness,
-		)
+		if listed.Freshness != "FRESH" || listed.ErrorCode != "" {
+			logger.Warn("startup Instance inventory requires recovery", "errorCode", listed.ErrorCode)
+		} else {
+			logger.Info("startup Instance inventory reconciled",
+				"instanceCount", len(listed.Instances),
+				"freshness", listed.Freshness,
+			)
+		}
 	}
 	select {
 	case parentErr := <-parentDone:

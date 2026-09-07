@@ -54,8 +54,10 @@
 
 ## 5. 更新中断
 
-- 重新打开已安装的 YORVA。更新器只使用固定状态和 staging 文件，并在安装后校验
-  版本和 Runtime reconcile 结果。
+- 重新打开已安装的 YORVA。若下载因进程退出而中断，会转为可重试的下载失败并保留候选；
+  点击“下载并验证”重新下载。恢复只清理更新器固定的 partial/package 文件。
+- 安装后会校验实际 daemon 版本及实时 Runtime/Instance 回读。daemon 可连接但回读失败
+  会报告 UPDATE_POSTCHECK_FAILED；可从管理与诊断页面调查原因，不能视为更新成功。
 - 不要执行 `.partial` 文件或从 update staging 手工复制出的安装包。
 - 若报告元数据、完整性、签名、安装器或 postcheck 失败，请保留稳定错误码和诊断包，
   只从 YORVA 更新页面重试。

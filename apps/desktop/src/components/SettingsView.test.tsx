@@ -124,6 +124,31 @@ describe("SettingsView", () => {
     await waitFor(() => expect(updateMocks.install).toHaveBeenCalledTimes(1));
   });
 
+  it("allows retry after startup recovers an interrupted download", async () => {
+    const recovered = {
+      installedVersion: "0.3.2",
+      phase: "FAILED",
+      verificationKeyConfigured: true,
+      metadataSource: "https://github.com/YoLin02/yorva/releases/latest/download/yorva-update.json",
+      candidate: {
+        version: "0.4.0", releaseNotes: "Retry after process interruption.",
+        publishedAtUtc: "2026-09-07T00:00:00.000Z", sizeBytes: 1048576,
+        authenticodeRequired: false,
+      },
+      errorCode: "UPDATE_DOWNLOAD_FAILED",
+    } as const;
+    updateMocks.status.mockResolvedValue(recovered);
+    updateMocks.download.mockResolvedValue({ ...recovered, phase: "READY_TO_INSTALL", errorCode: null });
+    render(<SettingsView copy={messages["en-US"]} locale="en-US" onLocaleChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("tab", { name: "About" }));
+    fireEvent.click(await screen.findByRole("button", { name: /View updates/ }));
+    const retry = await screen.findByRole("button", { name: /Download and verify/ });
+    expect(retry).toBeEnabled();
+    fireEvent.click(retry);
+    expect(await screen.findByRole("button", { name: /Install and restart/ })).toBeEnabled();
+    expect(updateMocks.download).toHaveBeenCalledTimes(1);
+    expect(updateMocks.cancel).not.toHaveBeenCalled();
+  });
   it("opens diagnostics separately and reports only a completed export", async () => {
     diagnosticMocks.export.mockResolvedValueOnce(null).mockResolvedValueOnce({
       fileName: "YORVA-diagnostics-1.zip",

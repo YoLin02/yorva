@@ -424,7 +424,7 @@ removed-Instance record classification/cleanup without moving the frozen P7 tag 
 reopening deferred P7 capabilities. Exact revision CI run `33365096577`, final-main CI
 run `33366271630` attempt 2 and Windows MSI run `33366271629` passed. The Owner approved
 the P8 Spec and B0–B6 execution on 2026-09-03. Production Windows signing material is
-not yet available, so public release remains blocked. Exact candidate `bd07bbd` passed
+not yet available, so public release remains blocked. Owner Amendment 008A1 removes obtaining/generating that material from the internal P8 freeze prerequisites. Exact candidate `bd07bbd` passed
 CI #93 and Windows MSI #32 on 2026-09-07. The fresh single-agent
 [AUDIT-008](phases/audits/AUDIT-008-local-product-hardening.md) nevertheless returns FAIL:
 update success lacks authoritative readback (HIGH-001), and interrupted download state

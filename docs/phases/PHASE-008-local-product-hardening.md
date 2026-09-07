@@ -320,7 +320,7 @@ machine-level evidence.
 Observe crashes, deadlocks, orphan processes, goroutines/handles/memory/CPU, log/Operation/
 staging growth, stale state and secret leakage.
 
-Release Gate includes dependency/security review, exact-candidate CI/race, signed MSI,
+The internal freeze Gate includes dependency/security review, exact-candidate CI/race, MSI with its actual signature state recorded,
 installer/update/migration/diagnostic smoke, the existing disposable reboot smoke, soak
 summary, focused independent
 audit and Owner decision.
@@ -329,8 +329,10 @@ The B6 internal-candidate Gate may commit after all P8 behavior/readback/failure
 checks, the four-hour minimum soak, the complete local Gate, Go race, dependency audit,
 support/recovery documentation, and closure of all Critical/High findings pass. Missing
 remote or signing evidence remains explicit and cannot be recorded as PASS. Exact-commit
-CI, the Windows MSI workflow, production signing, independent audit, Owner authorization,
-merge, final-main CI, tag and freeze remain separate public-release/phase-exit Gates.
+CI, the Windows MSI workflow, independent audit, Owner authorization, merge, final-main
+CI, tag and freeze remain phase-exit Gates. Owner Amendment 008A1 removes production
+signing availability from the internal P8 freeze prerequisites; it remains a separate
+public-release requirement.
 
 ## 8. Dependency order
 
@@ -397,10 +399,13 @@ Stop the affected Batch if:
 The B6 internal candidate may be committed when its local Gate above passes. That commit
 does not change the phase to COMPLETE/FROZEN and does not claim public-release readiness.
 
-P8 enters its independent public-release audit and phase-exit Gate only after support
-policy, real installation, schema-016 migration, crash/reboot recovery, installer
-lifecycle, one real YORVA update, sanitized diagnostics, three-Instance soak, a
-production-signed candidate, and exact-candidate CI/Windows evidence pass.
+Under [Owner Amendment 008A1](amendments/AMENDMENT-008A1-internal-freeze-signing-boundary.md),
+P8 enters its internal-candidate audit and phase-exit Gate after support policy, real
+installation, schema-016 migration, crash/reboot recovery, installer lifecycle, one real
+YORVA update, sanitized diagnostics, three-Instance soak and exact-candidate CI/Windows
+evidence pass. Obtaining/generating production signing material is outside this P8
+freeze Gate. Existing update integrity and signature-policy checks remain mandatory.
+Production signing/provenance qualification is required separately before public release.
 
 After audit PASS and explicit Owner authorization:
 
@@ -465,3 +470,13 @@ This first audit pass changes no product code or acceptance requirement. Accepte
 and affected-dimension re-audit must precede renewed acceptance. Production signing and
 the public-release qualification/Owner/final-main/tag/freeze Gates remain separate and
 unfulfilled. The phase remains IN PROGRESS, with no Phase 9 authority.
+
+## 16. Owner Amendment 008A1 — internal freeze authorization
+
+On 2026-09-07, after reviewing AUDIT-008, the Owner authorized fixing the findings,
+committing and freezing P8, and explicitly removed obtaining/generating production
+signing material as a P8 prerequisite. See
+[AMENDMENT-008A1](amendments/AMENDMENT-008A1-internal-freeze-signing-boundary.md).
+The earlier same-day commit/push-only limitation is superseded for the governed phase
+freeze actions. Public Release publication, Phase 9, host reboot and normal-profile
+mutation remain outside scope. Both findings still require fixes, verification and R1.

@@ -254,19 +254,47 @@ impl UpdatePaths {
 }
 
 #[tauri::command]
-pub fn yorva_update_status(
-    app: AppHandle,
-    manager: State<'_, UpdateManager>,
-    daemon: State<'_, DaemonLifecycle>,
+pub async fn yorva_update_status(app: AppHandle) -> Result<UpdateStatus, UpdateCommandError> {
+    run_blocking(move || {
+        let paths = UpdatePaths::from_app(&app)?;
+        read_update_status(
+            &paths,
+            &app.state::<UpdateManager>(),
+            &app.state::<DaemonLifecycle>(),
+        )
+    })
+    .await
+}
+
+fn read_update_status(
+    paths: &UpdatePaths,
+    manager: &UpdateManager,
+    daemon: &DaemonLifecycle,
 ) -> Result<UpdateStatus, UpdateCommandError> {
-    let paths = UpdatePaths::from_app(&app)?;
     let _guard = manager
         .gate
         .lock()
         .map_err(|_| UpdateCommandError::state())?;
-    let mut record = load_record(&paths)?;
-    reconcile_postcheck(&paths, &mut record, &daemon)?;
+    let mut record = load_record(paths)?;
+    recover_abandoned_download(paths, &mut record)?;
+    reconcile_postcheck(paths, &mut record, daemon)?;
     Ok(status_from(&record))
+}
+
+// Every caller holds the same gate as the download worker for this whole transition.
+// Acquiring it proves that no live download can still own a DOWNLOADING record.
+fn recover_abandoned_download(
+    paths: &UpdatePaths,
+    record: &mut UpdateRecord,
+) -> Result<(), UpdateCommandError> {
+    if record.phase == UpdatePhase::Downloading {
+        record.phase = UpdatePhase::Failed;
+        record.error_code = Some("UPDATE_DOWNLOAD_FAILED".to_owned());
+        persist_record(paths, record)?;
+        remove_existing_regular_file(&paths.partial)?;
+        remove_existing_regular_file(&paths.package)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -402,6 +430,7 @@ pub fn resume_postcheck(app: AppHandle) {
                     .lock()
                     .map_err(|_| UpdateCommandError::state())?;
                 let mut record = load_record(&paths)?;
+                recover_abandoned_download(&paths, &mut record)?;
                 if record.phase != UpdatePhase::Installing && record.phase != UpdatePhase::Postcheck
                 {
                     return Ok(true);
@@ -1033,9 +1062,14 @@ fn reconcile_postcheck(
         return Ok(());
     }
     match daemon.session() {
-        Ok(_) => {
-            record.phase = UpdatePhase::Succeeded;
-            record.error_code = None;
+        Ok(session) => {
+            if verify_daemon_recovery(session.base_url(), session.token()).is_ok() {
+                record.phase = UpdatePhase::Succeeded;
+                record.error_code = None;
+            } else {
+                record.phase = UpdatePhase::Failed;
+                record.error_code = Some("UPDATE_POSTCHECK_FAILED".to_owned());
+            }
             persist_record(paths, record)?;
             cleanup_staging(paths);
         }
@@ -1049,6 +1083,65 @@ fn reconcile_postcheck(
             persist_record(paths, record)?;
             cleanup_staging(paths);
         }
+    }
+    Ok(())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+enum NodeRecoveryState {
+    Ready,
+    RecoveryRequired,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NodeRecoveryResponse {
+    state: NodeRecoveryState,
+    node_version: String,
+    error_code: Option<String>,
+}
+
+fn verify_daemon_recovery(base_url: &str, token: &str) -> Result<(), UpdateCommandError> {
+    const MAX_RECOVERY_BYTES: u64 = 16 * 1024;
+    let failed = || {
+        UpdateCommandError::new(
+            "UPDATE_POSTCHECK_FAILED",
+            "YORVA could not verify the updated daemon and Runtime recovery.",
+            true,
+        )
+    };
+    let response = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(40))
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| failed())?
+        .get(format!("{base_url}/api/v1/node/recovery"))
+        .bearer_auth(token)
+        .send()
+        .map_err(|_| failed())?;
+    if response.status() != reqwest::StatusCode::OK
+        || response
+            .content_length()
+            .is_some_and(|size| size > MAX_RECOVERY_BYTES)
+    {
+        return Err(failed());
+    }
+    let mut bytes = Vec::new();
+    response
+        .take(MAX_RECOVERY_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| failed())?;
+    if bytes.len() as u64 > MAX_RECOVERY_BYTES {
+        return Err(failed());
+    }
+    let recovery: NodeRecoveryResponse = serde_json::from_slice(&bytes).map_err(|_| failed())?;
+    if !matches!(recovery.state, NodeRecoveryState::Ready)
+        || recovery.node_version != env!("CARGO_PKG_VERSION")
+        || recovery.error_code.is_some()
+    {
+        return Err(failed());
     }
     Ok(())
 }
@@ -1529,5 +1622,230 @@ mod tests {
             Some("UPDATE_POSTCHECK_FAILED")
         );
         fs::remove_dir_all(root).unwrap();
+    }
+
+    fn recovery_server(body: String, status: &str) -> (String, std::thread::JoinHandle<()>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let status = status.to_owned();
+        let worker = std::thread::spawn(move || {
+            let (mut connection, _) = listener.accept().unwrap();
+            connection
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 1024];
+            while !request.windows(4).any(|part| part == b"\r\n\r\n") {
+                let count = connection.read(&mut buffer).unwrap();
+                assert!(count > 0 && request.len() < 8192);
+                request.extend_from_slice(&buffer[..count]);
+            }
+            let request = String::from_utf8(request).unwrap();
+            assert!(request.starts_with("GET /api/v1/node/recovery HTTP/1.1"));
+            assert!(request.contains("authorization: Bearer recovery-test-token"));
+            write!(
+                connection,
+                "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+        });
+        (format!("http://{address}"), worker)
+    }
+
+    #[test]
+    fn postcheck_requires_live_recovery_and_matching_daemon_version() {
+        for (index, (state, version, error_code, expected_phase)) in [
+            (
+                "READY",
+                env!("CARGO_PKG_VERSION"),
+                None,
+                UpdatePhase::Succeeded,
+            ),
+            (
+                "RECOVERY_REQUIRED",
+                env!("CARGO_PKG_VERSION"),
+                Some("INSTANCE_OUTPUT_UNRECOGNIZED"),
+                UpdatePhase::Failed,
+            ),
+            ("READY", "0.3.2", None, UpdatePhase::Failed),
+            (
+                "READY",
+                env!("CARGO_PKG_VERSION"),
+                Some("INSTANCE_QUERY_FAILED"),
+                UpdatePhase::Failed,
+            ),
+            (
+                "UNKNOWN",
+                env!("CARGO_PKG_VERSION"),
+                None,
+                UpdatePhase::Failed,
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let root = std::env::temp_dir().join(format!(
+                "yorva-recovery-postcheck-{}-{index}",
+                unix_millis()
+            ));
+            let paths = UpdatePaths::at(root.clone()).unwrap();
+            let (mut metadata, _) = signed_metadata();
+            metadata.version = env!("CARGO_PKG_VERSION").to_owned();
+            let mut record = UpdateRecord {
+                phase: UpdatePhase::Installing,
+                metadata: Some(metadata),
+                started_at_unix_ms: Some(unix_millis()),
+                ..UpdateRecord::default()
+            };
+            persist_record(&paths, &record).unwrap();
+            fs::write(&paths.installer_result, b"0").unwrap();
+            let body = serde_json::json!({"state": state, "nodeVersion": version, "errorCode": error_code}).to_string();
+            let (address, worker) = recovery_server(body, "200 OK");
+            let daemon = DaemonLifecycle::new();
+            daemon.set_test_session(&address, "recovery-test-token");
+            reconcile_postcheck(&paths, &mut record, &daemon).unwrap();
+            worker.join().unwrap();
+            assert_eq!(record.phase, expected_phase, "{state} / {version}");
+            assert_eq!(load_record(&paths).unwrap().phase, expected_phase);
+            if expected_phase == UpdatePhase::Failed {
+                assert_eq!(
+                    record.error_code.as_deref(),
+                    Some("UPDATE_POSTCHECK_FAILED")
+                );
+            }
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn recovery_request_rejects_redirects_and_oversized_or_invalid_responses() {
+        for (body, status) in [
+            (
+                String::new(),
+                "302 Found\r\nLocation: http://127.0.0.1:1/capture",
+            ),
+            ("x".repeat(16 * 1024 + 1), "200 OK"),
+            ("not JSON".to_owned(), "200 OK"),
+            (
+                "private-database-path".to_owned(),
+                "503 Service Unavailable",
+            ),
+        ] {
+            let (address, worker) = recovery_server(body, status);
+            let error = verify_daemon_recovery(&address, "recovery-test-token").unwrap_err();
+            assert_eq!(error.code, "UPDATE_POSTCHECK_FAILED");
+            assert!(!error.message.contains("private-database"));
+            worker.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn recreated_manager_recovers_abandoned_download_and_preserves_candidate() {
+        let root = std::env::temp_dir().join(format!("yorva-abandoned-download-{}", unix_millis()));
+        let paths = UpdatePaths::at(root.clone()).unwrap();
+        let (metadata, _) = signed_metadata();
+        persist_record(
+            &paths,
+            &UpdateRecord {
+                phase: UpdatePhase::Downloading,
+                metadata: Some(metadata.clone()),
+                ..UpdateRecord::default()
+            },
+        )
+        .unwrap();
+        fs::write(&paths.partial, b"partial").unwrap();
+        fs::write(&paths.package, b"not-published").unwrap();
+        fs::write(paths.root.join("unrelated.txt"), b"retain").unwrap();
+        let manager = UpdateManager::new();
+        let status = read_update_status(&paths, &manager, &DaemonLifecycle::new()).unwrap();
+        assert_eq!(status.phase, UpdatePhase::Failed);
+        assert_eq!(status.error_code.as_deref(), Some("UPDATE_DOWNLOAD_FAILED"));
+        assert_eq!(status.candidate.unwrap().version, metadata.version);
+        assert!(!paths.partial.exists());
+        assert!(!paths.package.exists());
+        assert_eq!(
+            fs::read(paths.root.join("unrelated.txt")).unwrap(),
+            b"retain"
+        );
+        assert_eq!(load_record(&paths).unwrap().phase, UpdatePhase::Failed);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn status_cannot_recover_a_download_while_its_worker_holds_the_gate() {
+        use std::sync::mpsc;
+        let root = std::env::temp_dir().join(format!("yorva-active-download-{}", unix_millis()));
+        let paths = UpdatePaths::at(root.clone()).unwrap();
+        let manager = UpdateManager::new();
+        let guard = manager.gate.lock().unwrap();
+        let mut record = UpdateRecord {
+            phase: UpdatePhase::Downloading,
+            ..UpdateRecord::default()
+        };
+        persist_record(&paths, &record).unwrap();
+        fs::write(&paths.partial, b"active").unwrap();
+        let reader_manager = manager.clone();
+        let reader_root = root.clone();
+        let (started_tx, started_rx) = mpsc::channel();
+        let (result_tx, result_rx) = mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            let paths = UpdatePaths::at(reader_root).unwrap();
+            started_tx.send(()).unwrap();
+            result_tx
+                .send(
+                    read_update_status(&paths, &reader_manager, &DaemonLifecycle::new())
+                        .unwrap()
+                        .phase,
+                )
+                .unwrap();
+        });
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(result_rx.recv_timeout(Duration::from_millis(100)).is_err());
+        assert_eq!(fs::read(&paths.partial).unwrap(), b"active");
+        assert_eq!(load_record(&paths).unwrap().phase, UpdatePhase::Downloading);
+        record.phase = UpdatePhase::ReadyToInstall;
+        persist_record(&paths, &record).unwrap();
+        drop(guard);
+        assert_eq!(
+            result_rx.recv_timeout(Duration::from_secs(5)).unwrap(),
+            UpdatePhase::ReadyToInstall
+        );
+        reader.join().unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn recovery_redirect_cannot_forward_the_daemon_credential() {
+        use std::{net::TcpListener, sync::mpsc, thread, time::Instant};
+        let target = TcpListener::bind("127.0.0.1:0").unwrap();
+        let target_address = target.local_addr().unwrap();
+        target.set_nonblocking(true).unwrap();
+        let (tx, rx) = mpsc::channel();
+        let observer = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(2);
+            loop {
+                match target.accept() {
+                    Ok(_) => {
+                        tx.send(true).unwrap();
+                        return;
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        if Instant::now() >= deadline {
+                            tx.send(false).unwrap();
+                            return;
+                        }
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(error) => panic!("redirect observer failed: {error}"),
+                }
+            }
+        });
+        let status = format!("302 Found\r\nLocation: http://{target_address}/capture");
+        let (address, server) = recovery_server(String::new(), &status);
+        assert!(verify_daemon_recovery(&address, "recovery-test-token").is_err());
+        server.join().unwrap();
+        assert!(!rx.recv_timeout(Duration::from_secs(3)).unwrap());
+        observer.join().unwrap();
     }
 }

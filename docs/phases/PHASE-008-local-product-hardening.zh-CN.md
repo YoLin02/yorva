@@ -440,7 +440,7 @@ reboot/login 证据；B6 通过两段相互补充的 4 小时隔离试验反复�
 - security review 与 threat-model refresh；
 - dependency audit；
 - 精确候选 CI 和 Go race；
-- signed MSI 构建与检查；
+- MSI 构建与检查，真实记录签名状态；生产签名材料不再是 P8 内部冻结前置条件（008A1）；
 - Fresh/Upgrade/Repair/Uninstall/Reinstall smoke；
 - YORVA update smoke；
 - Migration fixtures；
@@ -457,10 +457,10 @@ B6 内部候选 Gate：
 - 4 小时最低 Soak、本地完整 Gate、Go race 与依赖审计通过；
 - 自动 Commit 后停留在内部候选，不把缺失的远端或签名证据写成 PASS。
 
-公开发布与阶段冻结 Gate：
+阶段内部冻结 Gate（Owner Amendment 008A1）：
 
 - 精确 B6 Commit CI 与 Windows MSI workflow 通过；
-- 发布签名真实可验证；
+- 包来源、元数据签名、完整性和声明的签名策略通过校验；生产签名材料留作公开发布门禁；
 - 审计 PASS 或 Owner 接受的 PASS WITH CONDITIONS；
 - Owner 明确授权后才 merge/tag/freeze；
 - final-main CI 与 annotated tag 完成后才标记 FROZEN；
@@ -603,7 +603,9 @@ P8 继续严格保持：
 B6 本地 Gate 通过后可以提交内部候选。该提交不会把阶段标记为 COMPLETE/FROZEN，
 也不表示公开发布已经就绪。
 
-Phase 8 只有在以下全部成立后，才能进入独立的公开发布审计与阶段退出 Gate：
+按 [Owner Amendment 008A1](amendments/AMENDMENT-008A1-internal-freeze-signing-boundary.md)，
+Phase 8 在以下全部成立后进入内部候选审计与阶段退出 Gate；准备或生成生产签名材料不再
+是本阶段冻结前置条件。现有更新校验继续执行，生产签名及来源证据须在公开发布前补齐：
 
 - 支持矩阵和数据保留策略已冻结；
 - 普通 Windows 用户可以 Fresh Install 并完成首次启动；
@@ -613,7 +615,7 @@ Phase 8 只有在以下全部成立后，才能进入独立的公开发布审计
 - 一次真实 YORVA 完整包更新成功并权威回读；
 - 一键诊断包通过 Secret scan；
 - 3 Instance 与 4–8 小时 Soak 通过；
-- 签名候选、CI、Windows Smoke 和文档完整；
+- 内部候选签名状态如实记录，CI、Windows Smoke 和文档完整；
 - 独立审计满足 AUDIT_STANDARD；
 - Owner 给出 Gate Decision。
 
@@ -676,3 +678,12 @@ HIGH-001 指出权威 Profile 回读失败仍可能被判定更新成功；MEDIU
 首轮审计不修改产品代码或验收标准。发现项须经修复与受影响维度复审后才可重新验收。
 生产签名、公开发布资格、Owner 决策、final-main、tag 和 freeze 仍是单独且未完成的门禁。
 阶段保持 IN PROGRESS，不得进入 P9。
+
+## 17. Owner Amendment 008A1 — 内部冻结授权
+
+Owner 于 2026-09-07 审阅 AUDIT-008 后，要求修复问题、完成提交并冻结 P8，并明确移除
+“准备或生成生产签名材料”这一 P8 前置条件，详见
+[AMENDMENT-008A1](amendments/AMENDMENT-008A1-internal-freeze-signing-boundary.md)。
+同日较早的仅 Commit/Push 授权限制对受治理的阶段冻结操作已被本授权取代。
+公开发布 Release、进入 P9、重启宿主机及修改日常 Profile 仍不在范围内。
+两项发现仍须修复、验证并完成 R1 复审。

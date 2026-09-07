@@ -24,7 +24,7 @@ const packagePath = required("--package");
 const packageBytes = readFileSync(packagePath);
 const packageName = basename(packagePath);
 const mode = args.get("--mode") ?? "complete";
-if (!new Set(["complete", "tampered", "interrupted"]).has(mode)) throw new Error("invalid mode");
+if (!new Set(["complete", "tampered", "interrupted", "slow"]).has(mode)) throw new Error("invalid mode");
 
 const server = createServer({
   cert: readFileSync(required("--certificate")),
@@ -51,6 +51,18 @@ const server = createServer({
     const changed = Buffer.from(packageBytes);
     changed[changed.length - 1] ^= 0xff;
     response.end(changed);
+  } else if (mode === "slow") {
+    let offset = 0;
+    const timer = setInterval(() => {
+      const end = Math.min(offset + 256 * 1024, packageBytes.length);
+      response.write(packageBytes.subarray(offset, end));
+      offset = end;
+      if (offset === packageBytes.length) {
+        clearInterval(timer);
+        response.end();
+      }
+    }, 25);
+    response.on("close", () => clearInterval(timer));
   } else if (mode === "interrupted") {
     response.write(packageBytes.subarray(0, Math.max(1, Math.floor(packageBytes.length / 4))));
     response.socket?.destroy();

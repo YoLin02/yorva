@@ -131,6 +131,15 @@ impl DaemonLifecycle {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn set_test_session(&self, base_url: &str, token: &str) {
+        self.set_ready(DaemonSession {
+            base_url: base_url.to_owned(),
+            token: token.to_owned(),
+            protocol_version: PROTOCOL_VERSION.to_owned(),
+        });
+    }
+
     fn fail_startup(&self) {
         self.fail_startup_with(DaemonCommandError {
             code: "DAEMON_STARTUP_FAILED",

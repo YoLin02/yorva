@@ -102,6 +102,45 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/v1/node/recovery:
+    get:
+      operationId: getNodeRecovery
+      summary: Check live local recovery postconditions
+      description: Available after startup migration and journal recovery. Performs bounded authoritative Runtime and Instance readback; daemon connectivity alone is not recovery success. A fresh Node with no accepted Runtime may be READY without an installed Runtime.
+      tags: [Node]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: The current recovery state and running daemon version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeRecovery"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "503":
+          description: The bounded recovery check could not complete (NODE_RECOVERY_FAILED).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    options:
+      operationId: optionsNodeRecovery
+      summary: Validate CORS access for the recovery endpoint
+      tags: [Node]
+      security: []
+      responses:
+        "204":
+          $ref: "#/components/responses/PreflightAccepted"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/v1/diagnostics/bundle:
     post:
       operationId: exportDiagnosticBundle
@@ -3066,6 +3105,19 @@ components:
         updatedAt:
           type: string
           format: date-time
+    NodeRecovery:
+      type: object
+      additionalProperties: false
+      required: [state, nodeVersion, errorCode]
+      properties:
+        state:
+          type: string
+          enum: [READY, RECOVERY_REQUIRED]
+        nodeVersion:
+          type: string
+        errorCode:
+          type: [string, "null"]
+          description: Stable Runtime/Instance failure code; null on successful recovery.
     RuntimeDiscovery:
       type: object
       additionalProperties: false

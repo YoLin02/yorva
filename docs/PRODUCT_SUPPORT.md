@@ -115,3 +115,11 @@ as its cleanup root.
 | Development build | Local development only; no installer, migration or update claim. |
 | Internal candidate | B0–B6 behavior and tests pass, but production Windows signing is unavailable. |
 | Public-release ready | B0–B6, independent audit, exact-candidate CI, real MSI lifecycle, production signing and Owner Gate all pass. |
+
+## 8. Phase freeze and public release (Owner Amendment 008A1)
+
+On 2026-09-07 the Owner removed production-signing material availability/generation from
+P8's internal phase-freeze prerequisites. The phase may freeze as an internal candidate
+after the remaining technical, audit and final-main Gates pass. This is not public-release
+readiness; all signature/integrity checks and the public-release classification above
+remain unchanged. See `phases/amendments/AMENDMENT-008A1-internal-freeze-signing-boundary.md`.
