@@ -149,6 +149,36 @@ describe("SettingsView", () => {
     expect(updateMocks.download).toHaveBeenCalledTimes(1);
     expect(updateMocks.cancel).not.toHaveBeenCalled();
   });
+  it("offers cancellation during download and restores retry after cancellation", async () => {
+    const available = {
+      installedVersion: "0.3.2", phase: "AVAILABLE", verificationKeyConfigured: true,
+      metadataSource: "https://github.com/YoLin02/yorva/releases/latest/download/yorva-update.json",
+      candidate: {
+        version: "0.4.0", releaseNotes: "Cancellable download.",
+        publishedAtUtc: "2026-09-07T00:00:00.000Z", sizeBytes: 1048576,
+        authenticodeRequired: false,
+      },
+      errorCode: null,
+    } as const;
+    updateMocks.status.mockResolvedValue(available);
+    let failDownload: ((reason: unknown) => void) | undefined;
+    updateMocks.download.mockImplementation(() => new Promise((_, reject) => { failDownload = reject; }));
+    updateMocks.cancel.mockImplementation(async () => {
+      updateMocks.status.mockResolvedValue({ ...available, phase: "FAILED", errorCode: "UPDATE_CANCELLED" });
+      failDownload?.({ code: "UPDATE_CANCELLED" });
+    });
+    render(<SettingsView copy={messages["en-US"]} locale="en-US" onLocaleChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("tab", { name: "About" }));
+    fireEvent.click(await screen.findByRole("button", { name: /View updates/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Download and verify/ }));
+    const cancel = await screen.findByRole("button", { name: /Cancel download/ });
+    expect(cancel).toBeEnabled();
+    fireEvent.click(cancel);
+    await waitFor(() => expect(screen.getByRole("button", { name: /Download and verify/ })).toBeEnabled());
+    expect(updateMocks.cancel).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /Cancel download/ })).not.toBeInTheDocument();
+  });
+
   it("opens diagnostics separately and reports only a completed export", async () => {
     diagnosticMocks.export.mockResolvedValueOnce(null).mockResolvedValueOnce({
       fileName: "YORVA-diagnostics-1.zip",

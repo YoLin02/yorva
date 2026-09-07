@@ -271,10 +271,15 @@ fn read_update_status(
     manager: &UpdateManager,
     daemon: &DaemonLifecycle,
 ) -> Result<UpdateStatus, UpdateCommandError> {
-    let _guard = manager
-        .gate
-        .lock()
-        .map_err(|_| UpdateCommandError::state())?;
+    let _guard = match manager.gate.try_lock() {
+        Ok(guard) => guard,
+        Err(std::sync::TryLockError::WouldBlock) => {
+            // An active workflow owns reconciliation. Its persisted status is
+            // still readable so the UI can show progress and offer cancellation.
+            return Ok(status_from(&load_record(paths)?));
+        }
+        Err(std::sync::TryLockError::Poisoned(_)) => return Err(UpdateCommandError::state()),
+    };
     let mut record = load_record(paths)?;
     recover_abandoned_download(paths, &mut record)?;
     reconcile_postcheck(paths, &mut record, daemon)?;
@@ -1773,7 +1778,7 @@ mod tests {
     }
 
     #[test]
-    fn status_cannot_recover_a_download_while_its_worker_holds_the_gate() {
+    fn status_reads_live_download_without_waiting_or_recovering_it() {
         use std::sync::mpsc;
         let root = std::env::temp_dir().join(format!("yorva-active-download-{}", unix_millis()));
         let paths = UpdatePaths::at(root.clone()).unwrap();
@@ -1801,17 +1806,22 @@ mod tests {
                 .unwrap();
         });
         started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
-        assert!(result_rx.recv_timeout(Duration::from_millis(100)).is_err());
+        assert_eq!(
+            result_rx.recv_timeout(Duration::from_secs(5)).unwrap(),
+            UpdatePhase::Downloading
+        );
         assert_eq!(fs::read(&paths.partial).unwrap(), b"active");
         assert_eq!(load_record(&paths).unwrap().phase, UpdatePhase::Downloading);
         record.phase = UpdatePhase::ReadyToInstall;
         persist_record(&paths, &record).unwrap();
         drop(guard);
+        reader.join().unwrap();
         assert_eq!(
-            result_rx.recv_timeout(Duration::from_secs(5)).unwrap(),
+            read_update_status(&paths, &manager, &DaemonLifecycle::new())
+                .unwrap()
+                .phase,
             UpdatePhase::ReadyToInstall
         );
-        reader.join().unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 

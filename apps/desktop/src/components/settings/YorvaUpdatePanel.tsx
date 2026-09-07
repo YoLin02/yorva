@@ -74,9 +74,15 @@ export function YorvaUpdatePanel({ copy, onBack }: { copy: UpdateCopy; onBack: (
   const run = (action: () => Promise<YorvaUpdateStatus>) => {
     setBusy(true);
     setErrorCode(null);
+    if (action === downloadYorvaUpdate) {
+      setStatus((current) => current ? { ...current, phase: "DOWNLOADING" } : current);
+    }
     void action()
       .then(setStatus)
-      .catch((error: unknown) => setErrorCode(isYorvaUpdateError(error) ? error.code : "UPDATE_STATE_FAILED"))
+      .catch(async (error: unknown) => {
+        await refresh();
+        setErrorCode(isYorvaUpdateError(error) ? error.code : "UPDATE_STATE_FAILED");
+      })
       .finally(() => setBusy(false));
   };
 

@@ -710,5 +710,7 @@ When Desktop restarts after an interrupted download, reconciliation acquires the
 mutex held by the complete download workflow, persists `FAILED` / `UPDATE_DOWNLOAD_FAILED`
 for an abandoned `DOWNLOADING` record and removes only its fixed regular staging files.
 The candidate remains available for a new verified download. A status query cannot reset
-a live download while its worker owns the mutex. Native status reconciliation runs off the
-UI thread.
+a live download while its worker owns the mutex; it returns the persisted progress without
+waiting for that workflow. Native status reconciliation runs off the UI thread. The UI
+offers cancellation while its download request is pending and refreshes persisted state
+after a failed or cancelled request so the verified-download retry remains available.
