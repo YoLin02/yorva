@@ -412,7 +412,7 @@ The normal path must not require the user to open a terminal or directly edit Ru
 
 ## Phase 8 — Local product hardening
 
-Status: **PASSED — AUDIT-008R1 PASS; FINAL-MAIN / FREEZE PENDING**
+Status: **COMPLETE / FROZEN — INTERNAL BASELINE (008A1)**
 Specs: docs/phases/PHASE-008-local-product-hardening.zh-CN.md (Owner review) and
 docs/phases/PHASE-008-local-product-hardening.md (execution mirror)
 Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus accepted
@@ -434,6 +434,10 @@ Remediation candidate `43ac291` now passes CI #96 / MSI #35 and all three new Wi
 update scenarios. [AUDIT-008R1](phases/audits/AUDIT-008R1-local-product-hardening.md)
 returns PASS and closes both findings. Main integration and internal freeze are authorized
 under Amendment 008A1 after final-main checks and the annotated phase tag.
+The final-main `2a7b842` CI #98 / MSI #37, Desktop recovery and real update/retry passed.
+The pushed annotated `phase-008-local-product-hardening-baseline` freezes that commit.
+[Final freeze evidence](phases/evidence/PHASE-008-FINAL-MAIN-FREEZE.md) records the complete
+acceptance chain; the following documentation-only closeout marks COMPLETE / FROZEN.
 
 Goal: turn the completed single-Node experience into a dependable public local product before validating additional Runtime or remote-management scope.
 

@@ -1,6 +1,6 @@
 # YORVA Phase 8 — Local Product Hardening MVP
 
-> Status: **PASSED — AUDIT-008R1 PASS; FINAL-MAIN / FREEZE PENDING**
+> Status: **COMPLETE / FROZEN — INTERNAL BASELINE (008A1)**
 > Phase: P8
 > Required baseline: phase-007-hermes-runtime-management-completeness-baseline plus P7 stability revision `9834a8cb1df9e70502936153943f501ed37cb8fc`
 > Planned branch: phase/p8-local-product-hardening
@@ -425,7 +425,7 @@ After audit PASS and explicit Owner authorization:
 | P8-B3 | COMPLETE | `56df01f` + `412d3c0` | Exact clean-source 0.4.0 MSI; static/negative inspection and disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate passed |
 | P8-B4 | COMPLETE — R1 PASS | `6a75cde` + `ef7eaba` + `43ac291` | Retained tamper/interruption/installer-failure evidence; exact-source Happy, ReconcileFailure and DownloadCrash/retry pass |
 | P8-B5 | COMPLETE | `5ca5f0a` | Fixed sanitized ZIP schema and bounds; authenticated daemon endpoint; capability-scoped atomic Save As; canary/cleanup/UI/non-MSI Gate passed |
-| P8-B6 | COMPLETE — INTERNAL GATE PASS | `43ac291` + R1 audit/evidence | Eight-hour retained soak, exact CI #96 / MSI #35, Windows update qualification and AUDIT-008R1 PASS; final-main/tag remain |
+| P8-B6 | COMPLETE — INTERNAL GATE PASS | `43ac291` + R1 audit/evidence | Retained eight-hour soak and R1 PASS; final-main `2a7b842` CI #98 / MSI #37, real update/retry and annotated tag all PASS |
 
 ## 14. Owner approval record
 
@@ -492,3 +492,15 @@ Owner Amendment 008A1 authorizes main integration and freeze after final-main Ga
 Current state is PASSED, pending final-main CI/MSI/update and annotated baseline tag.
 No production signing material is required for this internal phase freeze; no public
 Release or Phase 9 work is authorized.
+
+## 18. Formal internal baseline freeze — 2026-09-07
+
+**COMPLETE / FROZEN.** The annotated tag
+`phase-008-local-product-hardening-baseline` points to accepted main commit
+`2a7b842e668011a97804eb40642e3ff9dcab2f04` and has been pushed and verified remotely.
+[Final-main/freeze evidence](evidence/PHASE-008-FINAL-MAIN-FREEZE.md) records exact CI #98,
+Windows MSI #37, Desktop recovery, real update and original-failure retry PASS before tag
+creation. This documentation-only closeout follows the tag and changes no product code.
+The earlier PASSED/pending statements are historical steps in that acceptance chain.
+Production signing material is outside this internal P8 freeze prerequisite under 008A1.
+Public Release and Phase 9 remain separately gated; no next-phase work is started.

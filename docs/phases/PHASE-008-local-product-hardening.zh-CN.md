@@ -1,6 +1,6 @@
 # YORVA Phase 8 — 本地产品可靠化 MVP
 
-> 状态：**PASSED — AUDIT-008R1 PASS；等待 final-main / freeze**
+> 状态：**COMPLETE / FROZEN — 内部基线（008A1）**
 > 阶段标识：P8
 > 阶段性质：本地产品可靠化与首个正式 Windows MVP
 > 必需基线：phase-007-hermes-runtime-management-completeness-baseline + P7 稳定性修订 `9834a8cb1df9e70502936153943f501ed37cb8fc`
@@ -637,7 +637,7 @@ Phase 8 在以下全部成立后进入内部候选审计与阶段退出 Gate；�
 | P8-B3 | COMPLETE | `56df01f` + `412d3c0` | 干净源码构建的 0.4.0 精确 MSI；静态/负向检查与 disposable Windows Fresh/Upgrade/Repair/Uninstall/Reinstall Gate 全部通过 |
 | P8-B4 | COMPLETE — R1 PASS | `6a75cde` + `ef7eaba` + `43ac291` | 保留篡改/网络中断/安装失败证据；精确源码 Happy、ReconcileFailure、DownloadCrash/重试全部通过 |
 | P8-B5 | COMPLETE | `5ca5f0a` | 固定脱敏 ZIP 结构与边界；认证 daemon 接口；能力受限的原子另存为；canary、清理、UI 与非 MSI Gate 均通过 |
-| P8-B6 | COMPLETE — 内部候选 Gate PASS | `43ac291` + R1 审计/证据 | 保留八小时 Soak、CI #96 / MSI #35、Windows 更新验证及 AUDIT-008R1 PASS；final-main/tag 待完成 |
+| P8-B6 | COMPLETE — 内部候选 Gate PASS | `43ac291` + R1 审计/证据 | 保留八小时 Soak、R1 PASS；final-main `2a7b842` CI #98 / MSI #37、实际更新/重试及 annotated tag 全部通过 |
 
 ## 15. Owner 审批记录
 
@@ -698,3 +698,13 @@ Owner 于 2026-09-07 审阅 AUDIT-008 后，要求修复问题、完成提交并
 授权 final-main 门禁通过后的合入、标签与冻结。目前状态为 PASSED，等待 final-main
 CI/MSI/update 与 annotated baseline tag。生产签名材料不再是内部冻结前置条件；
 本记录不授权发布公开 Release 或开始 P9。
+
+## 19. 正式内部基线冻结 — 2026-09-07
+
+**COMPLETE / FROZEN。** Annotated tag `phase-008-local-product-hardening-baseline`
+指向已验收的 main commit `2a7b842e668011a97804eb40642e3ff9dcab2f04`，已推送并核对远端。
+[Final-main/freeze 证据](evidence/PHASE-008-FINAL-MAIN-FREEZE.md) 记录精确 CI #98、
+Windows MSI #37、Desktop 恢复、实际更新与原失败状态重试在创建标签前全部 PASS。
+本次仅文档收尾在标签后记录冻结状态，不修改产品代码；上方 PASSED/pending 为历史步骤。
+按 008A1，生产签名材料不再是 P8 内部冻结前置条件。公开 Release 与 P9 仍须另行授权，
+本阶段在此停止，不开始下一阶段实施。

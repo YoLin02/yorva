@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phases 1–7 frozen; Phase 8 PASSED — AUDIT-008R1 PASS; final-main verification and internal freeze pending
+> Status: Phases 1–8 COMPLETE / FROZEN; Phase 8 is the internal baseline under Owner Amendment 008A1
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**
@@ -569,3 +569,12 @@ file as an upstream installer transcript.
 From the repository root, `pnpm audit --audit-level low` is also a CI gate. CI Actions are pinned to exact commit SHAs with the corresponding major/stable label in a comment. Dependency maintenance updates those pins deliberately: resolve the trusted upstream major tag/branch to a reviewed commit, inspect upstream release notes, replace the SHA, and rerun the full workflow. Do not restore floating action references.
 
 Phase 2 deterministic tests do not require Hermes to be installed and never install it. Adapter tests build test-only fake executables and fixed official-layout fixtures to verify installation evidence, closed direct argv execution, bounded package-entry-point validation, output bounds, timeout, cancellation and process cleanup. On a Windows host that already has Hermes, run the explicitly gated read-only smoke with `YORVA_REAL_HERMES_SMOKE=1 go test ./internal/runtime/hermes -run TestRealWindowsHermesInstallationSmoke -v`; it must never execute `hermes-agent.exe` or the repository wrapper. A valid official package entry point without a generated launcher must still resolve through the installation's isolated Python command. ADR-0012 classifies stable Hermes `>=0.20.2 <0.21.0` as `SUPPORTED`; other parsed versions remain visible as `UNSUPPORTED`. Desktop tests cover sidebar navigation, English/Simplified Chinese persistence, stable Runtime-state translations and locale/time-zone-explicit timestamp formatting.
+
+## Phase 8 accepted internal baseline
+
+`phase-008-local-product-hardening-baseline` freezes main commit
+`2a7b842e668011a97804eb40642e3ff9dcab2f04` after AUDIT-008R1 PASS and exact final-main
+CI/MSI/Windows recovery/update checks. See the
+[freeze record](phases/evidence/PHASE-008-FINAL-MAIN-FREEZE.md). This documentation-only
+closeout follows tag creation. Production signing material is not an internal P8 freeze
+prerequisite under Amendment 008A1; public release and Phase 9 remain separately gated.

@@ -379,3 +379,14 @@ real installed-version/failed-readback rejection and download-process-crash/rest
 All three new Windows update scenarios pass. The retained eight-hour B6 workload was
 not rerun. The internal candidate is accepted under Owner Amendment 008A1; final-main
 CI/package/update checks and the annotated tag still precede formal freeze.
+
+## Final-main acceptance and formal freeze — 2026-09-07
+
+**COMPLETE / FROZEN — internal baseline.** Exact main `2a7b842` passed CI #98,
+Windows MSI #37, Desktop recovery and actual update/retry. The annotated
+`phase-008-local-product-hardening-baseline` was pushed and verified before this status
+closeout. [Final evidence](PHASE-008-FINAL-MAIN-FREEZE.md) contains artifact identities,
+timestamps, the retained initial transport failure and its successful same-state retry.
+The eight-hour evidence is retained without a new run; no public signing, Release, P9,
+shared-host reboot or normal-profile mutation is claimed. Amendment 008A1 removes
+production signing material from the internal phase freeze prerequisites.

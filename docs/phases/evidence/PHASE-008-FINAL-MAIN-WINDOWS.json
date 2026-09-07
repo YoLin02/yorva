@@ -1,0 +1,63 @@
+{
+  "baselineCommit": "2a7b842e668011a97804eb40642e3ff9dcab2f04",
+  "classification": "internal",
+  "localPackage": {
+    "schemaVersion": 1,
+    "productVersion": "0.4.0",
+    "sourceCommit": "2a7b842e668011a97804eb40642e3ff9dcab2f04",
+    "workingTreeDirty": false,
+    "fileName": "YORVA_0.4.0_x64_en-US.msi",
+    "sizeBytes": 150286336,
+    "sha256": "4EF4E3B9455D0F4927775B1565223F607820C5DABF7DABC5261FC0A5B97C888C",
+    "signatureStatus": "NotSigned",
+    "qualificationBuild": false,
+    "upgradeCode": "e793918b-37eb-5e2f-b866-5fc4aa3ac75a",
+    "installScope": "perUser",
+    "generatedAtUtc": "2026-09-07T09:32:04.6848633Z"
+  },
+  "hostRebooted": false,
+  "productionSigningMaterialGenerated": false,
+  "scenarios": [
+    {
+      "scenario": "initial-main-metadata-fetch",
+      "result": "FAILED",
+      "sourceSerialSha256": "3E8D80167C37C03D11AEE1E3BC01DEC8C377ED4E902D0D99884986A9FBF01EEC",
+      "serialExcerpt": [
+        "2026-09-07T09:35:06.9739324Z YORVA_B4_UPDATE_FAIL Happy happy update ended in FAILED"
+      ]
+    },
+    {
+      "scenario": "initial-state-diagnostic",
+      "result": "OBSERVED",
+      "sourceSerialSha256": "E28D3D3E013531F60DC90AB332AA677112F105E0D61A8599B547E4841D993FEC",
+      "serialExcerpt": [
+        "STATE phase=FAILED code=UPDATE_DOWNLOAD_FAILED candidate=",
+        "DIAGNOSTIC_DONE"
+      ]
+    },
+    {
+      "scenario": "exact-main-happy-update",
+      "result": "PASS",
+      "sourceSerialSha256": "0A35DA2F173FA936C36702239A2708ACCEC6FC13933B6A4737564CCEB6E837EB",
+      "serialExcerpt": [
+        "2026-09-07T09:41:51.1419908Z YORVA_B4_OUTPUT PASS non-elevated-user-context",
+        "2026-09-07T09:41:51.1831930Z YORVA_B4_OUTPUT PASS baseline-install",
+        "2026-09-07T09:41:51.2142878Z YORVA_B4_OUTPUT PASS older-to-candidate-update",
+        "2026-09-07T09:41:51.2502939Z YORVA_B4_OUTPUT PASS installed-version-readback",
+        "2026-09-07T09:41:51.2913442Z YORVA_B4_OUTPUT PASS runtime-instance-authoritative-readback",
+        "2026-09-07T09:41:51.3662591Z YORVA_B4_UPDATE_PASS Happy"
+      ]
+    },
+    {
+      "scenario": "original-failed-state-retry",
+      "result": "PASS",
+      "sourceSerialSha256": "527F830A9BD5FBB7FB30EE487188413397C3C70831D4E1626AF546B8E092D14D",
+      "serialExcerpt": [
+        "2026-09-07T09:47:08.8455410Z PASS medium-integrity-token-verified",
+        "2026-09-07T09:47:09.6560490Z PASS original-failed-check-retains-0.3.2",
+        "2026-09-07T09:49:13.6287867Z PASS same-failed-state-retry-verifies-installs-recovers-0.4.0",
+        "2026-09-07T09:49:13.6664219Z YORVA_MAIN_RETRY_PASS"
+      ]
+    }
+  ]
+}
