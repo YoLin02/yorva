@@ -1,0 +1,296 @@
+{
+  "schemaVersion": 1,
+  "phase": "009",
+  "date": "2026-09-10",
+  "sourceCommit": "b958801a91234b5a602d652035e5c4f3e3dc8242",
+  "result": "PASS",
+  "ci": {
+    "result": "PASS",
+    "runId": 34475486005,
+    "url": "https://github.com/YoLin02/yorva/actions/runs/34475486005",
+    "completedAtUtc": "2026-09-10T12:37:47Z",
+    "sourceCommit": "b958801a91234b5a602d652035e5c4f3e3dc8242",
+    "jobs": [
+      {
+        "id": 102865107825,
+        "name": "Go Node",
+        "status": "completed",
+        "conclusion": "success",
+        "checks": [
+          {
+            "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run go test -race ./...",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run go vet ./...",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run go install golang.org/x/vuln/cmd/govulncheck@v1.7.0",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run govulncheck ./...",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run go build ./cmd/yorvad",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "id": 102865108006,
+        "name": "Windows Desktop native shell",
+        "status": "completed",
+        "conclusion": "success",
+        "checks": [
+          {
+            "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm install --frozen-lockfile",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm build:sidecar",
+            "conclusion": "success"
+          },
+          {
+            "name": "Verify second Runtime routing and Windows process ownership",
+            "conclusion": "success"
+          },
+          {
+            "name": "Exercise disposable encrypted Restore lifecycle",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pwsh -NoProfile -File scripts/windows-lifecycle-smoke.ps1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pwsh -NoProfile -File scripts/inspect-yorva-msi.tests.ps1",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run cargo fmt --check",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run cargo fetch --locked",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run cargo test --locked --offline --lib",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run cargo install cargo-audit --locked --version 0.22.2",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run cargo audit",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run cargo clippy --locked --all-targets -- -D warnings",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run cargo check --locked",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm --filter @yorva/desktop tauri build --no-bundle",
+            "conclusion": "success"
+          },
+          {
+            "name": "Exercise isolated Desktop and daemon recovery",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "id": 102865108193,
+        "name": "Web and API contract",
+        "status": "completed",
+        "conclusion": "success",
+        "checks": [
+          {
+            "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm install --frozen-lockfile",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm audit --audit-level low",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm api:lint",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm api:generate",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run git diff --exit-code -- apps/desktop/src/api/generated/schema.ts",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm typecheck",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm lint",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm test",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run pnpm build",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ],
+    "desktopTestFiles": 25,
+    "desktopTests": 151,
+    "windowsNativeTests": 33,
+    "goVulnerabilityScan": {
+      "reachableVulnerabilities": 0,
+      "importedPackageVulnerabilities": 0,
+      "requiredModuleAdvisoriesOutsideCalledCode": 17
+    },
+    "bootstrapHandshakeAndHealthMs": [
+      {
+        "scenario": "shutdown",
+        "elapsedMs": 1235
+      },
+      {
+        "scenario": "desktop-reopen",
+        "elapsedMs": 584
+      },
+      {
+        "scenario": "desktop-reopen",
+        "elapsedMs": 116
+      },
+      {
+        "scenario": "daemon-restart",
+        "elapsedMs": 691
+      },
+      {
+        "scenario": "daemon-restart",
+        "elapsedMs": 147
+      }
+    ],
+    "observations": [
+      "2026-09-10T12:14:58.4922137Z ok  \tgithub.com/YoLin02/yorva/services/node/internal/runtime/openclaw\t4.591s",
+      "2026-09-10T12:16:32.4450584Z ok  \tgithub.com/YoLin02/yorva/services/node/internal/app\t76.770s",
+      "2026-09-10T12:16:32.4452892Z ok  \tgithub.com/YoLin02/yorva/services/node/internal/daemon\t29.047s",
+      "2026-09-10T12:16:36.9583780Z --- PASS: TestRuntimeBackupManagerDisposableRestoreLifecycle (0.24s)",
+      "2026-09-10T12:16:36.9614547Z ok  \tgithub.com/YoLin02/yorva/services/node/internal/runtime/hermes\t0.290s",
+      "2026-09-10T12:16:39.1367382Z Windows lifecycle smoke: shutdown handshake and health in 1235 ms",
+      "2026-09-10T12:16:39.7326453Z Windows lifecycle smoke: desktop-reopen handshake and health in 584 ms",
+      "2026-09-10T12:16:39.8580132Z Windows lifecycle smoke: desktop-reopen handshake and health in 116 ms",
+      "2026-09-10T12:16:40.5555997Z Windows lifecycle smoke: daemon-restart handshake and health in 691 ms",
+      "2026-09-10T12:16:40.7116499Z Windows lifecycle smoke: daemon-restart handshake and health in 147 ms",
+      "2026-09-10T12:16:40.7221304Z Windows lifecycle smoke: PASS",
+      "2026-09-10T12:21:14.4673247Z test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.07s",
+      "2026-09-10T12:37:41.5316833Z Windows Desktop recovery smoke: PASS"
+    ],
+    "webObservations": [
+      "2026-09-10T12:13:33.5422734Z No known vulnerabilities found",
+      "2026-09-10T12:14:18.1195401Z  Test Files  25 passed (25)",
+      "2026-09-10T12:14:18.1196546Z       Tests  151 passed (151)"
+    ],
+    "goObservations": [
+      "2026-09-10T12:14:50.6825467Z Your code is affected by 0 vulnerabilities.",
+      "2026-09-10T12:14:50.6837366Z This scan also found 0 vulnerabilities in packages you import and 17",
+      "2026-09-10T12:14:50.6838135Z vulnerabilities in modules you require, but your code doesn't appear to call"
+    ]
+  },
+  "msi": {
+    "schemaVersion": 1,
+    "phase": "009",
+    "sourceCommit": "b958801a91234b5a602d652035e5c4f3e3dc8242",
+    "result": "PASS",
+    "runId": 34475485956,
+    "url": "https://github.com/YoLin02/yorva/actions/runs/34475485956",
+    "jobId": 102865107596,
+    "completedAtUtc": "2026-09-10T12:24:23Z",
+    "packageName": "YORVA_0.4.0_x64_en-US.msi",
+    "packageSha256": "9901a8e0ece982413224bc489ad9c42ab0454e29465ae72ffad04021ac3d0e68",
+    "packageBytes": 149987328,
+    "signature": "NotSigned",
+    "productVersion": "0.4.0",
+    "qualificationBuild": false,
+    "qualificationBuildEvidence": "Workflow invokes scripts/package-yorva-msi.ps1 without -UpdateQualification; script defaults the switch to false.",
+    "installScope": "perUser",
+    "artifact": {
+      "id": 10151697233,
+      "name": "yorva-msi",
+      "url": "https://github.com/YoLin02/yorva/actions/runs/34475485956/artifacts/10151697233",
+      "sha256": "2bd763f658073b51ba77d2ce18ebb17952cb019dd6828d50f80af68fde6b06dc",
+      "sizeBytes": 149791274,
+      "expiresAtUtc": "2026-12-09T12:13:10Z"
+    },
+    "localPackagePath": "D:/workcode/myproject-phase65-freeze/.tools/p9/final-artifact/YORVA_0.4.0_x64_en-US.msi",
+    "localArchiveSha256Verified": true,
+    "localPackageSha256Verified": true,
+    "localAuthenticodeStatusVerified": true,
+    "observations": [
+      "2026-09-10T12:15:09.2747220Z all MSI inspector negative tests passed",
+      "2026-09-10T12:24:09.0186225Z payload hermes-agent-a0ca7c19204e514f9590ce3b812e029b315ab9e9.zip 73798347 4E63F39BD992B79BF364A4E22204A22B8E520E2365B53C909F6F15D42C917C54",
+      "2026-09-10T12:24:09.0830037Z payload node-v22.23.1-win-x64.zip 35682836 7DF0BC9375723F4A86B3AA1B7CC73342423D9677A8DF4538ACA31A049E309C29",
+      "2026-09-10T12:24:09.0922219Z payload npm-12.0.2.tgz 3045132 5DBB86C71D07A1957F2E90734092DD6A58BDCD9EBC2D8D41CA1C6E6A21D364E1",
+      "2026-09-10T12:24:09.1332884Z payload cpython-3.11.15+20260728-x86_64-pc-windows-msvc-install_only_stripped.tar.gz 25676832 64A804111830C5329BFC5A4D95D6CBCBB377CAA2C02195101EDF85D15FC53099",
+      "2026-09-10T12:24:09.1371261Z payload LICENSE 1070 821556E6336796450AB852D375117B48A4887E71D255794FD6318D99982A5AB6",
+      "2026-09-10T12:24:09.1407244Z payload NODE-LICENSE 148217 8CC9BB466B19FC7E7CC99D03E9DF1132021FDA8B01EEA2624C58BB372DBEF576",
+      "2026-09-10T12:24:09.1440857Z payload NPM-LICENSE 9742 7610D223851F421D315DF5E77974F1C68A04B97E02060E5BBBCF13D95E3CA257",
+      "2026-09-10T12:24:09.1511724Z product resource DATA_RETENTION.txt 1313 C8A330453B4E794D3B3407D9C5F9D2A0F2463F5711A1B9AE47C12FBB38FDCF0B",
+      "2026-09-10T12:24:09.3775162Z MSI YORVA_0.4.0_x64_en-US.msi SHA-256 9901A8E0ECE982413224BC489AD9C42AB0454E29465AE72FFAD04021AC3D0E68 size 149987328",
+      "2026-09-10T12:24:10.2716589Z MSI YORVA_0.4.0_x64_en-US.msi SHA-256 9901A8E0ECE982413224BC489AD9C42AB0454E29465AE72FFAD04021AC3D0E68 size 149987328 signature NotSigned",
+      "2026-09-10T12:24:16.2237263Z SHA256 digest of uploaded artifact zip is 2bd763f658073b51ba77d2ce18ebb17952cb019dd6828d50f80af68fde6b06dc",
+      "2026-09-10T12:24:16.6550864Z Artifact yorva-msi.zip successfully finalized. Artifact ID 10151697233"
+    ]
+  }
+}

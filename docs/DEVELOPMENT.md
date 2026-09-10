@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phases 1–8 COMPLETE / FROZEN; Phase 9 implementation and qualification IN_PROGRESS
+> Status: Phases 1–9 COMPLETE / FROZEN; Phase 9 branch baseline `phase-009-openclaw-baseline`
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**
@@ -579,17 +579,17 @@ CI/MSI/Windows recovery/update checks. See the
 closeout follows tag creation. Production signing material is not an internal P8 freeze
 prerequisite under Amendment 008A1; public release and Phase 9 remain separately gated.
 
-## Phase 9 current plan
+## Phase 9 baseline
 
 [Phase 9 — OpenClaw second Runtime](phases/PHASE-009-openclaw-second-runtime.md) is
-IN_PROGRESS following Owner authorization on 2026-09-10. OpenClaw `2026.9.3` is the
-latest stable target rechecked at B0 start in the OpenClaw 2.0 product line.
-Local implementation tests have passed; complete native qualification, final CI/package
-and the independent review context remain required before claiming a P9 baseline.
-The phase reuses the frozen P8 product baseline and existing verification commands,
-adds focused dual-Runtime contracts and a real Windows coexistence smoke, and uses one
-final phase audit rather than per-batch approvals or repeated P8 soak qualification.
-See the Spec for required capabilities, allowed extensions and acceptance evidence.
+FROZEN after G1/G2/G3 PASS on 2026-09-10. The qualified product commit is
+`b958801a91234b5a602d652035e5c4f3e3dc8242`; the documentation successor is tagged
+`phase-009-openclaw-baseline` on the P9 branch. This does not move main or the P8 tag.
+OpenClaw `2026.9.3`, the latest stable target rechecked at B0 start in the 2.0 line,
+passed real ordinary-user Windows coexistence with Hermes. Final CI #105, MSI #43
+and fresh-context review pass; see the [baseline record](phases/evidence/PHASE-009-BASELINE.md).
+The package is unsigned and intended for internal testing. No Phase 10 feature work
+or public production release is included in this baseline.
 
 P9 detects an official preinstalled `openclaw@2026.9.3` package. Use a separate Node
 24.16.0 or later 24.x installation on PATH, then install that exact package with

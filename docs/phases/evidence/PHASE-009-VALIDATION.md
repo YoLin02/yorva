@@ -1,126 +1,101 @@
 # Phase 9 validation evidence
 
-Date: 2026-09-10. Status: **IN_PROGRESS**; not a gate PASS or frozen baseline.
+Date: 2026-09-10. Final result: **G1 PASS / G2 PASS / G3 PASS**.
+The accepted product candidate is `b958801a91234b5a602d652035e5c4f3e3dc8242` on `codex/phase9-openclaw`.
+The documentation-only freeze successor is identified by
+`phase-009-openclaw-baseline`; see the [baseline record](PHASE-009-BASELINE.md).
 
 ## Candidate and scope
 
-Branch `codex/phase9-openclaw`, based on P8 documentation closeout
-`e95ed31d298c2548556e1295aacf7f84002b74ee`. The implementation adds the real
-OpenClaw adapter, Runtime-scoped inventory and management dispatch, capability-driven
-Desktop selection, recovery across accepted installations, and Windows process ownership.
-It adds no product dependency or database migration. Existing SQLite installation/native
-identity uniqueness and protection columns are reused.
+P8 working start: `e95ed31d298c2548556e1295aacf7f84002b74ee`, with product code
+identical to the frozen P8 baseline. P9 adds OpenClaw discovery, profile Instance
+management, authenticated lifecycle, Runtime-scoped routing/recovery and Desktop
+selection. It adds no product dependency or database migration. Optional OpenClaw
+models, channels, Skill/MCP, backup mutation, installer and upgrade are unavailable.
 
-## Verification currently completed
+## Final verification matrix
 
-| Check | Actual result |
+| Gate/check | Actual final result |
 | --- | --- |
-| Go `test ./...` | PASS locally on Windows after the OpenClaw metadata and startup-inventory fixes; subsequent Hermes readiness change has focused regression verification and requires final CI |
-| Go `vet ./...`, sidecar build | PASS locally; final candidate CI remains required |
-| Desktop typecheck, lint, test, build | PASS; 151 tests in 25 files; Vite reports its existing chunk-size advisory |
-| API lint and generated schema consistency | PASS; generation did not change the freshly generated schema |
-| Desktop UI | English/Chinese Runtime switching, inventory, capability-filtered management, create dialog, protected default, and health detail inspected in the browser with disposable API fixtures; this is UI evidence, not a real-Runtime smoke |
-| Official OpenClaw Windows primitives | Two simultaneous authenticated Gateways, composed restart and stop isolation passed; see [upstream qualification](PHASE-009-OPENCLAW-UPSTREAM.md) |
-| Full real G1 | PASS at 11:34:32 UTC in native attempt 12; one Hermes and two OpenClaw instances, authenticated status, restart/reconnect, isolated stop/delete and no login entry |
-| Final CI / MSI / audit | Pending |
+| G1 — real Windows coexistence | PASS at `2026-09-10T12:24:48.8913044Z`; disposable Windows 11 x64 medium integrity; Hermes 0.20.5/Python 3.11.15 and OpenClaw 2026.9.3/Node 24.16.0. One Hermes plus two OpenClaw instances cover same-name identity, authenticated start, restart, daemon reconnect with Runtime survival, isolated stop/delete and no login entry. |
+| Go regression | CI #105 PASS: full `go test -race ./...`, vet, govulncheck and daemon build. Native Windows OpenClaw/app/daemon tests and disposable encrypted Restore also PASS. |
+| Desktop/API | CI #105 PASS: frozen install, pnpm audit, OpenAPI lint/regeneration consistency, typecheck, lint, 151 tests in 25 files and build. |
+| Windows native shell | CI #105 PASS: all five bootstrap lifecycle scenarios, MSI inspection negative tests, Rust fmt, 33 native tests, cargo audit, clippy with warnings denied, check, Tauri build and isolated Desktop/daemon recovery. |
+| Final Windows package | MSI #43 PASS on the exact product candidate: ordinary per-user x64 build, embedded-payload/installer inspection and artifact upload. `YORVA_0.4.0_x64_en-US.msi`, 149,987,328 bytes, Authenticode `NotSigned`; internal test package. |
+| H2/H3 process regressions | All four strict Windows command/process tests passed 20 times each after H3 (80 executions, 54.930 seconds); full OpenClaw suite PASS (3.854 seconds) and vet PASS. Final CI runs the same regressions. |
+| Desktop UI | English/Chinese switching, inventory, capability-filtered management, create dialog, protected default and health detail inspected using disposable API fixtures. This is UI evidence; real Runtime evidence is the separate G1 record. |
+| G3 — review | Fresh-context actual-source review and dated re-audit PASS; M1, L1, H1, H2 and H3 closed. Zero unresolved CRITICAL/HIGH/MEDIUM/LOW findings; no correctness/security defect deferred. |
 
-## Native fixture and failures retained
+CI: [#105](https://github.com/YoLin02/yorva/actions/runs/34475486005).
+Package: [MSI #43](https://github.com/YoLin02/yorva/actions/runs/34475485956).
+The [structured CI/MSI record](PHASE-009-FINAL-CI-MSI.json) retains exact run/job,
+artifact identity, digest and expiry. The final MSI SHA-256 is
+`9901a8e0ece982413224bc489ad9c42ab0454e29465ae72ffad04021ac3d0e68`. Its archive digest is a separate value.
 
-Windows 11 x64 disposable QEMU/KVM guest; task worker verifies medium integrity
-(`S-1-16-8192`, no high-integrity SID). Real OpenClaw `2026.9.3` and independent Node
-`24.16.0`; real Hermes `0.20.5` with its isolated Python `3.11.15`. Normal host profiles
-are not used. Guest shutdown is fixture cleanup, not a host reboot.
+The final [G1 R2 record](PHASE-009-WINDOWS-G1-R2.json) retains all 20 observations
+and log digest. Its sidecar SHA-256 is `5a3c0afb46a43d74bffa054e4082e8a0117d0561fc357f2a2f46b9103a6adf5f`,
+built from clean `b958801a91234b5a602d652035e5c4f3e3dc8242`. This native-test sidecar is not represented as
+the remote MSI binary. Historical [G1](PHASE-009-WINDOWS-G1.json) and
+[G1 R1](PHASE-009-WINDOWS-G1-R1.json) remain unchanged and do not replace R2.
 
-- Initial archive relocation produced an unusable copied uv launcher and slow first
-  Python imports. The fixture uses the official pip-generated entry point in its
-  guest venv; Hermes source is unchanged. These attempts do not count as product PASS.
-- The actual OpenClaw package metadata is 135,311 bytes. A 128 KiB guard incorrectly
-  rejected it. The bounded guard is now 256 KiB, with regression tests for the actual
-  release size and rejection beyond the bound.
-- Native attempt 8 passed real creation of one Hermes and two OpenClaw instances,
-  same-name identity separation and unsupported-capability rejection at
-  `2026-09-10T11:13:03Z`, then failed Hermes startup with
-  `LIFECYCLE_POSTCONDITION_FAILED`.
-- Diagnostic attempt 11 used the official Hermes CLI directly. Launch was recorded
-  at `11:20:13.332Z`, and official status reported RUNNING at `11:21:47.377Z`.
-  Runtime logs showed normal Gateway/cron initialization. The former 15-second
-  post-launch wait was insufficient. Startup readback now has a 120-second budget,
-  retains authoritative-state checks and cancellation, and has a delayed-readiness
-  regression test. This diagnostic is not a full G1 pass.
+No normal host Runtime profile was used; no host reboot occurred. The disposable
+guest shut down after completion. No production credentials, model quota or Channel
+login were required for the delivered lifecycle scope.
 
-Local detailed logs are retained under `.tools/p9/vm-native8`, `vm-native10`,
-`vm-native11` and the later full-run directory. Only sanitized diagnostic tails and
-non-secret smoke status were sent to the serial evidence stream. Runtime configuration
-and credential plaintext are not committed.
+## Failures, corrections and evidence retained
 
-The shared 30-second startup inventory budget prevents one Runtime from exhausting
-Desktop's 45-second bootstrap deadline. It does not assert recovery READY:
-`/node/recovery` still checks every previously accepted installation. Tests verify
-cancellation ownership and that a failed Runtime cannot be hidden by a healthy one.
+- Native fixture setup initially exposed a relocated uv launcher and slow Python
+  imports. The guest uses an official pip-generated entry point in its venv; no
+  Hermes fork or source patch was introduced. Fixture failures do not count as PASS.
+- The real OpenClaw package metadata is 135,311 bytes. Its initial 128 KiB guard
+  rejected that valid release. The corrected 256 KiB bound has actual-size and
+  oversize regression tests.
+- Native attempt 8 created all three instances but failed Hermes startup with
+  `LIFECYCLE_POSTCONDITION_FAILED`. Diagnostic attempt 11 measured normal Gateway
+  readiness after about 94 seconds. The 15-second post-launch wait became a bounded
+  120-second start wait with authoritative readback and cancellation regression;
+  STOPPED remains bounded at 15 seconds. Final real G1 passes this path.
+- The shared 30-second startup inventory budget keeps the Desktop bootstrap bounded.
+  Recovery still checks each previously accepted installation; tests prove a healthy
+  Runtime cannot mask a failed Runtime and management remains accessible.
+- [CI #101](https://github.com/YoLin02/yorva/actions/runs/34471364540) rejected
+  inherited Vitest/js-yaml development dependencies under newly published advisories.
+  `cc36eaa` patches Vitest 4.1.10 to 4.1.11 and the exact Redocly parent's js-yaml
+  4.3.1 to 4.3.2. Frozen install, dependency audit and full Desktop/API regression
+  pass. No gate or advisory threshold was weakened.
+- M1 and L1 from the first 12-dimension review were fixed in `8fd2bcb`: independent
+  Runtime name-rule fakes/tests and accurate native identity/protection documentation.
+- H1: [CI #102](https://github.com/YoLin02/yorva/actions/runs/34471758200) exceeded
+  the existing 45-second bootstrap deadline. Its exact cause remains unproven. The
+  harness now drains stderr concurrently, reports scenario timing and limits failure
+  tails to 8 KiB. Deadline, health and all five lifetime assertions remain. Native
+  attempt 14 [passed](PHASE-009-WINDOWS-BOOTSTRAP.json), then final CI #105 passed.
+- H2: [CI #103](https://github.com/YoLin02/yorva/actions/runs/34473025392) reported
+  a descendant surviving command cancellation. Closing the kill-on-close Job did not
+  synchronously prove process exit. The initial terminate/accounting-only correction
+  also failed strict repetitions. `8e3e03f` retains owned process handles before
+  termination and verifies their signals plus empty Job. G1 R1 passed on that
+  candidate; no test was relaxed and no arbitrary PID kill was added.
+- H3: fresh source review of `8e3e03f` found output-close followed by synchronous
+  Wait could bypass cancellation. The finite regression reproduced a 500 ms deadline
+  returning after 3.070685 seconds. `b958801` preserves the context select while
+  joining the process; the unchanged test and all 80 process scenarios pass. Final
+  CI/MSI and real G1 R2 qualify that correction.
 
-## Final gate record
+The [audit](../audits/AUDIT-009-openclaw-second-runtime.md) preserves the first FAIL,
+each finding, unsuccessful correction evidence and final closure. Historical MSI
+39–42 and pre-H3 checks are not delivered as the final package or substituted for it.
 
-The first candidate `a731dcfe4c8de5a8fea559ee28d669c83812702f` was pushed for
-[CI 101](https://github.com/YoLin02/yorva/actions/runs/34471364540) and
-[MSI 39](https://github.com/YoLin02/yorva/actions/runs/34471364498). CI's dependency
-audit rejected inherited development dependencies under newly published advisories:
-[js-yaml GHSA-2883-xcg3-v3hh](https://github.com/advisories/GHSA-2883-xcg3-v3hh) and
-[Vitest GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9).
-Vitest and its matching packages are patched from 4.1.10 to 4.1.11. A narrow override
-patches the exact `@redocly/openapi-core@1.34.19` parent from js-yaml 4.3.1 to 4.3.2;
-the override should be removed when that parent's pinned parser is updated. No
-unrelated dependency or framework was upgraded. After the patch, local `pnpm audit
---audit-level low`, API lint/generation consistency, Desktop typecheck/lint, all 151
-tests and production build passed. The failed CI evidence is retained and the
-security gate remains unchanged.
+## Limits and maintenance observations
 
-G1, G2 and G3 will be recorded against the final candidate and actual results before
-the Phase Spec is marked FROZEN. Required checks are not waived by the partial results
-above.
+The existing Vite chunk-size advisory remains non-blocking. Govulncheck reports zero
+reachable vulnerabilities, with 17 advisories in required modules outside called
+code; pnpm and cargo audit gates pass. This does not claim an entirely advisory-free
+transitive graph. The narrow js-yaml override should be removed when its parent
+updates that dependency (repository maintainer, during the relevant dependency update).
 
-## Audit follow-up
-
-The first [12-dimension audit](../audits/AUDIT-009-openclaw-second-runtime.md)
-records M1 (common fake depended on Hermes name validation) and L1 (data-model
-mapping/protection explanation). The fake now has independent configurable rules;
-the original invalid-name assertion remains and a new test proves different Runtime
-rules dispatch correctly. Windows `go test ./internal/app` passes after the fix
-(20.032 seconds). DATA_MODEL now explains both native identities and independent
-default/protection without changing the schema.
-
-CI #102's Windows job passed the new OpenClaw/app/daemon test step and the encrypted
-Restore test, then failed the existing 45-second lifecycle-smoke handshake at
-11:39:13 UTC. CI #101 passed that same step with identical Go product source.
-The cause is not yet established. The smoke harness now drains stderr concurrently,
-prints the scenario and startup duration, and limits printed failure diagnostics to
-8 KiB; the 45-second deadline, health check and all five lifetime scenarios remain.
-A fresh native fixture and remote CI are required to resolve audit H1.
-
-Native attempt 14 passed all five bootstrap/lifetime scenarios at 11:47:33 UTC:
-initial handshake+health 13,677 ms; subsequent starts 1,651 / 1,270 / 1,652 / 1,696 ms.
-See the [sanitized bootstrap evidence](PHASE-009-WINDOWS-BOOTSTRAP.json).
-The full real G1 observation stream is also retained as
-[sanitized structured evidence](PHASE-009-WINDOWS-G1.json).
-
-CI #103 (`8fd2bcb`) passed Go race and Web/API checks, but its Windows OpenClaw
-cancellation regression reported a surviving descendant before the bootstrap step.
-Audit H2 records the product teardown correction and the failed accounting-only
-attempt. The final correction retains owned-process handles and verifies their exit
-signals before returning; it adds no dependency or PID-based kill path. The original
-strict cancellation test remains, supplemented by normal-command orphan cleanup and
-a held-handle test that excludes PID reuse. Final repetitions, real G1 and CI/package
-qualification are required for the corrected product candidate.
-
-After the handle-based correction, all three strict Windows process tests passed
-20 repetitions each (60 scenario executions, 44.803 seconds total). The complete
-OpenClaw adapter suite and `go vet` also pass locally. The original 6-second cancellation
-completion assertion and immediate descendant-exit assertions remain unchanged.
-
-Fresh source re-audit of `8e3e03f` identified H3: closing both output streams allowed
-the subsequent synchronous direct-process wait to bypass cancellation. The new
-finite fixture reproduced a 500 ms command deadline returning after 3.070685 seconds.
-The corrected command keeps cancellation active through that wait and always joins
-its waiter before the existing Job teardown. All four strict process tests then
-passed 20 times each (80 executions, 54.930 seconds), and the full OpenClaw suite
-(3.854 seconds) plus `go vet` passed. No assertion or deadline was loosened. The
-corrected product requires a fresh CI/MSI candidate and a fresh real G1 run.
+OpenClaw Windows x64 `2026.9.3` is the qualified target. Production signing, public
+distribution, broader platform/version qualification and optional Runtime feature
+parity remain separate work under the Spec. P8's unchanged release/security controls
+are inherited; affected native/recovery checks were executed. No P10 work begins
+as part of this freeze.

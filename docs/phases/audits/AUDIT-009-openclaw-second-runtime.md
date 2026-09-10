@@ -1,5 +1,8 @@
 # YORVA Phase 9 Audit
 
+> Current gate: **PASS** for `b958801a91234b5a602d652035e5c4f3e3dc8242`.
+> See the final dated re-audit below; preceding FAIL decisions are retained history.
+
 ## Phase
 
 Phase 9 — OpenClaw second Runtime, native Windows x64 MVP.
@@ -327,3 +330,67 @@ After H3 correction, all four strict Windows command/process tests passed 20 tim
 each (80 scenario executions, 54.930 seconds). The complete OpenClaw suite passed
 in 3.854 seconds and its `go vet` passed. Final candidate CI and real G1 remain
 required; preceding candidate successes do not substitute for these checks.
+
+## Final re-audit — 2026-09-10
+
+**PASS — G1, G2 and G3 satisfied for product candidate
+`b958801a91234b5a602d652035e5c4f3e3dc8242`.**
+
+This dated decision supersedes the first-pass recommendation and H1/H2/H3 FAIL
+decisions above without erasing them. A fresh single-agent context reviewed the
+actual final command/process implementation, lifecycle handoff, unchanged strict
+tests, neutral fake and per-Runtime name-rule test, affected contracts and governing
+documents before any final-record edits. No additional product change was needed.
+This follows the solo-project fresh-review procedure; no subagent was used.
+
+### Finding closure
+
+| Finding | Resolution and verification | Final status |
+| --- | --- | --- |
+| M1 — Runtime-coupled Core fake | `8fd2bcb`: configurable independent name validation; `TestCreateUsesTheSelectedRuntimesNameRules` proves one Runtime can reject a name accepted by another and that mutations reach only the chosen adapter. Original invalid-name assertion retained; final Linux race and native Windows app tests pass. | CLOSED |
+| L1 — Incomplete native identity/protection documentation | `8fd2bcb`: DATA_MODEL describes both native mappings, installation-scoped identity, `availability`, independent default/protection and protected tombstones. Actual SQLite schema remains unchanged. | CLOSED |
+| H1 — Bootstrap smoke timeout | `8fd2bcb`: harness drains stderr during startup and records scenario timing with bounded failure tails. The cause of the original timeout remains unproven; it is not classified as a harmless runner flake. The original 45-second deadline, health checks and all five scenarios remain. Native attempt 14 and final CI #105 pass. | CLOSED |
+| H2 — Descendant exit not joined | `8e3e03f`: retain synchronization handles from the owned Job before termination, reap the direct child, verify process-exit signals and empty Job within one five-second cleanup budget. Uncertain cleanup fails normal command success. All strict process tests pass, and final real G1 verifies successful Gateway lifetime handoff. No arbitrary PID kill or persistent process authority added. | CLOSED |
+| H3 — Deadline lost after output closes | `b958801`: the process waiter remains under a context select, cancellation terminates its owned Job, and every path joins the waiter before Job cleanup. The same finite regression failed before the fix and passed afterward, with no relaxed timing assertion. Final CI and real G1 pass on this corrected candidate. | CLOSED |
+
+### Final twelve-dimension review
+
+| Dimension | Decision and evidence |
+| --- | --- |
+| Scope | PASS — required discovery, profile Instance lifecycle, two-Runtime routing and Desktop flow delivered; optional capabilities and P10 remain outside this baseline. |
+| Correctness | PASS — final real G1 covers create, same-name identity, authenticated readiness, restart, reconnect, stop and isolated deletion; H2/H3 regressions and negative adapter tests pass. |
+| Architecture | PASS — Instance targets resolve through accepted installation and Runtime bundle; native rules stay in adapters; M1 now uses independent Core fakes. |
+| Security | PASS — fixed argv, constrained environment, bounded output, validated profile ownership and authenticated readiness remain; H2/H3 cleanup verified without weakening authentication, CSP, secrets or update controls. |
+| Data and persistence | PASS — existing migration/SQLite tests pass; no schema or credential-authority change; fresh native protection and identity reconciliation retain stable scoped IDs. |
+| Concurrency and lifecycle | PASS — full Linux race, native Windows process tests, real Runtime survival across daemon reconnect and all five bootstrap scenarios pass; the final command joins output readers, waiter and owned teardown. |
+| Protocol and compatibility | PASS — OpenAPI lint and regeneration consistency pass; typed capabilities and stable errors prevent unsupported cross-Runtime dispatch; fixed OpenClaw release qualified. |
+| Testing and verification | PASS — final CI #105 and MSI #43 succeed; 151 Desktop tests, native shell tests and final real G1 pass. Repeated local process regressions cover 80 executions after H3. |
+| Maintainability | PASS — no speculative plugin system, service framework or new product dependency; fixes stay within command ownership and the existing test harness. |
+| Documentation | PASS — actual contracts, ADR-0021, Spec, roadmap, development guide, validation, audit and baseline record agree on delivered capability, source identity and qualification limits. |
+| Dependencies / supply chain | PASS — frozen lockfile, pnpm audit, govulncheck and cargo audit gates pass. Go reports zero reachable vulnerabilities, with 17 required-module advisories outside called code; it is not represented as an entirely advisory-free dependency graph. |
+| Operations / diagnostics | PASS — durable Operation terminal states, recovery warnings, bounded safe failure diagnostics, encrypted Restore and isolated Desktop/daemon recovery checks pass. |
+
+Final evidence is indexed in the [validation record](../evidence/PHASE-009-VALIDATION.md)
+and [baseline record](../evidence/PHASE-009-BASELINE.md). CI #105 and MSI #43 both
+test `b958801a91234b5a602d652035e5c4f3e3dc8242`; the final freeze commit changes
+documentation/evidence only and retains identical product, test, workflow, script,
+API and dependency trees. The annotated phase tag identifies that documentation
+successor. No older package is substituted for the final MSI.
+
+### Remaining scope and non-blocking observations
+
+There are zero unresolved CRITICAL, HIGH, MEDIUM or LOW findings, and no correctness
+or security defect is deferred. No PASS WITH CONDITIONS acceptance is required.
+The existing Vite chunk advisory, development dependency override-removal trigger
+and unreachable-module advisory observations remain INFO. Owner: repository
+maintainer; revisit during the relevant measured frontend/dependency update. None
+is a prerequisite for the next Phase Spec or an excuse to omit a required check.
+
+The supported OpenClaw release/platform is `2026.9.3` on Windows x64. Its optional
+model/channel/Skill/MCP/backup/installer/upgrade features are unavailable. Broader
+qualification and a production-signed public release remain separate work. The MSI
+is an unsigned internal test package. The final G1 used a disposable medium-integrity
+Windows guest; normal host profiles were untouched and the host was not rebooted.
+
+The Phase 9 baseline may be frozen under the already-authorized Spec §10. This
+record does not start Phase 10, merge main or publish a production release.

@@ -467,17 +467,18 @@ Exit criteria:
 
 ## Phase 9 — Second Runtime validation
 
-Current phase: **IN_PROGRESS — OpenClaw second Runtime**, authorized on 2026-09-10.
-The latest stable version verified at B0 start is `2026.9.3`. See the
-[Phase 9 execution spec](phases/PHASE-009-openclaw-second-runtime.md) and
-[upstream selection evidence](phases/evidence/PHASE-009-OPENCLAW-UPSTREAM.md).
-
-The plan starts from the frozen P8 internal baseline and prioritizes native Windows
-discovery, Gateway-profile Instance management, lifecycle, capability-based Desktop
-flows and Hermes coexistence. Four continuous work batches lead to one focused phase
-audit. A full installer, feature parity, production signing material, multi-hour soak
-and all-platform qualification are not prerequisites; specific safe extensions remain
-allowed by the Spec. Implementation is underway; test PASS is not yet claimed.
+Status: **COMPLETE / FROZEN — OpenClaw second Runtime**, 2026-09-10.
+Qualified product candidate: `b958801a91234b5a602d652035e5c4f3e3dc8242`.
+Branch baseline: `phase-009-openclaw-baseline`; main and P8 history remain unchanged.
+OpenClaw `2026.9.3` on Windows x64 passes real discovery, Gateway-profile Instance
+management, authenticated lifecycle, same-name isolation and Hermes coexistence.
+Desktop switching and capability-based routing, final CI #105, MSI #43 and the
+12-dimension audit pass. The MSI is an unsigned internal test package. Optional
+OpenClaw model/channel/Skill/MCP/backup/installer/upgrade features are unavailable.
+See the [Spec](phases/PHASE-009-openclaw-second-runtime.md),
+[validation](phases/evidence/PHASE-009-VALIDATION.md),
+[audit](phases/audits/AUDIT-009-openclaw-second-runtime.md) and
+[baseline](phases/evidence/PHASE-009-BASELINE.md).
 
 This phase is intentionally before distributed Control Plane work.
 

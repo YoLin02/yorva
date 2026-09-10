@@ -1,6 +1,6 @@
 # YORVA Phase 9 — OpenClaw 第二 Runtime
 
-> Status: AUDIT — 首轮真实 G1 和只读审计完成；审计发现的取消/进程清理问题已修复，正在复验最终候选
+> Status: FROZEN — G1 / G2 / G3 PASS；最终产品候选 `b958801`，基线 tag `phase-009-openclaw-baseline`
 > Owner: YoLin02
 > Date: 2026-09-08
 > Baseline: `phase-008-local-product-hardening-baseline` → `2a7b842e668011a97804eb40642e3ff9dcab2f04`
@@ -13,7 +13,7 @@
 
 Owner 于 2026-09-08 指定 OpenClaw 2.0 最新版本，并要求快速推进、减少额外门禁。P9 采用四个连续工作批次和一次阶段验收；批次是执行顺序，不是逐批审批或冻结关卡。保留正确性、数据隔离、认证与必要回归，复用 P8 未受影响的证据。
 
-本文件定义实现范围；IN_PROGRESS 不表示功能已经交付或测试通过。P8 的冻结 tag 和历史审计保持不变。
+本文件定义实现范围；2026-09-10 已完成规定的真实验证、回归、修复复审及基线记录。P8 的冻结 tag 和历史审计保持不变。
 
 ## 2. 版本与平台
 
@@ -162,11 +162,16 @@ P8 已通过的发布基础按未受影响范围继承。P9 不以生产签名�
 
 ## 12. 完成证据
 
-| 项目 | 当前结果 |
+| 项目 | 最终结果 |
 | --- | --- |
-| P8 基线 | 已核对冻结 tag、commit 和文档后继 |
-| 上游版本/官方接口研究 | 已记录；这是研究证据，不是运行通过证据 |
-| B0 实测 / B1 实现 / B2 Desktop / B3 验收 | 官方实例/认证/启停已取得分项证据；Node / Desktop 主线已实现；完整 G1 / 审计进行中 |
-| 本地实现测试 | Go 全量 test、vet/build；Desktop 151 项测试、typecheck/lint/build；API lint/生成无漂移通过。真实联测发现的问题仍在修复与复验 |
-| CI、真实双 Runtime smoke | 最终候选 CI 尚未执行；完整 G1 尚未通过，不标 PASS |
-| P9 审计、基线和 FROZEN | 尚未执行 |
+| P8 基线 | 保留 `phase-008-local-product-hardening-baseline` 和文档后继；无历史重写 |
+| B0 / B1 / B2 | OpenClaw 2026.9.3 官方接口实测、Node 双 Runtime 路由与 Desktop 主线完成 |
+| G1 | PASS；最终候选在普通用户 Windows 11 x64 完成一个 Hermes 与两个 OpenClaw 的同名隔离、认证启停、重启、重连及删除；[R2 原生证据](evidence/PHASE-009-WINDOWS-G1-R2.json) |
+| G2 | PASS；最终 CI #105 全部检查、151 项 Desktop 测试和 MSI #43 构建/检查/上传通过；[验证记录](evidence/PHASE-009-VALIDATION.md) |
+| G3 | PASS；独立新上下文复核实际源码，M1/L1/H1/H2/H3 全部关闭；[审计及失败历史](audits/AUDIT-009-openclaw-second-runtime.md) |
+| 最终产品候选 | `b958801a91234b5a602d652035e5c4f3e3dc8242` |
+| 基线和状态 | `phase-009-openclaw-baseline`；FROZEN；[基线记录](evidence/PHASE-009-BASELINE.md) |
+
+冻结提交仅补充文档/证据，产品、测试、脚本、API、workflow 和依赖与上述测试提交相同。
+MSI 为未签名内部测试包；不代表公开生产发布、全平台/版本或可选能力已验证。
+P9 分支基线独立记录，不移动 P8 tag，不提前实现 P10，不以本记录代替 main 合并。
