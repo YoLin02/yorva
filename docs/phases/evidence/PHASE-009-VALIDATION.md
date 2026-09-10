@@ -115,3 +115,12 @@ After the handle-based correction, all three strict Windows process tests passed
 20 repetitions each (60 scenario executions, 44.803 seconds total). The complete
 OpenClaw adapter suite and `go vet` also pass locally. The original 6-second cancellation
 completion assertion and immediate descendant-exit assertions remain unchanged.
+
+Fresh source re-audit of `8e3e03f` identified H3: closing both output streams allowed
+the subsequent synchronous direct-process wait to bypass cancellation. The new
+finite fixture reproduced a 500 ms command deadline returning after 3.070685 seconds.
+The corrected command keeps cancellation active through that wait and always joins
+its waiter before the existing Job teardown. All four strict process tests then
+passed 20 times each (80 executions, 54.930 seconds), and the full OpenClaw suite
+(3.854 seconds) plus `go vet` passed. No assertion or deadline was loosened. The
+corrected product requires a fresh CI/MSI candidate and a fresh real G1 run.

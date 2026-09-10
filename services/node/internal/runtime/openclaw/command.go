@@ -76,7 +76,18 @@ func (a *Adapter) command(ctx context.Context, node, entry, profile string, time
 			done = nil
 		}
 	}
-	waitErr := cmd.Wait()
+	// A process can close both streams before it exits. Keep cancellation active
+	// until Wait completes, and join this waiter before finishing the owned Job.
+	waited := make(chan error, 1)
+	go func() { waited <- cmd.Wait() }()
+	var waitErr error
+	select {
+	case waitErr = <-waited:
+	case <-ctx.Done():
+		job.terminate()
+		_ = cmd.Process.Kill()
+		waitErr = <-waited
+	}
 	cleanupErr := job.finish()
 	if ctx.Err() != nil {
 		clear(data)

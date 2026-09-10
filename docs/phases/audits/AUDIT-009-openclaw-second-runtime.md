@@ -200,46 +200,6 @@ assertion, and verify distinct fake Runtime rules reach the selected instance co
 Native name rules remain tested in their actual adapters. Owner: current P9 work;
 resolution trigger: before final gate.
 
-## Additional verification finding — 2026-09-10 11:50 UTC
-
-**H2 — Command cancellation returns before Windows descendant termination is verified.**
-CI #103 Windows job `102857125922` failed
-`TestCommandBoundsAndCancellationOwnDescendants` at `command_test.go:256` with
-`descendant survived command cancellation`; app and daemon packages passed.
-`openclaw/process_windows.go:65–72` only closes a kill-on-close Job. The command
-joins its direct child and output readers, but does not explicitly observe the whole
-Job becoming empty. The existing regression must remain strict. Add bounded owned-Job
-termination/readback before releasing the Job handle; do not add arbitrary PID killing
-or extend this change into the unrelated Hermes adapter.
-
-Gate remains FAIL. Revisit Security, Correctness, Concurrency/Lifecycle and Testing;
-repeat the native cancellation regression and verify real Gateway lifecycle handoff.
-Owner: current P9 work; resolution trigger: before final gate.
-
-### H2 investigation and remediation
-
-The first local correction explicitly called TerminateJobObject and waited for zero
-Job accounting, but it was insufficient: cancellation failed 2 of 20 repetitions,
-a new success-with-orphan test failed 20 of 20, and a test holding the exact descendant
-handle before cancellation failed 3 of 20. The held-handle test confirms this is not
-a PID-reuse assertion artifact. It observed a non-signaled process after accounting
-reported zero. These failed attempts are retained; the tests were not relaxed.
-
-The corrected implementation captures synchronization handles from its own bounded
-Job process list before termination, terminates only that Job, reaps the direct child,
-waits for each captured process object to signal within one five-second cleanup
-budget, closes those references and checks the remaining Job count. Enumeration or
-cleanup uncertainty prevents ordinary command success. Failed Gateway startup uses
-the same cleanup; authenticated handoff remains a separate non-terminating detach.
-
-This follows the documented distinction between asynchronous
-[TerminateProcess](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess)
-(also used for each process by
-[TerminateJobObject](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-terminatejobobject))
-and waiting on a process handle. Process IDs are obtained through the documented
-[Job information query](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-queryinformationjobobject);
-no arbitrary PID kill or persisted process authority is introduced.
-
 ### Low
 
 **L1 — Data-model explanation omits the new native mapping and protection semantics.**
@@ -299,3 +259,71 @@ backpressure in the harness, and re-run the required check. Revisit Correctness,
 Concurrency/Lifecycle, Testing and Operations/Diagnostics with the resulting evidence.
 Do not infer that this is merely a transient runner issue. Owner: current P9 work;
 resolution trigger: before final gate.
+
+## Additional verification finding — 2026-09-10 11:50 UTC
+
+**H2 — Command cancellation returns before Windows descendant termination is verified.**
+CI #103 Windows job `102857125922` failed
+`TestCommandBoundsAndCancellationOwnDescendants` at `command_test.go:256` with
+`descendant survived command cancellation`; app and daemon packages passed.
+`openclaw/process_windows.go:65–72` only closes a kill-on-close Job. The command
+joins its direct child and output readers, but does not explicitly observe the whole
+Job becoming empty. The existing regression must remain strict. Add bounded owned-Job
+termination/readback before releasing the Job handle; do not add arbitrary PID killing
+or extend this change into the unrelated Hermes adapter.
+
+Gate remains FAIL. Revisit Security, Correctness, Concurrency/Lifecycle and Testing;
+repeat the native cancellation regression and verify real Gateway lifecycle handoff.
+Owner: current P9 work; resolution trigger: before final gate.
+
+### H2 investigation and remediation
+
+The first local correction explicitly called TerminateJobObject and waited for zero
+Job accounting, but it was insufficient: cancellation failed 2 of 20 repetitions,
+a new success-with-orphan test failed 20 of 20, and a test holding the exact descendant
+handle before cancellation failed 3 of 20. The held-handle test confirms this is not
+a PID-reuse assertion artifact. It observed a non-signaled process after accounting
+reported zero. These failed attempts are retained; the tests were not relaxed.
+
+The corrected implementation captures synchronization handles from its own bounded
+Job process list before termination, terminates only that Job, reaps the direct child,
+waits for each captured process object to signal within one five-second cleanup
+budget, closes those references and checks the remaining Job count. Enumeration or
+cleanup uncertainty prevents ordinary command success. Failed Gateway startup uses
+the same cleanup; authenticated handoff remains a separate non-terminating detach.
+
+This follows the documented distinction between asynchronous
+[TerminateProcess](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess)
+(also used for each process by
+[TerminateJobObject](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-terminatejobobject))
+and waiting on a process handle. Process IDs are obtained through the documented
+[Job information query](https://learn.microsoft.com/en-us/windows/win32/api/jobapi2/nf-jobapi2-queryinformationjobobject);
+no arbitrary PID kill or persisted process authority is introduced.
+
+## Additional source re-audit finding — 2026-09-10 12:10 UTC
+
+**H3 — Closed output streams bypass command cancellation while the process still runs.**
+Fresh review of candidate `8e3e03f` found that `openclaw/command.go` leaves its
+context-select loop after both readers finish and then calls `cmd.Wait` synchronously.
+A CLI that closes stdout/stderr before exiting can therefore keep the worker blocked
+beyond its command deadline. The output-completion event is not a process-exit event.
+This affects the required timeout/cancellation contract even though ordinary CLI calls
+and the existing inherited-pipe regression pass.
+
+Gate remains FAIL. Add a finite external-process fixture that closes both streams
+and keeps running, establish the regression, and keep cancellation active while
+joining the direct process. Preserve the owned-Job teardown and all existing strict
+tests. Revisit Correctness, Concurrency/Lifecycle, Security and Testing. Owner: current
+P9 work; resolution trigger: before final gate.
+
+`TestCommandDeadlineAfterClosedStreams` reproduced H3 against the reviewed product:
+the fixture closed both streams, remained alive for three seconds, and the command's
+500 ms deadline returned only after 3.070685 seconds. The corrected command keeps a
+context select around the direct-process wait, joins that waiter on every path, and
+then performs the existing H2 Job cleanup. The finite fixture and two-second assertion
+bound remain unchanged between the failing and passing runs.
+
+After H3 correction, all four strict Windows command/process tests passed 20 times
+each (80 scenario executions, 54.930 seconds). The complete OpenClaw suite passed
+in 3.854 seconds and its `go vet` passed. Final candidate CI and real G1 remain
+required; preceding candidate successes do not substitute for these checks.

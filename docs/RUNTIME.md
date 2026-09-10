@@ -478,3 +478,7 @@ handles and zero active Job processes within a five-second cleanup budget.
 Closing a kill-on-close handle alone is not treated as synchronous termination. The
 same verification applies after failed startup; authenticated successful startup still
 detaches without terminating the Gateway.
+
+Command deadlines remain active after stdout/stderr close, until the direct process
+has exited. The process waiter is always joined before Job cleanup and return;
+closed streams alone never indicate completed execution.

@@ -54,6 +54,11 @@ func TestMain(m *testing.M) {
 			time.Sleep(time.Minute)
 		case "sleep":
 			time.Sleep(time.Minute)
+		case "closed-streams":
+			_ = os.Stdout.Close()
+			_ = os.Stderr.Close()
+			_ = os.WriteFile(filepath.Join(os.Getenv("USERPROFILE"), "streams.closed"), []byte("closed"), 0600)
+			time.Sleep(3 * time.Second)
 		default:
 			if len(os.Args) == 3 && os.Args[2] == "--version" {
 				fmt.Print(fixture.Version)
@@ -282,5 +287,19 @@ func TestSuccessfulCommandAlsoJoinsOwnedDescendants(t *testing.T) {
 	defer child.Release()
 	if runtime.GOOS == "windows" && processRunning(&exec.Cmd{Process: child}) {
 		t.Fatal("descendant survived successful command cleanup")
+	}
+}
+
+func TestCommandDeadlineAfterClosedStreams(t *testing.T) {
+	a, node, entry := contractCLI(t, "closed-streams", "")
+	started := time.Now()
+	if _, err := a.command(context.Background(), node, entry, "", 500*time.Millisecond, "--version"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("closed-stream command deadline = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(a.home, "streams.closed")); err != nil {
+		t.Fatal("fixture did not close its streams before cancellation")
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("closed output streams bypassed command deadline: %s", elapsed)
 	}
 }

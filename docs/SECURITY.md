@@ -527,4 +527,8 @@ command success. IDs are transient handle lookups, never PID-based kill authorit
 Successful authenticated Gateway handoff takes the separate detach path and retains
 Runtime lifetime. This does not extend the command execution or readiness deadline.
 
+Closing both child output streams does not disable timeout/cancellation. The command
+continues selecting its deadline while waiting for process exit, terminates the owned
+Job on cancellation and joins the process waiter before returning.
+
 Accepted Runtime/installation identity is checked before each target dispatch. Unknown/missing OpenClaw state cannot be hidden by successful Hermes recovery, while the healthy Runtime remains queryable. Backend capability checks apply even when a client ignores the UI. No Tauri CSP, local bearer authentication, update verification or production-release signing policy is relaxed by Phase 9.
