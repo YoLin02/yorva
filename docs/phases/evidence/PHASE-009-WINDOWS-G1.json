@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "phase": "009",
+  "result": "PASS",
+  "completedAtUtc": "2026-09-10T11:34:32.3427700Z",
+  "platform": "Windows 11 x64 disposable VM",
+  "integrity": "Medium (S-1-16-8192); high integrity rejected",
+  "runtimeVersions": {
+    "hermesPython": "3.11.15",
+    "openclaw": "2026.9.3",
+    "hermes": "0.20.5",
+    "openclawNode": "24.16.0"
+  },
+  "script": "scripts/windows-second-runtime-smoke.ps1",
+  "sourceImplementationCommit": "a731dcfe4c8de5a8fea559ee28d669c83812702f",
+  "sidecarSha256": "19dee30c1dfd18ac1b741bde832aec1dbc3f353beadbf23e410c931e537cf2a4",
+  "sourceAttribution": "Sidecar built before the implementation commit from that product source; embedded Go VCS records e95ed31 dirty. Later cc36eaa and 8fd2bcb change development dependencies, tests, harness or documentation, not Go product source. This is not the remote MSI binary.",
+  "localEvidence": ".tools/p9/vm-native12/serial.log",
+  "hostProfileMutation": false,
+  "hostReboot": false,
+  "observations": [
+    "2026-09-10T11:25:03.3327261Z P9_NATIVE P9_G1 MEDIUM_INTEGRITY_PASS",
+    "2026-09-10T11:25:15.7031844Z P9_NATIVE P9_G1 hermes version=0.20.5 executable=C:\\Users\\yorva\\AppData\\Local\\hermes\\bin\\hermes.exe",
+    "2026-09-10T11:25:16.4917787Z P9_NATIVE P9_G1 openclaw version=2026.9.3 executable=C:\\Users\\yorva\\YorvaP9NativeFixtures\\openclaw\\node_modules\\openclaw\\openclaw.mjs",
+    "2026-09-10T11:25:20.5925407Z P9_NATIVE P9_G1 hermes create yorvap9same status=SUCCEEDED code=",
+    "2026-09-10T11:26:01.1966166Z P9_NATIVE P9_G1 openclaw create yorvap9same status=SUCCEEDED code=",
+    "2026-09-10T11:26:14.7067409Z P9_NATIVE P9_G1 openclaw create yorvap9other status=SUCCEEDED code=",
+    "2026-09-10T11:26:18.8875884Z P9_NATIVE P9_G1 SAME_NAME_AND_CAPABILITIES_PASS",
+    "2026-09-10T11:28:34.4282891Z P9_NATIVE P9_G1 yorvap9same start status=SUCCEEDED code=",
+    "2026-09-10T11:29:37.5089176Z P9_NATIVE P9_G1 yorvap9same start status=SUCCEEDED code=",
+    "2026-09-10T11:30:04.5403201Z P9_NATIVE P9_G1 yorvap9other start status=SUCCEEDED code=",
+    "2026-09-10T11:30:32.3305268Z P9_NATIVE P9_G1 THREE_LIVE_TWO_GATEWAYS_AUTHENTICATED",
+    "2026-09-10T11:31:25.3747383Z P9_NATIVE P9_G1 yorvap9same restart status=SUCCEEDED code=",
+    "2026-09-10T11:32:03.3877942Z P9_NATIVE P9_G1 DAEMON_RECONNECT_RUNTIME_LIFETIME_PASS",
+    "2026-09-10T11:32:27.8588779Z P9_NATIVE P9_G1 yorvap9same stop status=SUCCEEDED code=",
+    "2026-09-10T11:33:01.3158053Z P9_NATIVE P9_G1 OpenClaw delete A status=SUCCEEDED code=",
+    "2026-09-10T11:33:35.2062028Z P9_NATIVE P9_G1 yorvap9other stop status=SUCCEEDED code=",
+    "2026-09-10T11:33:56.7961287Z P9_NATIVE P9_G1 delete inst_ZRUPzHGH5nANVyzC-kDnm678 status=SUCCEEDED code=",
+    "2026-09-10T11:34:00.1185027Z P9_NATIVE P9_G1 yorvap9same stop status=SUCCEEDED code=",
+    "2026-09-10T11:34:28.9851770Z P9_NATIVE P9_G1 delete inst_19NUalPvlw2JiKJXHBTs8b1i status=SUCCEEDED code=",
+    "2026-09-10T11:34:32.3427700Z P9_NATIVE P9_G1 PASS create identity start restart auth reconnect stop delete isolation no-login-entry"
+  ]
+}

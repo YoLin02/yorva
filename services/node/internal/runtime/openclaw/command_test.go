@@ -38,14 +38,19 @@ func TestMain(m *testing.M) {
 		case "limit":
 			fmt.Print(strings.Repeat("secret-from-cli", 30000))
 			os.Exit(0)
-		case "tree":
+		case "tree", "orphan":
 			executable, _ := os.Executable()
 			child := exec.Command(executable, "--openclaw-contract-child")
-			child.Stdout, child.Stderr = os.Stdout, os.Stderr
+			if fixture.Mode == "tree" {
+				child.Stdout, child.Stderr = os.Stdout, os.Stderr
+			}
 			if child.Start() != nil {
 				os.Exit(9)
 			}
 			_ = os.WriteFile(filepath.Join(os.Getenv("USERPROFILE"), "child.pid"), []byte(fmt.Sprint(child.Process.Pid)), 0600)
+			if fixture.Mode == "orphan" {
+				os.Exit(0)
+			}
 			time.Sleep(time.Minute)
 		case "sleep":
 			time.Sleep(time.Minute)
@@ -254,5 +259,28 @@ func TestCommandBoundsAndCancellationOwnDescendants(t *testing.T) {
 	defer child.Release()
 	if runtime.GOOS == "windows" && processRunning(&exec.Cmd{Process: child}) {
 		t.Fatal("descendant survived command cancellation")
+	}
+}
+
+func TestSuccessfulCommandAlsoJoinsOwnedDescendants(t *testing.T) {
+	a, node, entry := contractCLI(t, "orphan", "")
+	if _, err := a.command(context.Background(), node, entry, "", 5*time.Second, "--version"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(a.home, "child.pid"))
+	if err != nil {
+		t.Fatal("test did not launch its descendant")
+	}
+	var pid int
+	if _, err := fmt.Sscan(string(data), &pid); err != nil {
+		t.Fatal(err)
+	}
+	child, err := os.FindProcess(pid)
+	if err != nil {
+		return
+	}
+	defer child.Release()
+	if runtime.GOOS == "windows" && processRunning(&exec.Cmd{Process: child}) {
+		t.Fatal("descendant survived successful command cleanup")
 	}
 }

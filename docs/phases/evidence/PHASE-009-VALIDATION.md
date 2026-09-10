@@ -95,3 +95,23 @@ The cause is not yet established. The smoke harness now drains stderr concurrent
 prints the scenario and startup duration, and limits printed failure diagnostics to
 8 KiB; the 45-second deadline, health check and all five lifetime scenarios remain.
 A fresh native fixture and remote CI are required to resolve audit H1.
+
+Native attempt 14 passed all five bootstrap/lifetime scenarios at 11:47:33 UTC:
+initial handshake+health 13,677 ms; subsequent starts 1,651 / 1,270 / 1,652 / 1,696 ms.
+See the [sanitized bootstrap evidence](PHASE-009-WINDOWS-BOOTSTRAP.json).
+The full real G1 observation stream is also retained as
+[sanitized structured evidence](PHASE-009-WINDOWS-G1.json).
+
+CI #103 (`8fd2bcb`) passed Go race and Web/API checks, but its Windows OpenClaw
+cancellation regression reported a surviving descendant before the bootstrap step.
+Audit H2 records the product teardown correction and the failed accounting-only
+attempt. The final correction retains owned-process handles and verifies their exit
+signals before returning; it adds no dependency or PID-based kill path. The original
+strict cancellation test remains, supplemented by normal-command orphan cleanup and
+a held-handle test that excludes PID reuse. Final repetitions, real G1 and CI/package
+qualification are required for the corrected product candidate.
+
+After the handle-based correction, all three strict Windows process tests passed
+20 repetitions each (60 scenario executions, 44.803 seconds total). The complete
+OpenClaw adapter suite and `go vet` also pass locally. The original 6-second cancellation
+completion assertion and immediate descendant-exit assertions remain unchanged.

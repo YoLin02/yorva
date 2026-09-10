@@ -518,4 +518,13 @@ The child environment excludes inherited provider credentials, YORVA API tokens,
 
 A suspended child is assigned to an adapter-owned Windows Job before execution. Command cancellation kills the owned descendants and drains/joins both readers. Foreground Gateway startup remains kill-on-close until exact authenticated readback; successful transfer clears that flag and releases the process handle without a lingering Go goroutine. Subsequent stop uses the official profile-aware CLI after authenticated target verification. No persisted PID becomes process authority. Stale upstream locks or unverified listeners cause a safe failure; the adapter neither deletes native locks nor kills an arbitrary reported PID to recover.
 
+Windows Job termination is asynchronous. Ordinary command completion and failed Gateway
+startup retain synchronization handles for processes enumerated from their owned Job,
+terminate that Job, reap/release the direct process, and allow at most five seconds
+for the captured process objects to signal exit and Job accounting to reach zero.
+The process list is bounded to 1,024 entries; enumeration/cleanup uncertainty prevents
+command success. IDs are transient handle lookups, never PID-based kill authority.
+Successful authenticated Gateway handoff takes the separate detach path and retains
+Runtime lifetime. This does not extend the command execution or readiness deadline.
+
 Accepted Runtime/installation identity is checked before each target dispatch. Unknown/missing OpenClaw state cannot be hidden by successful Hermes recovery, while the healthy Runtime remains queryable. Backend capability checks apply even when a client ignores the UI. No Tauri CSP, local bearer authentication, update verification or production-release signing policy is relaxed by Phase 9.

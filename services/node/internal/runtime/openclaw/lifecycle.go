@@ -90,9 +90,11 @@ func (a *Adapter) start(ctx context.Context, node, entry, profile string) error 
 	handedOff := false
 	defer func() {
 		if !handedOff {
-			job.close()
+			job.terminate()
 			_ = cmd.Process.Kill()
 			_ = cmd.Wait()
+			_ = job.finish()
+			job.close()
 		}
 	}()
 	for {

@@ -471,3 +471,10 @@ RUNNING/HEALTHY require a successful authenticated read probe, exact local confi
 Delete rechecks ownership, the canonical sole workspace, absence of additional agent workspace configurations and STOPPED, then invokes official `uninstall --state --workspace --yes --non-interactive`. Both scopes are necessary because `--state` alone preserves workspaces. Deletion does not uninstall the CLI, remove a service or touch another profile. YORVA retains its ordinary missing-instance tombstone.
 
 All public management routing resolves the instance's accepted installation/kind and current selected executable. Absent Models/Channels/Skills/MCP/backup/upgrade implementations reject at the backend. Runtime-specific configuration/credentials remain OpenClaw-owned. The adapter does not import OpenClaw internal modules or inspect its internal databases. See [ADR-0021](adr/ADR-0021-openclaw-second-runtime.md) and the [Phase 9 evidence](phases/evidence/PHASE-009-OPENCLAW-UPSTREAM.md).
+
+OpenClaw command teardown retains handles from the owned Windows Job's bounded process
+list, terminates the Job, joins the direct child, then verifies signaled process
+handles and zero active Job processes within a five-second cleanup budget.
+Closing a kill-on-close handle alone is not treated as synchronous termination. The
+same verification applies after failed startup; authenticated successful startup still
+detaches without terminating the Gateway.

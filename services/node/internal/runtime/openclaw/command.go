@@ -67,16 +67,17 @@ func (a *Adapter) command(ctx context.Context, node, entry, profile string, time
 			}
 			if r.err != nil {
 				readErr = r.err
-				job.close()
+				job.terminate()
 				_ = cmd.Process.Kill()
 			}
 		case <-done:
-			job.close()
+			job.terminate()
 			_ = cmd.Process.Kill()
 			done = nil
 		}
 	}
 	waitErr := cmd.Wait()
+	cleanupErr := job.finish()
 	if ctx.Err() != nil {
 		clear(data)
 		return nil, ctx.Err()
@@ -84,6 +85,10 @@ func (a *Adapter) command(ctx context.Context, node, entry, profile string, time
 	if readErr != nil {
 		clear(data)
 		return nil, readErr
+	}
+	if cleanupErr != nil {
+		clear(data)
+		return nil, errCommand
 	}
 	if waitErr != nil {
 		return data, errCommand
