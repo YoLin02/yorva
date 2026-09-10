@@ -5047,3 +5047,28 @@ p {
     margin-right: 0;
   }
 }
+
+.runtime-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.runtime-picker button {
+  padding: 9px 16px;
+  border: 1px solid var(--yorva-border);
+  border-radius: 10px;
+  background: var(--yorva-surface);
+  color: var(--yorva-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.runtime-picker button[aria-pressed="true"] {
+  border-color: var(--yorva-accent-border);
+  background: var(--yorva-accent-soft);
+  color: var(--yorva-accent-deep);
+  font-weight: 600;
+}
+.runtime-picker button:disabled { opacity: .6; cursor: wait; }
+.runtime-monogram { font-size: 15px; font-weight: 750; color: var(--yorva-accent-deep); }
+.instance-runtime-name { color: var(--yorva-text-muted); font-size: 11px; }

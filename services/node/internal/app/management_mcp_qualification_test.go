@@ -41,6 +41,7 @@ func TestYORVAManagesProductionLocalTestMCPAcrossProfiles(t *testing.T) {
 	if err := registry.Register(hermes.Kind, yorvaruntime.Bundle{
 		Descriptor: yorvaruntime.Descriptor{Kind: hermes.Kind, Name: "Hermes Agent", Description: "qualification"},
 		Discoverer: discoverer,
+		Instances:  qualificationProfiles{},
 		MCPRead:    manager,
 		MCPMutate:  manager,
 	}); err != nil {
@@ -83,7 +84,7 @@ func TestYORVAManagesProductionLocalTestMCPAcrossProfiles(t *testing.T) {
 	}
 
 	discovery := app.NewRuntimeDiscovery(registry, nil)
-	inventory := app.NewInstanceInventory(discovery, db, qualificationProfiles{}, localNode.ID)
+	inventory := app.NewInstanceInventory(discovery, db, localNode.ID)
 	service, err := inventory.NewMCPManagement()
 	if err != nil {
 		t.Fatal(err)
@@ -153,10 +154,10 @@ func (d qualificationDiscoverer) Detect(context.Context) (yorvaruntime.Discovery
 	}, nil
 }
 
-type qualificationProfiles struct{}
+type qualificationProfiles struct{ hermes.InstanceManager }
 
-func (qualificationProfiles) List(context.Context, string) ([]app.ProfileSnapshot, error) {
-	return []app.ProfileSnapshot{{NativeID: "default", Default: true}, {NativeID: "work"}}, nil
+func (qualificationProfiles) List(context.Context, string) ([]yorvaruntime.NativeInstance, error) {
+	return []yorvaruntime.NativeInstance{{NativeID: "default", Default: true}, {NativeID: "work"}}, nil
 }
 
 func qualificationHermesHome(t *testing.T) (string, string) {

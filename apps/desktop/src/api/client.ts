@@ -89,6 +89,21 @@ export function createDaemonClient(session: DaemonSession) {
     scope: session.baseUrl,
     getHealth: (signal?: AbortSignal) => request<Health>("/api/v1/health", { signal }, false),
     getNode: (signal?: AbortSignal) => request<Node>("/api/v1/node", { signal }),
+    detectRuntime: (runtimeId: string, signal?: AbortSignal) =>
+      request<RuntimeDiscovery>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/detect`, {
+        method: "POST", signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(desktopDiscoveryTimeoutMs)])
+          : AbortSignal.timeout(desktopDiscoveryTimeoutMs),
+      }),
+    listRuntimeInstances: (runtimeId: string, signal?: AbortSignal) =>
+      request<InstanceList>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/instances`, {
+        signal: withDesktopTimeout(signal),
+      }),
+    createRuntimeInstance: (runtimeId: string, name: string, idempotencyKey: string, signal?: AbortSignal) =>
+      request<Operation>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/instances`, {
+        method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({ name }), signal: withDesktopTimeout(signal),
+      }),
     detectHermes: (signal?: AbortSignal) =>
       request<RuntimeDiscovery>("/api/v1/runtimes/hermes/detect", {
         method: "POST",
@@ -305,6 +320,10 @@ export function createDaemonClient(session: DaemonSession) {
     clearRemovedInstanceRecord: (instanceId: string, signal?: AbortSignal) =>
       request<void>(`/api/v1/instances/${encodeURIComponent(instanceId)}/record`, {
         method: "DELETE",
+        signal: withDesktopTimeout(signal),
+      }),
+    listRuntimeModelProviderPresets: (runtimeId: string, signal?: AbortSignal) =>
+      request<ModelProviderPresetList>(`/api/v1/runtimes/${encodeURIComponent(runtimeId)}/model-provider-presets`, {
         signal: withDesktopTimeout(signal),
       }),
     listModelProviderPresets: (signal?: AbortSignal) =>

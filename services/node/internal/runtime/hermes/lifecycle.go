@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	lifecycleMutationTimeout = 55 * time.Second
-	lifecycleStartTimeout    = 35 * time.Second
-	lifecyclePollInterval    = 250 * time.Millisecond
-	lifecyclePostcondition   = 15 * time.Second
+	lifecycleMutationTimeout    = 55 * time.Second
+	lifecycleStartTimeout       = 35 * time.Second
+	lifecyclePollInterval       = 250 * time.Millisecond
+	lifecyclePostcondition      = 15 * time.Second
+	lifecycleStartPostcondition = 120 * time.Second
 )
 
 type lifecycleObservation struct {
@@ -121,19 +122,26 @@ func (m *LifecycleManager) mutate(ctx context.Context, installation yorvaruntime
 }
 
 func (m *LifecycleManager) await(ctx context.Context, installation yorvaruntime.LifecycleInstallation, nativeID string, expected yorvaruntime.LifecycleState) error {
-	deadline := time.NewTimer(lifecyclePostcondition)
-	defer deadline.Stop()
+	budget := lifecyclePostcondition
+	if expected == yorvaruntime.LifecycleRunning {
+		budget = lifecycleStartPostcondition
+	}
+	observationCtx, cancel := context.WithTimeout(ctx, budget)
+	defer cancel()
 	ticker := time.NewTicker(lifecyclePollInterval)
 	defer ticker.Stop()
 	for {
-		status, err := m.Status(ctx, installation, nativeID)
-		if err == nil && status.State == expected {
+		status, err := m.Status(observationCtx, installation, nativeID)
+		if err == nil && status.State == expected && observationCtx.Err() == nil {
 			return nil
 		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-deadline.C:
+		case <-observationCtx.Done():
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			return yorvaruntime.ErrLifecyclePostcondition
 		case <-ticker.C:
 		}

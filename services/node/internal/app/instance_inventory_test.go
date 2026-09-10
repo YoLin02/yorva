@@ -11,7 +11,17 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/domain/node"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes"
 )
+
+type ProfileSnapshot = yorvaruntime.NativeInstance
+
+const hermesRuntimeID = "hermes"
+
+type profileMutator interface {
+	Create(context.Context, string, string) error
+	Delete(context.Context, string, string) error
+}
 
 type fakeProfileSource struct {
 	mu           sync.Mutex
@@ -19,6 +29,31 @@ type fakeProfileSource struct {
 	err          error
 	calls        int
 	failFromCall int
+	mutator      profileMutator
+}
+
+func (f *fakeProfileSource) ValidateName(name string) error {
+	return (hermes.InstanceManager{}).ValidateName(name)
+}
+func (f *fakeProfileSource) Create(ctx context.Context, executable, name string) error {
+	if f.mutator == nil {
+		return ErrInstanceQueryFailed
+	}
+	return f.mutator.Create(ctx, executable, name)
+}
+func (f *fakeProfileSource) Delete(ctx context.Context, executable, name string) error {
+	if f.mutator == nil {
+		return ErrInstanceQueryFailed
+	}
+	return f.mutator.Delete(ctx, executable, name)
+}
+
+// Preserve the older fixtures' setup syntax while production composition owns
+// every instance capability in its Runtime bundle.
+func (s *InstanceInventory) WithMutator(mutator profileMutator) *InstanceInventory {
+	bundle, _ := s.discovery.registry.Get("hermes")
+	bundle.Instances.(*fakeProfileSource).mutator = mutator
+	return s
 }
 
 func (f *fakeProfileSource) List(context.Context, string) ([]ProfileSnapshot, error) {
@@ -219,6 +254,7 @@ func TestListInstancesRejectsUnsupportedRuntime(t *testing.T) {
 	if err := registry.Register("hermes", yorvaruntime.Bundle{
 		Descriptor: yorvaruntime.Descriptor{Kind: "hermes", Name: "Hermes"},
 		Discoverer: inventoryDiscoverer{result: yorvaruntime.Discovery{RuntimeKind: "hermes", State: yorvaruntime.DiscoveryNotInstalled}},
+		Instances:  &fakeProfileSource{},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -244,6 +280,7 @@ func newTestInventoryWithLifecycle(t *testing.T, profiles []ProfileSnapshot, lis
 
 func newTestInventoryWithManagers(t *testing.T, profiles []ProfileSnapshot, listErr error, lifecycle yorvaruntime.LifecycleManager, channels yorvaruntime.ChannelManager) (*InstanceInventory, *fakeProfileSource) {
 	t.Helper()
+	source := &fakeProfileSource{profiles: profiles, err: listErr}
 	db, err := sqlite.Open(context.Background(), t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -265,11 +302,11 @@ func newTestInventoryWithManagers(t *testing.T, profiles []ProfileSnapshot, list
 		}},
 		Lifecycle: lifecycle,
 		Channels:  channels,
+		Instances: source,
 	}); err != nil {
 		t.Fatal(err)
 	}
-	source := &fakeProfileSource{profiles: profiles, err: listErr}
-	inventory := NewInstanceInventory(NewRuntimeDiscovery(registry, nil), db, source, local.ID)
+	inventory := NewInstanceInventory(NewRuntimeDiscovery(registry, nil), db, local.ID)
 	inventory.now = func() time.Time { return time.Date(2026, 8, 19, 15, 0, 0, 0, time.UTC) }
 	return inventory, source
 }

@@ -3,9 +3,11 @@ package hermes
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
 )
@@ -172,5 +174,40 @@ func TestLifecycleRejectsUnsupportedVersionBeforeExecution(t *testing.T) {
 	_, err := manager.Status(context.Background(), yorvaruntime.LifecycleInstallation{Executable: filepath.Join(t.TempDir(), "hermes.exe"), Version: "0.21.0"}, "default")
 	if !errors.Is(err, yorvaruntime.ErrLifecycleQueryFailed) {
 		t.Fatalf("status = %v", err)
+	}
+}
+
+func TestLifecycleStartWaitsForColdGatewayAndHonorsCancellation(t *testing.T) {
+	for _, cancelWhileStarting := range []bool{false, true} {
+		t.Run(fmt.Sprint("cancel=", cancelWhileStarting), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+			defer cancel()
+			calls := 0
+			var launchedAt time.Time
+			manager := &LifecycleManager{run: func(_ context.Context, _ string, _ []string, _ bool) commandResult {
+				calls++
+				if calls == 2 {
+					launchedAt = time.Now()
+					return commandResult{exitCode: 0}
+				}
+				if calls == 3 && cancelWhileStarting {
+					cancel()
+				}
+				// A cold official Gateway can exceed the former 15-second
+				// readiness window despite a successful launch command.
+				if calls > 3 && time.Since(launchedAt) >= 16*time.Second {
+					return commandResult{stdout: "✓ Gateway is running (PID: 12)\n", exitCode: 0}
+				}
+				return commandResult{stdout: "✗ Gateway is not running\n", exitCode: 0}
+			}}
+			err := manager.Start(ctx, yorvaruntime.LifecycleInstallation{Executable: filepath.Join(t.TempDir(), "hermes.exe"), Version: lifecycleOfficialVersion}, "coder")
+			if cancelWhileStarting {
+				if !errors.Is(err, context.Canceled) || calls != 3 {
+					t.Fatalf("cancelled startup: err=%v calls=%d", err, calls)
+				}
+			} else if err != nil || calls < 4 {
+				t.Fatalf("cold startup: err=%v calls=%d", err, calls)
+			}
+		})
 	}
 }

@@ -9,7 +9,7 @@ import { IconChevronRight, IconPlus } from "../ui/icons";
 
 type RuntimeModelPage = "overview" | "provider-connection" | "model-profile" | "instance-bindings";
 
-export function RuntimeModelsPanel({ client, instances, copy }: { client: DaemonClient; instances: Instance[]; copy: AppMessages }) {
+export function RuntimeModelsPanel({ client, runtimeId, instances, copy }: { client: DaemonClient; runtimeId: string; instances: Instance[]; copy: AppMessages }) {
   const queryClient = useQueryClient();
   const credentialRef = useRef<HTMLInputElement>(null);
   const [page, setPage] = useState<RuntimeModelPage>("overview");
@@ -25,11 +25,11 @@ export function RuntimeModelsPanel({ client, instances, copy }: { client: Daemon
   const [applyMode, setApplyMode] = useState<"INHERIT" | "OVERRIDE">("INHERIT");
   const [operationId, setOperationId] = useState<string | null>(null);
 
-  const presets = useQuery({ queryKey: ["model-provider-presets", client.scope], queryFn: ({ signal }) => client.listModelProviderPresets(signal), staleTime: Infinity });
-  const connections = useQuery({ queryKey: ["runtime-model-connections", "hermes", client.scope], queryFn: ({ signal }) => client.listRuntimeModelProviderConnections("hermes", signal), retry: false });
-  const profiles = useQuery({ queryKey: ["runtime-model-profiles", "hermes", client.scope], queryFn: ({ signal }) => client.listRuntimeModelProfiles("hermes", signal), retry: false });
-  const runtimeDefault = useQuery({ queryKey: ["runtime-model-default", "hermes", client.scope], queryFn: ({ signal }) => client.getRuntimeModelDefault("hermes", signal), retry: false });
-  const bindings = useQuery({ queryKey: ["runtime-model-bindings", "hermes", client.scope], queryFn: ({ signal }) => client.listRuntimeModelBindings("hermes", signal), retry: false });
+  const presets = useQuery({ queryKey: ["model-provider-presets", runtimeId, client.scope], queryFn: ({ signal }) => client.listRuntimeModelProviderPresets(runtimeId, signal), staleTime: Infinity });
+  const connections = useQuery({ queryKey: ["runtime-model-connections", runtimeId, client.scope], queryFn: ({ signal }) => client.listRuntimeModelProviderConnections(runtimeId, signal), retry: false });
+  const profiles = useQuery({ queryKey: ["runtime-model-profiles", runtimeId, client.scope], queryFn: ({ signal }) => client.listRuntimeModelProfiles(runtimeId, signal), retry: false });
+  const runtimeDefault = useQuery({ queryKey: ["runtime-model-default", runtimeId, client.scope], queryFn: ({ signal }) => client.getRuntimeModelDefault(runtimeId, signal), retry: false });
+  const bindings = useQuery({ queryKey: ["runtime-model-bindings", runtimeId, client.scope], queryFn: ({ signal }) => client.listRuntimeModelBindings(runtimeId, signal), retry: false });
   const operation = useQuery({
     queryKey: ["runtime-model-application", operationId, client.scope],
     queryFn: ({ signal }) => client.getOperation(operationId!, signal), enabled: operationId !== null, retry: false,
@@ -48,7 +48,7 @@ export function RuntimeModelsPanel({ client, instances, copy }: { client: Daemon
   }, [queryClient]);
 
   const createConnection = useMutation({
-    mutationFn: () => client.createRuntimeModelProviderConnection("hermes", providerPresetId, connectionName, credential),
+    mutationFn: () => client.createRuntimeModelProviderConnection(runtimeId, providerPresetId, connectionName, credential),
     onSuccess: async (created) => {
       setCredential("");
       if (credentialRef.current) credentialRef.current.value = "";
@@ -58,20 +58,20 @@ export function RuntimeModelsPanel({ client, instances, copy }: { client: Daemon
       setPage("overview");
     },
   });
-  const deleteConnection = useMutation({ mutationFn: (id: string) => client.deleteRuntimeModelProviderConnection("hermes", id), onSuccess: invalidate });
+  const deleteConnection = useMutation({ mutationFn: (id: string) => client.deleteRuntimeModelProviderConnection(runtimeId, id), onSuccess: invalidate });
   const createProfile = useMutation({
-    mutationFn: () => client.createRuntimeModelProfile("hermes", profileConnectionId, profileName, selectedModelIds, defaultModelId),
+    mutationFn: () => client.createRuntimeModelProfile(runtimeId, profileConnectionId, profileName, selectedModelIds, defaultModelId),
     onSuccess: async (created) => {
       setProfileName(""); setSelectedModelIds([]); setDefaultModelId(""); setApplyProfileId(created.id);
       await invalidate();
       setPage("overview");
     },
   });
-  const deleteProfile = useMutation({ mutationFn: (id: string) => client.deleteRuntimeModelProfile("hermes", id), onSuccess: invalidate });
-  const setDefault = useMutation({ mutationFn: (id: string) => client.setRuntimeModelDefault("hermes", id), onSuccess: invalidate });
-  const clearDefault = useMutation({ mutationFn: () => client.clearRuntimeModelDefault("hermes"), onSuccess: invalidate });
+  const deleteProfile = useMutation({ mutationFn: (id: string) => client.deleteRuntimeModelProfile(runtimeId, id), onSuccess: invalidate });
+  const setDefault = useMutation({ mutationFn: (id: string) => client.setRuntimeModelDefault(runtimeId, id), onSuccess: invalidate });
+  const clearDefault = useMutation({ mutationFn: () => client.clearRuntimeModelDefault(runtimeId), onSuccess: invalidate });
   const applyProfile = useMutation({
-    mutationFn: () => client.applyRuntimeModelProfile("hermes", effectiveApplyProfileId, applyInstanceIds, applyMode, crypto.randomUUID()),
+    mutationFn: () => client.applyRuntimeModelProfile(runtimeId, effectiveApplyProfileId, applyInstanceIds, applyMode, crypto.randomUUID()),
     onSuccess: (accepted) => setOperationId(accepted.id),
   });
 

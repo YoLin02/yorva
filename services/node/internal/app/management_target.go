@@ -171,3 +171,23 @@ func managementTargetError(ctx context.Context, err error) error {
 	}
 	return ErrManagementQueryFailed
 }
+
+// resolveAcceptedInstallation preserves both Runtime and path identity when an
+// operation is resumed after discovery has changed.
+func (s *InstanceInventory) resolveAcceptedInstallation(ctx context.Context, installationID string) (RuntimeManagementTarget, error) {
+	if s == nil || s.db == nil || s.discovery == nil || s.discovery.registry == nil {
+		return RuntimeManagementTarget{}, ErrRuntimeNotSupported
+	}
+	accepted, err := s.db.GetAcceptedInstallationByID(ctx, installationID)
+	if err != nil || accepted.NodeID != s.nodeID || accepted.Status != "ACCEPTED" {
+		return RuntimeManagementTarget{}, ErrRuntimeNotSupported
+	}
+	target, err := s.ResolveRuntimeManagementTarget(ctx, string(accepted.RuntimeKind))
+	if err != nil {
+		return RuntimeManagementTarget{}, err
+	}
+	if target.InstallationID != installationID || target.Installation.Path != accepted.InstallPath {
+		return RuntimeManagementTarget{}, ErrRuntimeNotSupported
+	}
+	return target, nil
+}

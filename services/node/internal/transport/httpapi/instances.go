@@ -36,6 +36,8 @@ type InstanceLifecycleService interface {
 
 type InstanceCapabilitiesResponse struct {
 	Instances     bool                            `json:"instances"`
+	Models        bool                            `json:"models"`
+	Channels      bool                            `json:"channels"`
 	Lifecycle     bool                            `json:"lifecycle"`
 	HealthRead    bool                            `json:"healthRead"`
 	LogsRead      bool                            `json:"logsRead"`
@@ -276,6 +278,8 @@ func newInstanceResponse(item app.InstanceView) InstanceResponse {
 func newInstanceCapabilitiesResponse(capabilities app.InstanceCapabilities) InstanceCapabilitiesResponse {
 	return InstanceCapabilitiesResponse{
 		Instances:     capabilities.Instances,
+		Models:        capabilities.Models,
+		Channels:      capabilities.Channels,
 		Lifecycle:     capabilities.Lifecycle,
 		HealthRead:    capabilities.HealthRead,
 		LogsRead:      capabilities.LogsRead,
@@ -311,13 +315,15 @@ func writeInstanceError(w http.ResponseWriter, err error) {
 	case errors.Is(err, app.ErrInstanceRuntimeNotFound), errors.Is(err, app.ErrInstanceNotFound):
 		writeError(w, http.StatusNotFound, ErrorBody{Code: string(yorvaruntime.ErrorInstanceNotFound), Message: "The requested instance was not found.", Retryable: false})
 	case errors.Is(err, app.ErrRuntimeNotSupported), errors.Is(err, app.ErrRuntimeKindNotFound):
-		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorRuntimeNotSupported), Message: "A supported Hermes installation is required to manage instances.", Retryable: false})
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorRuntimeNotSupported), Message: "A supported Runtime installation is required to manage instances.", Retryable: false})
+	case errors.Is(err, app.ErrManagementCapabilityUnsupported):
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorCapabilityNotSupported), Message: "This Runtime does not support the requested capability.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceInvalidName):
 		writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorInstanceInvalidName), Message: "The instance name is not allowed.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceAlreadyExists):
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceAlreadyExists), Message: "An instance with this name already exists.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceProtected):
-		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceProtected), Message: "The default instance cannot be deleted.", Retryable: false})
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceProtected), Message: "This instance is protected.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceConfirmationMismatch):
 		writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorInstanceConfirmationMismatch), Message: "The confirmation name does not match.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceRecordNotRemoved):

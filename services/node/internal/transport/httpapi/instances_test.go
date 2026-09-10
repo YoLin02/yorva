@@ -180,13 +180,13 @@ func TestClearRemovedInstanceRecordContract(t *testing.T) {
 
 func TestInstanceCapabilitiesResponseProjectsAllManagementFlags(t *testing.T) {
 	capabilities := app.InstanceCapabilities{
-		Instances: true, Lifecycle: true, HealthRead: true, LogsRead: true,
+		Instances: true, Models: true, Channels: true, Lifecycle: true, HealthRead: true, LogsRead: true,
 		SecurityAudit: true, SkillRead: true, SkillMutate: true, MCPRead: true,
 		MCPMutate: true, MCPTest: true, BackupRead: true, BackupMutate: true, Restore: true,
 		UpgradePlan: true, Upgrade: true, Rollback: true,
 	}
 	want := InstanceCapabilitiesResponse{
-		Instances: true, Lifecycle: true, HealthRead: true, LogsRead: true,
+		Instances: true, Models: true, Channels: true, Lifecycle: true, HealthRead: true, LogsRead: true,
 		SecurityAudit: true, SkillRead: true, SkillMutate: true, MCPRead: true,
 		MCPMutate: true, MCPTest: true, BackupRead: true, BackupMutate: true, Restore: true,
 		UpgradePlan: true, Upgrade: true, Rollback: true,
@@ -203,8 +203,8 @@ func TestInstanceCapabilitiesResponseProjectsAllManagementFlags(t *testing.T) {
 	if err := json.Unmarshal(payload, &fields); err != nil {
 		t.Fatal(err)
 	}
-	if len(fields) != 17 {
-		t.Fatalf("capability JSON fields = %d, want 17: %s", len(fields), payload)
+	if len(fields) != 19 {
+		t.Fatalf("capability JSON fields = %d, want 19: %s", len(fields), payload)
 	}
 	for name, raw := range fields {
 		if name == "nativeSkills" {

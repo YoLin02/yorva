@@ -467,6 +467,18 @@ Exit criteria:
 
 ## Phase 9 — Second Runtime validation
 
+Current phase: **IN_PROGRESS — OpenClaw second Runtime**, authorized on 2026-09-10.
+The latest stable version verified at B0 start is `2026.9.3`. See the
+[Phase 9 execution spec](phases/PHASE-009-openclaw-second-runtime.md) and
+[upstream selection evidence](phases/evidence/PHASE-009-OPENCLAW-UPSTREAM.md).
+
+The plan starts from the frozen P8 internal baseline and prioritizes native Windows
+discovery, Gateway-profile Instance management, lifecycle, capability-based Desktop
+flows and Hermes coexistence. Four continuous work batches lead to one focused phase
+audit. A full installer, feature parity, production signing material, multi-hour soak
+and all-platform qualification are not prerequisites; specific safe extensions remain
+allowed by the Spec. Implementation is underway; test PASS is not yet claimed.
+
 This phase is intentionally before distributed Control Plane work.
 
 Goal: prove that the Runtime Contract is genuinely Runtime-neutral before remote and Fleet abstractions depend on it.

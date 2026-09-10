@@ -374,6 +374,8 @@ func writeSharedModelError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusServiceUnavailable, ErrorBody{Code: string(yorvaruntime.ErrorModelCredentialWriteFailed), Message: "The protected Provider credential is unavailable.", Retryable: true})
 	case errors.Is(err, app.ErrRuntimeNotSupported):
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorRuntimeNotSupported), Message: "Shared models are unavailable for this Runtime.", Retryable: false})
+	case errors.Is(err, app.ErrManagementCapabilityUnsupported):
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorCapabilityNotSupported), Message: "Shared models are not supported by this Runtime.", Retryable: false})
 	case errors.Is(err, context.Canceled):
 		return
 	default:

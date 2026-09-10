@@ -102,7 +102,7 @@ func TestModelUseCasesResolveStableInstanceToNativeProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	instanceID := listed.Instances[0].InstanceID
-	presets, err := inventory.ListModelProviderPresets(context.Background())
+	presets, err := inventory.ListModelProviderPresets(context.Background(), "hermes")
 	if err != nil || len(presets) != 1 || presets[0].ID != "deepseek" {
 		t.Fatalf("presets = %#v, %v", presets, err)
 	}
@@ -251,6 +251,7 @@ func TestCredentialSaveReportsIncompleteAfterCredentialWrite(t *testing.T) {
 
 func registerTestModels(t *testing.T, inventory *InstanceInventory, models yorvaruntime.ModelConfigurator) {
 	t.Helper()
+	previous, _ := inventory.discovery.registry.Get("hermes")
 	registry := yorvaruntime.NewRegistry()
 	if err := registry.Register("hermes", yorvaruntime.Bundle{
 		Descriptor: yorvaruntime.Descriptor{Kind: "hermes", Name: "Hermes"},
@@ -258,7 +259,8 @@ func registerTestModels(t *testing.T, inventory *InstanceInventory, models yorva
 			RuntimeKind: "hermes", State: yorvaruntime.DiscoverySupported,
 			Selected: &yorvaruntime.Candidate{Path: `C:\hermes\bin\hermes.exe`, Version: "0.20.2", State: yorvaruntime.DiscoverySupported},
 		}},
-		Models: models,
+		Models:    models,
+		Instances: previous.Instances,
 	}); err != nil {
 		t.Fatal(err)
 	}

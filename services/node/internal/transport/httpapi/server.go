@@ -129,7 +129,7 @@ func NewHandler(token string, localNode node.Node, broker *events.Broker, runtim
 	mux.Handle("DELETE /api/v1/backups/{backupId}", requireBearer(token, startDeleteBackup(managementBackups)))
 	mux.Handle("POST /api/v1/backups/{backupId}/restore", requireBearer(token, startRestoreBackup(managementBackups)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/instances", requireBearer(token, createRuntimeInstance(instances)))
-	mux.Handle("GET /api/v1/runtimes/hermes/model-provider-presets", requireBearer(token, listModelProviderPresets(models)))
+	mux.Handle("GET /api/v1/runtimes/{runtimeId}/model-provider-presets", requireBearer(token, listModelProviderPresets(models)))
 	mux.Handle("GET /api/v1/runtimes/{runtimeId}/model-provider-connections", requireBearer(token, listModelProviderConnections(sharedModels)))
 	mux.Handle("POST /api/v1/runtimes/{runtimeId}/model-provider-connections", requireBearer(token, createModelProviderConnection(sharedModels)))
 	mux.Handle("DELETE /api/v1/runtimes/{runtimeId}/model-provider-connections/{connectionId}", requireBearer(token, deleteModelProviderConnection(sharedModels)))
@@ -284,6 +284,12 @@ func allowedMethods(path string) (string, bool) {
 	}
 	const prefix = "/api/v1/runtimes/"
 	const suffix = "/detect"
+	if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, "/model-provider-presets") {
+		kind := strings.TrimSuffix(strings.TrimPrefix(path, prefix), "/model-provider-presets")
+		if kind != "" && !strings.Contains(kind, "/") {
+			return "GET, OPTIONS", true
+		}
+	}
 	if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, suffix) {
 		kind := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
 		if kind != "" && !strings.Contains(kind, "/") {

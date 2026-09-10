@@ -424,19 +424,14 @@ func (s *InstanceInventory) resolveChannelTarget(ctx context.Context, instanceID
 	if err != nil || row.Availability != instance.Available {
 		return instance.Instance{}, nil, yorvaruntime.ChannelInstallation{}, ErrInstanceNotAvailable
 	}
-	detected, err := s.discovery.Detect(ctx, yorvaruntime.Kind(hermesRuntimeID))
-	if err != nil || detected.State != yorvaruntime.DiscoverySupported || detected.Selected == nil {
+	target, err := s.resolveAcceptedInstallation(ctx, row.RuntimeInstallationID)
+	if err != nil {
 		return instance.Instance{}, nil, yorvaruntime.ChannelInstallation{}, ErrRuntimeNotSupported
 	}
-	accepted, err := s.ensureInstallation(ctx, detected)
-	if err != nil || accepted.ID != row.RuntimeInstallationID {
-		return instance.Instance{}, nil, yorvaruntime.ChannelInstallation{}, ErrInstanceNotAvailable
-	}
-	bundle, ok := s.discovery.registry.Get(yorvaruntime.Kind(hermesRuntimeID))
-	if !ok || bundle.Channels == nil {
+	if target.Bundle.Channels == nil {
 		return instance.Instance{}, nil, yorvaruntime.ChannelInstallation{}, ErrChannelNotSupported
 	}
-	return row, bundle.Channels, yorvaruntime.ChannelInstallation{Executable: detected.Selected.Path, Version: detected.Selected.Version}, nil
+	return row, target.Bundle.Channels, yorvaruntime.ChannelInstallation{Executable: target.Installation.Path, Version: target.Installation.Version}, nil
 }
 
 func (s *InstanceInventory) newChannelOperation(instanceID string, kind operation.Type, stage operation.Stage, channelType channel.Type, idempotencyKey string) (operation.Operation, error) {

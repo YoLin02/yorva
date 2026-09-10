@@ -35,6 +35,7 @@ func RegisterConfigured(registry *yorvaruntime.Registry, bindings ManagementBind
 			Description: "Hermes Agent Runtime",
 		},
 		Discoverer:      NewDetector(),
+		Instances:       InstanceManager{},
 		Models:          NewModelManager(),
 		Lifecycle:       NewLifecycleManager(),
 		Channels:        NewChannelManager(),

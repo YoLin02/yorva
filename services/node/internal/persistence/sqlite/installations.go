@@ -142,3 +142,20 @@ func (d *Database) CountAcceptedInstallations(ctx context.Context) (int, error) 
 	}
 	return count, nil
 }
+
+func (d *Database) ListAcceptedInstallationIDs(ctx context.Context, nodeID string) ([]string, error) {
+	rows, err := d.db.QueryContext(ctx, "SELECT id FROM runtime_installations WHERE node_id = ? AND status = 'ACCEPTED' ORDER BY id", nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("list accepted installations: %w", err)
+	}
+	defer rows.Close()
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}

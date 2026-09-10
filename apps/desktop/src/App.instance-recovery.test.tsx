@@ -10,10 +10,10 @@ const clientMocks = vi.hoisted(() => ({
   detectHermes: vi.fn(),
   getHermesPrerequisites: vi.fn(),
   listOperations: vi.fn(),
-  listHermesInstances: vi.fn(),
+  listRuntimeInstances: vi.fn(),
   getOperation: vi.fn(),
   cancelOperation: vi.fn(),
-  createHermesInstance: vi.fn(),
+  createRuntimeInstance: vi.fn(),
   deleteInstance: vi.fn(),
 }));
 
@@ -30,10 +30,10 @@ vi.mock("./api/client", async () => {
       detectHermes: clientMocks.detectHermes,
       getHermesPrerequisites: clientMocks.getHermesPrerequisites,
       listOperations: clientMocks.listOperations,
-      listHermesInstances: clientMocks.listHermesInstances,
+      listRuntimeInstances: clientMocks.listRuntimeInstances,
       getOperation: clientMocks.getOperation,
       cancelOperation: clientMocks.cancelOperation,
-      createHermesInstance: clientMocks.createHermesInstance,
+      createRuntimeInstance: clientMocks.createRuntimeInstance,
       deleteInstance: clientMocks.deleteInstance,
     }),
   };
@@ -62,6 +62,8 @@ const discovery = {
   supportedRange: "=0.20.2",
 };
 const unavailableManagementCapabilities = {
+  models: true,
+  channels: true,
   healthRead: false,
   logsRead: false,
   securityAudit: false,
@@ -157,11 +159,11 @@ describe("App instance operation recovery", () => {
       checkedAt: "2026-08-19T00:00:00Z",
       activeOperationId: null,
     });
-    clientMocks.listHermesInstances.mockReset().mockResolvedValue(inventory);
+    clientMocks.listRuntimeInstances.mockReset().mockResolvedValue(inventory);
     clientMocks.listOperations.mockReset().mockResolvedValue({ operations: [] });
     clientMocks.getOperation.mockReset();
     clientMocks.cancelOperation.mockReset();
-    clientMocks.createHermesInstance.mockReset();
+    clientMocks.createRuntimeInstance.mockReset();
     clientMocks.deleteInstance.mockReset();
   });
 

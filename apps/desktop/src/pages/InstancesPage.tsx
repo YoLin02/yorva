@@ -29,12 +29,14 @@ const createNamePattern = /^[a-z][a-z0-9_-]{0,63}$/;
 type AvailabilityFilter = "ACTIVE" | "REMOVED";
 
 type InstancesPageProps = {
+  runtimeId?: string;
   supported: boolean;
   loading: boolean;
   error: boolean;
   inventory: InstanceList | null;
   createName: string;
   createBusy: boolean;
+  createRequestFailed?: boolean;
   createOperation: Operation | null;
   copy: AppMessages;
   locale: Locale;
@@ -46,6 +48,7 @@ type InstancesPageProps = {
   deleteTarget: Instance | null;
   deleteConfirmation: string;
   deleteBusy: boolean;
+  deleteRequestFailed?: boolean;
   deleteOperation: Operation | null;
   onDeleteTargetChange: (item: Instance | null) => void;
   onDeleteConfirmationChange: (value: string) => void;
@@ -56,12 +59,14 @@ type InstancesPageProps = {
 };
 
 export function InstancesPage({
+  runtimeId = "hermes",
   supported,
   loading,
   error,
   inventory,
   createName,
   createBusy,
+  createRequestFailed = false,
   createOperation,
   copy,
   locale,
@@ -73,6 +78,7 @@ export function InstancesPage({
   deleteTarget,
   deleteConfirmation,
   deleteBusy,
+  deleteRequestFailed = false,
   deleteOperation,
   onDeleteTargetChange,
   onDeleteConfirmationChange,
@@ -211,6 +217,7 @@ export function InstancesPage({
                   {filteredItems.map((item) => (
                     <InstanceRow
                       key={item.instanceId}
+                      runtimeId={runtimeId}
                       item={item}
                       copy={copy}
                       locale={locale}
@@ -244,6 +251,7 @@ export function InstancesPage({
             <CreateInstanceDialog
               name={createName}
               busy={createBusy}
+              requestFailed={createRequestFailed}
               operation={createOperation}
               copy={copy}
               onNameChange={onCreateNameChange}
@@ -258,6 +266,7 @@ export function InstancesPage({
               target={deleteTarget}
               confirmation={deleteConfirmation}
               busy={deleteBusy}
+              requestFailed={deleteRequestFailed}
               operation={deleteOperation}
               copy={copy}
               onConfirmationChange={onDeleteConfirmationChange}
@@ -278,7 +287,7 @@ export function InstancesPage({
             />
           ) : null}
 
-          {client && modelInstance ? (
+          {client && modelInstance?.capabilities.models ? (
             <div className="instance-modal-backdrop model-modal-backdrop">
               <div className="model-modal" role="dialog" aria-modal="true" aria-label={`${copy.models.title}: ${modelInstance.name}`}>
                 <ModelConfigurationPanel
@@ -292,7 +301,7 @@ export function InstancesPage({
             </div>
           ) : null}
 
-          {client && channelInstance ? (
+          {client && channelInstance?.capabilities.channels ? (
             <div className="instance-modal-backdrop model-modal-backdrop">
               <div className="channel-modal" role="dialog" aria-modal="true" aria-label={`${copy.channels.title}: ${channelInstance.name}`}>
                 <ChannelPanel client={client} instance={channelInstance} copy={copy} onClose={() => setChannelInstanceId(null)} />
@@ -305,18 +314,19 @@ export function InstancesPage({
               <div className="management-modal" role="dialog" aria-modal="true" aria-label={`${copy.management.title}: ${managementInstance.name}`}>
                 <ManagementPanel
                   client={client}
+                  runtimeId={runtimeId}
                   instance={managementInstance}
                   copy={copy}
                   locale={locale}
                   onClose={() => setManagementInstanceId(null)}
-                  onOpenModels={() => {
+                  onOpenModels={managementInstance.capabilities.models ? () => {
                     setManagementInstanceId(null);
                     setModelInstanceId(managementInstance.instanceId);
-                  }}
-                  onOpenChannels={() => {
+                  } : undefined}
+                  onOpenChannels={managementInstance.capabilities.channels ? () => {
                     setManagementInstanceId(null);
                     setChannelInstanceId(managementInstance.instanceId);
-                  }}
+                  } : undefined}
                 />
               </div>
             </div>
@@ -340,9 +350,10 @@ function InventoryNotices({ inventory, loading, error, copy }: {
   return null;
 }
 
-function CreateInstanceDialog({ name, busy, operation, copy, onNameChange, onCreate, onCancelOperation, onDismiss }: {
+function CreateInstanceDialog({ name, busy, requestFailed, operation, copy, onNameChange, onCreate, onCancelOperation, onDismiss }: {
   name: string;
   busy: boolean;
+  requestFailed: boolean;
   operation: Operation | null;
   copy: AppMessages;
   onNameChange: (value: string) => void;
@@ -389,6 +400,7 @@ function CreateInstanceDialog({ name, busy, operation, copy, onNameChange, onCre
             disabled={locked || canCancelOperation}
           />
           {name !== "" && !createNamePattern.test(name) ? <p className="field-error">{copy.instances.createInvalid}</p> : null}
+          {requestFailed ? <p className="field-error" role="alert">{copy.instances.createFailed}</p> : null}
           {operation ? <p className="modal-operation-status" role="status">{operationStatus(operation, copy, "create")}</p> : null}
           <div className="instance-modal-actions">
             {canCancelOperation ? (
@@ -407,10 +419,11 @@ function CreateInstanceDialog({ name, busy, operation, copy, onNameChange, onCre
   );
 }
 
-function DeleteConfirmDialog({ target, confirmation, busy, operation, copy, onConfirmationChange, onConfirm, onCancelOperation, onDismiss }: {
+function DeleteConfirmDialog({ target, confirmation, busy, requestFailed, operation, copy, onConfirmationChange, onConfirm, onCancelOperation, onDismiss }: {
   target: Instance;
   confirmation: string;
   busy: boolean;
+  requestFailed: boolean;
   operation: Operation | null;
   copy: AppMessages;
   onConfirmationChange: (value: string) => void;
@@ -455,6 +468,7 @@ function DeleteConfirmDialog({ target, confirmation, busy, operation, copy, onCo
           spellCheck={false}
           disabled={locked || canCancelOperation}
         />
+        {requestFailed ? <p className="field-error" role="alert">{copy.instances.deleteFailed}</p> : null}
         {operation ? <p className="modal-operation-status" role="status">{operationStatus(operation, copy, "delete")}</p> : null}
         <div className="instance-modal-actions">
           {canCancelOperation ? (
@@ -558,8 +572,9 @@ function dismissFromBackdrop(event: MouseEvent<HTMLDivElement>, locked: boolean,
   else onDismiss();
 }
 
-function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, onOpenChannels, onOpenManagement, onClearRemoved }: {
+function InstanceRow({ item, runtimeId, copy, locale, now, client, onDelete, onOpenModels, onOpenChannels, onOpenManagement, onClearRemoved }: {
   item: Instance;
+  runtimeId: string;
   copy: AppMessages;
   locale: Locale;
   now: number;
@@ -583,6 +598,8 @@ function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, 
       copy={copy}
       disabled={availability !== "AVAILABLE"}
       canDelete={!item.default && !item.protected}
+      canModels={item.capabilities.models}
+      canChannels={item.capabilities.channels}
       onOpenModels={onOpenModels}
       onOpenChannels={onOpenChannels}
       onOpenManagement={onOpenManagement}
@@ -593,10 +610,11 @@ function InstanceRow({ item, copy, locale, now, client, onDelete, onOpenModels, 
     <tr>
       <td>
         <div className="instance-identity">
-          <span className="instance-avatar" aria-hidden="true"><HermesMark size={36} /></span>
+          <span className="instance-avatar" aria-hidden="true">{runtimeId === "hermes" ? <HermesMark size={36} /> : <span className="runtime-monogram">OC</span>}</span>
           <div className="instance-identity-copy">
             <div className="instance-name-row">
               <strong>{item.name}</strong>
+              <span className="instance-runtime-name">{runtimeId === "hermes" ? "Hermes" : "OpenClaw"}</span>
               {item.default ? <Badge tone="neutral">{copy.instances.defaultLabel}</Badge> : null}
             </div>
           </div>
@@ -647,10 +665,12 @@ function InstanceStatusChip({ kind, label, hint }: { kind: string; label: string
   );
 }
 
-function InstanceMoreActions({ copy, disabled, canDelete, onOpenModels, onOpenChannels, onOpenManagement, onDelete }: {
+function InstanceMoreActions({ copy, disabled, canDelete, canModels, canChannels, onOpenModels, onOpenChannels, onOpenManagement, onDelete }: {
   copy: AppMessages;
   disabled: boolean;
   canDelete: boolean;
+  canModels: boolean;
+  canChannels: boolean;
   onOpenModels: () => void;
   onOpenChannels: () => void;
   onOpenManagement: () => void;
@@ -726,8 +746,8 @@ function InstanceMoreActions({ copy, disabled, canDelete, onOpenModels, onOpenCh
       </button>
       {open ? createPortal(
         <div ref={menuRef} className="instance-actions-menu" role="menu" style={position}>
-          <button type="button" role="menuitem" onClick={() => choose(onOpenModels)}><IconSliders />{copy.models.open}</button>
-          <button type="button" role="menuitem" onClick={() => choose(onOpenChannels)}><IconMessage />{copy.channels.open}</button>
+          {canModels && <button type="button" role="menuitem" onClick={() => choose(onOpenModels)}><IconSliders />{copy.models.open}</button>}
+          {canChannels && <button type="button" role="menuitem" onClick={() => choose(onOpenChannels)}><IconMessage />{copy.channels.open}</button>}
           <button type="button" role="menuitem" onClick={() => choose(onOpenManagement)}><IconSearch />{copy.management.open}</button>
           {canDelete ? (
             <button type="button" role="menuitem" className="is-danger" onClick={() => choose(onDelete)}><IconTrash />{copy.instances.deleteAction}</button>
@@ -775,7 +795,7 @@ function LifecycleControls({ client, item, copy, children }: {
   useEffect(() => {
     if (!lifecycleOperationId || lifecycleBusy) return;
     void refetchLifecycle();
-    void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+    void queryClient.invalidateQueries({ queryKey: ["runtime-instances"] });
   }, [lifecycleBusy, lifecycleOperationId, lifecycleOperationStatus, queryClient, refetchLifecycle]);
 
   const runLifecycle = async (action: "start" | "stop" | "restart") => {

@@ -22,6 +22,8 @@ import { InstancesPage } from "./pages/InstancesPage";
 import { RuntimePage } from "./pages/RuntimePage";
 import { RuntimeManagementPage } from "./pages/RuntimeManagementPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { RuntimePicker, type RuntimeId } from "./components/RuntimePicker";
+import { OpenClawDiscoveryView } from "./components/OpenClawDiscoveryView";
 
 function daemonStartupFailureMessage(error: unknown, copy: (typeof messages)[Locale]): string {
   const code = typeof error === "object" && error !== null && "code" in error
@@ -39,6 +41,7 @@ function daemonStartupFailureMessage(error: unknown, copy: (typeof messages)[Loc
 export function App() {
   const queryClient = useQueryClient();
   const [activePage, setActivePage] = useState<PageId>("dashboard");
+  const [activeRuntime, setActiveRuntime] = useState<RuntimeId>("hermes");
   const [runtimeManagementOpen, setRuntimeManagementOpen] = useState(false);
   const [locale, setLocale] = useState<Locale>(loadLocale);
   const [discoveryCancelled, setDiscoveryCancelled] = useState(false);
@@ -55,11 +58,13 @@ export function App() {
   const [createKey, setCreateKey] = useState<string | null>(null);
   const [createOperationId, setCreateOperationId] = useState<string | null>(null);
   const [createBusy, setCreateBusy] = useState(false);
+  const [createRequestFailed, setCreateRequestFailed] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<import("./api/types").Instance | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
   const [deleteOperationId, setDeleteOperationId] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteRequestFailed, setDeleteRequestFailed] = useState(false);
   const runtimeAutoStartAttempt = useRef<string | null>(null);
   const copy = messages[locale];
 
@@ -105,7 +110,7 @@ export function App() {
     void queryClient.invalidateQueries({ queryKey: ["hermes-prereq-log"] });
     void queryClient.invalidateQueries({ queryKey: ["hermes-operations"] });
     void queryClient.invalidateQueries({ queryKey: ["hermes-prerequisites"] });
-    void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+    void queryClient.invalidateQueries({ queryKey: ["runtime-instances"] });
     void queryClient.invalidateQueries({ queryKey: ["instance-operations"] });
     void queryClient.invalidateQueries({ queryKey: ["instance-create"] });
     void queryClient.invalidateQueries({ queryKey: ["instance-delete"] });
@@ -133,6 +138,12 @@ export function App() {
     queryKey: discoveryKey,
     queryFn: ({ signal }) => client!.detectHermes(signal),
     enabled: client !== undefined && nodeQuery.isSuccess,
+    retry: false,
+  });
+  const openclawDiscoveryQuery = useQuery({
+    queryKey: ["runtime-discovery", "openclaw", sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.detectRuntime("openclaw", signal),
+    enabled: client !== undefined && nodeQuery.isSuccess && activeRuntime === "openclaw",
     retry: false,
   });
 
@@ -355,18 +366,19 @@ export function App() {
     discoveryState = { kind: "complete", discovery: discoveryQuery.data, onRetry: retryDiscovery };
   }
 
-  const hermesSupported = discoveryQuery.data?.state === "SUPPORTED";
+  const selectedDiscovery = activeRuntime === "hermes" ? discoveryQuery : openclawDiscoveryQuery;
+  const runtimeSupported = selectedDiscovery.data?.state === "SUPPORTED";
   const instancesQuery = useQuery({
-    queryKey: ["hermes-instances", sessionQuery.data?.baseUrl],
-    queryFn: ({ signal }) => client!.listHermesInstances(signal),
+    queryKey: ["runtime-instances", activeRuntime, sessionQuery.data?.baseUrl],
+    queryFn: ({ signal }) => client!.listRuntimeInstances(activeRuntime, signal),
     enabled: client !== undefined
       && nodeQuery.isSuccess
-      && hermesSupported
+      && runtimeSupported
       && (activePage === "instances" || activePage === "runtimes"),
     retry: false,
   });
   const defaultRuntimeInstance = instancesQuery.data?.instances.find((item) =>
-    item.default && item.availability === "AVAILABLE" && item.capabilities.lifecycle,
+    activeRuntime === "hermes" && item.default && item.availability === "AVAILABLE" && item.capabilities.lifecycle,
   );
   const defaultRuntimeInstanceId = defaultRuntimeInstance?.instanceId ?? null;
   const defaultRuntimeAttemptKey = client && defaultRuntimeInstanceId
@@ -429,7 +441,7 @@ export function App() {
     if (!runtimeStartOperation || runtimeStartBusy) return;
     if (runtimeStartOperation.status === "SUCCEEDED") {
       void refetchDefaultLifecycle();
-      void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+      void queryClient.invalidateQueries({ queryKey: ["runtime-instances"] });
       return;
     }
     if (runtimeStartOperation.status === "FAILED" || runtimeStartOperation.status === "CANCELLED") {
@@ -465,11 +477,15 @@ export function App() {
   const startCreate = async () => {
     if (!client || createBusy) return;
     setCreateBusy(true);
+    setCreateRequestFailed(false);
     try {
       const key = createKey ?? crypto.randomUUID();
       setCreateKey(key);
-      const operation = await client.createHermesInstance(createName, key);
+      const operation = await client.createRuntimeInstance(activeRuntime, createName, key);
       setCreateOperationId(operation.id);
+    } catch {
+      setCreateRequestFailed(true);
+      void instancesQuery.refetch();
     } finally {
       setCreateBusy(false);
     }
@@ -486,7 +502,7 @@ export function App() {
   };
   useEffect(() => {
     if (createOperationQuery.data?.status === "SUCCEEDED") {
-      void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+      void queryClient.invalidateQueries({ queryKey: ["runtime-instances"] });
     }
   }, [createOperationQuery.data?.status, queryClient]);
   const deleteOperationQuery = useQuery({
@@ -501,6 +517,7 @@ export function App() {
   const startDelete = async () => {
     if (!client || !resolvedDeleteTarget || deleteBusy) return;
     setDeleteBusy(true);
+    setDeleteRequestFailed(false);
     try {
       const key = deleteKey ?? crypto.randomUUID();
       setDeleteKey(key);
@@ -510,6 +527,8 @@ export function App() {
         key,
       );
       setDeleteOperationId(operation.id);
+    } catch {
+      setDeleteRequestFailed(true);
     } finally {
       setDeleteBusy(false);
     }
@@ -526,14 +545,14 @@ export function App() {
   };
   useEffect(() => {
     if (deleteOperationQuery.data?.status === "SUCCEEDED") {
-      void queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+      void queryClient.invalidateQueries({ queryKey: ["runtime-instances"] });
     }
   }, [deleteOperationQuery.data?.status, queryClient]);
 
   const clearRemovedInstance = async (item: import("./api/types").Instance) => {
     if (!client || item.availability !== "MISSING") return;
     await client.clearRemovedInstanceRecord(item.instanceId);
-    await queryClient.invalidateQueries({ queryKey: ["hermes-instances"] });
+    await queryClient.invalidateQueries({ queryKey: ["runtime-instances"] });
   };
 
   let runtimeStartup: HermesRuntimeStartupState | undefined;
@@ -599,11 +618,24 @@ export function App() {
     const manageableInstances = currentInstances.filter((item) => item.availability === "AVAILABLE");
     content = runtimeManagementOpen && client && instancesQuery.data && manageableInstances.length > 0 ? (
       <RuntimeManagementPage
+        key={activeRuntime}
         client={client}
         inventory={{ ...instancesQuery.data, instances: manageableInstances }}
         copy={copy}
         locale={locale}
         onBack={() => setRuntimeManagementOpen(false)}
+      />
+    ) : activeRuntime === "openclaw" ? (
+      <OpenClawDiscoveryView
+        discovery={openclawDiscoveryQuery.data}
+        loading={openclawDiscoveryQuery.isPending || openclawDiscoveryQuery.isFetching}
+        failed={openclawDiscoveryQuery.isError}
+        copy={copy}
+        locale={locale}
+        instanceCount={instancesQuery.data ? currentInstances.length : null}
+        onRetry={() => { void openclawDiscoveryQuery.refetch(); }}
+        onOpenInstances={() => setActivePage("instances")}
+        onOpenManagement={manageableInstances.length ? () => setRuntimeManagementOpen(true) : undefined}
       />
     ) : (
       <RuntimePage
@@ -647,12 +679,15 @@ export function App() {
   } else if (activePage === "instances") {
     content = (
       <InstancesPage
-        supported={hermesSupported}
+        key={activeRuntime}
+        runtimeId={activeRuntime}
+        supported={runtimeSupported}
         loading={instancesQuery.isPending || instancesQuery.isFetching}
         error={instancesQuery.isError}
         inventory={instancesQuery.data ?? null}
         createName={createName}
         createBusy={createBusy}
+        createRequestFailed={createRequestFailed}
         createOperation={createOperationQuery.data ?? null}
         copy={copy}
         locale={locale}
@@ -661,10 +696,11 @@ export function App() {
         }}
         onPrepareCreate={() => {
           setCreateName("");
+          setCreateRequestFailed(false);
           setCreateKey(null);
           setCreateOperationId(null);
         }}
-        onCreateNameChange={setCreateName}
+        onCreateNameChange={(name) => { setCreateName(name); setCreateKey(null); setCreateRequestFailed(false); }}
         onCreate={() => {
           void startCreate();
         }}
@@ -674,8 +710,10 @@ export function App() {
         deleteTarget={resolvedDeleteTarget}
         deleteConfirmation={resolvedDeleteConfirmation}
         deleteBusy={deleteBusy}
+        deleteRequestFailed={deleteRequestFailed}
         deleteOperation={deleteOperationQuery.data ?? null}
         onDeleteTargetChange={(item) => {
+          setDeleteRequestFailed(false);
           setDeleteTarget(item);
           setDeleteConfirmation("");
           setDeleteOperationId(null);
@@ -717,6 +755,21 @@ export function App() {
       onLocaleChange={changeLocale}
       hidePageHeader={activePage === "runtimes" && runtimeManagementOpen}
     >
+      {(activePage === "runtimes" || activePage === "instances") && (
+        <RuntimePicker
+          value={activeRuntime}
+          locale={locale}
+          disabled={createBusy || deleteBusy}
+          onChange={(next) => {
+            if (next === activeRuntime) return;
+            setRuntimeManagementOpen(false);
+            setCreateName(""); setCreateKey(null); setCreateOperationId(null);
+            setCreateRequestFailed(false);
+            setDeleteTarget(null); setDeleteConfirmation(""); setDeleteKey(null); setDeleteOperationId(null); setDeleteRequestFailed(false);
+            setActiveRuntime(next);
+          }}
+        />
+      )}
       {content}
     </DesktopShell>
   );

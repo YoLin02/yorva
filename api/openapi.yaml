@@ -1021,10 +1021,12 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-  /api/v1/runtimes/hermes/model-provider-presets:
+  /api/v1/runtimes/{runtimeId}/model-provider-presets:
+    parameters:
+      - $ref: "#/components/parameters/RuntimeId"
     get:
-      operationId: listHermesModelProviderPresets
-      summary: List the qualified Hermes model Provider presets
+      operationId: listRuntimeModelProviderPresets
+      summary: List qualified model Provider presets for the selected Runtime
       tags: [Models]
       security:
         - bearerAuth: []
@@ -1044,8 +1046,8 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
     options:
-      operationId: optionsHermesModelProviderPresets
-      summary: Validate CORS access for Hermes model Provider presets
+      operationId: optionsRuntimeModelProviderPresets
+      summary: Validate CORS access for Runtime model Provider presets
       tags: [Models]
       security: []
       responses:
@@ -3529,6 +3531,8 @@ components:
       additionalProperties: false
       required:
         - instances
+        - models
+        - channels
         - lifecycle
         - healthRead
         - logsRead
@@ -3548,6 +3552,12 @@ components:
       properties:
         instances:
           type: boolean
+        models:
+          type: boolean
+          description: Model configuration is available for this Runtime target.
+        channels:
+          type: boolean
+          description: Channel management is available for this Runtime target.
         lifecycle:
           type: boolean
         healthRead:

@@ -507,3 +507,15 @@ may be cleaned; the failed record and verified-metadata candidate are retained f
 Owner Amendment 008A1 removes production-signing availability from the P8 internal freeze
 prerequisites. It does not disable package/metadata verification or authorize an unsigned
 public release; production signing remains a separate public-release requirement.
+
+## 22. Phase 9 OpenClaw boundary
+
+OpenClaw runs at the current Windows user's ordinary integrity and canonical profile paths. No automatic native service, Scheduled Task, Startup entry or elevation is added. Named profiles share a local-user trust boundary; they are not hostile tenant isolation.
+
+The adapter accepts only bounded native profile identifiers, rejects unsafe profile/config/ownership files and checks its own ownership record before mutation. Existing/default profiles remain protected. Deletion additionally verifies that the sole configured workspace is the regular directory beneath that profile and that no additional agent entries can redirect workspace cleanup. The fixed official uninstall command owns traversal; YORVA exposes no arbitrary path/delete/shell API.
+
+The child environment excludes inherited provider credentials, YORVA API tokens, Node hooks, OpenClaw auth/path overrides and shell hooks. Commands use a validated absolute Node executable plus fixed direct argv. Captured stdout/stderr is bounded to 256 KiB per stream; sensitive configuration/status buffers are cleared after parsing, and raw output/process errors never reach ordinary API errors. Package metadata is separately bounded to 256 KiB, accommodating the qualified release's 135,311-byte export map while rejecting oversized files. Native `config get gateway --json` is used only to validate binding/auth configuration; token contents are discarded after checking presence. OpenClaw resolves the token internally for probes and stop; no credential appears in argv, YORVA SQLite, capability responses, logs or events. Native OpenClaw owns any native logs/config it writes.
+
+A suspended child is assigned to an adapter-owned Windows Job before execution. Command cancellation kills the owned descendants and drains/joins both readers. Foreground Gateway startup remains kill-on-close until exact authenticated readback; successful transfer clears that flag and releases the process handle without a lingering Go goroutine. Subsequent stop uses the official profile-aware CLI after authenticated target verification. No persisted PID becomes process authority. Stale upstream locks or unverified listeners cause a safe failure; the adapter neither deletes native locks nor kills an arbitrary reported PID to recover.
+
+Accepted Runtime/installation identity is checked before each target dispatch. Unknown/missing OpenClaw state cannot be hidden by successful Hermes recovery, while the healthy Runtime remains queryable. Backend capability checks apply even when a client ignores the UI. No Tauri CSP, local bearer authentication, update verification or production-release signing policy is relaxed by Phase 9.

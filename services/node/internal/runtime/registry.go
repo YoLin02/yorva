@@ -18,6 +18,7 @@ type Descriptor struct {
 type Bundle struct {
 	Descriptor  Descriptor
 	Discoverer  Discoverer
+	Instances   InstanceManager
 	Models      ModelConfigurator
 	Lifecycle   LifecycleManager
 	Channels    ChannelManager
@@ -45,16 +46,19 @@ type Bundle struct {
 }
 
 type InstanceManagementFeatures struct {
-	Health    HealthInspector
-	Logs      LogReader
-	Security  SecurityAuditor
-	SkillRead SkillReader
-	MCPRead   MCPReader
+	// DisableLifecycle restricts the registered lifecycle for an externally
+	// owned or otherwise unqualified target; it can never enable a mutation.
+	DisableLifecycle bool
+	Health           HealthInspector
+	Logs             LogReader
+	Security         SecurityAuditor
+	SkillRead        SkillReader
+	MCPRead          MCPReader
 }
 
 // InstanceManagementResolver may only add read capabilities for one already
-// resolved Installation/Profile. Mutating capabilities remain compile-time
-// Bundle wiring and cannot be enabled by an ordinary read.
+// resolved Installation/Profile and restrict lifecycle availability. Mutating
+// capabilities remain compile-time wiring and cannot be enabled by a read.
 type InstanceManagementResolver interface {
 	ResolveInstanceManagement(context.Context, Installation, string) (InstanceManagementFeatures, error)
 }
@@ -68,6 +72,9 @@ func (b Bundle) ResolveInstanceManagement(ctx context.Context, installation Inst
 		return b
 	}
 	resolved := b
+	if features.DisableLifecycle {
+		resolved.Lifecycle = nil
+	}
 	resolved.Health = features.Health
 	resolved.Logs = features.Logs
 	resolved.Security = features.Security

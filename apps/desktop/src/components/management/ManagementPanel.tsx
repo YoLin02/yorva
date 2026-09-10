@@ -14,8 +14,9 @@ import { IconActivity, IconArchiveRestore, IconChevronDown, IconClose, IconFileA
 type ManagementScope = "instance" | "runtime";
 type RuntimeManagementTab = "overview" | "instances" | "models" | "skills" | "mcp" | "maintenance" | "diagnostics" | "operations";
 
-export function ManagementPanel({ client, instance, instances = [instance], runtimeCapabilities, scope = "instance", copy, locale, onClose, onOpenModels, onOpenChannels }: {
+export function ManagementPanel({ client, instance, instances = [instance], runtimeId, runtimeCapabilities, scope = "instance", copy, locale, onClose, onOpenModels, onOpenChannels }: {
   client: DaemonClient;
+  runtimeId: string;
   instance: Instance;
   instances?: Instance[];
   runtimeCapabilities?: Instance["capabilities"];
@@ -149,8 +150,8 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
     retry: false,
   });
   const presetsQuery = useQuery({
-    queryKey: ["runtime-mcp-definitions", "hermes", client.scope],
-    queryFn: ({ signal }) => client.listRuntimeMCPDefinitions("hermes", signal),
+    queryKey: ["runtime-mcp-definitions", runtimeId, client.scope],
+    queryFn: ({ signal }) => client.listRuntimeMCPDefinitions(runtimeId, signal),
     enabled: runtimeMode && runtimeTab === "mcp" && mcpRead,
     retry: false,
   });
@@ -206,15 +207,15 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
     }
   }, [mcpAllSucceeded, refetchMCPServers, refetchMCPPresets]);
   const upgradePlanQuery = useQuery({
-    queryKey: ["runtime-upgrade-plan", "hermes", client.scope],
-    queryFn: ({ signal }) => client.getRuntimeUpgradePlan("hermes", signal),
+    queryKey: ["runtime-upgrade-plan", runtimeId, client.scope],
+    queryFn: ({ signal }) => client.getRuntimeUpgradePlan(runtimeId, signal),
     enabled: runtimeMode && runtimeTab === "maintenance" && upgradePlanRead,
     retry: false,
   });
   const upgradeMutation = useMutation({
     mutationFn: (action: "upgrade" | "rollback") => action === "upgrade"
-      ? client.upgradeManagedRuntime("hermes", crypto.randomUUID())
-      : client.rollbackManagedRuntime("hermes", crypto.randomUUID()),
+      ? client.upgradeManagedRuntime(runtimeId, crypto.randomUUID())
+      : client.rollbackManagedRuntime(runtimeId, crypto.randomUUID()),
     onSuccess: (accepted) => setUpgradeOperationId(accepted.id),
   });
   const upgradeOperationQuery = useQuery({
@@ -233,13 +234,13 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
     if (upgradeOperationQuery.data?.status === "SUCCEEDED") void refetchUpgradePlan();
   }, [upgradeOperationQuery.data?.status, refetchUpgradePlan]);
   const backupsQuery = useQuery({
-    queryKey: ["runtime-backups", "hermes", client.scope],
-    queryFn: ({ signal }) => client.listRuntimeBackups("hermes", signal),
+    queryKey: ["runtime-backups", runtimeId, client.scope],
+    queryFn: ({ signal }) => client.listRuntimeBackups(runtimeId, signal),
     enabled: runtimeMode && runtimeTab === "maintenance" && backupRead,
     retry: false,
   });
   const backupMutation = useMutation({
-    mutationFn: () => client.createRuntimeBackup("hermes", crypto.randomUUID()),
+    mutationFn: () => client.createRuntimeBackup(runtimeId, crypto.randomUUID()),
     onSuccess: (accepted) => setBackupOperationId(accepted.id),
   });
   const backupDeleteMutation = useMutation({
@@ -267,7 +268,7 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
     if (status === "SUCCEEDED") void refetchBackups();
   }, [backupOperationQuery.data?.status, refetchBackups]);
 
-  const instanceDetailsEnabled = !runtimeMode && targetInstance.availability === "AVAILABLE" && Boolean(onOpenModels || onOpenChannels);
+  const instanceDetailsEnabled = !runtimeMode && targetInstance.availability === "AVAILABLE";
   const lifecycleQuery = useQuery({
     queryKey: ["instance-management-lifecycle", targetInstance.instanceId, client.scope],
     queryFn: ({ signal }) => client.getInstanceLifecycle(targetInstance.instanceId, signal),
@@ -277,13 +278,13 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
   const modelQuery = useQuery({
     queryKey: ["instance-management-model", targetInstance.instanceId, client.scope],
     queryFn: ({ signal }) => client.getModelConfiguration(targetInstance.instanceId, signal),
-    enabled: instanceDetailsEnabled && onOpenModels !== undefined,
+    enabled: instanceDetailsEnabled && capabilities.models && onOpenModels !== undefined,
     retry: false,
   });
   const channelsQuery = useQuery({
     queryKey: ["instance-management-channels", targetInstance.instanceId, client.scope],
     queryFn: ({ signal }) => client.listInstanceChannels(targetInstance.instanceId, signal),
-    enabled: instanceDetailsEnabled && onOpenChannels !== undefined,
+    enabled: instanceDetailsEnabled && capabilities.channels && onOpenChannels !== undefined,
     retry: false,
   });
   const [lifecycleOperationId, setLifecycleOperationId] = useState<string | null>(null);
@@ -342,8 +343,8 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
     }
     if (!runtimeMode) {
       if (capabilities.lifecycle) void lifecycleQuery.refetch();
-      if (onOpenModels) void modelQuery.refetch();
-      if (onOpenChannels) void channelsQuery.refetch();
+      if (capabilities.models && onOpenModels) void modelQuery.refetch();
+      if (capabilities.channels && onOpenChannels) void channelsQuery.refetch();
     }
   };
   const selectTargetInstance = (instanceId: string) => {
@@ -472,7 +473,7 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
     <section className={runtimeMode ? "management-panel runtime-management-panel" : "management-panel"} aria-labelledby="management-panel-title">
       <header className="management-panel-header">
         <div>
-          <h2 id="management-panel-title">{runtimeMode ? copy.management.runtimeTitle : `${copy.management.title}: ${targetInstance.name}`}</h2>
+          <h2 id="management-panel-title">{runtimeMode ? `${runtimeId === "hermes" ? "Hermes" : "OpenClaw"} ${copy.management.runtimeTitle}` : `${copy.management.title}: ${targetInstance.name}`}</h2>
           <p className="page-copy">{runtimeMode ? copy.management.runtimeDescription : copy.management.description}</p>
         </div>
         <div className="management-header-actions">
@@ -487,7 +488,13 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
 
       {runtimeMode ? (
         <nav className="runtime-management-tabs" aria-label={copy.management.runtimeNavigation}>
-          {(["overview", "instances", "models", "skills", "mcp", "maintenance", "operations"] as RuntimeManagementTab[]).map((tab) => (
+          {(["overview", "instances", "models", "skills", "mcp", "maintenance", "operations"] as RuntimeManagementTab[]).filter((tab) => {
+            if (tab === "models") return runtimeCaps.models;
+            if (tab === "skills") return runtimeCaps.skillRead || runtimeCaps.skillMutate;
+            if (tab === "mcp") return runtimeCaps.mcpRead || runtimeCaps.mcpMutate;
+            if (tab === "maintenance") return backupRead || backupMutate || upgradePlanRead || upgrade || rollback;
+            return true;
+          }).map((tab) => (
             <button key={tab} type="button" className={runtimeTab === tab ? "is-active" : undefined} aria-current={runtimeTab === tab ? "page" : undefined} onClick={() => { setRuntimeTab(tab); setSelectedSkillId(null); }}>
               {copy.management.runtimeTabs[tab]}
             </button>
@@ -534,8 +541,8 @@ export function ManagementPanel({ client, instance, instances = [instance], runt
         <DiagnosticInstanceSwitcher instances={instances} value={targetInstance.instanceId} copy={copy} onChange={selectTargetInstance} />
       ) : null}
 
-      {runtimeMode && runtimeTab === "models" ? (
-        <RuntimeModelsPanel client={client} instances={instances} copy={copy} />
+      {runtimeMode && runtimeTab === "models" && runtimeCaps.models ? (
+        <RuntimeModelsPanel client={client} runtimeId={runtimeId} instances={instances} copy={copy} />
       ) : null}
 
       {runtimeMode && runtimeTab === "skills" && selectedSkillId === null ? (

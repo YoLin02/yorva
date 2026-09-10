@@ -10,7 +10,7 @@ const clientMocks = vi.hoisted(() => ({
   detectHermes: vi.fn(),
   getHermesPrerequisites: vi.fn(),
   listOperations: vi.fn(),
-  listHermesInstances: vi.fn(),
+  listRuntimeInstances: vi.fn(),
   getInstanceLifecycle: vi.fn(),
   startInstanceLifecycle: vi.fn(),
   getOperation: vi.fn(),
@@ -29,7 +29,7 @@ vi.mock("./api/client", async () => {
       detectHermes: clientMocks.detectHermes,
       getHermesPrerequisites: clientMocks.getHermesPrerequisites,
       listOperations: clientMocks.listOperations,
-      listHermesInstances: clientMocks.listHermesInstances,
+      listRuntimeInstances: clientMocks.listRuntimeInstances,
       getInstanceLifecycle: clientMocks.getInstanceLifecycle,
       startInstanceLifecycle: clientMocks.startInstanceLifecycle,
       getOperation: clientMocks.getOperation,
@@ -79,7 +79,7 @@ describe("App Desktop navigation and locale", () => {
     });
     clientMocks.startInstanceLifecycle.mockReset();
     clientMocks.getOperation.mockReset();
-    clientMocks.listHermesInstances.mockReset().mockResolvedValue({
+    clientMocks.listRuntimeInstances.mockReset().mockResolvedValue({
       runtimeId: "hermes",
       runtimeInstallationId: "rtinst_test",
       freshness: "FRESH",
@@ -139,7 +139,7 @@ describe("App Desktop navigation and locale", () => {
   });
 
   it("starts only the stopped default Hermes Runtime when the Runtime page opens", async () => {
-    clientMocks.listHermesInstances.mockResolvedValue({
+    clientMocks.listRuntimeInstances.mockResolvedValue({
       runtimeId: "hermes",
       runtimeInstallationId: "rtinst_test",
       freshness: "FRESH",
@@ -226,7 +226,7 @@ describe("App Desktop navigation and locale", () => {
   });
 
   it("does not loop after the bounded automatic Hermes start fails", async () => {
-    clientMocks.listHermesInstances.mockResolvedValue({
+    clientMocks.listRuntimeInstances.mockResolvedValue({
       runtimeId: "hermes",
       runtimeInstallationId: "rtinst_test",
       freshness: "FRESH",

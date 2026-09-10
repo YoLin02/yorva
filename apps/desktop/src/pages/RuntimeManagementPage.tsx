@@ -19,6 +19,7 @@ export function RuntimeManagementPage({ client, inventory, copy, locale, onBack 
         <Button variant="ghost" onClick={onBack}>← {copy.management.backToRuntime}</Button>
       </div>
       <ManagementPanel
+        runtimeId={inventory.runtimeId}
         client={client}
         instance={defaultInstance}
         instances={inventory.instances}

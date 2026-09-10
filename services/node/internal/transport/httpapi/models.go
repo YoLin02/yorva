@@ -20,7 +20,7 @@ const (
 )
 
 type ModelConfigurationService interface {
-	ListModelProviderPresets(context.Context) ([]yorvaruntime.ModelProviderPreset, error)
+	ListModelProviderPresets(context.Context, string) ([]yorvaruntime.ModelProviderPreset, error)
 	GetModelConfiguration(context.Context, string) (app.ModelConfigurationView, error)
 	PatchModelConfiguration(context.Context, string, string, string, []string) (app.ModelConfigurationView, error)
 	FetchModelProviderCatalog(context.Context, string, string, []byte) (app.ModelProviderCatalogView, error)
@@ -77,7 +77,7 @@ func listModelProviderPresets(models ModelConfigurationService) http.Handler {
 			writeError(w, http.StatusInternalServerError, ErrorBody{Code: "INTERNAL_ERROR", Message: "Model configuration is unavailable.", Retryable: true})
 			return
 		}
-		presets, err := models.ListModelProviderPresets(r.Context())
+		presets, err := models.ListModelProviderPresets(r.Context(), r.PathValue("runtimeId"))
 		if err != nil {
 			writeModelError(w, app.ModelConfigurationView{}, err)
 			return
@@ -370,8 +370,10 @@ func writeModelError(w http.ResponseWriter, observed app.ModelConfigurationView,
 		writeError(w, http.StatusNotFound, ErrorBody{Code: string(yorvaruntime.ErrorInstanceNotFound), Message: "The requested instance was not found.", Retryable: false})
 	case errors.Is(err, app.ErrInstanceNotAvailable):
 		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorInstanceNotAvailable), Message: "The requested instance is not available.", Retryable: false})
+	case errors.Is(err, app.ErrManagementCapabilityUnsupported):
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorCapabilityNotSupported), Message: "Model configuration is not supported by this Runtime.", Retryable: false})
 	case errors.Is(err, yorvaruntime.ErrModelProviderUnsupported), errors.Is(err, app.ErrRuntimeNotSupported):
-		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorModelProviderUnsupported), Message: "Model configuration is not supported by this Hermes installation.", Retryable: false})
+		writeError(w, http.StatusConflict, ErrorBody{Code: string(yorvaruntime.ErrorModelProviderUnsupported), Message: "Model configuration is not supported by this Runtime installation.", Retryable: false})
 	case errors.Is(err, yorvaruntime.ErrModelConfigInvalid):
 		writeError(w, http.StatusBadRequest, ErrorBody{Code: string(yorvaruntime.ErrorModelConfigInvalid), Message: "The model configuration request is invalid.", Retryable: false})
 	case errors.Is(err, yorvaruntime.ErrModelCredentialRequired):

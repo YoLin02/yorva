@@ -22,7 +22,7 @@ const instance: Instance = {
   createdAt: "2026-08-25T10:00:00Z",
   updatedAt: "2026-08-25T10:00:00Z",
   capabilities: {
-    instances: true, lifecycle: false, healthRead: true, logsRead: true, securityAudit: false,
+    instances: true, models: true, channels: true, lifecycle: false, healthRead: true, logsRead: true, securityAudit: false,
     skillRead: true, skillMutate: false, mcpRead: true, mcpMutate: false, mcpTest: false,
     nativeSkills: {
       inventory: { supported: true, reason: "dynamic_instance_readback" },
@@ -70,7 +70,7 @@ function managementClient(overrides: Partial<DaemonClient> = {}) {
       observedAt: "2026-08-25T10:00:00Z",
     }),
     listRuntimeBackups: vi.fn().mockResolvedValue({ scope: "RUNTIME", items: [] }),
-    listModelProviderPresets: vi.fn().mockResolvedValue({ items: [{
+    listRuntimeModelProviderPresets: vi.fn().mockResolvedValue({ items: [{
       id: "qwen", displayName: "Qwen", region: "CHINA", recommendedModels: ["qwen-plus"], helpText: "Reviewed Qwen configuration.",
     }] }),
     getModelConfiguration: vi.fn().mockResolvedValue({
@@ -107,7 +107,7 @@ function renderPanel(client: DaemonClient, target: Instance = instance, scope: "
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ManagementPanel client={client} instance={target} instances={[target]} scope={scope} copy={messages["en-US"]} locale="en-US" onClose={() => undefined} />
+      <ManagementPanel runtimeId="hermes" client={client} instance={target} instances={[target]} scope={scope} copy={messages["en-US"]} locale="en-US" onClose={() => undefined} />
     </QueryClientProvider>,
   );
 }
@@ -270,7 +270,7 @@ describe("ManagementPanel", () => {
     });
     const target = { ...instance, capabilities: { ...instance.capabilities, skillMutate: true } };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
-    render(<QueryClientProvider client={queryClient}><ManagementPanel client={client} instance={target} instances={[target, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
+    render(<QueryClientProvider client={queryClient}><ManagementPanel runtimeId="hermes" client={client} instance={target} instances={[target, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
 
     fireEvent.click(screen.getByRole("button", { name: "Skills" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Configuring" }), { target: { value: "inst-review" } });
@@ -285,7 +285,7 @@ describe("ManagementPanel", () => {
     const second: Instance = { ...instance, instanceId: "inst-review", name: "review" };
     const client = managementClient();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
-    render(<QueryClientProvider client={queryClient}><ManagementPanel client={client} instance={instance} instances={[instance, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
+    render(<QueryClientProvider client={queryClient}><ManagementPanel runtimeId="hermes" client={client} instance={instance} instances={[instance, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
 
     const navigation = screen.getByRole("navigation", { name: "Runtime management sections" });
     expect(within(navigation).queryByRole("button", { name: "Diagnostics" })).not.toBeInTheDocument();
@@ -311,7 +311,7 @@ describe("ManagementPanel", () => {
       listRuntimeModelBindings: vi.fn().mockResolvedValue({ items: [{ instanceId: "inst-review", instanceName: "review", modelProfileId: "mpr-test", mode: "INHERIT", appliedRevision: 1, state: "SUCCEEDED", errorCode: null, updatedAt: "2026-08-25T10:00:00Z" }] }),
     });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
-    render(<QueryClientProvider client={queryClient}><ManagementPanel client={client} instance={instance} instances={[instance, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
+    render(<QueryClientProvider client={queryClient}><ManagementPanel runtimeId="hermes" client={client} instance={instance} instances={[instance, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
 
     const navigation = screen.getByRole("navigation", { name: "Runtime management sections" });
     fireEvent.click(within(navigation).getByRole("button", { name: "Models" }));
@@ -332,7 +332,7 @@ describe("ManagementPanel", () => {
       getRuntimeModelDefault: vi.fn().mockResolvedValue({ modelProfileId: "mpr-test", appliedRevision: 1, updatedAt: "2026-08-25T10:00:00Z" }),
     });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
-    render(<QueryClientProvider client={queryClient}><ManagementPanel client={client} instance={instance} instances={[instance, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
+    render(<QueryClientProvider client={queryClient}><ManagementPanel runtimeId="hermes" client={client} instance={instance} instances={[instance, second]} scope="runtime" copy={messages["en-US"]} locale="en-US" /></QueryClientProvider>);
 
     fireEvent.click(within(screen.getByRole("navigation", { name: "Runtime management sections" })).getByRole("button", { name: "Models" }));
     expect(await screen.findByText("Shared models")).toBeInTheDocument();

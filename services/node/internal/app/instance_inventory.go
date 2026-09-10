@@ -12,19 +12,16 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/events"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
-	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes"
 )
-
-const hermesRuntimeID = "hermes"
 
 var (
 	ErrRuntimeNotSupported          = errors.New("runtime is not supported for instance inventory")
 	ErrInstanceNotFound             = errors.New("instance not found")
-	ErrInstanceQueryFailed          = errors.New("instance query failed")
-	ErrInstanceOutputUnrecognized   = errors.New("instance output unrecognized")
-	ErrInstanceOperationTimedOut    = errors.New("instance operation timed out")
+	ErrInstanceQueryFailed          = yorvaruntime.ErrInstanceInventoryFailed
+	ErrInstanceOutputUnrecognized   = yorvaruntime.ErrInstanceOutputUnrecognized
+	ErrInstanceOperationTimedOut    = yorvaruntime.ErrInstanceOperationTimedOut
 	ErrInstanceRuntimeNotFound      = errors.New("runtime inventory target not found")
-	ErrInstanceInvalidName          = errors.New("instance name is invalid")
+	ErrInstanceInvalidName          = yorvaruntime.ErrInstanceNameInvalid
 	ErrInstanceAlreadyExists        = errors.New("instance already exists")
 	ErrInstanceConflict             = errors.New("instance operation conflicts")
 	ErrInstanceNotCancellable       = errors.New("instance operation is not cancellable")
@@ -33,22 +30,10 @@ var (
 	ErrInstanceRecordNotRemoved     = errors.New("instance record is not removed")
 )
 
-type ProfileSnapshot struct {
-	NativeID string
-	Default  bool
-}
-
-type ProfileSource interface {
-	List(ctx context.Context, executable string) ([]ProfileSnapshot, error)
-}
-
-type ProfileMutator interface {
-	Create(ctx context.Context, executable, name string) error
-	Delete(ctx context.Context, executable, nativeID string) error
-}
-
 type InstanceCapabilities struct {
 	Instances     bool                                 `json:"instances"`
+	Models        bool                                 `json:"models"`
+	Channels      bool                                 `json:"channels"`
 	Lifecycle     bool                                 `json:"lifecycle"`
 	HealthRead    bool                                 `json:"healthRead"`
 	LogsRead      bool                                 `json:"logsRead"`
@@ -93,8 +78,6 @@ type InstanceList struct {
 type InstanceInventory struct {
 	discovery    *RuntimeDiscovery
 	db           *sqlite.Database
-	source       ProfileSource
-	mutator      ProfileMutator
 	nodeID       string
 	now          func() time.Time
 	newID        func() (string, error)
@@ -114,11 +97,10 @@ func (s *InstanceInventory) WithModelSecrets(store ModelSecretStore) *InstanceIn
 	return s
 }
 
-func NewInstanceInventory(discovery *RuntimeDiscovery, db *sqlite.Database, source ProfileSource, nodeID string) *InstanceInventory {
+func NewInstanceInventory(discovery *RuntimeDiscovery, db *sqlite.Database, nodeID string) *InstanceInventory {
 	return &InstanceInventory{
 		discovery: discovery,
 		db:        db,
-		source:    source,
 		nodeID:    nodeID,
 		now:       func() time.Time { return time.Now().UTC() },
 		newID:     newOperationID,
@@ -129,24 +111,24 @@ func NewInstanceInventory(discovery *RuntimeDiscovery, db *sqlite.Database, sour
 	}
 }
 
-func (s *InstanceInventory) WithMutator(mutator ProfileMutator) *InstanceInventory {
-	s.mutator = mutator
-	return s
-}
-
 func (s *InstanceInventory) WithEvents(broker *events.Broker) *InstanceInventory {
 	s.events = broker
 	return s
 }
 
 func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string) (InstanceList, error) {
-	if runtimeID != hermesRuntimeID {
-		return InstanceList{}, ErrInstanceRuntimeNotFound
-	}
-	if s.discovery == nil || s.db == nil || s.source == nil {
+	if s.discovery == nil || s.db == nil || s.discovery.registry == nil {
 		return InstanceList{}, ErrRuntimeNotSupported
 	}
-	discovery, err := s.discovery.Detect(ctx, yorvaruntime.Kind(hermesRuntimeID))
+	kind := yorvaruntime.Kind(runtimeID)
+	bundle, ok := s.discovery.registry.Get(kind)
+	if !ok {
+		return InstanceList{}, ErrInstanceRuntimeNotFound
+	}
+	if bundle.Instances == nil {
+		return InstanceList{}, ErrManagementCapabilityUnsupported
+	}
+	discovery, err := s.discovery.Detect(ctx, kind)
 	if err != nil {
 		return InstanceList{}, err
 	}
@@ -164,7 +146,7 @@ func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string)
 	now := s.now()
 	freshness := "FRESH"
 	var queryErr error
-	natives, listErr := s.source.List(ctx, discovery.Selected.Path)
+	natives, listErr := bundle.Instances.List(ctx, discovery.Selected.Path)
 	if listErr != nil {
 		queryErr = classifyProfileListError(listErr)
 		if markErr := s.db.MarkInstancesUnknown(ctx, installation.ID, now); markErr != nil {
@@ -174,7 +156,7 @@ func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string)
 	} else {
 		entries := make([]sqlite.InstanceSnapshotEntry, 0, len(natives))
 		for _, native := range natives {
-			entries = append(entries, sqlite.InstanceSnapshotEntry{NativeID: native.NativeID, Default: native.Default || native.NativeID == "default"})
+			entries = append(entries, sqlite.InstanceSnapshotEntry{NativeID: native.NativeID, Default: native.Default, Protected: native.Protected})
 		}
 		if err := s.db.ApplyInstanceSnapshot(ctx, installation.ID, entries, now); err != nil {
 			return InstanceList{}, err
@@ -186,18 +168,17 @@ func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string)
 		return InstanceList{}, err
 	}
 	views := make([]InstanceView, 0, len(rows))
-	bundle, _ := s.discovery.registry.Get(yorvaruntime.Kind(hermesRuntimeID))
 	installationTarget := yorvaruntime.Installation{
-		RuntimeKind:  yorvaruntime.Kind(hermesRuntimeID),
+		RuntimeKind:  kind,
 		Path:         discovery.Selected.Path,
 		Version:      discovery.Selected.Version,
 		SupportState: discovery.State,
 	}
-	capabilities := instanceCapabilities(bundle.ManagementCapabilities(), bundle.Lifecycle != nil)
+	capabilities := bundleInstanceCapabilities(bundle)
 	var lastSync *time.Time
 	for _, row := range rows {
 		resolved := bundle.ResolveInstanceManagement(ctx, installationTarget, row.NativeID)
-		rowCapabilities := instanceCapabilities(resolved.ManagementCapabilities(), resolved.Lifecycle != nil)
+		rowCapabilities := bundleInstanceCapabilities(resolved)
 		views = append(views, instanceView(row, rowCapabilities))
 		capabilities = unionInstanceCapabilities(capabilities, rowCapabilities)
 		if row.LastSyncedAt != nil && (lastSync == nil || row.LastSyncedAt.After(*lastSync)) {
@@ -205,7 +186,7 @@ func (s *InstanceInventory) ListInstances(ctx context.Context, runtimeID string)
 		}
 	}
 	result := InstanceList{
-		RuntimeID:             hermesRuntimeID,
+		RuntimeID:             runtimeID,
 		RuntimeInstallationID: installation.ID,
 		Freshness:             freshness,
 		LastSyncedAt:          lastSync,
@@ -229,9 +210,9 @@ func (s *InstanceInventory) GetInstance(ctx context.Context, instanceID string) 
 	if err != nil {
 		return InstanceView{}, err
 	}
-	capabilities := s.capabilities()
+	capabilities := InstanceCapabilities{}
 	if target, targetErr := s.ResolveManagementTarget(ctx, instanceID); targetErr == nil {
-		capabilities = instanceCapabilities(target.Bundle.ManagementCapabilities(), target.Bundle.Lifecycle != nil)
+		capabilities = bundleInstanceCapabilities(target.Bundle)
 	} else if ctxErr := ctx.Err(); ctxErr != nil {
 		return InstanceView{}, ctxErr
 	}
@@ -242,7 +223,7 @@ func (s *InstanceInventory) ensureInstallation(ctx context.Context, discovery yo
 	s.ensureMu.Lock()
 	defer s.ensureMu.Unlock()
 	now := s.now()
-	existing, err := s.db.GetAcceptedInstallation(ctx, s.nodeID, yorvaruntime.Kind(hermesRuntimeID), discovery.Selected.Path)
+	existing, err := s.db.GetAcceptedInstallation(ctx, s.nodeID, discovery.RuntimeKind, discovery.Selected.Path)
 	if err == nil {
 		existing.Version = discovery.Selected.Version
 		existing.SupportState = discovery.State
@@ -263,7 +244,7 @@ func (s *InstanceInventory) ensureInstallation(ctx context.Context, discovery yo
 	created := sqlite.AcceptedInstallation{
 		ID:             id,
 		NodeID:         s.nodeID,
-		RuntimeKind:    yorvaruntime.Kind(hermesRuntimeID),
+		RuntimeKind:    discovery.RuntimeKind,
 		InstallPath:    discovery.Selected.Path,
 		Version:        discovery.Selected.Version,
 		SupportState:   discovery.State,
@@ -275,7 +256,7 @@ func (s *InstanceInventory) ensureInstallation(ctx context.Context, discovery yo
 	if err := s.db.UpsertAcceptedInstallation(ctx, created); err != nil {
 		return sqlite.AcceptedInstallation{}, err
 	}
-	stored, err := s.db.GetAcceptedInstallation(ctx, s.nodeID, yorvaruntime.Kind(hermesRuntimeID), discovery.Selected.Path)
+	stored, err := s.db.GetAcceptedInstallation(ctx, s.nodeID, discovery.RuntimeKind, discovery.Selected.Path)
 	if err != nil {
 		return sqlite.AcceptedInstallation{}, err
 	}
@@ -313,21 +294,29 @@ func instanceView(row instance.Instance, capabilities InstanceCapabilities) Inst
 	}
 }
 
-func (s *InstanceInventory) capabilities() InstanceCapabilities {
-	capabilities := InstanceCapabilities{Instances: true}
+func (s *InstanceInventory) capabilities(kind yorvaruntime.Kind) InstanceCapabilities {
+	capabilities := InstanceCapabilities{}
 	if s == nil || s.discovery == nil || s.discovery.registry == nil {
 		return capabilities
 	}
-	bundle, ok := s.discovery.registry.Get(yorvaruntime.Kind(hermesRuntimeID))
+	bundle, ok := s.discovery.registry.Get(kind)
 	if !ok {
 		return capabilities
 	}
-	capabilities = instanceCapabilities(bundle.ManagementCapabilities(), bundle.Lifecycle != nil)
-	capabilities.NativeSkills = bundle.NativeSkillCapabilities
+	capabilities = bundleInstanceCapabilities(bundle)
 	// BackupRead is backed by the Runtime-scoped SQLite index and therefore is
 	// published dynamically by the application composition, not Hermes static
 	// registration. Mutating backup and Restore capabilities remain false.
 	capabilities.BackupRead = capabilities.BackupRead || s.db != nil
+	return capabilities
+}
+
+func bundleInstanceCapabilities(bundle yorvaruntime.Bundle) InstanceCapabilities {
+	capabilities := instanceCapabilities(bundle.ManagementCapabilities(), bundle.Lifecycle != nil)
+	capabilities.Instances = bundle.Instances != nil
+	capabilities.Models = bundle.Models != nil
+	capabilities.Channels = bundle.Channels != nil
+	capabilities.NativeSkills = bundle.NativeSkillCapabilities
 	return capabilities
 }
 
@@ -353,6 +342,7 @@ func instanceCapabilities(management yorvaruntime.ManagementCapabilities, lifecy
 func unionInstanceCapabilities(left, right InstanceCapabilities) InstanceCapabilities {
 	return InstanceCapabilities{
 		Instances: left.Instances || right.Instances, Lifecycle: left.Lifecycle || right.Lifecycle,
+		Models: left.Models || right.Models, Channels: left.Channels || right.Channels,
 		HealthRead: left.HealthRead || right.HealthRead, LogsRead: left.LogsRead || right.LogsRead,
 		SecurityAudit: left.SecurityAudit || right.SecurityAudit,
 		SkillRead:     left.SkillRead || right.SkillRead, SkillMutate: left.SkillMutate || right.SkillMutate,
@@ -381,10 +371,6 @@ func unionNativeSkillCapability(left, right yorvaruntime.NativeSkillCapability) 
 		return left
 	}
 	return right
-}
-
-func (s *InstanceInventory) lifecycleCapable() bool {
-	return s.capabilities().Lifecycle
 }
 
 func classifyProfileListError(err error) error {
@@ -437,11 +423,18 @@ func (s *InstanceInventory) StartCreate(ctx context.Context, runtimeID, name, id
 	if err := ValidateIdempotencyKey(idempotencyKey); err != nil {
 		return InstallStartResult{}, err
 	}
-	if err := hermes.ValidateCreateProfileName(name); err != nil {
-		return InstallStartResult{}, ErrInstanceInvalidName
-	}
-	if s.mutator == nil {
+	if s.discovery == nil || s.discovery.registry == nil {
 		return InstallStartResult{}, ErrRuntimeNotSupported
+	}
+	bundle, ok := s.discovery.registry.Get(yorvaruntime.Kind(runtimeID))
+	if !ok {
+		return InstallStartResult{}, ErrInstanceRuntimeNotFound
+	}
+	if bundle.Instances == nil {
+		return InstallStartResult{}, ErrManagementCapabilityUnsupported
+	}
+	if err := bundle.Instances.ValidateName(name); err != nil {
+		return InstallStartResult{}, ErrInstanceInvalidName
 	}
 	listed, err := s.ListInstances(ctx, runtimeID)
 	if err != nil {
@@ -450,10 +443,13 @@ func (s *InstanceInventory) StartCreate(ctx context.Context, runtimeID, name, id
 	if existing, ok, err := s.db.GetOperationByIdempotencyKey(ctx, idempotencyKey); err != nil {
 		return InstallStartResult{}, err
 	} else if ok {
-		if existing.Type != operation.TypeInstanceCreate || existing.Message != name {
+		if existing.Type != operation.TypeInstanceCreate || existing.Message != name || existing.TargetID != listed.RuntimeInstallationID {
 			return InstallStartResult{}, ErrInstanceConflict
 		}
 		return InstallStartResult{Operation: existing}, nil
+	}
+	if listed.Freshness != "FRESH" {
+		return InstallStartResult{}, instanceQueryError(listed.ErrorCode)
 	}
 	for _, item := range listed.Instances {
 		if item.Name == name && item.Availability == instance.Available {
@@ -492,7 +488,7 @@ func (s *InstanceInventory) StartCreate(ctx context.Context, runtimeID, name, id
 		if errors.Is(err, sqlite.ErrDuplicateIdempotency) {
 			existing, ok, getErr := s.db.GetOperationByIdempotencyKey(ctx, idempotencyKey)
 			if getErr == nil && ok {
-				if existing.Message != name {
+				if existing.Type != operation.TypeInstanceCreate || existing.Message != name || existing.TargetID != listed.RuntimeInstallationID {
 					return InstallStartResult{}, ErrInstanceConflict
 				}
 				return InstallStartResult{Operation: existing}, nil
@@ -575,15 +571,15 @@ func (s *InstanceInventory) runCreate(ctx context.Context, op operation.Operatio
 	s.started[op.ID] = true
 	s.mu.Unlock()
 
-	cmdCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	cmdCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	discovery, err := s.discovery.Detect(cmdCtx, yorvaruntime.Kind(hermesRuntimeID))
-	if err != nil || discovery.Selected == nil {
+	target, err := s.resolveAcceptedInstallation(cmdCtx, installationID)
+	if err != nil || target.Bundle.Instances == nil {
 		s.failCreate(running, yorvaruntime.ErrorRuntimeNotSupported, false)
 		return
 	}
-	createErr := s.mutator.Create(cmdCtx, discovery.Selected.Path, name)
-	_, _ = s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
+	createErr := target.Bundle.Instances.Create(cmdCtx, target.Installation.Path, name)
+	_, _ = s.reconcileLocked(cmdCtx, installationID, target.Installation.Path)
 	present, presentErr := s.profilePresent(ctx, installationID, name)
 	if presentErr == nil && present {
 		if createErr != nil {
@@ -602,14 +598,19 @@ func (s *InstanceInventory) runCreate(ctx context.Context, op operation.Operatio
 
 func (s *InstanceInventory) reconcileLocked(ctx context.Context, installationID, executable string) (InstanceList, error) {
 	now := s.now()
-	natives, listErr := s.source.List(ctx, executable)
+	target, err := s.resolveAcceptedInstallation(ctx, installationID)
+	if err != nil || target.Installation.Path != executable || target.Bundle.Instances == nil {
+		_ = s.db.MarkInstancesUnknown(ctx, installationID, now)
+		return InstanceList{}, ErrRuntimeNotSupported
+	}
+	natives, listErr := target.Bundle.Instances.List(ctx, executable)
 	if listErr != nil {
 		_ = s.db.MarkInstancesUnknown(ctx, installationID, now)
 		return InstanceList{}, classifyProfileListError(listErr)
 	}
 	entries := make([]sqlite.InstanceSnapshotEntry, 0, len(natives))
 	for _, native := range natives {
-		entries = append(entries, sqlite.InstanceSnapshotEntry{NativeID: native.NativeID, Default: native.Default || native.NativeID == "default"})
+		entries = append(entries, sqlite.InstanceSnapshotEntry{NativeID: native.NativeID, Default: native.Default, Protected: native.Protected})
 	}
 	if err := s.db.ApplyInstanceSnapshot(ctx, installationID, entries, now); err != nil {
 		return InstanceList{}, err
@@ -619,7 +620,7 @@ func (s *InstanceInventory) reconcileLocked(ctx context.Context, installationID,
 		return InstanceList{}, err
 	}
 	views := make([]InstanceView, 0, len(rows))
-	capabilities := s.capabilities()
+	capabilities := s.capabilities(target.Installation.RuntimeKind)
 	for _, row := range rows {
 		views = append(views, instanceView(row, capabilities))
 	}
@@ -639,7 +640,7 @@ func (s *InstanceInventory) profilePresent(ctx context.Context, installationID, 
 	return false, nil
 }
 
-// ClearRemovedInstance deletes YORVA-owned metadata only after a fresh Hermes
+// ClearRemovedInstance deletes YORVA-owned metadata only after a fresh Runtime
 // reconciliation still confirms that the Runtime-owned profile is absent.
 func (s *InstanceInventory) ClearRemovedInstance(ctx context.Context, instanceID string) error {
 	row, err := s.db.GetInstance(ctx, instanceID)
@@ -649,21 +650,18 @@ func (s *InstanceInventory) ClearRemovedInstance(ctx context.Context, instanceID
 	if err != nil {
 		return err
 	}
-	if row.Default || row.Protected || row.NativeID == "default" {
+	if row.Default || row.Protected {
 		return ErrInstanceProtected
 	}
 
 	unlock := s.lockInstallation(row.RuntimeInstallationID)
 	defer unlock()
 
-	discovery, err := s.discovery.Detect(ctx, yorvaruntime.Kind(hermesRuntimeID))
+	target, err := s.resolveAcceptedInstallation(ctx, row.RuntimeInstallationID)
 	if err != nil {
 		return err
 	}
-	if discovery.State != yorvaruntime.DiscoverySupported || discovery.Selected == nil || discovery.Selected.Path == "" {
-		return ErrRuntimeNotSupported
-	}
-	if _, err := s.reconcileLocked(ctx, row.RuntimeInstallationID, discovery.Selected.Path); err != nil {
+	if _, err := s.reconcileLocked(ctx, row.RuntimeInstallationID, target.Installation.Path); err != nil {
 		return err
 	}
 
@@ -730,7 +728,7 @@ func (s *InstanceInventory) StartDelete(ctx context.Context, instanceID, confirm
 	if err != nil {
 		return InstallStartResult{}, err
 	}
-	if row.Default || row.Protected || row.NativeID == "default" {
+	if row.Default || row.Protected {
 		return InstallStartResult{}, ErrInstanceProtected
 	}
 	if confirmationName != row.NativeID {
@@ -745,7 +743,11 @@ func (s *InstanceInventory) StartDelete(ctx context.Context, instanceID, confirm
 		return InstallStartResult{Operation: existing}, nil
 	}
 
-	listed, err := s.ListInstances(ctx, hermesRuntimeID)
+	target, err := s.resolveAcceptedInstallation(ctx, row.RuntimeInstallationID)
+	if err != nil {
+		return InstallStartResult{}, err
+	}
+	listed, err := s.ListInstances(ctx, string(target.Installation.RuntimeKind))
 	if err != nil {
 		return InstallStartResult{}, err
 	}
@@ -757,7 +759,7 @@ func (s *InstanceInventory) StartDelete(ctx context.Context, instanceID, confirm
 	}
 	s.operationMu.Lock()
 	defer s.operationMu.Unlock()
-	if s.lifecycleCapable() {
+	if target.Bundle.Lifecycle != nil {
 		lifecycle, lifecycleErr := s.GetLifecycle(ctx, instanceID)
 		if lifecycleErr != nil || lifecycle.State != yorvaruntime.LifecycleStopped {
 			return InstallStartResult{}, ErrInstanceConflict
@@ -799,7 +801,7 @@ func (s *InstanceInventory) StartDelete(ctx context.Context, instanceID, confirm
 	if err := s.db.CreateOperation(ctx, op); err != nil {
 		if errors.Is(err, sqlite.ErrDuplicateIdempotency) {
 			existing, ok, getErr := s.db.GetOperationByIdempotencyKey(ctx, idempotencyKey)
-			if getErr == nil && ok && existing.Message == confirmationName {
+			if getErr == nil && ok && existing.Type == operation.TypeInstanceDelete && existing.Message == confirmationName && existing.TargetID == row.RuntimeInstallationID {
 				return InstallStartResult{Operation: existing}, nil
 			}
 			return InstallStartResult{}, ErrInstanceConflict
@@ -881,14 +883,14 @@ func (s *InstanceInventory) runDelete(ctx context.Context, op operation.Operatio
 	s.started[op.ID] = true
 	s.mu.Unlock()
 
-	cmdCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	cmdCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	discovery, err := s.discovery.Detect(cmdCtx, yorvaruntime.Kind(hermesRuntimeID))
-	if err != nil || discovery.Selected == nil {
+	target, err := s.resolveAcceptedInstallation(cmdCtx, installationID)
+	if err != nil || target.Bundle.Instances == nil {
 		s.failCreate(running, yorvaruntime.ErrorRuntimeNotSupported, false)
 		return
 	}
-	listed, reconErr := s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
+	listed, reconErr := s.reconcileLocked(cmdCtx, installationID, target.Installation.Path)
 	if reconErr != nil {
 		s.failCreate(running, errorCodeFrom(reconErr), true)
 		return
@@ -897,8 +899,8 @@ func (s *InstanceInventory) runDelete(ctx context.Context, op operation.Operatio
 		s.succeedDelete(running)
 		return
 	}
-	deleteErr := s.mutator.Delete(cmdCtx, discovery.Selected.Path, nativeID)
-	post, postErr := s.reconcileLocked(cmdCtx, installationID, discovery.Selected.Path)
+	deleteErr := target.Bundle.Instances.Delete(cmdCtx, target.Installation.Path, nativeID)
+	post, postErr := s.reconcileLocked(cmdCtx, installationID, target.Installation.Path)
 	if postErr != nil {
 		s.failCreate(running, errorCodeFrom(postErr), true)
 		return
@@ -977,16 +979,12 @@ func (s *InstanceInventory) recoverOneLocked(ctx context.Context, current operat
 }
 
 func (s *InstanceInventory) queryAuthoritative(ctx context.Context, installationID string) (InstanceList, error) {
-	if s.discovery == nil || s.source == nil {
-		_ = s.db.MarkInstancesUnknown(ctx, installationID, s.now())
-		return InstanceList{Freshness: "UNKNOWN"}, ErrInstanceQueryFailed
-	}
-	discovery, err := s.discovery.Detect(ctx, yorvaruntime.Kind(hermesRuntimeID))
-	if err != nil || discovery.Selected == nil || discovery.Selected.Path == "" {
+	target, err := s.resolveAcceptedInstallation(ctx, installationID)
+	if err != nil || target.Bundle.Instances == nil {
 		_ = s.db.MarkInstancesUnknown(ctx, installationID, s.now())
 		return InstanceList{Freshness: "UNKNOWN"}, ErrRuntimeNotSupported
 	}
-	return s.reconcileLocked(ctx, installationID, discovery.Selected.Path)
+	return s.reconcileLocked(ctx, installationID, target.Installation.Path)
 }
 
 func (s *InstanceInventory) persistRecoveredSucceed(ctx context.Context, current operation.Operation) (operation.Operation, error) {

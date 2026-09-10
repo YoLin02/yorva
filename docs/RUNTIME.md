@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-The Runtime adapter isolates YORVA from the implementation details of Hermes and future AI Runtimes.
+The Runtime adapter isolates YORVA from the implementation details of Hermes and OpenClaw.
 
 The contract must be small enough for V0.1 and extensible only when real Runtime differences appear.
 
@@ -18,9 +18,10 @@ Stable Runtime kind values are lowercase identifiers:
 
 ```text
 hermes
+openclaw
 ```
 
-Future examples are not pre-registered until implemented.
+These are compiled-in adapters. Further Runtime kinds are not registered speculatively.
 
 ## 4. Adapter descriptor
 
@@ -452,3 +453,21 @@ The Hermes adapter must have tests for:
 - reconciliation after external changes.
 
 Contract tests should be reusable when a second Runtime is added, but do not build a full plugin conformance framework in V0.1.
+
+## Phase 9: OpenClaw and common instance dispatch
+
+`Bundle.Instances` is a focused `InstanceManager`: `List(ctx, executable)`, `ValidateName`, `Create` and `Delete`. Its native snapshot carries `NativeID`, `Default` and `Protected`. Core persists these as normalized identity/protection using the existing schema; default naming and protection are adapter decisions. `InstanceManagementFeatures.DisableLifecycle` may restrict a statically registered lifecycle for an externally owned target, never add mutation authority.
+
+OpenClaw is pinned to `2026.9.3` on native Windows amd64. Discovery recognizes the documented npm global `node_modules/openclaw/openclaw.mjs` layout on absolute PATH entries or `%APPDATA%\npm`, resolves aliases, validates package identity/bin metadata, and invokes the entry with a separately resolved `node.exe`. It never executes a shell wrapper. The CLI enforces its Node engine (`>=24.16.0 <25 || >=26.1.0`); the qualified test baseline is Node 24.16.0. Other versions/platforms do not receive mutation support. Multiple installations are ambiguous. P9 does not provide a managed OpenClaw installer.
+
+The adapter narrowly enumerates canonical `%USERPROFILE%\.openclaw` and `.openclaw-<profile>` roots, then runs official `config validate --json` for authority. Invalid/read-failed inventory is UNKNOWN, not an empty authoritative list. Existing/default profiles are protected; only a successfully initialized named profile with a matching adapter-owned `.yorva-instance.json` record can be mutated. This record contains schema, profile and reserved base port only; it does not contain a PID, credential or copied native state.
+
+Creation uses official noninteractive `setup` with local mode, loopback binding, generated native token auth, a workspace inside the profile, no daemon installation and no channel/skill/search/bootstrap/UI onboarding. It suppresses Gateway token output. The adapter reserves nonoverlapping base-to-base+120 port ranges (300-port base spacing) and verifies the setup result/config before recording ownership. It does not overwrite an existing directory or recursively clean a failed initialization.
+
+Lifecycle uses official foreground `gateway run`. Startup owns a Windows Job until the exact profile passes `gateway status --json --require-rpc`; then it releases ownership so closing Desktop or Node leaves the Gateway alive. Failed/cancelled startup kills only the owned process tree and joins its process. Start waits up to 120 seconds for authentication. Stop requires an authenticated running target before `gateway stop --force --json` and verifies STOPPED. Restart composes Stop and Start because the pinned release's unmanaged restart command failed its listener/lock identity check. The common worker budget is 240 seconds. Hermes retains its adapter-owned command bounds; its post-launch RUNNING readback budget is 120 seconds, following a measured 94-second native cold start. Hermes STOPPED readback remains bounded to 15 seconds. Both readback budgets cancel in-flight probes and still require the expected authoritative state.
+
+RUNNING/HEALTHY require a successful authenticated read probe, exact local config/probe port and URL, expected Gateway version, and no installed native service. A listening port alone, a failed RPC, an unknown version or conflicting target is UNKNOWN. STOPPED requires a free port and an explicit stopped native-service observation. Snapshot disagreement is retried during startup rather than reported as success.
+
+Delete rechecks ownership, the canonical sole workspace, absence of additional agent workspace configurations and STOPPED, then invokes official `uninstall --state --workspace --yes --non-interactive`. Both scopes are necessary because `--state` alone preserves workspaces. Deletion does not uninstall the CLI, remove a service or touch another profile. YORVA retains its ordinary missing-instance tombstone.
+
+All public management routing resolves the instance's accepted installation/kind and current selected executable. Absent Models/Channels/Skills/MCP/backup/upgrade implementations reject at the backend. Runtime-specific configuration/credentials remain OpenClaw-owned. The adapter does not import OpenClaw internal modules or inspect its internal databases. See [ADR-0021](adr/ADR-0021-openclaw-second-runtime.md) and the [Phase 9 evidence](phases/evidence/PHASE-009-OPENCLAW-UPSTREAM.md).

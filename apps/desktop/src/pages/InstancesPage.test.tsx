@@ -7,6 +7,8 @@ import { messages } from "../i18n";
 import { InstancesPage } from "./InstancesPage";
 
 const unavailableManagementCapabilities = {
+  models: true,
+  channels: true,
   healthRead: false,
   logsRead: false,
   securityAudit: false,

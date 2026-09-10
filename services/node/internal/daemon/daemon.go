@@ -30,6 +30,7 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes"
 	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/backupmanagement"
 	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes/downloadsources"
+	"github.com/YoLin02/yorva/services/node/internal/runtime/openclaw"
 	"github.com/YoLin02/yorva/services/node/internal/secrets"
 	"github.com/YoLin02/yorva/services/node/internal/transport/httpapi"
 )
@@ -173,6 +174,9 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	if err := hermes.RegisterConfigured(registry, bindings); err != nil {
 		return fmt.Errorf("register Hermes Runtime descriptor: %w", err)
 	}
+	if err := openclaw.Register(registry); err != nil {
+		return fmt.Errorf("register OpenClaw Runtime descriptor: %w", err)
+	}
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -220,7 +224,7 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 	if _, err := installs.InterruptStale(requestCtx); err != nil {
 		return fmt.Errorf("recover stale install operations: %w", err)
 	}
-	instances := app.NewInstanceInventory(discovery, database, app.HermesProfileSource{}, localNode.ID).WithMutator(app.HermesProfileSource{}).WithEvents(broker).WithModelSecrets(sharedModelSecrets)
+	instances := app.NewInstanceInventory(discovery, database, localNode.ID).WithEvents(broker).WithModelSecrets(sharedModelSecrets)
 	if _, err := instances.RecoverStale(requestCtx); err != nil {
 		return fmt.Errorf("recover stale instance operations: %w", err)
 	}
@@ -265,26 +269,12 @@ func Run(ctx context.Context, args []string, streams Streams) error {
 		return fmt.Errorf("recover stale Runtime management operations: %w", err)
 	}
 
-	// Reconcile live Runtime/Profile inventory before advertising daemon readiness.
-	// A non-supported detection result remains a truthful, queryable Runtime state and
-	// does not prevent local YORVA management from starting.
-	detected, detectErr := discovery.Detect(requestCtx, hermes.Kind)
-	if detectErr != nil {
-		logger.Warn("startup Runtime discovery did not complete", "error", detectErr)
-	} else if detected.State == yorvaruntime.DiscoverySupported && detected.Selected != nil {
-		listed, err := instances.ListInstances(requestCtx, string(hermes.Kind))
-		if err != nil {
-			return fmt.Errorf("reconcile startup Instance inventory: %w", err)
-		}
-		if listed.Freshness != "FRESH" || listed.ErrorCode != "" {
-			logger.Warn("startup Instance inventory requires recovery", "errorCode", listed.ErrorCode)
-		} else {
-			logger.Info("startup Instance inventory reconciled",
-				"instanceCount", len(listed.Instances),
-				"freshness", listed.Freshness,
-			)
-		}
-	}
+	// All Runtime inventories share a startup budget below the Desktop's 45s
+	// handshake deadline. An unavailable Runtime remains queryable after startup;
+	// verified recovery is checked separately by /node/recovery.
+	inventoryCtx, cancelInventory := context.WithTimeout(requestCtx, 30*time.Second)
+	reconcileStartupInstances(inventoryCtx, registry, discovery, instances, logger)
+	cancelInventory()
 	select {
 	case parentErr := <-parentDone:
 		parentFinished = true

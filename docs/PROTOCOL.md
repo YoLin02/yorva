@@ -181,7 +181,7 @@ snapshot the effective settings once when their work starts.
 
 ### Instances
 
-Phase 4 implements authenticated GET list/get, POST create, and DELETE with typed confirmation. `{runtimeId}` is `hermes` for the single supported installation. Responses omit native filesystem paths and `nativeId`.
+Authenticated GET list/get, POST create, and DELETE with typed confirmation apply to both `hermes` and `openclaw` in Phase 9. `{runtimeId}` is the registered Runtime kind; `runtimeInstallationId` identifies the accepted local installation. Responses omit native filesystem paths and `nativeId`. Equal native names in different installations have different Instance IDs. Create idempotency also binds the Runtime installation and requested name.
 
 ```text
 GET    /api/v1/runtimes/{runtimeId}/instances
@@ -490,26 +490,25 @@ only an indexed backup ID and remain durable cancellable Operations.
 
 Runtime and Instance views include normalized capabilities.
 
-Example:
+Selected capability fields (the complete typed object is in OpenAPI):
 
 ```json
 {
-  "runtimeKind": "hermes",
-  "version": "...",
-  "supported": true,
-  "capabilities": {
-    "instances": true,
-    "lifecycle": true,
-    "models": true,
-    "skills": true,
-    "mcp": true,
-    "backup": true,
-    "upgrade": true,
-    "channels": ["weixin", "wecom"]
-  },
-  "warnings": []
+  "instances": true,
+  "lifecycle": true,
+  "models": false,
+  "channels": false,
+  "healthRead": true,
+  "skillRead": false,
+  "skillMutate": false,
+  "mcpRead": false,
+  "mcpMutate": false
 }
 ```
+
+Phase 9 adds required boolean `models` and `channels` fields to Instance capabilities. OpenClaw's baseline exposes instance management, qualified owned-instance lifecycle and authenticated health; other feature endpoints remain capability-gated. A missing feature returns the existing stable capability error (`CAPABILITY_NOT_SUPPORTED`, or the channel surface's `CHANNEL_NOT_SUPPORTED`) and never dispatches to another Runtime.
+
+`GET /api/v1/runtimes/{runtimeId}/model-provider-presets` now resolves the requested Runtime. The previous Hermes URL remains valid. Desktop query identity includes Runtime kind and daemon scope, and unsupported panels do not issue their background requests.
 
 ## 9. SSE event stream
 

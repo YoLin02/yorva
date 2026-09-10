@@ -173,7 +173,7 @@ func (s *InstanceInventory) runLifecycle(ctx context.Context, op operation.Opera
 	s.started[op.ID] = true
 	s.mu.Unlock()
 
-	commandCtx, cancel := context.WithTimeout(ctx, 80*time.Second)
+	commandCtx, cancel := context.WithTimeout(ctx, 240*time.Second)
 	defer cancel()
 	row, manager, installation, resolveErr := s.resolveLifecycleTarget(commandCtx, op.TargetID)
 	if resolveErr != nil || row.RuntimeInstallationID != installationID || row.NativeID != nativeID {
@@ -210,19 +210,15 @@ func (s *InstanceInventory) resolveLifecycleTarget(ctx context.Context, instance
 	if row.Availability != instance.Available {
 		return instance.Instance{}, nil, yorvaruntime.LifecycleInstallation{}, ErrInstanceNotAvailable
 	}
-	detected, err := s.discovery.Detect(ctx, yorvaruntime.Kind(hermesRuntimeID))
-	if err != nil || detected.State != yorvaruntime.DiscoverySupported || detected.Selected == nil {
+	target, err := s.resolveAcceptedInstallation(ctx, row.RuntimeInstallationID)
+	if err != nil {
 		return instance.Instance{}, nil, yorvaruntime.LifecycleInstallation{}, ErrRuntimeNotSupported
 	}
-	accepted, err := s.ensureInstallation(ctx, detected)
-	if err != nil || accepted.ID != row.RuntimeInstallationID {
-		return instance.Instance{}, nil, yorvaruntime.LifecycleInstallation{}, ErrInstanceNotAvailable
+	bundle := target.Bundle.ResolveInstanceManagement(ctx, target.Installation, row.NativeID)
+	if bundle.Lifecycle == nil {
+		return instance.Instance{}, nil, yorvaruntime.LifecycleInstallation{}, ErrManagementCapabilityUnsupported
 	}
-	bundle, ok := s.discovery.registry.Get(yorvaruntime.Kind(hermesRuntimeID))
-	if !ok || bundle.Lifecycle == nil {
-		return instance.Instance{}, nil, yorvaruntime.LifecycleInstallation{}, ErrRuntimeNotSupported
-	}
-	installation := yorvaruntime.LifecycleInstallation{Executable: detected.Selected.Path, Version: detected.Selected.Version}
+	installation := yorvaruntime.LifecycleInstallation{Executable: target.Installation.Path, Version: target.Installation.Version}
 	return row, bundle.Lifecycle, installation, nil
 }
 

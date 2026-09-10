@@ -13,8 +13,9 @@ import (
 )
 
 type InstanceSnapshotEntry struct {
-	NativeID string
-	Default  bool
+	NativeID  string
+	Default   bool
+	Protected bool
 }
 
 func NewInstanceID() (string, error) {
@@ -107,7 +108,7 @@ func (d *Database) ApplyInstanceSnapshot(ctx context.Context, installationID str
                     id, runtime_installation_id, native_id, name, is_default, is_protected,
                     availability, last_synced_at, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `, id, installationID, entry.NativeID, entry.NativeID, boolToInt(entry.Default), boolToInt(entry.Default),
+            `, id, installationID, entry.NativeID, entry.NativeID, boolToInt(entry.Default), boolToInt(entry.Default || entry.Protected),
 				string(instance.Available), stamp, stamp, stamp); err != nil {
 				return fmt.Errorf("insert instance: %w", err)
 			}
@@ -117,7 +118,7 @@ func (d *Database) ApplyInstanceSnapshot(ctx context.Context, installationID str
             UPDATE instances
             SET name = ?, is_default = ?, is_protected = ?, availability = ?, last_synced_at = ?, updated_at = ?
             WHERE id = ?
-        `, entry.NativeID, boolToInt(entry.Default), boolToInt(entry.Default), string(instance.Available), stamp, stamp, row.ID); err != nil {
+        `, entry.NativeID, boolToInt(entry.Default), boolToInt(entry.Default || entry.Protected), string(instance.Available), stamp, stamp, row.ID); err != nil {
 			return fmt.Errorf("update instance: %w", err)
 		}
 	}

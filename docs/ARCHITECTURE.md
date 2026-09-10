@@ -203,10 +203,10 @@ Adapters report capabilities, for example:
   "instances": true,
   "lifecycle": true,
   "models": true,
-  "channels": ["weixin", "wecom", "telegram"],
-  "skills": true,
-  "mcp": true,
-  "backup": true,
+  "channels": true,
+  "skillRead": true,
+  "mcpRead": true,
+  "backupRead": true,
   "upgrade": true
 }
 ```
@@ -367,3 +367,13 @@ Do not:
 - introduce microservices for organizational appearance;
 - create a dynamic plugin SDK before a second Runtime proves the need;
 - let future Cloud become mandatory for local functionality.
+
+## 20. Phase 9 second Runtime
+
+The Runtime bundle now owns the minimal `InstanceManager` contract (list, native name validation, create and delete), alongside the existing focused feature contracts. Hermes Profile translation lives in the Hermes adapter. OpenClaw maps an Instance to an independently configured Gateway profile; agents within a shared Gateway are not separate lifecycle units.
+
+Application use cases resolve the accepted installation by ID, validate its Node/kind/path against current discovery, then dispatch through its registered bundle. Native names and idempotency keys cannot cross installation/Runtime ownership. Model/channel and management entry points reject absent capabilities without falling back to Hermes. The per-instance resolver may remove lifecycle capability from an externally owned target; it cannot enable new mutation contracts.
+
+Desktop queries include the selected Runtime kind and daemon scope. Instance IDs remain globally distinct and carry their installation identity. Model/channel entry points depend on explicit capabilities. Runtime-specific installation guidance remains in the corresponding UI component.
+
+Startup and `/node/recovery` reconcile registered Runtime kinds. Startup inventory work shares a 30-second budget below Desktop's 45-second handshake deadline; an unfinished Runtime check does not cancel the management server. Verified recovery remains a separate authenticated readback. An absent never-accepted Runtime is optional; a missing or unreadable accepted installation prevents READY while management of the healthy Runtime remains queryable. See [ADR-0021](adr/ADR-0021-openclaw-second-runtime.md).

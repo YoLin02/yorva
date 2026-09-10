@@ -1,6 +1,6 @@
 # YORVA Development Guide
 
-> Status: Phases 1–8 COMPLETE / FROZEN; Phase 8 is the internal baseline under Owner Amendment 008A1
+> Status: Phases 1–8 COMPLETE / FROZEN; Phase 9 implementation and qualification IN_PROGRESS
 > Product: YORVA  
 > Primary Runtime: Hermes Agent  
 > Primary principle: **local-first, lightweight-first, single-binary-first, reversible decisions**
@@ -578,3 +578,30 @@ CI/MSI/Windows recovery/update checks. See the
 [freeze record](phases/evidence/PHASE-008-FINAL-MAIN-FREEZE.md). This documentation-only
 closeout follows tag creation. Production signing material is not an internal P8 freeze
 prerequisite under Amendment 008A1; public release and Phase 9 remain separately gated.
+
+## Phase 9 current plan
+
+[Phase 9 — OpenClaw second Runtime](phases/PHASE-009-openclaw-second-runtime.md) is
+IN_PROGRESS following Owner authorization on 2026-09-10. OpenClaw `2026.9.3` is the
+latest stable target rechecked at B0 start in the OpenClaw 2.0 product line.
+Local implementation tests have passed; complete native qualification, final CI/package
+and the independent review context remain required before claiming a P9 baseline.
+The phase reuses the frozen P8 product baseline and existing verification commands,
+adds focused dual-Runtime contracts and a real Windows coexistence smoke, and uses one
+final phase audit rather than per-batch approvals or repeated P8 soak qualification.
+See the Spec for required capabilities, allowed extensions and acceptance evidence.
+
+P9 detects an official preinstalled `openclaw@2026.9.3` package. Use a separate Node
+24.16.0 or later 24.x installation on PATH, then install that exact package with
+`npm install -g openclaw@2026.9.3`. Select OpenClaw in the Desktop Runtime picker and
+check again. The existing Hermes installer and its private Node distribution are
+unchanged. Already existing OpenClaw profiles remain protected; create a new named
+instance through YORVA for managed lifecycle and deletion. Model/channel/Skill/MCP
+configuration and OpenClaw installation/upgrade are outside the delivered P9 MVP.
+
+The native G1 command is `pwsh -NoProfile -File scripts/windows-second-runtime-smoke.ps1
+-SidecarPath <built-yorvad.exe> -WorkRoot <new-directory> -DisposableUserProfile`.
+Run it only in a disposable Windows user or VM with both real Runtimes installed,
+at medium integrity. It creates and removes its three test instances. The existing
+CI runs deterministic Windows process/routing tests; the real-runtime result is
+recorded separately in the [P9 validation evidence](phases/evidence/PHASE-009-VALIDATION.md).

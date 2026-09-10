@@ -26,7 +26,7 @@ type fakeModelsAPI struct {
 	cancelCalled  bool
 }
 
-func (f *fakeModelsAPI) ListModelProviderPresets(context.Context) ([]yorvaruntime.ModelProviderPreset, error) {
+func (f *fakeModelsAPI) ListModelProviderPresets(context.Context, string) ([]yorvaruntime.ModelProviderPreset, error) {
 	return []yorvaruntime.ModelProviderPreset{{ID: "deepseek", DisplayName: "DeepSeek", Region: yorvaruntime.ModelRegionChina, RecommendedModels: []string{"deepseek-v4-pro"}}}, f.err
 }
 

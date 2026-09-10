@@ -170,6 +170,6 @@ func newB3ManagementTargetFixture(t *testing.T) (*InstanceInventory, *sqlite.Dat
 	}); err != nil {
 		t.Fatal(err)
 	}
-	inventory := NewInstanceInventory(NewRuntimeDiscovery(registry, nil), db, nil, local.ID)
+	inventory := NewInstanceInventory(NewRuntimeDiscovery(registry, nil), db, local.ID)
 	return inventory, db, instances[0].ID, accepted
 }

@@ -451,20 +451,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/runtimes/hermes/model-provider-presets": {
+    "/api/v1/runtimes/{runtimeId}/model-provider-presets": {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
             cookie?: never;
         };
-        /** List the qualified Hermes model Provider presets */
-        get: operations["listHermesModelProviderPresets"];
+        /** List qualified model Provider presets for the selected Runtime */
+        get: operations["listRuntimeModelProviderPresets"];
         put?: never;
         post?: never;
         delete?: never;
-        /** Validate CORS access for Hermes model Provider presets */
-        options: operations["optionsHermesModelProviderPresets"];
+        /** Validate CORS access for Runtime model Provider presets */
+        options: operations["optionsRuntimeModelProviderPresets"];
         head?: never;
         patch?: never;
         trace?: never;
@@ -1599,6 +1601,10 @@ export interface components {
         };
         InstanceCapabilities: {
             instances: boolean;
+            /** @description Model configuration is available for this Runtime target. */
+            models: boolean;
+            /** @description Channel management is available for this Runtime target. */
+            channels: boolean;
             lifecycle: boolean;
             healthRead: boolean;
             logsRead: boolean;
@@ -3044,11 +3050,13 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    listHermesModelProviderPresets: {
+    listRuntimeModelProviderPresets: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3068,11 +3076,13 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
         };
     };
-    optionsHermesModelProviderPresets: {
+    optionsRuntimeModelProviderPresets: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                runtimeId: components["parameters"]["RuntimeId"];
+            };
             cookie?: never;
         };
         requestBody?: never;

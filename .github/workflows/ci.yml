@@ -71,6 +71,9 @@ jobs:
           components: rustfmt, clippy
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:sidecar
+      - name: Verify second Runtime routing and Windows process ownership
+        run: go test ./internal/runtime/openclaw ./internal/app ./internal/daemon
+        working-directory: services/node
       - name: Exercise disposable encrypted Restore lifecycle
         run: go test ./internal/runtime/hermes -run TestRuntimeBackupManagerDisposableRestoreLifecycle -count=1 -v
         working-directory: services/node

@@ -573,16 +573,19 @@ func (s *InstanceInventory) skipRemainingModelBindings(profile sqlite.ModelProfi
 }
 
 func (s *InstanceInventory) runtimeModelContext(ctx context.Context, runtimeID string) (string, yorvaruntime.ModelConfigurator, []InstanceView, error) {
-	if runtimeID != hermesRuntimeID || s == nil || s.discovery == nil || s.discovery.registry == nil {
+	if s == nil || s.discovery == nil || s.discovery.registry == nil {
 		return "", nil, nil, ErrRuntimeNotSupported
+	}
+	bundle, ok := s.discovery.registry.Get(yorvaruntime.Kind(runtimeID))
+	if !ok {
+		return "", nil, nil, ErrRuntimeNotSupported
+	}
+	if bundle.Models == nil {
+		return "", nil, nil, ErrManagementCapabilityUnsupported
 	}
 	listed, err := s.ListInstances(ctx, runtimeID)
 	if err != nil {
 		return "", nil, nil, err
-	}
-	bundle, ok := s.discovery.registry.Get(yorvaruntime.Kind(runtimeID))
-	if !ok || bundle.Models == nil {
-		return "", nil, nil, ErrRuntimeNotSupported
 	}
 	return listed.RuntimeInstallationID, bundle.Models, listed.Instances, nil
 }
