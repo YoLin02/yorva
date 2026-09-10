@@ -60,6 +60,20 @@ cancellation ownership and that a failed Runtime cannot be hidden by a healthy o
 
 ## Final gate record
 
+The first candidate `a731dcfe4c8de5a8fea559ee28d669c83812702f` was pushed for
+[CI 101](https://github.com/YoLin02/yorva/actions/runs/34471364540) and
+[MSI 39](https://github.com/YoLin02/yorva/actions/runs/34471364498). CI's dependency
+audit rejected inherited development dependencies under newly published advisories:
+[js-yaml GHSA-2883-xcg3-v3hh](https://github.com/advisories/GHSA-2883-xcg3-v3hh) and
+[Vitest GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9).
+Vitest and its matching packages are patched from 4.1.10 to 4.1.11. A narrow override
+patches the exact `@redocly/openapi-core@1.34.19` parent from js-yaml 4.3.1 to 4.3.2;
+the override should be removed when that parent's pinned parser is updated. No
+unrelated dependency or framework was upgraded. After the patch, local `pnpm audit
+--audit-level low`, API lint/generation consistency, Desktop typecheck/lint, all 151
+tests and production build passed. The failed CI evidence is retained and the
+security gate remains unchanged.
+
 G1, G2 and G3 will be recorded against the final candidate and actual results before
 the Phase Spec is marked FROZEN. Required checks are not waived by the partial results
 above.
