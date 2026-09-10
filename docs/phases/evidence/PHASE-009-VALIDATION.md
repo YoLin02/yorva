@@ -21,7 +21,7 @@ identity uniqueness and protection columns are reused.
 | API lint and generated schema consistency | PASS; generation did not change the freshly generated schema |
 | Desktop UI | English/Chinese Runtime switching, inventory, capability-filtered management, create dialog, protected default, and health detail inspected in the browser with disposable API fixtures; this is UI evidence, not a real-Runtime smoke |
 | Official OpenClaw Windows primitives | Two simultaneous authenticated Gateways, composed restart and stop isolation passed; see [upstream qualification](PHASE-009-OPENCLAW-UPSTREAM.md) |
-| Full real G1 | In progress; no complete PASS yet |
+| Full real G1 | PASS at 11:34:32 UTC in native attempt 12; one Hermes and two OpenClaw instances, authenticated status, restart/reconnect, isolated stop/delete and no login entry |
 | Final CI / MSI / audit | Pending |
 
 ## Native fixture and failures retained
@@ -77,3 +77,21 @@ security gate remains unchanged.
 G1, G2 and G3 will be recorded against the final candidate and actual results before
 the Phase Spec is marked FROZEN. Required checks are not waived by the partial results
 above.
+
+## Audit follow-up
+
+The first [12-dimension audit](../audits/AUDIT-009-openclaw-second-runtime.md)
+records M1 (common fake depended on Hermes name validation) and L1 (data-model
+mapping/protection explanation). The fake now has independent configurable rules;
+the original invalid-name assertion remains and a new test proves different Runtime
+rules dispatch correctly. Windows `go test ./internal/app` passes after the fix
+(20.032 seconds). DATA_MODEL now explains both native identities and independent
+default/protection without changing the schema.
+
+CI #102's Windows job passed the new OpenClaw/app/daemon test step and the encrypted
+Restore test, then failed the existing 45-second lifecycle-smoke handshake at
+11:39:13 UTC. CI #101 passed that same step with identical Go product source.
+The cause is not yet established. The smoke harness now drains stderr concurrently,
+prints the scenario and startup duration, and limits printed failure diagnostics to
+8 KiB; the 45-second deadline, health check and all five lifetime scenarios remain.
+A fresh native fixture and remote CI are required to resolve audit H1.

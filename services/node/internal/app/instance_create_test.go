@@ -63,6 +63,12 @@ func (f *fakeMutator) snapshot() (int, string) {
 
 func TestStartCreateRequiresValidNameAndIdempotency(t *testing.T) {
 	inventory, source := newTestInventory(t, []ProfileSnapshot{{NativeID: "default", Default: true}}, nil)
+	source.validateName = func(name string) error {
+		if name == "default" {
+			return ErrInstanceInvalidName
+		}
+		return nil
+	}
 	mutator := &fakeMutator{}
 	inventory.WithMutator(mutator)
 

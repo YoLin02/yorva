@@ -10,9 +10,10 @@ It does not define the future Control Plane PostgreSQL schema.
 
 SQLite stores **YORVA management state and metadata**.
 
-It is not a shadow database of Hermes.
+It is not a shadow database of a Runtime.
 
-Hermes remains authoritative for Hermes-owned data such as sessions, memory, native profile configuration and native gateway state.
+Hermes and OpenClaw each remain authoritative for their own sessions, memory,
+native profile configuration, credentials and Gateway state.
 
 ## 3. General conventions
 
@@ -93,15 +94,26 @@ Constraint:
 UNIQUE(runtime_installation_id, native_id)
 ```
 
-For Hermes, `native_id` is the adapter-owned identifier for the Hermes profile.
+For Hermes, `native_id` identifies the Hermes profile. For OpenClaw, it identifies
+the independently managed Gateway profile, not an agent inside a shared Gateway.
+Equal native names in different installations retain separate YORVA Instance IDs.
 
-`status` is a normalized cached/last-known value. Runtime queries remain authoritative.
+`is_default` and `is_protected` are independent adapter observations. A default is
+always protected; an existing non-default OpenClaw profile is also protected unless
+the adapter verifies its own ownership record. Protection is refreshed with the
+authoritative snapshot, not inferred from a cached name or a persisted PID.
+
+`availability` is a normalized cached/last-known value. Runtime queries remain authoritative.
 
 `MISSING` rows are retained tombstones so authoritative reconciliation can preserve stable
 identity when a native Profile reappears. They are hidden from the active Desktop inventory
-by default. A user may clear a non-default tombstone only after another fresh Runtime
+by default. A user may clear a non-default, unprotected tombstone only after another fresh Runtime
 readback confirms it remains absent; dependent YORVA management projections are removed by
 foreign-key cascade while durable audit Operations remain intact.
+
+Phase 9 reuses these tables and constraints without a schema migration. Its adapter
+ownership record remains outside SQLite and contains only schema, profile and port;
+native configuration, credentials and process identity are not copied into this table.
 
 ## 7. `operations`
 

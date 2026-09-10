@@ -1,6 +1,6 @@
 # YORVA Phase 9 — OpenClaw 第二 Runtime
 
-> Status: IN_PROGRESS — Node / Desktop 主线已实现，正在进行真实双 Runtime 联测与验收
+> Status: AUDIT — 真实 Windows G1 已通过；只读首轮审计完成，正在修正测试/文档问题并收齐 G2 证据
 > Owner: YoLin02
 > Date: 2026-09-08
 > Baseline: `phase-008-local-product-hardening-baseline` → `2a7b842e668011a97804eb40642e3ff9dcab2f04`

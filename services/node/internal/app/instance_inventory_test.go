@@ -11,7 +11,6 @@ import (
 	"github.com/YoLin02/yorva/services/node/internal/domain/node"
 	"github.com/YoLin02/yorva/services/node/internal/persistence/sqlite"
 	yorvaruntime "github.com/YoLin02/yorva/services/node/internal/runtime"
-	"github.com/YoLin02/yorva/services/node/internal/runtime/hermes"
 )
 
 type ProfileSnapshot = yorvaruntime.NativeInstance
@@ -30,10 +29,14 @@ type fakeProfileSource struct {
 	calls        int
 	failFromCall int
 	mutator      profileMutator
+	validateName func(string) error
 }
 
 func (f *fakeProfileSource) ValidateName(name string) error {
-	return (hermes.InstanceManager{}).ValidateName(name)
+	if f.validateName != nil {
+		return f.validateName(name)
+	}
+	return nil
 }
 func (f *fakeProfileSource) Create(ctx context.Context, executable, name string) error {
 	if f.mutator == nil {

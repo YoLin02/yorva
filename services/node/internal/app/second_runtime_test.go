@@ -72,6 +72,43 @@ func TestTwoRuntimesKeepSameNameIdentityAndMutationOwnership(t *testing.T) {
 	}
 }
 
+func TestCreateUsesTheSelectedRuntimesNameRules(t *testing.T) {
+	ctx := context.Background()
+	inventory, first := newTestInventory(t, nil, nil)
+	firstMutator := &fakeMutator{source: first}
+	inventory.WithMutator(firstMutator)
+	first.validateName = func(name string) error {
+		if name == "shared" {
+			return yorvaruntime.ErrInstanceNameInvalid
+		}
+		return nil
+	}
+	second := addSecondRuntime(t, inventory, nil, nil)
+	second.validateName = func(name string) error {
+		if name == "claw-blocked" {
+			return yorvaruntime.ErrInstanceNameInvalid
+		}
+		return nil
+	}
+	if _, err := inventory.StartCreate(ctx, "hermes", "shared", "first-invalid"); !errors.Is(err, ErrInstanceInvalidName) {
+		t.Fatalf("first Runtime validation = %v", err)
+	}
+	created, err := inventory.StartCreate(ctx, "openclaw", "shared", "second-valid")
+	if err != nil {
+		t.Fatalf("second Runtime inherited first Runtime rules: %v", err)
+	}
+	waitInstanceOperation(t, inventory, created.Operation.ID, operation.StatusSucceeded)
+	if _, err := inventory.StartCreate(ctx, "openclaw", "claw-blocked", "second-invalid"); !errors.Is(err, ErrInstanceInvalidName) {
+		t.Fatalf("second Runtime validation = %v", err)
+	}
+	if calls, _ := firstMutator.snapshot(); calls != 0 {
+		t.Fatal("rejected first Runtime name reached mutation")
+	}
+	if calls, name := second.mutator.(*fakeMutator).snapshot(); calls != 1 || name != "shared" {
+		t.Fatalf("second Runtime mutations = %d, %q", calls, name)
+	}
+}
+
 func TestSecondRuntimeAbsentCapabilitiesCannotFallBackToHermes(t *testing.T) {
 	ctx := context.Background()
 	inventory, _ := newTestInventory(t, []ProfileSnapshot{{NativeID: "coder"}}, nil)

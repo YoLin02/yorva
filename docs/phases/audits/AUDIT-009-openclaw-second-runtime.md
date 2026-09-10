@@ -1,0 +1,261 @@
+# YORVA Phase 9 Audit
+
+## Phase
+
+Phase 9 — OpenClaw second Runtime, native Windows x64 MVP.
+
+## Baseline / Commit
+
+- Frozen P8: `2a7b842e668011a97804eb40642e3ff9dcab2f04`; working start
+  `e95ed31d298c2548556e1295aacf7f84002b74ee` has identical product code.
+- Implementation: `a731dcfe4c8de5a8fea559ee28d669c83812702f`.
+- Reviewed candidate: `cc36eaa2fa692076fd35547603fd5c297d0e8d13`, including the
+  development-dependency security patches. Review covers the actual 78-file diff,
+  source, contracts, tests, native evidence and workflow steps.
+
+## Auditor
+
+Codex, fresh single-agent read-only review context. Governing inputs were AGENTS.md,
+PHASE_GOVERNANCE, AUDIT_STANDARD, the Phase 9 Spec, ROADMAP, architecture, Runtime,
+security, protocol, data model, ADR-0021 and the inherited P8 audit/freeze record.
+No subagent was used. No product or test code was changed during the first pass.
+This is the solo-project independent review procedure in PHASE_GOVERNANCE §13,
+not a claim of an organizationally separate human audit.
+
+## Date
+
+2026-09-10. First pass follows native G1 completion at 11:34:32 UTC.
+
+## Gate Decision
+
+**FAIL — first-pass recommendation; remediation and final G2 evidence required.**
+
+This first-pass decision is retained below any subsequent re-audit. No CRITICAL or
+HIGH product defect was identified. The neutral test fixture needs correction,
+the affected data-model documentation needs completion, and Windows native/package
+jobs are still in progress. Pending checks are not reported as failed execution or PASS.
+
+## Executive Summary
+
+The implemented flow matches the required second-Runtime scope. Real Windows
+qualification demonstrates one Hermes and two OpenClaw instances, same-name identity
+separation, authenticated Gateway readiness, restart, daemon reconnect with Runtime
+survival, isolated stop/delete and no login entry. Optional OpenClaw model/channel,
+Skill/MCP, installer, backup mutation and upgrade capabilities remain unavailable.
+
+Core instance dispatch resolves accepted installation identity and the current
+Runtime bundle. OpenClaw-specific names, profiles, ownership, command schemas,
+ports and Windows Jobs stay in its adapter. P8 authentication, CSP, update integrity,
+database schema and production-signing policy were not weakened.
+
+## Verification Evidence
+
+- [Validation record](../evidence/PHASE-009-VALIDATION.md) retains fixture failures,
+  fixes, local verification and candidate attribution.
+- [Upstream qualification](../evidence/PHASE-009-OPENCLAW-UPSTREAM.md) fixes OpenClaw
+  `2026.9.3`, Node `24.16.0`, official sources and measured native CLI behavior.
+- `scripts/windows-second-runtime-smoke.ps1`, disposable Windows 11 x64 medium
+  integrity, native attempt 12: **PASS** at `2026-09-10T11:34:32.3427700Z`.
+  The sidecar SHA-256 is
+  `19dee30c1dfd18ac1b741bde832aec1dbc3f353beadbf23e410c931e537cf2a4`.
+  It was built from the candidate product source before the commit and records a
+  dirty prior VCS revision; it is not represented as the remote MSI binary.
+- [CI #102](https://github.com/YoLin02/yorva/actions/runs/34471758200): Go job
+  `102853039815` passed full race tests, vet, govulncheck and build; Web/API job
+  `102853039456` passed frozen install, dependency audit, OpenAPI lint/generated
+  consistency, typecheck, lint, 151 tests and build. Windows job `102853039783`
+  remains pending completion at first pass.
+- [MSI #40](https://github.com/YoLin02/yorva/actions/runs/34471758204): final
+  candidate package/inspection/upload remains pending at first pass.
+
+## Dimension Results
+
+### Scope
+
+PASS. Spec §§3–4 map to the compiled adapter, generic inventory/lifecycle routing,
+capability-filtered Desktop and real coexistence smoke. No P10/Control/Fleet,
+plugin framework, generic command API or optional feature expansion was added.
+
+### Correctness
+
+PASS. `openclaw/status.go:140` validates config path, both ports, loopback probe
+URL, RPC kind/success, version and absence of a native service. `start` transfers
+ownership only after authenticated RUNNING; `stop` verifies STOPPED. Delete requires
+ownership, the sole contained workspace and no extra agent configuration before
+official uninstall and root-absence readback. Native attempt 12 covers the composed
+flow. `second_runtime_test.go` covers identity, idempotency scope, capability rejection
+and UNKNOWN readback without losing healthy-side management.
+
+### Architecture
+
+PASS for production boundaries. `runtime/instances.go` adds only the four operations
+actually used by two adapters. `app/management_target.go` validates Node, accepted
+installation, kind and current executable before dispatch. Hermes profile translation
+moved into `runtime/hermes/instances.go`; no new concrete Runtime import remains in
+the common production paths. The unchanged `app/prereq_adapter.go` is the existing
+Hermes-specific installer integration explicitly retained by Spec §6. React calls
+typed HTTP; Tauri receives no new business logic. Test-boundary issue M1 is below.
+
+### Security
+
+PASS. `openclaw/command.go` uses fixed direct argv, a constrained environment and
+bounded streams; raw errors/output do not enter HTTP. `instances.go` protects default
+and external roots, rejects unsafe identifiers/files and uses exclusive ownership
+record creation. `process_windows.go` assigns a suspended child to its Job before
+resume. Failure/cancellation kills owned descendants; success releases verified
+Gateway lifetime. `TestCommandBoundsAndCancellationOwnDescendants`, environment,
+ownership and strict-status negatives supplement native medium-integrity evidence.
+The local same-user boundary is documented; this is not tenant sandboxing.
+
+### Data and Persistence
+
+PASS. No schema migration or schema deletion. The existing unique constraints on
+`(node_id, runtime_kind, install_path)` and `(runtime_installation_id, native_id)`
+remain. `sqlite/instances.go` applies fresh native protection/default flags in one
+short transaction after CLI work; duplicate snapshot identities reject atomically.
+Missing rows retain identity, query failures become UNKNOWN, and no native credential
+or PID becomes SQLite authority. Existing migration/tombstone tests pass in full CI.
+
+### Concurrency and Lifecycle
+
+PASS within the existing scoped Operation model. Workers retain cancellation owners;
+installation locks are keyed separately for Hermes/OpenClaw, and durable mutation
+constraints/idempotency remain. No database transaction spans an external command.
+Startup inventory shares a 30-second budget below the Desktop handshake deadline;
+the dedicated daemon test proves timeout cancellation without cancelling the server.
+Hermes cold-start readiness has a measured 94-second fixture observation, a 120-second
+bounded RUNNING wait and a delayed-readiness/cancellation regression. STOPPED remains
+15 seconds. Full Go race tests and real reconnect/lifetime/isolation pass.
+
+### Protocol and Compatibility
+
+PASS. OpenAPI and generated TypeScript add boolean Models/Channels capabilities;
+the generalized model-provider-presets route preserves the old Hermes URL. Existing
+bearer/origin/method/error-envelope handling applies to both Runtime values. Backend
+rejection does not depend on the client hiding controls. No native identity, secret
+or arbitrary configuration path was added to an ordinary response. Desktop/daemon
+ship together; this additive response change retains `/api/v1` compatibility with
+the existing Desktop parser. The exact OpenClaw release remains separately qualified.
+
+### Testing and Verification
+
+FAIL at first pass. Native G1, Go race and Web/API checks pass, but final Windows
+native/MSI evidence is incomplete and M1 couples the neutral fixture to Hermes.
+Existing migration, transport-authentication, lifecycle error, stale Operation,
+capability and Desktop recovery tests were inspected as well as the new tests.
+UI browser evidence uses disposable fixtures and is not counted as real Runtime
+evidence; no unverified viewport size is claimed.
+
+### Maintainability
+
+PASS. OpenClaw is a bounded adapter split by discovery/commands, inventory, lifecycle,
+status and platform process ownership. There is no new service layer, external
+framework, runtime SDK or persisted PID manager. Common interfaces are justified
+by two real implementations. Correct M1 without adding a test framework.
+
+### Documentation
+
+FAIL at first pass for L1. Architecture/Runtime/security/protocol and ADR-0021 describe
+the implemented ownership and lifecycle. DATA_MODEL still describes only Hermes
+native identity and does not explain independent default/protection flags. In-progress
+Spec/validation status is truthful and must be closed with actual final evidence.
+
+### Dependencies / Supply Chain
+
+PASS. Go modules, Rust lockfile and production dependencies are unchanged. Vitest
+4.1.11 and the narrow Redocly/js-yaml 4.3.2 override address the original CI security
+failure; frozen installation, pnpm audit and Web regression all pass. Official
+OpenClaw remains a separately installed pinned Runtime, not an MSI-bundled installer.
+Node fixture archive identity and upstream package integrity are recorded without
+claiming unperformed npm provenance verification or production signing.
+
+### Operations / Diagnostics
+
+PASS. Existing durable Operations report terminal states and stable errors; no new
+raw CLI logging is introduced. UNKNOWN authenticated health remains distinct from
+a free/stopped port. Startup recovery warnings identify Runtime kind and keep the
+management server accessible. Failed upstream restart/delete primitives and the
+Hermes cold-start failure are retained with the resulting bounded implementation.
+
+## Findings
+
+### Critical
+
+None.
+
+### High
+
+None.
+
+### Medium
+
+**M1 — Common test fixture imports the Hermes implementation.**
+`services/node/internal/app/instance_inventory_test.go:14,35–36` adds a production
+Hermes import and delegates the common fake's `ValidateName` to
+`hermes.InstanceManager`. The OpenClaw core tests reuse this fake, so they inherit
+Hermes validation and cannot independently prove per-Runtime name-rule dispatch.
+This conflicts with AUDIT_STANDARD §11's Runtime-neutral Core-test rule. Replace the
+dependency with a configurable fake result, retain the invalid-name rejection
+assertion, and verify distinct fake Runtime rules reach the selected instance contract.
+Native name rules remain tested in their actual adapters. Owner: current P9 work;
+resolution trigger: before final gate.
+
+### Low
+
+**L1 — Data-model explanation omits the new native mapping and protection semantics.**
+`docs/DATA_MODEL.md:11–15,96–104` explains only Hermes ownership/profile identity
+and names a nonexistent `status` inventory column instead of `availability`. Document
+OpenClaw Gateway profile mapping, independent `is_default`/`is_protected` observations,
+and the protected-tombstone restriction while preserving the unchanged schema.
+Owner: current P9 work; resolution trigger: before final record.
+
+### Info
+
+The preexisting Vite chunk-size advisory is unchanged and does not affect G2. Optional
+OpenClaw feature parity, broader version/platform qualification and production release
+signing remain outside P9; none is claimed as verified. A failed native setup may leave
+a protected partial profile for explicit owner inspection; no recursive cleanup is
+inferred from an unverified directory. Remove the narrow js-yaml override when the
+specific parent updates its dependency (Owner: repository maintainer; trigger: parent
+dependency update).
+
+## Accepted Technical Debt
+
+No correctness or security defect is deferred. M1 and L1 are scheduled for immediate
+correction within the authorized Phase 9 audit-fix scope. The limited supported release,
+platform and feature set are explicit product scope, not hidden debt.
+
+## Required Fixes Before Next Phase
+
+1. Correct M1 and L1, then recheck Testing/Architecture/Documentation.
+2. Collect completed current-candidate Windows native and MSI inspection evidence.
+3. Record the final gate and baseline only after G1/G2/G3 pass.
+
+## Gate Rationale
+
+The real success flow and reviewed production boundaries pass. A phase cannot freeze
+while a required verification job is incomplete or its test/contract findings are
+uncorrected. The first-pass FAIL is therefore a review recommendation, not a claim
+that the completed native smoke or completed Go/Web jobs failed.
+
+## Next Step
+
+Perform the bounded test/documentation fixes, run affected tests and append the
+re-audit with final CI/package evidence. No next-phase feature work is authorized.
+
+## Additional verification finding — 2026-09-10 11:39 UTC
+
+**H1 — Required Windows bootstrap smoke did not complete.** CI #102 Windows job
+`102853039783` passed the OpenClaw/application/daemon tests and encrypted Restore
+test, then `scripts/windows-lifecycle-smoke.ps1:45` failed its 45-second handshake
+deadline at `11:39:13.4542342Z`. The script did not report which of its five starts
+failed or drain stderr during startup, so the failure cannot yet be attributed to
+product startup, runner timing or a blocked diagnostic pipe. CI #101, with identical
+Go product source, passed this step; that is comparison evidence, not a waiver.
+
+Gate remains FAIL. Preserve the 45-second deadline and all lifecycle assertions.
+Add bounded failure reporting and per-scenario startup timing, eliminate stderr
+backpressure in the harness, and re-run the required check. Revisit Correctness,
+Concurrency/Lifecycle, Testing and Operations/Diagnostics with the resulting evidence.
+Do not infer that this is merely a transient runner issue. Owner: current P9 work;
+resolution trigger: before final gate.

@@ -3,6 +3,15 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$script:smokeStderr = @{}
+
+function Read-SmokeFailure([System.Diagnostics.Process]$process) {
+    $task = $script:smokeStderr[$process.Id]
+    if (-not $task -or -not $task.Wait(5000)) { return 'stderr drain did not complete' }
+    $text = $task.Result
+    if ($text.Length -gt 8192) { $text = $text.Substring($text.Length - 8192) }
+    return $text
+}
 
 function New-SessionToken {
     $bytes = [byte[]]::new(32)
@@ -17,6 +26,9 @@ function New-SessionToken {
 }
 
 function Start-SmokeDaemon([string]$dataDir) {
+    $scenario = Split-Path -Leaf $dataDir
+    $elapsed = [System.Diagnostics.Stopwatch]::StartNew()
+    Write-Host "Windows lifecycle smoke: starting $scenario"
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
     $startInfo.FileName = (Resolve-Path -LiteralPath $SidecarPath).Path
     $startInfo.Arguments = "--bootstrap-stdio"
@@ -31,6 +43,9 @@ function Start-SmokeDaemon([string]$dataDir) {
     if (-not $process.Start()) {
         throw "Failed to start yorvad."
     }
+    # Drain diagnostics while waiting for stdout; a redirected pipe must not
+    # block the child before it can write the handshake or exit gracefully.
+    $script:smokeStderr[$process.Id] = $process.StandardError.ReadToEndAsync()
 
     $bootstrap = @{
         protocolVersion = "1"
@@ -42,14 +57,19 @@ function Start-SmokeDaemon([string]$dataDir) {
     $handshakeTask = $process.StandardOutput.ReadLineAsync()
     if (-not $handshakeTask.Wait([TimeSpan]::FromSeconds(45))) {
         $process.Kill()
-        throw "Timed out waiting for the yorvad handshake."
+        $null = $process.WaitForExit(5000)
+        $stderr = Read-SmokeFailure $process
+        $process.Dispose()
+        throw "Timed out waiting for the yorvad handshake ($scenario): $stderr"
     }
     $handshakeLine = $handshakeTask.Result
     if ([string]::IsNullOrWhiteSpace($handshakeLine)) {
-        $stderr = $process.StandardError.ReadToEnd()
         if (-not $process.HasExited) {
             $process.Kill()
         }
+        $null = $process.WaitForExit(5000)
+        $stderr = Read-SmokeFailure $process
+        $process.Dispose()
         throw "yorvad exited before the handshake: $stderr"
     }
     $handshake = $handshakeLine | ConvertFrom-Json
@@ -63,6 +83,7 @@ function Start-SmokeDaemon([string]$dataDir) {
         $process.Kill()
         throw "yorvad health check failed."
     }
+    Write-Host "Windows lifecycle smoke: $scenario handshake and health in $($elapsed.ElapsedMilliseconds) ms"
     return $process
 }
 
@@ -78,7 +99,7 @@ function Wait-GracefulExit([System.Diagnostics.Process]$process, [string]$scenar
         throw "yorvad did not exit after $scenario."
     }
     if ($process.ExitCode -ne 0) {
-        $stderr = $process.StandardError.ReadToEnd()
+        $stderr = Read-SmokeFailure $process
         throw "yorvad exited with code $($process.ExitCode) after ${scenario}: $stderr"
     }
 }
@@ -125,6 +146,8 @@ finally {
             $process.Kill()
             $process.WaitForExit()
         }
+        $stderrTask = $script:smokeStderr[$process.Id]
+        if ($stderrTask) { $null = $stderrTask.Wait(5000) }
         $process.Dispose()
     }
     $resolvedTemp = [System.IO.Path]::GetFullPath($tempRoot)
